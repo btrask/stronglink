@@ -1,8 +1,5 @@
 #define _GNU_SOURCE
 #include <fcntl.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
 #include "EarthFS.h"
 
 #define BUFFER_SIZE (1024 * 512)
@@ -51,8 +48,8 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, str_t const *con
 }
 void EFSSubmissionFree(EFSSubmissionRef const sub) {
 	if(!sub) return;
-	free(sub->path); sub->path = NULL;
-	free(sub->type); sub->type = NULL;
+	FREE(&sub->path);
+	FREE(&sub->type);
 	EFSURIListFree(sub->URIs); sub->URIs = NULL;
 	free(sub);
 }

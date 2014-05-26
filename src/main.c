@@ -1,18 +1,14 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include "EarthFS.h"
-#include "EFSHTTPServer.h"
+#include "HTTPServer.h"
 
-static void listener(void *const context, str_t const *const URI, fd_t const response, EFSHTTPCallbacks *const callbacks) {
-	str_t buf[] =
-		"HTTP/1.1 200 OK\r\n"
-		"Content-Type: text/html\r\n"
-		"\r\n"
-		"Test";
-	(void)BTErrno(write(response, buf, sizeof(buf)));
-	(void)close(response);
-	printf("testing! %s, %d, %d\n", URI, (int)response, sizeof(buf));
+static void listener(void *const context, HTTPConnectionRef const conn) {
+	HTTPConnectionWriteResponse(conn, 200, "OK");
+	HTTPConnectionWriteHeader(conn, "Content-Type", "text/html");
+	HTTPConnectionBeginBody(conn);
+	fd_t const stream = HTTPConnectionGetStream(conn);
+	write(stream, "Test", 4);
+	HTTPConnectionClose(conn);
+	printf("testing! %s\n", HTTPConnectionGetRequestURI(conn));
 }
 
 int main(int argc, char **argv) {
@@ -28,8 +24,8 @@ int main(int argc, char **argv) {
 	EFSURIListFree(URIs);*/
 
 
-	EFSHTTPServerRef const server = EFSHTTPServerCreate(listener, NULL);
-	EFSHTTPServerListen(server, 8000, INADDR_LOOPBACK);
+	HTTPServerRef const server = HTTPServerCreate(listener, NULL);
+	HTTPServerListen(server, 8000, INADDR_LOOPBACK);
 	sleep(1000);
 
 	return EXIT_SUCCESS;

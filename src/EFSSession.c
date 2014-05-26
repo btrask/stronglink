@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #include "EarthFS.h"
 
 struct EFSSession {
@@ -33,9 +32,9 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, str_t const *const use
 void EFSSessionFree(EFSSessionRef const session) {
 	if(!session) return;
 	session->repo = NULL;
-	free(session->user); session->user = NULL;
-	free(session->pass); session->pass = NULL;
-	free(session->cookie); session->cookie = NULL;
+	FREE(&session->user);
+	FREE(&session->pass);
+	FREE(&session->cookie);
 //	(void)BTSQLiteErr(sqlite3_close(session->db)); session->db = NULL;
 	free(session);
 }

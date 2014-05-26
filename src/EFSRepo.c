@@ -1,7 +1,4 @@
 #define _GNU_SOURCE
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
 #include "EarthFS.h"
 
 struct EFSRepo {
@@ -20,7 +17,7 @@ EFSRepoRef EFSRepoCreate(str_t const *const path) {
 }
 void EFSRepoFree(EFSRepoRef const repo) {
 	if(!repo) return;
-	free(repo->path); repo->path = NULL;
+	FREE(&repo->path);
 	free(repo);
 }
 str_t const *EFSRepoGetPath(EFSRepoRef const repo) {

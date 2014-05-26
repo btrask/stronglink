@@ -1,5 +1,4 @@
 #define _GNU_SOURCE // For asprintf().
-#include <stdio.h>
 #include <openssl/sha.h> // TODO: Switch to LibreSSL.
 #include "EarthFS.h"
 
@@ -19,7 +18,7 @@ struct EFSHasher {
 	SHA256_CTX sha256;
 };
 struct EFSURIList {
-	EFSCount count;
+	count_t count;
 	str_t *items[0];
 };
 
@@ -33,7 +32,7 @@ EFSHasherRef EFSHasherCreate(str_t const *const type) {
 }
 void EFSHasherFree(EFSHasherRef const hasher) {
 	if(!hasher) return;
-	free(hasher->type); hasher->type = NULL;
+	FREE(&hasher->type);
 	free(hasher);
 }
 void EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, ssize_t const len) {
@@ -57,7 +56,7 @@ EFSURIListRef EFSHasherCreateURIList(EFSHasherRef const hasher) {
 
 	EFSURIListRef const URIs = calloc(1, sizeof(struct EFSURIList) + sizeof(str_t *) * 4);
 	URIs->count = 4;
-	EFSIndex i = 0;
+	index_t i = 0;
 	(void)BTErrno(asprintf(&URIs->items[i++], "hash://sha1/%s", sha1h));
 	(void)BTErrno(asprintf(&URIs->items[i++], "hash://sha1/%.16s", sha1h));
 	(void)BTErrno(asprintf(&URIs->items[i++], "hash://sha256/%s", sha256h));
@@ -70,16 +69,16 @@ EFSURIListRef EFSHasherCreateURIList(EFSHasherRef const hasher) {
 }
 void EFSURIListFree(EFSURIListRef const list) {
 	if(!list) return;
-	for(EFSIndex i = 0; i < list->count; ++i) {
-		free(list->items[i]); list->items[i] = NULL;
+	for(index_t i = 0; i < list->count; ++i) {
+		FREE(&list->items[i]);
 	}
 	free(list);
 }
-EFSCount EFSURIListGetCount(EFSURIListRef const list) {
+count_t EFSURIListGetCount(EFSURIListRef const list) {
 	if(!list) return 0;
 	return list->count;
 }
-str_t const *EFSURIListGetURI(EFSURIListRef const list, EFSIndex const x) {
+str_t const *EFSURIListGetURI(EFSURIListRef const list, index_t const x) {
 	if(!list) return NULL;
 	BTAssert(x < list->count, "Invalid index");
 	return list->items[x];
