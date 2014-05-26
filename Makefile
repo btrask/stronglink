@@ -6,7 +6,8 @@ HEADERS := \
 	src/common.h \
 	src/EarthFS.h \
 	src/HTTPServer.h \
-	deps/http_parser/http_parser.h
+	deps/http_parser/http_parser.h \
+	deps/sqlite/sqlite3.h
 
 OBJECTS := \
 	build/main.o \
@@ -30,7 +31,7 @@ build/http_parser.o: deps/http_parser/http_parser.c deps/http_parser/http_parser
 
 build/sqlite3.o: deps/sqlite/sqlite3.c deps/sqlite/sqlite3.h
 	@-mkdir -p $(dir $@)
-	$(CC) -c -o $@ deps/sqlite/sqlite3.c -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -Wno-unused-value
+	$(CC) -c -o $@ $< -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -Wno-unused-value
 
 build/%.o: src/%.c $(HEADERS)
 	@-mkdir -p $(dir $@)
