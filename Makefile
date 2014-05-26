@@ -8,20 +8,33 @@ HEADERS := \
 	src/HTTPServer.h \
 	deps/http_parser/http_parser.h
 
-SOURCES := \
-	src/main.c \
-	src/EFSHasher.c \
-	src/EFSRepo.c \
-	src/EFSSession.c \
-	src/EFSSubmission.c \
-	src/HTTPServer.c \
-	deps/http_parser/http_parser.c
+OBJECTS := \
+	build/main.o \
+	build/EFSHasher.o \
+	build/EFSRepo.o \
+	build/EFSSession.o \
+	build/EFSSubmission.o \
+	build/HTTPServer.o \
+	build/http_parser.o \
+	build/sqlite3.o
 
 all: build/earthfs
 
-build/earthfs: $(SOURCES) $(HEADERS)
+build/earthfs: $(OBJECTS)
 	@-mkdir -p $(dir $@)
-	$(CC) -o $@ $(SOURCES) -lssl -lpthread -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -Werror
+	$(CC) -o $@ $^ -lssl -lpthread
+
+build/http_parser.o: deps/http_parser/http_parser.c deps/http_parser/http_parser.h
+	@-mkdir -p $(dir $@)
+	$(CC) -c -o $@ $<
+
+build/sqlite3.o: deps/sqlite/sqlite3.c deps/sqlite/sqlite3.h
+	@-mkdir -p $(dir $@)
+	$(CC) -c -o $@ deps/sqlite/sqlite3.c -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -Wno-unused-value
+
+build/%.o: src/%.c $(HEADERS)
+	@-mkdir -p $(dir $@)
+	$(CC) -c -o $@ $< -Werror
 
 clean:
 	-rm -rf build/
