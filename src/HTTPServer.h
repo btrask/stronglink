@@ -36,6 +36,7 @@ ssize_t HTTPConnectionRead(HTTPConnectionRef const conn, byte_t *const buf, size
 fd_t HTTPConnectionGetStream(HTTPConnectionRef const conn);
 void HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, str_t const *const message);
 void HTTPConnectionWriteHeader(HTTPConnectionRef const conn, str_t const *const field, str_t const *const value);
+void HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, size_t const len);
 void HTTPConnectionBeginBody(HTTPConnectionRef const conn);
 void HTTPConnectionClose(HTTPConnectionRef const conn);
 

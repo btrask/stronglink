@@ -114,12 +114,12 @@ fd_t HTTPConnectionGetStream(HTTPConnectionRef const conn) {
 }
 void HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, str_t const *const message) {
 	if(!conn) return;
-	fd_t const stream = conn->stream;
 	// TODO: TCP_CORK?
+	// TODO: Suppply our own message for known status codes.
 	str_t *str;
-	(void)BTErrno(asprintf(&str, "HTTP/1.1 %d %s\r\n", status, message));
-	write(stream, str, strlen(str));
-	free(str);
+	int const slen = BTErrno(asprintf(&str, "HTTP/1.1 %d %s\r\n", status, message));
+	if(-1 != slen) write(conn->stream, str, slen);
+	FREE(&str);
 }
 void HTTPConnectionWriteHeader(HTTPConnectionRef const conn, str_t const *const field, str_t const *const value) {
 	if(!conn) return;
@@ -128,6 +128,13 @@ void HTTPConnectionWriteHeader(HTTPConnectionRef const conn, str_t const *const 
 	write(stream, ": ", 2);
 	write(stream, value, strlen(value));
 	write(stream, "\r\n", 2);
+}
+void HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, size_t const len) {
+	if(!conn) return;
+	str_t *str = NULL;
+	int const slen = BTErrno(asprintf(&str, "Content-Length: %llu\r\n", (unsigned long long)len));
+	if(-1 != slen) write(conn->stream, str, slen);
+	FREE(&str);
 }
 void HTTPConnectionBeginBody(HTTPConnectionRef const conn) {
 	if(!conn) return;
