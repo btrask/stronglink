@@ -10,6 +10,7 @@
 typedef int fd_t;
 typedef unsigned char byte_t;
 typedef char str_t;
+typedef str_t const *strarg_t; // A string that belongs to someone else.
 typedef signed char bool_t;
 typedef off_t index_t;
 typedef size_t count_t;

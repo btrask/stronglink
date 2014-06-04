@@ -22,7 +22,7 @@ struct EFSURIList {
 	str_t *items[0];
 };
 
-EFSHasherRef EFSHasherCreate(str_t const *const type) {
+EFSHasherRef EFSHasherCreate(strarg_t const type) {
 	BTAssert(type, "EFSHasher type required");
 	EFSHasherRef const hasher = calloc(1, sizeof(struct EFSHasher));
 	hasher->type = strdup(type);
@@ -78,7 +78,7 @@ count_t EFSURIListGetCount(EFSURIListRef const list) {
 	if(!list) return 0;
 	return list->count;
 }
-str_t const *EFSURIListGetURI(EFSURIListRef const list, index_t const x) {
+strarg_t EFSURIListGetURI(EFSURIListRef const list, index_t const x) {
 	if(!list) return NULL;
 	BTAssert(x < list->count, "Invalid index");
 	return list->items[x];

@@ -12,7 +12,7 @@ struct EFSSubmission {
 	EFSURIListRef URIs;
 };
 
-EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, str_t const *const path, str_t const *const type, fd_t const stream) {
+EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const path, strarg_t const type, fd_t const stream) {
 	if(!repo) return NULL;
 	BTAssert(type, "EFSSubmission type required");
 	BTAssert(-1 != stream, "EFSSubmission stream required");

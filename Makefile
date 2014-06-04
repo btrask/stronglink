@@ -6,6 +6,7 @@ HEADERS := \
 	src/common.h \
 	src/EarthFS.h \
 	src/HTTPServer.h \
+	src/QueryString.h \
 	deps/http_parser/http_parser.h \
 	deps/sqlite/sqlite3.h
 
@@ -15,7 +16,9 @@ OBJECTS := \
 	build/EFSRepo.o \
 	build/EFSSession.o \
 	build/EFSSubmission.o \
+	build/EFSServer.o \
 	build/HTTPServer.o \
+	build/QueryString.o \
 	build/http_parser.o \
 	build/sqlite3.o
 

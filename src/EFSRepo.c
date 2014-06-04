@@ -7,7 +7,7 @@ struct EFSRepo {
 	str_t *DBPath; // TODO: sqlite3 permissions object? not an actual DB connection.
 };
 
-EFSRepoRef EFSRepoCreate(str_t const *const path) {
+EFSRepoRef EFSRepoCreate(strarg_t const path) {
 	BTAssert(path, "EFSRepo path required");
 	EFSRepoRef const repo = calloc(1, sizeof(struct EFSRepo));
 	repo->path = strdup(path);
@@ -20,15 +20,15 @@ void EFSRepoFree(EFSRepoRef const repo) {
 	FREE(&repo->path);
 	free(repo);
 }
-str_t const *EFSRepoGetPath(EFSRepoRef const repo) {
+strarg_t EFSRepoGetPath(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->path;
 }
-str_t const *EFSRepoGetDataPath(EFSRepoRef const repo) {
+strarg_t EFSRepoGetDataPath(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->dataPath;
 }
-str_t const *EFSRepoGetDBPath(EFSRepoRef const repo) {
+strarg_t EFSRepoGetDBPath(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->DBPath;
 }
