@@ -11,19 +11,37 @@ struct EFSFilter {
 	union {
 		str_t *string;
 		EFSFilterList *filters;
+		int64_t userID;
 	} data;
 };
 
 EFSFilterRef EFSFilterCreate(EFSFilterType const type) {
-	if(EFSFilterInvalid == type) return NULL;
+	switch(type) {
+		case EFSNoFilter:
+		case EFSIntersectionFilter:
+		case EFSUnionFilter:
+		case EFSFullTextFilter:
+		case EFSBacklinkFilesFilter:
+		case EFSFileLinksFilter:
+			break;
+		default:
+			return NULL;
+	}
 	EFSFilterRef const filter = calloc(1, sizeof(struct EFSFilter));
 	filter->type = type;
+	return filter;
+}
+EFSFilterRef EFSPermissionFilterCreate(int64_t const userID) {
+	EFSFilterRef const filter = calloc(1, sizeof(struct EFSFilter));
+	filter->type = EFSPermissionFilter;
+	filter->data.userID = userID;
 	return filter;
 }
 void EFSFilterFree(EFSFilterRef const filter) {
 	if(!filter) return;
 	switch(filter->type) {
 		case EFSNoFilter:
+		case EFSPermissionFilter:
 			break;
 		case EFSFullTextFilter:
 		case EFSBacklinkFilesFilter:
@@ -152,6 +170,11 @@ err_t EFSFilterAppendSQL(EFSFilterRef const filter, str_t **const sql, size_t *c
 			TAB(); APPEND("\t" "ON (l.\"sourceURIID\" = u.\"URIID\")\n");
 			TAB(); APPEND("WHERE u.\"URI\" = ?");
 			break;
+		case EFSPermissionFilter:
+			TAB(); APPEND("SELECT \"fileID\"\n");
+			TAB(); APPEND("FROM \"filePermissions\"\n");
+			TAB(); APPEND("WHERE \"userID\" = ?");
+			break;
 		case EFSIntersectionFilter:
 		case EFSUnionFilter:
 			TAB(); APPEND("SELECT f.\"fileID\"\n");
@@ -189,6 +212,9 @@ err_t EFSFilterBindQueryArgs(EFSFilterRef const filter, sqlite3_stmt *const stmt
 		case EFSBacklinkFilesFilter:
 		case EFSFileLinksFilter:
 			if(BTSQLiteErr(sqlite3_bind_text(stmt, (*index)++, filter->data.string, -1, SQLITE_TRANSIENT))) return -1;
+			break;
+		case EFSPermissionFilter:
+			if(BTSQLiteErr(sqlite3_bind_int64(stmt, (*index)++, filter->data.userID))) return -1;
 			break;
 		case EFSIntersectionFilter:
 		case EFSUnionFilter: {

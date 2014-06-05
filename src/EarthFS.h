@@ -44,9 +44,11 @@ typedef enum {
 	EFSFullTextFilter,
 	EFSBacklinkFilesFilter,
 	EFSFileLinksFilter,
+	EFSPermissionFilter,
 } EFSFilterType;
 
 EFSFilterRef EFSFilterCreate(EFSFilterType const type);
+EFSFilterRef EFSPermissionFilterCreate(int64_t const userID);
 void EFSFilterFree(EFSFilterRef const filter);
 err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, size_t const len);
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
