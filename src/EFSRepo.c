@@ -32,4 +32,20 @@ strarg_t EFSRepoGetDBPath(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->DBPath;
 }
+sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo) {
+	if(!repo) return NULL;
+	// TODO: Connection pooling.
+	sqlite3 *db = NULL;
+	(void)BTSQLiteErr(sqlite3_open_v2(
+		repo->DBPath,
+		&db,
+		SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX,
+		NULL
+	));
+	return db;
+}
+void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 *const db) {
+	if(!repo) return;
+	(void)sqlite3_close(db);
+}
 

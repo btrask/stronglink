@@ -20,16 +20,8 @@ static int passcmp(strarg_t const a, strarg_t const b) {
 EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const username, strarg_t const password, strarg_t const cookie, EFSMode const mode) {
 	if(!repo) return NULL;
 
-	sqlite3 *db = NULL;
-	int const err = BTSQLiteErr(sqlite3_open_v2(
-		EFSRepoGetDBPath(repo),
-		&db,
-		SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX,
-		NULL
-	));
-	if(SQLITE_OK != err) {
-		return NULL;
-	}
+	sqlite3 *const db = EFSRepoDBConnect(repo);
+	if(!db) return NULL;
 
 	sqlite3_stmt *stmt = NULL;
 	(void)BTSQLiteErr(sqlite3_prepare_v2(db,
@@ -45,6 +37,7 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const usernam
 
 	if(!userID || !passhash) {
 		(void)BTSQLiteErr(sqlite3_finalize(stmt));
+		EFSRepoDBClose(repo, db);
 		return NULL;
 	}
 
@@ -54,11 +47,12 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const usernam
 	if(!attempt || 0 != passcmp(attempt, passhash)) {
 		FREE(&data); attempt = NULL;
 		(void)BTSQLiteErr(sqlite3_finalize(stmt));
+		EFSRepoDBClose(repo, db);
 		return NULL;
 	}
 	FREE(&data); attempt = NULL;
 	(void)BTSQLiteErr(sqlite3_finalize(stmt));
-	(void)BTSQLiteErr(sqlite3_close(db));
+	EFSRepoDBClose(repo, db);
 
 	EFSSessionRef const session = calloc(1, sizeof(struct EFSSession));
 	session->repo = repo;
@@ -69,14 +63,8 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const usernam
 void EFSSessionFree(EFSSessionRef const session) {
 	if(!session) return;
 	session->repo = NULL;
-/*	FREE(&session->user);
-	FREE(&session->pass);
-	FREE(&session->cookie);
-	(void)BTSQLiteErr(sqlite3_close(session->db)); session->db = NULL;*/
+	session->userID = -1;
+	session->mode = 0;
 	free(session);
 }
-/*sqlite3 *EFSSessionGetDB(EFSSessionRef const session) {
-	if(!session) return NULL;
-	return session->db;
-}*/
 

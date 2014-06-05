@@ -16,7 +16,8 @@ EFSRepoRef EFSRepoCreate(strarg_t const path);
 void EFSRepoFree(EFSRepoRef const repo);
 strarg_t EFSRepoGetPath(EFSRepoRef const repo);
 strarg_t EFSRepoGetDataPath(EFSRepoRef const repo);
-strarg_t EFSRepoGetDBPath(EFSRepoRef const repo);
+sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo);
+void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 *const db);
 
 typedef enum {
 	EFS_RDONLY = 1 << 0,
