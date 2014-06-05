@@ -42,14 +42,14 @@ typedef int err_t;
 	if(-1 == __x) { \
 		str_t msg[255+1] = {}; \
 		(void)strerror_r(errno, msg, 255); \
-		fprintf(stderr, "%s:%d: %s %s\n", __PRETTY_FUNCTION__, __LINE__, #x, msg); \
+		fprintf(stderr, "%s:%d: %d == %s %s\n", __PRETTY_FUNCTION__, __LINE__, __x, #x, msg); \
 	} \
 	__x; \
 })
 #define BTSQLiteErr(x) ({ \
 	int const __x = (x); \
-	if(SQLITE_OK != __x) { \
-		fprintf(stderr, "%s:%d: %s %s\n", __PRETTY_FUNCTION__, __LINE__, #x, sqlite3_errstr(__x)); \
+	if(SQLITE_OK != __x && SQLITE_ROW != __x && SQLITE_DONE != __x) { \
+		fprintf(stderr, "%s:%d: %d == %s %s\n", __PRETTY_FUNCTION__, __LINE__, __x, #x, sqlite3_errstr(__x)); \
 	} \
 	__x; \
 })

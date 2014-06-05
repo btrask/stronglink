@@ -12,7 +12,7 @@ EFSRepoRef EFSRepoCreate(strarg_t const path) {
 	EFSRepoRef const repo = calloc(1, sizeof(struct EFSRepo));
 	repo->path = strdup(path);
 	(void)BTErrno(asprintf(&repo->dataPath, "%s/data", path));
-	(void)BTErrno(asprintf(&repo->DBPath, "%s/repo.db", path));
+	(void)BTErrno(asprintf(&repo->DBPath, "%s/efs.db", path));
 	return repo;
 }
 void EFSRepoFree(EFSRepoRef const repo) {

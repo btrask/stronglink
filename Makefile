@@ -7,6 +7,7 @@ HEADERS := \
 	src/EarthFS.h \
 	src/HTTPServer.h \
 	src/QueryString.h \
+	deps/crypt_blowfish-1.0.4/ow-crypt.h \
 	deps/http_parser/http_parser.h \
 	deps/sqlite/sqlite3.h
 
@@ -21,6 +22,10 @@ OBJECTS := \
 	build/EFSServer.o \
 	build/HTTPServer.o \
 	build/QueryString.o \
+	build/crypt/crypt_blowfish.o \
+	build/crypt/crypt_gensalt.o \
+	build/crypt/wrapper.o \
+	build/crypt/x86.S.o \
 	build/http_parser.o \
 	build/sqlite3.o
 
@@ -29,6 +34,14 @@ all: build/earthfs
 build/earthfs: $(OBJECTS)
 	@-mkdir -p $(dir $@)
 	$(CC) -o $@ $^ -lssl -lpthread -lyajl
+
+build/crypt/%.S.o: deps/crypt_blowfish-1.0.4/%.S
+	@-mkdir -p $(dir $@)
+	$(CC) -c -o $@ $<
+
+build/crypt/%.o: deps/crypt_blowfish-1.0.4/%.c deps/crypt_blowfish-1.0.4/crypt.h deps/crypt_blowfish-1.0.4/ow-crypt.h
+	@-mkdir -p $(dir $@)
+	$(CC) -c -o $@ $<
 
 build/http_parser.o: deps/http_parser/http_parser.c deps/http_parser/http_parser.h
 	@-mkdir -p $(dir $@)
