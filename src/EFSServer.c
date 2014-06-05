@@ -3,7 +3,7 @@
 #include "HTTPServer.h"
 #include "QueryString.h"
 
-#define BUFFER_SIZE (1024 * 4)
+EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, HTTPConnectionRef const conn);
 
 static bool_t pathterm(strarg_t const URI, size_t const len) {
 	char const x = URI[len];
@@ -94,7 +94,7 @@ static bool postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMe
 		return true;
 	}
 
-
+	EFSSubmissionRef const sub = EFSRepoCreateSubmission(repo, conn);
 
 	return true;
 }
@@ -111,19 +111,18 @@ static bool postQuery(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 
 	// TODO: Check Content-Type header for JSON.
 
-	byte_t *buf = malloc(BUFFER_SIZE);
 	EFSJSONFilterBuilderRef const builder = EFSJSONFilterBuilderCreate();
 
 	for(;;) {
-		ssize_t const len = HTTPConnectionRead(conn, buf, BUFFER_SIZE);
+		byte_t const *buf = NULL;
+		ssize_t const len = HTTPConnectionGetBuffer(conn, &buf);
 		if(-1 == len) {
 			HTTPConnectionSendStatus(conn, 400);
-			FREE(&buf);
 			return true;
 		}
 		if(!len) break;
 
-		EFSJSONFilterBuilderParse(builder, (str_t *)buf, len);
+		EFSJSONFilterBuilderParse(builder, (str_t const *)buf, len);
 	}
 
 	EFSFilterRef const filter = EFSJSONFilterBuilderDone(builder);
@@ -132,7 +131,6 @@ static bool postQuery(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 
 	EFSFilterFree(filter);
 	EFSJSONFilterBuilderFree(builder);
-	FREE(&buf);
 
 	return true;
 }

@@ -1,8 +1,7 @@
 #define _GNU_SOURCE
 #include <fcntl.h>
 #include "EarthFS.h"
-
-#define BUFFER_SIZE (1024 * 512)
+#include "HTTPServer.h"
 
 struct EFSSubmission {
 	EFSRepoRef repo;
@@ -12,35 +11,37 @@ struct EFSSubmission {
 	EFSURIListRef URIs;
 };
 
-EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const path, strarg_t const type, fd_t const stream) {
+EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, HTTPConnectionRef const conn) {
 	if(!repo) return NULL;
-	BTAssert(type, "EFSSubmission type required");
-	BTAssert(-1 != stream, "EFSSubmission stream required");
+	BTAssert(conn, "EFSSubmission connection required");
 	EFSSubmissionRef const sub = calloc(1, sizeof(struct EFSSubmission));
-	fd_t tmp = -1;
-	if(path) {
-		sub->path = strdup(path);
-	} else {
-		str_t x[5] = "";
-		(void)BTErrno(asprintf(&sub->path, "/tmp/%s", x)); // TODO: Generate random string, use repo to get temp dir.
-		tmp = BTErrno(creat(sub->path, 0400));
+	str_t const x[] = "efs-tmp"; // TODO: Generate random filename.
+	(void)BTErrno(asprintf(&sub->path, "/tmp/%s", x)); // TODO: Use temp dir from repo.
+	fd_t const tmp = BTErrno(creat(sub->path, 0400));
+
+	HTTPHeaderList const *const headers = HTTPConnectionGetHeaders(conn);
+	for(index_t i = 0; i < headers->count; ++i) {
+		if(0 == strcasecmp("content-type", headers->items[i].field)) {
+			sub->type = strdup(headers->items[i].value);
+		}
 	}
-	sub->type = strdup(type);
 
-	byte_t buf[BUFFER_SIZE] = {};
-	EFSHasherRef const hasher = EFSHasherCreate(type);
+	EFSHasherRef const hasher = EFSHasherCreate(sub->type);
 	for(;;) {
-		ssize_t const length = read(stream, buf, BUFFER_SIZE);
-		if(-1 == length && EBADF == errno) break; // Closed by client?
-		(void)BTErrno(length);
-		if(length <= 0) break;
+		byte_t const *buf = NULL;
+		ssize_t const rlen = HTTPConnectionGetBuffer(conn, &buf);
+		if(rlen < 0) {
+			fprintf(stderr, "EFSSubmission connection read error");
+			break;
+		}
+		if(!rlen) break;
 
-		sub->size += length;
-		EFSHasherWrite(hasher, buf, length);
-		if(-1 != tmp) write(tmp, buf, length);
+		sub->size += rlen;
+		EFSHasherWrite(hasher, buf, rlen);
+		(void)BTErrno(write(tmp, buf, rlen));
 		// TODO: Indexing.
 	}
-	(void)BTErrno(close(tmp)); tmp = -1;
+	(void)BTErrno(close(tmp));
 	sub->URIs = EFSHasherCreateURIList(hasher);
 	EFSHasherFree(hasher);
 
@@ -54,9 +55,13 @@ void EFSSubmissionFree(EFSSubmissionRef const sub) {
 	free(sub);
 }
 
-void EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef const submission) {
-	if(!session) return;
-	if(!submission) return;
-	
+err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef const submission) {
+	if(!session) return 0;
+	if(!submission) return -1;
+
+
+
+
+	return 0;
 }
 

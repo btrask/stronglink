@@ -27,6 +27,11 @@ typedef enum {
 EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const user, strarg_t const pass, strarg_t const cookie, EFSMode const mode);
 void EFSSessionFree(EFSSessionRef const session);
 
+// TODO: We want a cleaner split between EFS and HTTP.
+//EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, HTTPConnectionRef const conn);
+void EFSSubmissionFree(EFSSubmissionRef const sub);
+err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef const submission);
+
 EFSHasherRef EFSHasherCreate(strarg_t const type);
 void EFSHasherFree(EFSHasherRef const hasher);
 void EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, ssize_t const len);

@@ -31,6 +31,7 @@ HTTPMethod HTTPConnectionGetRequestMethod(HTTPConnectionRef const conn);
 strarg_t HTTPConnectionGetRequestURI(HTTPConnectionRef const conn);
 HTTPHeaderList const *HTTPConnectionGetHeaders(HTTPConnectionRef const conn);
 ssize_t HTTPConnectionRead(HTTPConnectionRef const conn, byte_t *const buf, size_t const len);
+ssize_t HTTPConnectionGetBuffer(HTTPConnectionRef const conn, byte_t const **const buf); // Zero-copy version.
 
 // Connection writing
 fd_t HTTPConnectionGetStream(HTTPConnectionRef const conn);

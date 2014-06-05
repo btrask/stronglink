@@ -106,6 +106,18 @@ ssize_t HTTPConnectionRead(HTTPConnectionRef const conn, byte_t *const buf, size
 	if(!conn->eof && -1 == readOnce(conn)) return -1;
 	return used;
 }
+ssize_t HTTPConnectionGetBuffer(HTTPConnectionRef const conn, byte_t const **const buf) {
+	if(!conn) return -1;
+	if(!conn->chunkLength) {
+		if(conn->eof) return 0;
+		if(-1 == readOnce(conn)) return -1;
+	}
+	size_t const used = conn->chunkLength;
+	*buf = conn->chunk;
+	conn->chunk = NULL;
+	conn->chunkLength = 0;
+	return used;
+}
 
 fd_t HTTPConnectionGetStream(HTTPConnectionRef const conn) {
 	if(!conn) return -1;
