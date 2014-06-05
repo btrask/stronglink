@@ -8,18 +8,20 @@ typedef struct EFSSession* EFSSessionRef;
 typedef struct EFSSubmission* EFSSubmissionRef;
 typedef struct EFSHasher* EFSHasherRef;
 typedef struct EFSURIList* EFSURIListRef;
-
-typedef enum {
-	EFS_RDONLY = 1 << 0,
-	EFS_WRONLY = 1 << 1,
-	EFS_RDWR = EFS_RDONLY | EFS_WRONLY,
-} EFSMode;
+typedef struct EFSFilter* EFSFilterRef;
+typedef struct EFSJSONFilterBuilder* EFSJSONFilterBuilderRef;
 
 EFSRepoRef EFSRepoCreate(strarg_t const path);
 void EFSRepoFree(EFSRepoRef const repo);
 strarg_t EFSRepoGetPath(EFSRepoRef const repo);
 strarg_t EFSRepoGetDataPath(EFSRepoRef const repo);
 strarg_t EFSRepoGetDBPath(EFSRepoRef const repo);
+
+typedef enum {
+	EFS_RDONLY = 1 << 0,
+	EFS_WRONLY = 1 << 1,
+	EFS_RDWR = EFS_RDONLY | EFS_WRONLY,
+} EFSMode;
 
 EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const user, strarg_t const pass, strarg_t const cookie, EFSMode const mode);
 void EFSSessionFree(EFSSessionRef const session);
@@ -32,6 +34,27 @@ EFSURIListRef EFSHasherCreateURIList(EFSHasherRef const hasher);
 void EFSURIListFree(EFSURIListRef const list);
 count_t EFSURIListGetCount(EFSURIListRef const list);
 strarg_t EFSURIListGetURI(EFSURIListRef const list, index_t const x);
+
+typedef enum {
+	EFSFilterInvalid,
+	EFSNoFilter,
+	EFSIntersectionFilter,
+	EFSUnionFilter,
+	EFSFullTextFilter,
+	EFSLinkSourceFilter,
+	EFSLinkTargetFilter,
+} EFSFilterType;
+
+EFSFilterRef EFSFilterCreate(EFSFilterType const type);
+void EFSFilterFree(EFSFilterRef const filter);
+err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, size_t const len);
+err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
+
+EFSJSONFilterBuilderRef EFSJSONFilterBuilderCreate(void);
+void EFSJSONFilterBuilderFree(EFSJSONFilterBuilderRef const builder);
+void EFSJSONFilterBuilderParse(EFSJSONFilterBuilderRef const builder, strarg_t const json, size_t const len);
+EFSFilterRef EFSJSONFilterBuilderDone(EFSJSONFilterBuilderRef const builder);
+EFSFilterType EFSFilterTypeFromString(strarg_t const type, size_t const len);
 
 #endif
 

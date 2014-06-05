@@ -16,6 +16,8 @@ OBJECTS := \
 	build/EFSRepo.o \
 	build/EFSSession.o \
 	build/EFSSubmission.o \
+	build/EFSFilter.o \
+	build/EFSJSONFilterBuilder.o \
 	build/EFSServer.o \
 	build/HTTPServer.o \
 	build/QueryString.o \
@@ -26,7 +28,7 @@ all: build/earthfs
 
 build/earthfs: $(OBJECTS)
 	@-mkdir -p $(dir $@)
-	$(CC) -o $@ $^ -lssl -lpthread
+	$(CC) -o $@ $^ -lssl -lpthread -lyajl
 
 build/http_parser.o: deps/http_parser/http_parser.c deps/http_parser/http_parser.h
 	@-mkdir -p $(dir $@)

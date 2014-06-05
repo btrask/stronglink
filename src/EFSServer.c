@@ -1,4 +1,3 @@
-#include <stdbool.h>
 #include "common.h"
 #include "EarthFS.h"
 #include "HTTPServer.h"
@@ -6,26 +5,10 @@
 
 #define BUFFER_SIZE (1024 * 4)
 
-static bool_t substr(strarg_t const a, strarg_t const b, size_t const blen) {
-	off_t i = 0;
-	for(; i < blen; ++i) {
-		if(a[i] != b[i]) return false;
-		if(!a[i]) return false; // Terminated early.
-	}
-	if(a[i]) return false; // Terminated late.
-	return true;
-}
-static ssize_t prefix(strarg_t const a, strarg_t const b) {
-	for(off_t i = 0; ; ++i) {
-		if(!a[i]) return i;
-		if(a[i] != b[i]) return -1;
-	}
-}
 static bool_t pathterm(strarg_t const URI, size_t const len) {
 	char const x = URI[len];
 	return '\0' == x || '?' == x || '#' == x;
 }
-
 static EFSMode method2mode(HTTPMethod const method) {
 	switch(method) {
 		case HTTP_GET:

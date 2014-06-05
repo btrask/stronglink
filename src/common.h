@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 typedef int fd_t;
 typedef unsigned char byte_t;
@@ -58,5 +59,23 @@ typedef int err_t;
 	free(*__x); \
 	*__x = NULL; \
 })
+
+// Compares nul-terminated string `a` with substring of `blen` at `b`.
+static bool_t substr(strarg_t const a, strarg_t const b, size_t const blen) {
+	off_t i = 0;
+	for(; i < blen; ++i) {
+		if(a[i] != b[i]) return false;
+		if(!a[i]) return false; // Terminated early.
+	}
+	if(a[i]) return false; // Terminated late.
+	return true;
+}
+// Returns strlen(a) if `b` starts with `a`, otherwise -1.
+static ssize_t prefix(strarg_t const a, strarg_t const b) {
+	for(off_t i = 0; ; ++i) {
+		if(!a[i]) return i;
+		if(a[i] != b[i]) return -1;
+	}
+}
 
 #endif
