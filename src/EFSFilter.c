@@ -129,25 +129,27 @@ err_t EFSFilterAppendSQL(EFSFilterRef const filter, str_t **const sql, size_t *c
 			break;
 		case EFSFullTextFilter:
 			TAB(); APPEND("SELECT f.\"fileID\"\n");
-			TAB(); APPEND("FROM \"fileIndexes\" AS f\n");
+			TAB(); APPEND("FROM \"fileContent\" AS f\n");
 			TAB(); APPEND("LEFT JOIN \"fulltext\" AS t\n");
 			TAB(); APPEND("\t" "ON (f.\"ftID\" = t.\"rowid\")\n");
-			TAB(); APPEND("WHERE t.\"content\" MATCH ?");
+			TAB(); APPEND("WHERE t.\"text\" MATCH ?");
 			break;
 		case EFSBacklinkFilesFilter:
-			TAB(); APPEND("SELECT l.\"fileID\"\n");
-			TAB(); APPEND("FROM \"links\" AS l\n");
+			TAB(); APPEND("SELECT DISTINCT f.\"fileID\"\n");
+			TAB(); APPEND("FROM \"fileURIs\" AS f");
+			TAB(); APPEND("LEFT JOIN \"links\" AS l\n");
+			TAB(); APPEND("\t" "ON (f.\"URIID\" = l.\"sourceURIID\")\n");
 			TAB(); APPEND("LEFT JOIN \"URIs\" AS u\n");
-			TAB(); APPEND("\t" "ON (l.\"URIID\" = u.\"URIID\")\n");
+			TAB(); APPEND("\t" "ON (l.\"targetURIID\" = u.\"URIID\")\n");
 			TAB(); APPEND("WHERE u.\"URI\" = ?");
 			break;
 		case EFSFileLinksFilter:
-			TAB(); APPEND("SELECT l.\"fileID\"\n");
-			TAB(); APPEND("FROM \"links\" AS l\n");
-			TAB(); APPEND("LEFT JOIN \"fileURIs\" AS f\n");
-			TAB(); APPEND("\t" "ON (l.\"fileID\" = f.\"fileID\")\n");
+			TAB(); APPEND("SELECT DISTINCT f.\"fileID\"\n");
+			TAB(); APPEND("FROM \"fileURIs\" AS f");
+			TAB(); APPEND("LEFT JOIN \"links\" AS l\n");
+			TAB(); APPEND("\t" "ON (f.\"URIID\" = l.\"targetURIID\")\n");
 			TAB(); APPEND("LEFT JOIN \"URIs\" AS u\n");
-			TAB(); APPEND("\t" "ON (f.\"URIID\" = u.\"URIID\")\n");
+			TAB(); APPEND("\t" "ON (l.\"sourceURIID\" = u.\"URIID\")\n");
 			TAB(); APPEND("WHERE u.\"URI\" = ?");
 			break;
 		case EFSIntersectionFilter:
