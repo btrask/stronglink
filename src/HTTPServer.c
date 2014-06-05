@@ -98,14 +98,12 @@ HTTPHeaderList const *HTTPConnectionGetHeaders(HTTPConnectionRef const conn) {
 ssize_t HTTPConnectionRead(HTTPConnectionRef const conn, byte_t *const buf, size_t const len) {
 	// TODO: Zero-copy version that provides access to the original buffer.
 	if(!conn) return -1;
-	if(!conn->chunkLength) {
-		return conn->eof ? 0 : -1;
-	}
+	if(!conn->chunkLength) return conn->eof ? 0 : -1;
 	size_t const used = MIN(len, conn->chunkLength);
 	memcpy(buf, conn->chunk, used);
 	conn->chunk += used;
 	conn->chunkLength -= used;
-	if(-1 == readOnce(conn)) return -1;
+	if(!conn->eof && -1 == readOnce(conn)) return -1;
 	return used;
 }
 

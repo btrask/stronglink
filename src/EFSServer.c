@@ -103,15 +103,16 @@ static bool postQuery(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 	ssize_t const pathlen = prefix("/efs/query", URI);
 	if(pathlen < 0) return false;
 	if(!pathterm(URI, (size_t)pathlen)) return false;
-	EFSSessionRef const session = auth(repo, conn, method, URI+pathlen);
+/*	EFSSessionRef const session = auth(repo, conn, method, URI+pathlen);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);
 		return true;
-	}
+	}*/
 
 	// TODO: Check Content-Type header for JSON.
 
 	byte_t *buf = malloc(BUFFER_SIZE);
+	EFSJSONFilterBuilderRef const builder = EFSJSONFilterBuilderCreate();
 
 	for(;;) {
 		ssize_t const len = HTTPConnectionRead(conn, buf, BUFFER_SIZE);
@@ -122,9 +123,15 @@ static bool postQuery(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 		}
 		if(!len) break;
 
-		// TODO: Create filter
+		EFSJSONFilterBuilderParse(builder, (str_t *)buf, len);
 	}
 
+	EFSFilterRef const filter = EFSJSONFilterBuilderDone(builder);
+
+	(void)EFSFilterCreateQuery(filter);
+
+	EFSFilterFree(filter);
+	EFSJSONFilterBuilderFree(builder);
 	FREE(&buf);
 
 	return true;

@@ -1,6 +1,7 @@
 #ifndef EARTHFS_H
 #define EARTHFS_H
 
+#include "../deps/sqlite/sqlite3.h"
 #include "common.h"
 
 typedef struct EFSRepo* EFSRepoRef;
@@ -41,14 +42,17 @@ typedef enum {
 	EFSIntersectionFilter,
 	EFSUnionFilter,
 	EFSFullTextFilter,
-	EFSLinkSourceFilter,
-	EFSLinkTargetFilter,
+	EFSBacklinkFilesFilter,
+	EFSFileLinksFilter,
 } EFSFilterType;
 
 EFSFilterRef EFSFilterCreate(EFSFilterType const type);
 void EFSFilterFree(EFSFilterRef const filter);
 err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, size_t const len);
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
+sqlite3_stmt *EFSFilterCreateQuery(EFSFilterRef const filter);
+err_t EFSFilterAppendSQL(EFSFilterRef const filter, str_t **const sql, size_t *const len, size_t *const size, off_t const indent);
+err_t EFSFilterBindQueryArgs(EFSFilterRef const filter, sqlite3_stmt *const stmt, index_t *const index);
 
 EFSJSONFilterBuilderRef EFSJSONFilterBuilderCreate(void);
 void EFSJSONFilterBuilderFree(EFSJSONFilterBuilderRef const builder);
