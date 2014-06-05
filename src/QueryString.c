@@ -6,7 +6,7 @@ size_t QSReadField(strarg_t const qs) {
 	off_t i = 1;
 	for(;;) {
 		char const y = qs[i];
-		if('=' == i || '\0' == y || '&' == i || '#' == i) return i;
+		if('=' == y || '\0' == y || '&' == y || '#' == y) return i;
 		++i;
 	}
 }
@@ -16,7 +16,7 @@ size_t QSReadValue(strarg_t const qs) {
 	off_t i = 1;
 	for(;;) {
 		char const y = qs[i];
-		if('&' == i || '\0' == y || '#' == i) return i;
+		if('&' == y || '\0' == y || '#' == y) return i;
 		++i;
 	}
 }
