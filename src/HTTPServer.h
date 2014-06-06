@@ -23,7 +23,7 @@ typedef enum http_method HTTPMethod;
 
 HTTPServerRef HTTPServerCreate(HTTPListener const listener, void *const context);
 void HTTPServerFree(HTTPServerRef const server);
-int HTTPServerListen(HTTPServerRef const server, in_port_t const port, in_addr_t const address);
+int HTTPServerListen(HTTPServerRef const server, in_port_t const port, strarg_t const address);
 void HTTPServerClose(HTTPServerRef const server);
 
 // Connection reading
@@ -34,7 +34,7 @@ ssize_t HTTPConnectionRead(HTTPConnectionRef const conn, byte_t *const buf, size
 ssize_t HTTPConnectionGetBuffer(HTTPConnectionRef const conn, byte_t const **const buf); // Zero-copy version.
 
 // Connection writing
-fd_t HTTPConnectionGetStream(HTTPConnectionRef const conn);
+void HTTPConnectionWrite(HTTPConnectionRef const conn, byte_t const *const buf, size_t const len);
 void HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, strarg_t const message);
 void HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value);
 void HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, size_t const len);

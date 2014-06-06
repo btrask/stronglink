@@ -17,6 +17,8 @@ typedef off_t index_t;
 typedef size_t count_t;
 typedef int err_t;
 
+#define numberof(x) (sizeof(x) / sizeof(*x))
+
 // TODO: Where are these officially defined?
 #define MIN(a, b) ({ \
 	__typeof__(a) const __a = (a); \
@@ -42,14 +44,21 @@ typedef int err_t;
 	if(-1 == __x) { \
 		str_t msg[255+1] = {}; \
 		(void)strerror_r(errno, msg, 255); \
-		fprintf(stderr, "%s:%d: %d == %s %s\n", __PRETTY_FUNCTION__, __LINE__, __x, #x, msg); \
+		fprintf(stderr, "%s:%d: %d == %s (%s)\n", __PRETTY_FUNCTION__, __LINE__, __x, #x, msg); \
 	} \
 	__x; \
 })
 #define BTSQLiteErr(x) ({ \
 	int const __x = (x); \
 	if(SQLITE_OK != __x && SQLITE_ROW != __x && SQLITE_DONE != __x) { \
-		fprintf(stderr, "%s:%d: %d == %s %s\n", __PRETTY_FUNCTION__, __LINE__, __x, #x, sqlite3_errstr(__x)); \
+		fprintf(stderr, "%s:%d: %d == %s (%s)\n", __PRETTY_FUNCTION__, __LINE__, __x, #x, sqlite3_errstr(__x)); \
+	} \
+	__x; \
+})
+#define BTUVErr(x) ({ \
+	int const __x = (x); \
+	if(0 != __x) { \
+		fprintf(stderr, "%s:%d: %d == %s (%s)\n", __PRETTY_FUNCTION__, __LINE__, __x, #x, uv_strerror(__x)); \
 	} \
 	__x; \
 })

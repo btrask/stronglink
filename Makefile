@@ -35,7 +35,7 @@ all: build/earthfs
 
 build/earthfs: $(OBJECTS)
 	@-mkdir -p $(dir $@)
-	$(CC) -o $@ $^ -lssl -lpthread -lyajl
+	$(CC) -o $@ $^ -lssl -luv -lyajl
 
 build/crypt/%.S.o: deps/crypt_blowfish-1.0.4/%.S
 	@-mkdir -p $(dir $@)

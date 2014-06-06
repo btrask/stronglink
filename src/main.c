@@ -1,3 +1,4 @@
+#include <uv.h>
 #include "EarthFS.h"
 #include "HTTPServer.h"
 
@@ -7,9 +8,9 @@ int main(int const argc, char const *const *const argv) {
 	EFSRepoRef const repo = EFSRepoCreate("/home/ben/Documents/testrepo");
 
 	HTTPServerRef const server = HTTPServerCreate((HTTPListener)EFSServerDispatch, repo);
-	HTTPServerListen(server, 8000, INADDR_LOOPBACK);
+	HTTPServerListen(server, 8000, "127.0.0.1");
 
-	sleep(1000);
+	uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 
 	HTTPServerClose(server);
 	HTTPServerFree(server);

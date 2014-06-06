@@ -1,24 +1,24 @@
-#define _GNU_SOURCE // For asprintf().
-
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <pthread.h>
+#define _GNU_SOURCE
+#include <uv.h>
+#include "../deps/libco/libco.h"
 #include "HTTPServer.h"
 
-#define BUFFER_SIZE (1024 * 10)
-#define THREAD_POOL_SIZE 10
+#define BUFFER_SIZE (1024 * 8)
 
 struct HTTPServer {
 	HTTPListener listener;
 	void *context;
-	volatile fd_t socket;
-	pthread_t threads[THREAD_POOL_SIZE];
+	uv_tcp_t *socket;
 };
 typedef struct HTTPConnection {
 	// Connection
-	fd_t stream;
+	HTTPServerRef server;
+	cothread_t thread;
+	cothread_t yield;
+	uv_tcp_t *stream;
 	http_parser *parser;
 	byte_t *buf;
+	ssize_t nread;
 
 	// Request
 	str_t *URI;
@@ -31,7 +31,8 @@ typedef struct HTTPConnection {
 } HTTPConnection;
 
 static err_t readOnce(HTTPConnectionRef const conn);
-static void *serverThread(HTTPServerRef const server);
+static void connection_cb(uv_stream_t *const socket, int const status);
+static void write_cb(uv_write_t *const req, int status);
 static strarg_t statusstr(uint16_t const status);
 
 HTTPServerRef HTTPServerCreate(HTTPListener const listener, void *const context) {
@@ -39,7 +40,7 @@ HTTPServerRef HTTPServerCreate(HTTPListener const listener, void *const context)
 	HTTPServerRef const server = calloc(1, sizeof(struct HTTPServer));
 	server->listener = listener;
 	server->context = context;
-	server->socket = -1;
+	server->socket = NULL;
 	return server;
 }
 void HTTPServerFree(HTTPServerRef const server) {
@@ -48,38 +49,25 @@ void HTTPServerFree(HTTPServerRef const server) {
 	free(server);
 }
 
-int HTTPServerListen(HTTPServerRef const server, in_port_t const port, in_addr_t const address) {
+int HTTPServerListen(HTTPServerRef const server, in_port_t const port, strarg_t const address) {
 	if(!server) return 0;
-	BTAssert(-1 == server->socket, "HTTPServer already listening");
+	BTAssert(!server->socket, "HTTPServer already listening");
 	// INADDR_ANY, INADDR_LOOPBACK
-	server->socket = BTErrno(socket(PF_INET, SOCK_STREAM, IPPROTO_TCP));
-	if(-1 == server->socket) return -1;
-	int const yes = 1;
-	(void)BTErrno(setsockopt(server->socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)));
-	struct sockaddr_in const addr = {
-//		.sin_len = sizeof(addr),
-		.sin_family = AF_INET,
-		.sin_port = htons(port),
-		.sin_addr = {
-			.s_addr = htonl(address),
-		},
-	};
-	(void)BTErrno(bind(server->socket, (struct sockaddr *)&addr, sizeof(addr)));
-	(void)BTErrno(listen(server->socket, 511));
-
-	for(index_t i = 0; i < THREAD_POOL_SIZE; ++i) {
-		(void)BTErrno(pthread_create(&server->threads[i], NULL, (void *(*)(void *))serverThread, server));
-	}
-
+	server->socket = malloc(sizeof(uv_tcp_t));
+	if(!server->socket) return -1;
+	if(BTUVErr(uv_tcp_init(uv_default_loop(), server->socket))) return -1;
+	server->socket->data = server;
+	struct sockaddr_in addr;
+	if(BTUVErr(uv_ip4_addr(address, port, &addr))) return -1;
+	if(BTUVErr(uv_tcp_bind(server->socket, (struct sockaddr *)&addr, 0))) return -1;
+	if(BTUVErr(uv_listen((uv_stream_t *)server->socket, 511, connection_cb))) return -1;
 	return 0;
 }
 void HTTPServerClose(HTTPServerRef const server) {
-	if(-1 == server->socket) return;
-	(void)BTErrno(close(server->socket)); server->socket = -1;
-	for(index_t i = 0; i < THREAD_POOL_SIZE; ++i) {
-		(void)BTErrno(pthread_join(server->threads[i], NULL));
-		server->threads[i] = 0;
-	}
+	if(!server) return;
+	if(!server->socket) return;
+	uv_close((uv_handle_t *)server->socket, NULL);
+	FREE(&server->socket);
 }
 
 HTTPMethod HTTPConnectionGetRequestMethod(HTTPConnectionRef const conn) {
@@ -119,9 +107,12 @@ ssize_t HTTPConnectionGetBuffer(HTTPConnectionRef const conn, byte_t const **con
 	return used;
 }
 
-fd_t HTTPConnectionGetStream(HTTPConnectionRef const conn) {
-	if(!conn) return -1;
-	return conn->stream;
+void HTTPConnectionWrite(HTTPConnectionRef const conn, byte_t const *const buf, size_t const len) {
+	if(!conn) return;
+	uv_buf_t obj = uv_buf_init((char *)buf, len);
+	uv_write_t req = { .data = conn };
+	(void)BTUVErr(uv_write(&req, (uv_stream_t *)conn->stream, &obj, 1, write_cb));
+	co_switch(conn->yield);
 }
 void HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, strarg_t const message) {
 	if(!conn) return;
@@ -129,34 +120,37 @@ void HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const st
 	// TODO: Suppply our own message for known status codes.
 	str_t *str;
 	int const slen = BTErrno(asprintf(&str, "HTTP/1.1 %d %s\r\n", status, message));
-	if(-1 != slen) write(conn->stream, str, slen);
+	if(-1 != slen) HTTPConnectionWrite(conn, (byte_t *)str, slen);
 	FREE(&str);
 }
 void HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value) {
 	if(!conn) return;
-	fd_t const stream = conn->stream;
-	write(stream, field, strlen(field));
-	write(stream, ": ", 2);
-	write(stream, value, strlen(value));
-	write(stream, "\r\n", 2);
+	uv_buf_t parts[] = {
+		uv_buf_init((char *)field, strlen(field)),
+		uv_buf_init(": ", 2),
+		uv_buf_init((char *)value, strlen(value)),
+		uv_buf_init("\r\n", 2),
+	};
+	uv_write_t req = { .data = conn };
+	(void)BTUVErr(uv_write(&req, (uv_stream_t *)conn->stream, parts, numberof(parts), write_cb));
+	co_switch(conn->yield);
 }
 void HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, size_t const len) {
 	if(!conn) return;
 	str_t *str = NULL;
 	int const slen = BTErrno(asprintf(&str, "Content-Length: %llu\r\n", (unsigned long long)len));
-	if(-1 != slen) write(conn->stream, str, slen);
+	if(-1 != slen) HTTPConnectionWrite(conn, (byte_t *)str, slen);
 	FREE(&str);
 }
 void HTTPConnectionBeginBody(HTTPConnectionRef const conn) {
 	if(!conn) return;
-	fd_t const stream = conn->stream;
-	HTTPConnectionWriteHeader(conn, "Connection", "close"); // TODO: Keepalive.
-	write(stream, "\r\n", 2); // TODO: Safe for HEAD requests?
+	HTTPConnectionWriteHeader(conn, "Connection", "keepalive"); // TODO: Make sure we're doing this right.
+	HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2); // TODO: Safe for HEAD requests?
 	// TODO: TCP_CORK?
 }
 void HTTPConnectionClose(HTTPConnectionRef const conn) {
 	if(!conn) return;
-	close(conn->stream); // TODO: Keepalive.
+	// TODO: Figure out keepalive. Do we just never close connections?
 }
 
 void HTTPConnectionSendMessage(HTTPConnectionRef const conn, uint16_t const status, strarg_t const msg) {
@@ -167,7 +161,7 @@ void HTTPConnectionSendMessage(HTTPConnectionRef const conn, uint16_t const stat
 	HTTPConnectionBeginBody(conn);
 	// TODO: Check how HEAD responses should look.
 	if(HTTP_HEAD != HTTPConnectionGetRequestMethod(conn)) {
-		write(HTTPConnectionGetStream(conn), msg, len);
+		HTTPConnectionWrite(conn, (byte_t const *)msg, len);
 	}
 	HTTPConnectionClose(conn);
 	if(status >= 400) fprintf(stderr, "%s: %d %s\n", HTTPConnectionGetRequestURI(conn), (int)status, msg);
@@ -250,12 +244,34 @@ static http_parser_settings const settings = {
 	.on_message_complete = on_message_complete,
 };
 
+
+static void alloc_cb(uv_handle_t *const handle, size_t const suggested_size, uv_buf_t *const buf) {
+	HTTPConnectionRef const conn = handle->data;
+	*buf = uv_buf_init((char *)conn->buf, BUFFER_SIZE);
+}
+static void read_cb(uv_stream_t *const stream, ssize_t const nread, const uv_buf_t *const buf) {
+	HTTPConnectionRef const conn = stream->data;
+	conn->nread = nread;
+	co_switch(conn->thread);
+}
+static void write_cb(uv_write_t *const req, int status) {
+	HTTPConnectionRef const conn = req->data;
+	co_switch(conn->thread);
+}
+
 static ssize_t readOnce(HTTPConnectionRef const conn) {
 	if(conn->eof) return -1;
-	ssize_t const rlen = read(conn->stream, conn->buf, BUFFER_SIZE);
-	if(-1 == rlen) return -1;
-	size_t const plen = http_parser_execute(conn->parser, &settings, (char const *)conn->buf, rlen);
-	if(plen != rlen) return -1;
+	conn->nread = 0;
+	for(;;) {
+		(void)BTUVErr(uv_read_start((uv_stream_t *)conn->stream, alloc_cb, read_cb));
+		co_switch(conn->yield);
+		(void)BTUVErr(uv_read_stop((uv_stream_t *)conn->stream));
+		if(conn->nread) break;
+	}
+	if(UV_EOF == conn->nread) conn->nread = 0;
+	if(conn->nread < 0) return -1;
+	size_t const plen = http_parser_execute(conn->parser, &settings, (char const *)conn->buf, conn->nread);
+	if(plen != conn->nread) return -1;
 	return plen;
 }
 static err_t readHeaders(HTTPConnectionRef const conn) {
@@ -264,13 +280,13 @@ static err_t readHeaders(HTTPConnectionRef const conn) {
 		if(conn->chunkLength || conn->eof) return 0;
 	}
 }
-static err_t handleMessage(HTTPServerRef const server, HTTPConnectionRef const conn) {
+static err_t handleMessage(HTTPConnectionRef const conn) {
 	conn->headersSize = 10;
 	conn->headers = calloc(1, sizeof(HTTPHeaderList) + sizeof(HTTPHeader) * conn->headersSize);
 
 	err_t const err = readHeaders(conn);
 	if(-1 != err) {
-		server->listener(server->context, conn);
+		conn->server->listener(conn->server->context, conn);
 	}
 
 	FREE(&conn->URI);
@@ -285,33 +301,45 @@ static err_t handleMessage(HTTPServerRef const server, HTTPConnectionRef const c
 	conn->headersSize = 0;
 	return err;
 }
-static void *serverThread(HTTPServerRef const server) {
-	BTAssert(server, "HTTPServer thread requires server");
-	for(;;) {
-		fd_t const socket = server->socket;
-		if(-1 == socket) break;
-
-		struct sockaddr_in connection = {};
-		socklen_t socklen = sizeof(connection);
-		fd_t const stream = BTErrno(accept(socket, (struct sockaddr *)&connection, &socklen));
-		if(-1 == stream) continue;
-
-		struct http_parser parser;
-		http_parser_init(&parser, HTTP_REQUEST);
-		byte_t buf[BUFFER_SIZE];
-
-		for(;;) {
-			HTTPConnection conn = {};
-			conn.stream = stream;
-			conn.parser = &parser;
-			conn.parser->data = &conn;
-			conn.buf = buf;
-			if(-1 == handleMessage(server, &conn)) break;
-		}
-
+static struct {
+	uv_stream_t *socket;
+	cothread_t main;
+} fiber_args = {};
+static void handleStream(void) {
+	uv_stream_t *const socket = fiber_args.socket;
+	cothread_t const main = fiber_args.main;
+	uv_tcp_t stream;
+	(void)BTUVErr(uv_tcp_init(uv_default_loop(), &stream));
+	if(BTUVErr(uv_accept(socket, (uv_stream_t *)&stream))) {
+		fprintf(stderr, "Accept failed\n");
+		co_switch(main); // TODO: Destroy thread
+		return;
 	}
 
-	return NULL; // TODO: What does pthread expect me to return?
+	struct http_parser parser;
+	http_parser_init(&parser, HTTP_REQUEST);
+	byte_t buf[BUFFER_SIZE];
+	for(;;) {
+		HTTPConnection conn = {};
+		conn.server = socket->data;
+		conn.thread = co_active();
+		conn.yield = main;
+		conn.stream = &stream;
+		conn.parser = &parser;
+		stream.data = &conn;
+		parser.data = &conn;
+		conn.buf = buf;
+		if(-1 == handleMessage(&conn)) break;
+	}
+	fprintf(stderr, "Stream closing\n");
+	uv_close((uv_handle_t *)&stream, NULL);
+	co_switch(main);
+	// TODO: Destroy the thread.
+}
+static void connection_cb(uv_stream_t *const socket, int const status) {
+	fiber_args.socket = socket;
+	fiber_args.main = co_active();
+	co_switch(co_create(1024 * 100 * sizeof(void *) / 4, handleStream));
 }
 
 static strarg_t statusstr(uint16_t const status) {
