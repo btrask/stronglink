@@ -50,14 +50,14 @@ build/http_parser.o: deps/http_parser/http_parser.c deps/http_parser/http_parser
 	@-mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-build/libco.o: deps/libco/libco.c deps/libco/libco.h
+build/libco.o: deps/libco/sjlj.c deps/libco/libco.h
 	@-mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) -Wno-parentheses
+	# x86 version is crashing a lot for us with Clang 3.3.
 
 build/sqlite3.o: deps/sqlite/sqlite3.c deps/sqlite/sqlite3.h
 	@-mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS) -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -Wno-unused-value -fno-builtin
-	# -fno-builtin is to work around a problem with libco/x86, Clang, and memcpy, as exemplified by SQLite crashing in findInodeInfo(). Leave builtins on elsewhere so hopefully we can smoke the problem out.
+	$(CC) -c -o $@ $< $(CFLAGS) -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -Wno-unused-value
 
 build/%.o: src/%.c $(HEADERS)
 	@-mkdir -p $(dir $@)
