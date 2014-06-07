@@ -14,6 +14,7 @@ typedef struct EFSJSONFilterBuilder* EFSJSONFilterBuilderRef;
 
 EFSRepoRef EFSRepoCreate(strarg_t const path);
 void EFSRepoFree(EFSRepoRef const repo);
+void EFSYieldToRepoThread(EFSRepoRef const repo);
 strarg_t EFSRepoGetPath(EFSRepoRef const repo);
 strarg_t EFSRepoGetDataPath(EFSRepoRef const repo);
 sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo);

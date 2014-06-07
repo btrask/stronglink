@@ -1,4 +1,6 @@
+#include <uv.h>
 #include "../deps/crypt_blowfish-1.0.4/ow-crypt.h"
+#include "../deps/libco/libco.h"
 #include "../deps/sqlite/sqlite3.h"
 #include "EarthFS.h"
 
@@ -17,11 +19,30 @@ static int passcmp(strarg_t const a, strarg_t const b) {
 	return r;
 }
 
-EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const username, strarg_t const password, strarg_t const cookie, EFSMode const mode) {
-	if(!repo) return NULL;
+typedef struct {
+	cothread_t thread;
+} generic_args;
+static void done(uv_work_t *const req, int const status) {
+	generic_args *const args = req->data;
+	co_switch(args->thread);
+}
 
-	sqlite3 *const db = EFSRepoDBConnect(repo);
-	if(!db) return NULL;
+typedef struct {
+	cothread_t thread;
+	// IN
+	EFSRepoRef repo;
+	strarg_t username;
+	strarg_t password;
+	strarg_t cookie;
+	// OUT
+	int64_t userID;
+	EFSMode mode;
+} auth_args;
+static void sql_auth(uv_work_t *const req) {
+	auth_args *const args = req->data;
+
+	sqlite3 *const db = EFSRepoDBConnect(args->repo);
+	if(!db) return;
 
 	sqlite3_stmt *stmt = NULL;
 	(void)BTSQLiteErr(sqlite3_prepare_v2(db,
@@ -29,35 +50,55 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const usernam
 		" FROM \"users\" WHERE \"username\" = ?"
 		" LIMIT 1",
 		-1, &stmt, NULL));
-	(void)BTSQLiteErr(sqlite3_bind_text(stmt, 1, username, -1, SQLITE_TRANSIENT));
+	(void)BTSQLiteErr(sqlite3_bind_text(stmt, 1, args->username, -1, SQLITE_TRANSIENT));
 	(void)BTSQLiteErr(sqlite3_step(stmt));
 
 	int64_t const userID = sqlite3_column_int(stmt, 0);
 	strarg_t passhash = (strarg_t)sqlite3_column_text(stmt, 1);
 
-	if(!userID || !passhash) {
+	if(!passhash) {
 		(void)BTSQLiteErr(sqlite3_finalize(stmt));
-		EFSRepoDBClose(repo, db);
-		return NULL;
+		EFSRepoDBClose(args->repo, db);
+		return;
 	}
 
 	int size = 0;
 	void *data = NULL;
-	strarg_t attempt = crypt_ra(password, passhash, &data, &size);
+	strarg_t attempt = crypt_ra(args->password, passhash, &data, &size);
 	if(!attempt || 0 != passcmp(attempt, passhash)) {
 		FREE(&data); attempt = NULL;
 		(void)BTSQLiteErr(sqlite3_finalize(stmt));
-		EFSRepoDBClose(repo, db);
-		return NULL;
+		EFSRepoDBClose(args->repo, db);
+		return;
 	}
 	FREE(&data); attempt = NULL;
 	(void)BTSQLiteErr(sqlite3_finalize(stmt));
-	EFSRepoDBClose(repo, db);
+	EFSRepoDBClose(args->repo, db);
+
+	args->userID = userID;
+	args->mode = EFS_RDWR; // TODO
+}
+
+EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const username, strarg_t const password, strarg_t const cookie, EFSMode const mode) {
+	if(!repo) return NULL;
+
+	auth_args args = {
+		.thread = co_active(),
+		.repo = repo,
+		.username = username,
+		.password = password,
+		.cookie = cookie,
+	};
+	uv_work_t req = { .data = &args };
+	uv_queue_work(uv_default_loop(), &req, sql_auth, done);
+	EFSYieldToRepoThread(repo);
+
+	if(!args.userID) return NULL;
 
 	EFSSessionRef const session = calloc(1, sizeof(struct EFSSession));
 	session->repo = repo;
-	session->userID = userID;
-	session->mode = EFS_RDWR; // TODO: Check token and use input.
+	session->userID = args.userID;
+	session->mode = args.mode;
 	return session;
 }
 void EFSSessionFree(EFSSessionRef const session) {
