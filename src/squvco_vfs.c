@@ -86,7 +86,7 @@ static int squvco_access(sqlite3_vfs *const vfs, char const *const path, int con
 			*outRes = 0600 == (req.statbuf.st_mode & 0600);
 			break;
 		case SQLITE_ACCESS_READ:
-			*outRes = 0400 == (req.statbuf.st_mode & 0600);
+			*outRes = 0400 == (req.statbuf.st_mode & 0400);
 			break;
 	}
 	uv_fs_req_cleanup(&req);
