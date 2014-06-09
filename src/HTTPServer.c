@@ -47,7 +47,7 @@ void HTTPServerFree(HTTPServerRef const server) {
 	free(server);
 }
 
-int HTTPServerListen(HTTPServerRef const server, in_port_t const port, strarg_t const address) {
+int HTTPServerListen(HTTPServerRef const server, uint16_t const port, strarg_t const address) {
 	if(!server) return 0;
 	BTAssert(!server->socket, "HTTPServer already listening");
 	// INADDR_ANY, INADDR_LOOPBACK

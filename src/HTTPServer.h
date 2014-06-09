@@ -1,4 +1,3 @@
-#include <netinet/in.h>
 #include "../deps/http_parser/http_parser.h"
 #include "common.h"
 
@@ -23,7 +22,7 @@ typedef enum http_method HTTPMethod;
 
 HTTPServerRef HTTPServerCreate(HTTPListener const listener, void *const context);
 void HTTPServerFree(HTTPServerRef const server);
-int HTTPServerListen(HTTPServerRef const server, in_port_t const port, strarg_t const address);
+int HTTPServerListen(HTTPServerRef const server, uint16_t const port, strarg_t const address);
 void HTTPServerClose(HTTPServerRef const server);
 
 // Connection reading
