@@ -1,8 +1,7 @@
 #include <unistd.h>
-#include <uv.h>
-#include "common.h"
-#include "../deps/libco/libco.h"
 #include "../deps/sqlite/sqlite3.h"
+#include "common.h"
+#include "async.h"
 
 #define MAXPATHNAME 512
 
@@ -11,17 +10,8 @@ static cothread_t queue[QUEUE_MAX];
 static index_t queue_start = 0;
 static count_t queue_length = 0;
 
-static uv_loop_t *loop;
-static cothread_t yield;
-
 static sqlite3_io_methods const io_methods;
 
-static void fs_cb(uv_fs_t *const req) {
-	co_switch(req->data);
-}
-static void timer_cb(uv_timer_t *const timer) {
-	co_switch(timer->data);
-}
 static void unlock_cb(uv_timer_t *const timer) {
 	if(timer->data != queue[queue_start]) return;
 	co_switch(timer->data);
@@ -41,7 +31,7 @@ static int squvco_open(sqlite3_vfs *const vfs, char const *const path, squvco_fi
 	if(sqflags & SQLITE_OPEN_READWRITE) uvflags |= O_RDWR;
 	if(sqflags & SQLITE_OPEN_READONLY) uvflags |= O_RDONLY;
 	uv_fs_t req = { .data = co_active() };
-	uv_fs_open(loop, &req, path, uvflags, 0600, fs_cb);
+	uv_fs_open(loop, &req, path, uvflags, 0600, async_fs_cb);
 	co_switch(yield);
 	int const result = req.result;
 	uv_fs_req_cleanup(&req);
@@ -52,7 +42,7 @@ static int squvco_open(sqlite3_vfs *const vfs, char const *const path, squvco_fi
 }
 static int squvco_delete(sqlite3_vfs *const vfs, char const *const path, int const syncDir) {
 	uv_fs_t req = { .data = co_active() };
-	uv_fs_unlink(loop, &req, path, fs_cb);
+	uv_fs_unlink(loop, &req, path, async_fs_cb);
 	co_switch(yield);
 	int const unlinkresult = req.result;
 	uv_fs_req_cleanup(&req);
@@ -65,18 +55,18 @@ static int squvco_delete(sqlite3_vfs *const vfs, char const *const path, int con
 		for(; i > 1 && '/' != dirname[i]; ++i);
 		dirname[i] = '\0';
 
-		uv_fs_open(loop, &req, dirname, O_RDWR, 0600, fs_cb);
+		uv_fs_open(loop, &req, dirname, O_RDWR, 0600, async_fs_cb);
 		co_switch(yield);
 		uv_file const dir = req.result;
 		uv_fs_req_cleanup(&req);
 		if(dir < 0) return SQLITE_IOERR_DELETE;
 
-		uv_fs_fsync(loop, &req, dir, fs_cb);
+		uv_fs_fsync(loop, &req, dir, async_fs_cb);
 		co_switch(yield);
 		int const syncresult = req.result;
 		uv_fs_req_cleanup(&req);
 
-		uv_fs_close(loop, &req, dir, fs_cb);
+		uv_fs_close(loop, &req, dir, async_fs_cb);
 		co_switch(yield);
 		uv_fs_req_cleanup(&req);
 
@@ -86,7 +76,7 @@ static int squvco_delete(sqlite3_vfs *const vfs, char const *const path, int con
 }
 static int squvco_access(sqlite3_vfs *const vfs, char const *const path, int const flags, int *const outRes) {
 	uv_fs_t req = { .data = co_active() };
-	uv_fs_stat(loop, &req, path, fs_cb);
+	uv_fs_stat(loop, &req, path, async_fs_cb);
 	co_switch(yield);
 	switch(flags) {
 		case SQLITE_ACCESS_EXISTS:
@@ -119,7 +109,7 @@ static int squvco_randomness(sqlite3_vfs *const vfs, int const size, char *const
 static int squvco_sleep(sqlite3_vfs *const vfs, int const microseconds) {
 	uv_timer_t timer = { .data = co_active() };
 	uv_timer_init(loop, &timer);
-	uv_timer_start(&timer, timer_cb, microseconds / 1000, 0);
+	uv_timer_start(&timer, async_timer_cb, microseconds / 1000, 0);
 	co_switch(yield);
 	uv_timer_stop(&timer);
 	return microseconds;
@@ -181,7 +171,7 @@ static sqlite3_vfs squvco_vfs = {
 
 static int squvco_close(squvco_file *const file) {
 	uv_fs_t req = { .data = co_active() };
-	uv_fs_close(loop, &req, file->file, fs_cb);
+	uv_fs_close(loop, &req, file->file, async_fs_cb);
 	co_switch(yield);
 	int const result = req.result;
 	uv_fs_req_cleanup(&req);
@@ -191,7 +181,7 @@ static int squvco_close(squvco_file *const file) {
 static int squvco_read(squvco_file *const file, void *const buf, int const len, sqlite3_int64 const offset) {
 	uv_buf_t info = uv_buf_init((char *)buf, len);
 	uv_fs_t req = { .data = co_active() };
-	uv_fs_read(loop, &req, file->file, &info, 1, offset, fs_cb);
+	uv_fs_read(loop, &req, file->file, &info, 1, offset, async_fs_cb);
 	co_switch(yield);
 	int const result = req.result;
 	uv_fs_req_cleanup(&req);
@@ -205,7 +195,7 @@ static int squvco_read(squvco_file *const file, void *const buf, int const len, 
 static int squvco_write(squvco_file *const file, void const *const buf, int const len, sqlite3_int64 const offset) {
 	uv_buf_t info = uv_buf_init((char *)buf, len);
 	uv_fs_t req = { .data = co_active() };
-	uv_fs_write(loop, &req, file->file, &info, 1, offset, fs_cb);
+	uv_fs_write(loop, &req, file->file, &info, 1, offset, async_fs_cb);
 	co_switch(yield);
 	int const result = req.result;
 	uv_fs_req_cleanup(&req);
@@ -214,7 +204,7 @@ static int squvco_write(squvco_file *const file, void const *const buf, int cons
 }
 static int squvco_truncate(squvco_file *const file, sqlite3_int64 const size) {
 	uv_fs_t req = { .data = co_active() };
-	uv_fs_ftruncate(loop, &req, file->file, size, fs_cb);
+	uv_fs_ftruncate(loop, &req, file->file, size, async_fs_cb);
 	co_switch(yield);
 	int const result = req.result;
 	uv_fs_req_cleanup(&req);
@@ -224,9 +214,9 @@ static int squvco_truncate(squvco_file *const file, sqlite3_int64 const size) {
 static int squvco_sync(squvco_file *const file, int const flags) {
 	uv_fs_t req = { .data = co_active() };
 	if(flags & SQLITE_SYNC_DATAONLY) {
-		uv_fs_fdatasync(loop, &req, file->file, fs_cb);
+		uv_fs_fdatasync(loop, &req, file->file, async_fs_cb);
 	} else {
-		uv_fs_fsync(loop, &req, file->file, fs_cb);
+		uv_fs_fsync(loop, &req, file->file, async_fs_cb);
 	}
 	co_switch(yield);
 	int const result = req.result;
@@ -236,7 +226,7 @@ static int squvco_sync(squvco_file *const file, int const flags) {
 }
 static int squvco_fileSize(squvco_file *const file, sqlite3_int64 *const outSize) {
 	uv_fs_t req = { .data = co_active() };
-	uv_fs_fstat(loop, &req, file->file, fs_cb);
+	uv_fs_fstat(loop, &req, file->file, async_fs_cb);
 	co_switch(yield);
 	*outSize = req.statbuf.st_size;
 	int const result = req.result;
@@ -311,8 +301,8 @@ static sqlite3_io_methods const io_methods = {
 };
 
 void squvco_register(int const makeDefault) {
-	loop = uv_default_loop();
-	yield = co_active();
+//	loop = uv_default_loop();
+//	yield = co_active();
 	sqlite3_vfs_register(&squvco_vfs, 1);
 }
 

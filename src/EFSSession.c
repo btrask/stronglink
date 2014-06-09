@@ -61,7 +61,7 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const usernam
 	EFSSessionRef const session = calloc(1, sizeof(struct EFSSession));
 	session->repo = repo;
 	session->userID = userID;
-	session->mode = mode;
+	session->mode = mode; // TODO: Validate
 	return session;
 }
 void EFSSessionFree(EFSSessionRef const session) {
@@ -70,5 +70,9 @@ void EFSSessionFree(EFSSessionRef const session) {
 	session->userID = -1;
 	session->mode = 0;
 	free(session);
+}
+int64_t EFSSessionGetUserID(EFSSessionRef const session) {
+	if(!session) return -1;
+	return session->userID;
 }
 

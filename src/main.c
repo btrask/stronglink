@@ -1,12 +1,18 @@
 #include <uv.h>
+#include "../deps/libco/libco.h"
 #include "EarthFS.h"
 #include "HTTPServer.h"
+
+cothread_t yield = NULL;
+uv_loop_t *loop = NULL;
 
 void squvco_register(int const makeDefault);
 
 void EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn);
 
 int main(int const argc, char const *const *const argv) {
+	yield = co_active();
+	loop = uv_default_loop();
 	squvco_register(1);
 
 	EFSRepoRef const repo = EFSRepoCreate("/home/ben/Documents/testrepo");

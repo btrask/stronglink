@@ -5,6 +5,7 @@ CFLAGS := -g -O0
 
 HEADERS := \
 	src/common.h \
+	src/async.h \
 	src/EarthFS.h \
 	src/HTTPServer.h \
 	src/QueryString.h \

@@ -1,7 +1,6 @@
 #define _GNU_SOURCE
-#include <uv.h>
-#include "../deps/libco/libco.h"
 #include "HTTPServer.h"
+#include "async.h"
 
 #define BUFFER_SIZE (1024 * 8)
 
@@ -14,7 +13,6 @@ typedef struct HTTPConnection {
 	// Connection
 	HTTPServerRef server;
 	cothread_t thread;
-	cothread_t yield;
 	uv_tcp_t *stream;
 	http_parser *parser;
 	byte_t *buf;
@@ -55,7 +53,7 @@ int HTTPServerListen(HTTPServerRef const server, in_port_t const port, strarg_t 
 	// INADDR_ANY, INADDR_LOOPBACK
 	server->socket = malloc(sizeof(uv_tcp_t));
 	if(!server->socket) return -1;
-	if(BTUVErr(uv_tcp_init(uv_default_loop(), server->socket))) return -1;
+	if(BTUVErr(uv_tcp_init(loop, server->socket))) return -1;
 	server->socket->data = server;
 	struct sockaddr_in addr;
 	if(BTUVErr(uv_ip4_addr(address, port, &addr))) return -1;
@@ -110,9 +108,9 @@ ssize_t HTTPConnectionGetBuffer(HTTPConnectionRef const conn, byte_t const **con
 void HTTPConnectionWrite(HTTPConnectionRef const conn, byte_t const *const buf, size_t const len) {
 	if(!conn) return;
 	uv_buf_t obj = uv_buf_init((char *)buf, len);
-	uv_write_t req = { .data = conn };
-	(void)BTUVErr(uv_write(&req, (uv_stream_t *)conn->stream, &obj, 1, write_cb));
-	co_switch(conn->yield);
+	uv_write_t req = { .data = co_active() };
+	(void)BTUVErr(uv_write(&req, (uv_stream_t *)conn->stream, &obj, 1, async_write_cb));
+	co_switch(yield);
 }
 void HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, strarg_t const message) {
 	if(!conn) return;
@@ -131,9 +129,9 @@ void HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const fiel
 		uv_buf_init((char *)value, strlen(value)),
 		uv_buf_init("\r\n", 2),
 	};
-	uv_write_t req = { .data = conn };
-	(void)BTUVErr(uv_write(&req, (uv_stream_t *)conn->stream, parts, numberof(parts), write_cb));
-	co_switch(conn->yield);
+	uv_write_t req = { .data = co_active() };
+	(void)BTUVErr(uv_write(&req, (uv_stream_t *)conn->stream, parts, numberof(parts), async_write_cb));
+	co_switch(yield);
 }
 void HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, size_t const len) {
 	if(!conn) return;
@@ -254,17 +252,13 @@ static void read_cb(uv_stream_t *const stream, ssize_t const nread, const uv_buf
 	conn->nread = nread;
 	co_switch(conn->thread);
 }
-static void write_cb(uv_write_t *const req, int status) {
-	HTTPConnectionRef const conn = req->data;
-	co_switch(conn->thread);
-}
 
 static ssize_t readOnce(HTTPConnectionRef const conn) {
 	if(conn->eof) return -1;
 	conn->nread = 0;
 	for(;;) {
 		(void)BTUVErr(uv_read_start((uv_stream_t *)conn->stream, alloc_cb, read_cb));
-		co_switch(conn->yield);
+		co_switch(yield);
 		(void)BTUVErr(uv_read_stop((uv_stream_t *)conn->stream));
 		if(conn->nread) break;
 	}
@@ -303,16 +297,14 @@ static err_t handleMessage(HTTPConnectionRef const conn) {
 }
 static struct {
 	uv_stream_t *socket;
-	cothread_t main;
 } fiber_args = {};
 static void handleStream(void) {
 	uv_stream_t *const socket = fiber_args.socket;
-	cothread_t const main = fiber_args.main;
 	uv_tcp_t stream;
-	(void)BTUVErr(uv_tcp_init(uv_default_loop(), &stream));
+	(void)BTUVErr(uv_tcp_init(loop, &stream));
 	if(BTUVErr(uv_accept(socket, (uv_stream_t *)&stream))) {
 		fprintf(stderr, "Accept failed\n");
-		co_switch(main); // TODO: Destroy thread
+		co_switch(yield); // TODO: Destroy thread
 		return;
 	}
 
@@ -323,7 +315,6 @@ static void handleStream(void) {
 		HTTPConnection conn = {};
 		conn.server = socket->data;
 		conn.thread = co_active();
-		conn.yield = main;
 		conn.stream = &stream;
 		conn.parser = &parser;
 		stream.data = &conn;
@@ -333,12 +324,11 @@ static void handleStream(void) {
 	}
 	fprintf(stderr, "Stream closing\n");
 	uv_close((uv_handle_t *)&stream, NULL);
-	co_switch(main);
+	co_switch(yield);
 	// TODO: Destroy the thread.
 }
 static void connection_cb(uv_stream_t *const socket, int const status) {
 	fiber_args.socket = socket;
-	fiber_args.main = co_active();
 	co_switch(co_create(1024 * 100 * sizeof(void *) / 4, handleStream));
 }
 

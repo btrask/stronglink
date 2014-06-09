@@ -14,7 +14,6 @@ typedef struct EFSJSONFilterBuilder* EFSJSONFilterBuilderRef;
 
 EFSRepoRef EFSRepoCreate(strarg_t const path);
 void EFSRepoFree(EFSRepoRef const repo);
-void EFSYieldToRepoThread(EFSRepoRef const repo);
 strarg_t EFSRepoGetPath(EFSRepoRef const repo);
 strarg_t EFSRepoGetDataPath(EFSRepoRef const repo);
 sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo);
@@ -28,6 +27,7 @@ typedef enum {
 
 EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const user, strarg_t const pass, strarg_t const cookie, EFSMode const mode);
 void EFSSessionFree(EFSSessionRef const session);
+int64_t EFSSessionGetUserID(EFSSessionRef const session);
 
 // TODO: We want a cleaner split between EFS and HTTP.
 //EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, HTTPConnectionRef const conn);
@@ -40,6 +40,7 @@ void EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, ssize_t 
 
 EFSURIListRef EFSHasherCreateURIList(EFSHasherRef const hasher);
 void EFSURIListFree(EFSURIListRef const list);
+strarg_t EFSURIListGetInternalHash(EFSURIListRef const list);
 count_t EFSURIListGetCount(EFSURIListRef const list);
 strarg_t EFSURIListGetURI(EFSURIListRef const list, index_t const x);
 

@@ -18,6 +18,7 @@ struct EFSHasher {
 	SHA256_CTX sha256;
 };
 struct EFSURIList {
+	str_t *internalHash;
 	count_t count;
 	str_t *items[0];
 };
@@ -55,6 +56,7 @@ EFSURIListRef EFSHasherCreateURIList(EFSHasherRef const hasher) {
 	// TODO: Base64.
 
 	EFSURIListRef const URIs = calloc(1, sizeof(struct EFSURIList) + sizeof(str_t *) * 4);
+	URIs->internalHash = strdup(sha256h);
 	URIs->count = 4;
 	index_t i = 0;
 	(void)BTErrno(asprintf(&URIs->items[i++], "hash://sha1/%s", sha1h));
@@ -69,10 +71,15 @@ EFSURIListRef EFSHasherCreateURIList(EFSHasherRef const hasher) {
 }
 void EFSURIListFree(EFSURIListRef const list) {
 	if(!list) return;
+	FREE(&list->internalHash);
 	for(index_t i = 0; i < list->count; ++i) {
 		FREE(&list->items[i]);
 	}
 	free(list);
+}
+strarg_t EFSURIListGetInternalHash(EFSURIListRef const list) {
+	if(!list) return NULL;
+	return list->internalHash;
 }
 count_t EFSURIListGetCount(EFSURIListRef const list) {
 	if(!list) return 0;
