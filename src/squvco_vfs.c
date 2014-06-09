@@ -25,6 +25,7 @@ static void timer_cb(uv_timer_t *const timer) {
 static void unlock_cb(uv_timer_t *const timer) {
 	if(timer->data != queue[queue_start]) return;
 	co_switch(timer->data);
+	uv_timer_stop(timer);
 }
 
 typedef struct {
@@ -262,6 +263,7 @@ static int squvco_unlock(squvco_file *const file, int const level) {
 	if(!queue_length) {
 		// TODO: Unlock file.
 	} else {
+		// So that we don't "steal the stack"
 		uv_timer_t timer = { .data = queue[queue_start] };
 		uv_timer_start(&timer, unlock_cb, 0, 0);
 	}
