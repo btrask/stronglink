@@ -241,7 +241,7 @@ static int on_header_field(http_parser *const parser, char const *const at, size
 			conn->headersSize *= 2;
 			conn->headers = realloc(conn->headers, sizeof(HTTPHeaderList) + sizeof(HTTPHeader) * conn->headersSize);
 			if(!conn->headers) return -1;
-			memset(&conn->headers[conn->headers->count], 0, sizeof(HTTPHeader) * (conn->headersSize - conn->headers->count));
+			memset(&conn->headers->items[conn->headers->count], 0, sizeof(HTTPHeader) * (conn->headersSize - conn->headers->count));
 		}
 	}
 	HTTPHeader *const header = &conn->headers->items[conn->headers->count];
@@ -257,6 +257,9 @@ static int on_header_value(http_parser *const parser, char const *const at, size
 static int on_headers_complete(http_parser *const parser) {
 	HTTPConnectionRef const conn = parser->data;
 	++conn->headers->count; // Last header finished.
+/*	for(index_t i = 0; i < conn->headers->count; ++i) {
+		fprintf(stderr, "%s: %s\n", conn->headers->items[i].field, conn->headers->items[i].value);
+	}*/
 	// TODO: Lowercase and sort by field name for faster access.
 	return 0;
 }
