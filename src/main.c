@@ -13,14 +13,14 @@ void EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn);
 int main(int const argc, char const *const *const argv) {
 	yield = co_active();
 	loop = uv_default_loop();
-	squvco_register(1);
+	squvco_register(true);
 
 	EFSRepoRef const repo = EFSRepoCreate("/home/ben/Documents/testrepo");
 
 	HTTPServerRef const server = HTTPServerCreate((HTTPListener)EFSServerDispatch, repo);
 	HTTPServerListen(server, 8000, "127.0.0.1");
 
-	uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+	uv_run(loop, UV_RUN_DEFAULT);
 
 	HTTPServerClose(server);
 	HTTPServerFree(server);
