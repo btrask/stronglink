@@ -24,6 +24,7 @@ OBJECTS := \
 	build/EFSServer.o \
 	build/HTTPServer.o \
 	build/QueryString.o \
+	build/squvco_vfs.o \
 	build/crypt/crypt_blowfish.o \
 	build/crypt/crypt_gensalt.o \
 	build/crypt/wrapper.o \
@@ -57,7 +58,7 @@ build/libco.o: deps/libco/sjlj.c deps/libco/libco.h
 
 build/sqlite3.o: deps/sqlite/sqlite3.c deps/sqlite/sqlite3.h
 	@-mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS) -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -Wno-unused-value
+	$(CC) -c -o $@ $< $(CFLAGS) -DSQLITE_THREADSAFE=0 -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -Wno-unused-value
 
 build/%.o: src/%.c $(HEADERS)
 	@-mkdir -p $(dir $@)
