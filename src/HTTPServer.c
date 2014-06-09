@@ -142,7 +142,7 @@ void HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, size_t const
 }
 void HTTPConnectionBeginBody(HTTPConnectionRef const conn) {
 	if(!conn) return;
-	HTTPConnectionWriteHeader(conn, "Connection", "keepalive"); // TODO: Make sure we're doing this right.
+	HTTPConnectionWriteHeader(conn, "Connection", "keep-alive"); // TODO: Make sure we're doing this right.
 	HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2); // TODO: Safe for HEAD requests?
 	// TODO: TCP_CORK?
 }
@@ -226,6 +226,9 @@ static ssize_t append(str_t **const dst, size_t *const dsize, strarg_t const src
 	return old+len;
 }
 
+static int on_message_begin(http_parser *const parser) {
+	return 0;
+}
 static int on_url(http_parser *const parser, char const *const at, size_t const len) {
 	HTTPConnectionRef const conn = parser->data;
 	ssize_t const total = append(&conn->URI, &conn->URISize, at, len);
@@ -234,13 +237,12 @@ static int on_url(http_parser *const parser, char const *const at, size_t const 
 static int on_header_field(http_parser *const parser, char const *const at, size_t const len) {
 	HTTPConnectionRef const conn = parser->data;
 	if(conn->headers->items[conn->headers->count].value) {
-		if(conn->headers->count >= conn->headersSize) {
+		if(++conn->headers->count >= conn->headersSize) {
 			conn->headersSize *= 2;
 			conn->headers = realloc(conn->headers, sizeof(HTTPHeaderList) + sizeof(HTTPHeader) * conn->headersSize);
 			if(!conn->headers) return -1;
 			memset(&conn->headers[conn->headers->count], 0, sizeof(HTTPHeader) * (conn->headersSize - conn->headers->count));
 		}
-		++conn->headers->count;
 	}
 	HTTPHeader *const header = &conn->headers->items[conn->headers->count];
 	ssize_t const total = append(&header->field, &header->fsize, at, len);
@@ -260,6 +262,7 @@ static int on_headers_complete(http_parser *const parser) {
 }
 static int on_body(http_parser *const parser, char const *const at, size_t const len) {
 	HTTPConnectionRef const conn = parser->data;
+	BTAssert(conn->URI, "Body chunk received out of order");
 	BTAssert(!conn->chunkLength, "Chunk already waiting");
 	BTAssert(!conn->eof, "Message already complete");
 	conn->chunk = (byte_t const *)at;
@@ -272,7 +275,7 @@ static int on_message_complete(http_parser *const parser) {
 	return 0;
 }
 static http_parser_settings const settings = {
-	.on_message_begin = NULL,
+	.on_message_begin = on_message_begin,
 	.on_url = on_url,
 	.on_header_field = on_header_field,
 	.on_header_value = on_header_value,
@@ -296,9 +299,9 @@ static ssize_t readOnce(HTTPConnectionRef const conn) {
 	if(conn->eof) return -1;
 	conn->nread = 0;
 	for(;;) {
-		(void)BTUVErr(uv_read_start((uv_stream_t *)conn->stream, alloc_cb, read_cb));
+		uv_read_start((uv_stream_t *)conn->stream, alloc_cb, read_cb);
 		co_switch(yield);
-		(void)BTUVErr(uv_read_stop((uv_stream_t *)conn->stream));
+		uv_read_stop((uv_stream_t *)conn->stream);
 		if(conn->nread) break;
 	}
 	if(UV_EOF == conn->nread) conn->nread = 0;
@@ -319,7 +322,15 @@ static err_t handleMessage(HTTPConnectionRef const conn) {
 
 	err_t const err = readHeaders(conn);
 	if(-1 != err) {
+		BTAssert(conn->URI, "No URI in request");
 		conn->server->listener(conn->server->context, conn);
+		if(!conn->eof) {
+			// Use up any unread data.
+			do {
+				conn->chunk = NULL;
+				conn->chunkLength = 0;
+			} while(readOnce(conn) >= 0);
+		}
 	}
 
 	FREE(&conn->URI);
