@@ -44,4 +44,5 @@ void HTTPConnectionClose(HTTPConnectionRef const conn);
 // Convenience
 void HTTPConnectionSendMessage(HTTPConnectionRef const conn, uint16_t const status, strarg_t const msg);
 void HTTPConnectionSendStatus(HTTPConnectionRef const conn, uint16_t const status);
+void HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path);
 

@@ -1,3 +1,5 @@
+ROOT_DIR := .
+
 CC := clang
 CFLAGS := -g -O0
 
@@ -34,7 +36,11 @@ OBJECTS := \
 	build/libco.o \
 	build/sqlite3.o
 
-all: build/earthfs
+.DEFAULT_GOAL := all
+
+include client/Makefile
+
+all: build/earthfs client
 
 build/earthfs: $(OBJECTS)
 	@-mkdir -p $(dir $@)

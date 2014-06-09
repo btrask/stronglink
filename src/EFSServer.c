@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "common.h"
 #include "EarthFS.h"
 #include "HTTPServer.h"
@@ -144,6 +145,11 @@ void EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn) {
 	if(postFile(repo, conn, method, URI)) return;
 	if(postQuery(repo, conn, method, URI)) return;
 
-	HTTPConnectionSendStatus(conn, 404);
+	// TODO: Validate URI (no `..` segments, etc.) and append `index.html` if necessary.
+	// Also, don't use a hardcoded path...
+	str_t *path = NULL;
+	(void)BTErrno(asprintf(&path, "/home/ben/Code/EarthFS-C/build/www/%s", URI));
+	HTTPConnectionSendFile(conn, path);
+	FREE(&path);
 }
 

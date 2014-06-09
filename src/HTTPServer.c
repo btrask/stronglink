@@ -168,6 +168,45 @@ void HTTPConnectionSendStatus(HTTPConnectionRef const conn, uint16_t const statu
 	strarg_t const msg = statusstr(status);
 	HTTPConnectionSendMessage(conn, status, msg);
 }
+void HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path) {
+	uv_fs_t req = { .data = co_active() };
+	uv_fs_open(loop, &req, path, O_RDONLY, 0600, async_fs_cb);
+	co_switch(yield);
+	uv_fs_req_cleanup(&req);
+	uv_file const file = req.result;
+	if(file < 0) return HTTPConnectionSendStatus(conn, 400); // TODO: Error conversion.
+	uv_fs_fstat(loop, &req, file, async_fs_cb);
+	co_switch(yield);
+	if(req.result < 0) {
+		uv_fs_req_cleanup(&req);
+		return HTTPConnectionSendStatus(conn, 400);
+	}
+	size_t const size = req.statbuf.st_size;
+	uv_fs_req_cleanup(&req);
+	HTTPConnectionWriteResponse(conn, 200, "OK");
+	HTTPConnectionWriteContentLength(conn, size);
+	// TODO: Content-Type
+	HTTPConnectionBeginBody(conn);
+	// TODO: How do we use uv_fs_sendfile to a TCP stream? Is it impossible?
+	byte_t buf[BUFFER_SIZE];
+	int64_t pos = 0;
+	for(;;) {
+		uv_buf_t const read = uv_buf_init((char *)buf, BUFFER_SIZE);
+		uv_fs_read(loop, &req, file, &read, 1, pos, async_fs_cb);
+		co_switch(yield);
+		uv_fs_req_cleanup(&req);
+		if(req.result <= 0) break; // TODO: EAGAIN, etc?
+		pos += req.result;
+		uv_buf_t const write = uv_buf_init((char *)buf, req.result);
+		uv_write_t wreq = { .data = co_active() };
+		uv_write(&wreq, (uv_stream_t *)conn->stream, &write, 1, async_write_cb);
+		co_switch(yield);
+	}
+	HTTPConnectionClose(conn);
+	uv_fs_close(loop, &req, file, async_fs_cb);
+	co_switch(yield);
+	uv_fs_req_cleanup(&req);
+}
 
 
 // INTERNAL

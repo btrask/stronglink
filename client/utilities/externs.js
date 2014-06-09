@@ -1,0 +1,5 @@
+var JSON;
+KeyboardEvent.prototype.keyLocation;
+HTMLCanvasElement.prototype.webkitImageSmoothingEnabled;
+HTMLCanvasElement.prototype.mozImageSmoothingEnabled;
+HTMLCanvasElement.prototype.imageSmoothingEnabled;

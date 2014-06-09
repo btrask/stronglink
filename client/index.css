@@ -1,0 +1,226 @@
+/* Copyright Ben Trask and other contributors. All rights reserved.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to
+deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+IN THE SOFTWARE. */
+* {
+	padding: 0;
+	margin: 0;
+	-webkit-box-sizing: border-box;
+	-moz-box-sizing: border-box;
+	-ms-box-sizing: border-box;
+	-o-box-sizing: border-box;
+	box-sizing: border-box;
+	-webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+.absolute { position: absolute; }
+.scroll { overflow-x: hidden; overflow-y: auto; }
+.center { text-align: center; }
+.outline { outline: 1px solid red; } /* DEBUG */
+.inlineBlock { display: inline-block; }
+.wrapper > * { width: 100%; height: 100%; }
+.border { border: 0 solid #999; }
+.overflow { overflow: hidden; }
+.full { top: 0; bottom: 0; left: 0; right: 0; }
+.fullWidth { left: 0; right: 0; }
+.fullHeight { top: 0; bottom: 0; }
+.toLeft { float: left; }
+.toRight { float: right; }
+.light { color: #555; }
+
+a:link {
+	text-decoration: none;
+}
+a:hover {
+	text-decoration: underline;
+}
+.wrapper > textarea {
+	border: none;
+	outline: none;
+	vertical-align: top; /* Fixes stupid 4 pixel margin at bottom in Chromium. */
+}
+
+/* Toolbars */
+
+.toolbar {
+	height: 30px;
+}
+.toolbar.top {
+	top: 0;
+	border-bottom-width: 1px;
+}
+.toolbar.bottom {
+	bottom: 0;
+	border-top-width: 1px;
+}
+.toolbar, .toolbar > .button {
+	background: -webkit-linear-gradient(top, #eee, #ddd);
+	background: -moz-linear-gradient(top, #eee, #ddd);
+	text-shadow: 0 1px 1px #fff;
+}
+.toolbar > .button {
+	height: 100%;
+	padding: 0 14px;
+	border-width: 0 1px;
+	margin-right: -1px;
+	font-weight: bold;
+}
+.toolbar > .button:active {
+	background: -webkit-linear-gradient(bottom, #eee, #ddd);
+	background: -moz-linear-gradient(bottom, #eee, #ddd);
+}
+.toolbar > .button.selected {
+	background: -webkit-linear-gradient(top, #666, #ccc);
+	background: -moz-linear-gradient(top, #666, #ccc);
+	text-shadow: 0 1px 1px #000;
+	color: white;
+}
+.toolbar > .text {
+	margin: 4px;
+	height: 22px;
+	padding: 0 3px;
+	font-size: 14px;
+}
+.toolbar > .label {
+	margin: 6px 4px;
+	font-size: 14px;
+}
+
+/* Stream */
+
+.stream > .toolbar {
+	text-align: center;
+}
+.stream > .toolbar > .search.text {
+	border-radius: 12px;
+	padding: 3px 5px;
+	margin: 4px;
+	height: 21px;
+	width: 25em;
+}
+.stream > .content {
+	background: #eee;
+	bottom: 10em;
+	top: 0;
+}
+
+/* Entry */
+
+.entry {
+	overflow: hidden;
+	text-overflow: ellipsis;
+
+	margin: 14px;
+	border-radius: 3px;
+	border: 1px solid white;
+	background: #fff;
+	box-shadow: 0 1px 3px #000;
+}
+.entry > .title {
+	padding: 7px 14px;
+	background: #eee;
+}
+
+/* Entry content (including preview) */
+
+.entryContent {
+	padding-left: 1em;
+	padding-right: 1em;
+	font-family: "Helvetica Neue", Helvetica, sans-serif;
+	font-size: 16px;
+	line-height: 1.5em;
+}
+.entryContent blockquote,
+.entryContent ul,
+.entryContent ol,
+.entryContent p,
+.entryContent div,
+.entryContent h1,
+.entryContent h2,
+.entryContent h3,
+.entryContent h4,
+.entryContent h5,
+.entryContent h6 {
+	margin-top: 1em;
+	margin-bottom: 1em;
+}
+.noMargin blockquote,
+.noMargin ul,
+.noMargin ol,
+.noMargin p,
+.noMargin div,
+.noMargin h1,
+.noMargin h2,
+.noMargin h3,
+.noMargin h4,
+.noMargin h5,
+.noMargin h6 {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+.entryContent blockquote {
+	margin-left: 7px;
+	padding-left: 7px;
+	border-left: 2px solid blue;
+}
+.entryContent img {
+	max-width: 100%;
+	max-height: 300px;
+	vertical-align: middle;
+}
+.entryContent ul, .entryContent ol {
+	margin-left: 40px;
+}
+.entryContent pre, .entryContent code, a.URN {
+	white-space: pre-wrap;
+	font-family: Melno, Monaco, monospace;
+	font-size: 14px;
+}
+
+/* Sidebar */
+
+.sidebar {
+	height: 10em; /* TODO: Make customizable. */
+	bottom: 0;
+	border-top-width: 1px;
+}
+.sidebar > .content, .sidebar > .tagEditor > .content {
+	top: 30px;
+	bottom: 0;
+}
+.sidebar > .toolbar > .button {
+	margin-left: -1px;
+}
+
+/* Text Editor */
+
+.textEditor > .content {
+	top: 0;
+	bottom: 30px;
+}
+.textEditor > .content > .wrapper {
+	left: 0;
+	width: 50%;
+}
+.textEditor > .content > .wrapper > textarea {
+	padding: 14px;
+}
+.textEditor > .content > .preview {
+	right: 0;
+	width: 50%;
+	border-left-width: 1px;
+	background: #eee;
+}
