@@ -179,7 +179,7 @@ Stream.prototype.pull = function(history) {
 			}, 1000 * 5);
 		}
 	};
-	req.open("GET", "/efs/query/?"+url.formatQuery({
+	req.open("GET", "/efs/query?"+url.formatQuery({
 		"q": stream.query,
 		"count": 50,
 		"t": +new Date,
@@ -254,7 +254,7 @@ Stream.prototype.upload = function(blob, targets) {
 		// TODO
 		console.log("status", req.status);
 	};
-	req.open("POST", "/efs/file/?"+url.formatQuery({
+	req.open("POST", "/efs/file?"+url.formatQuery({
 		"u": stream.username,
 		"p": stream.password,
 		"t": targets.join("\n"),
