@@ -6,17 +6,6 @@
 
 // TODO: Find a home for these.
 static err_t mkdirp(str_t *const path, ssize_t len, int const mode);
-#define QUERY(db, str) ({ \
-	sqlite3_stmt *__stmt = NULL; \
-	str_t const __str[] = (str);\
-	(void)BTSQLiteErr(sqlite3_prepare_v2((db), __str, sizeof(__str), &__stmt, NULL)); \
-	__stmt; \
-})
-#define EXEC(stmt) ({ \
-	sqlite3_stmt *const __stmt = (stmt); \
-	(void)BTSQLiteErr(sqlite3_step(__stmt)); \
-	__stmt; \
-})
 
 struct EFSSubmission {
 	EFSRepoRef repo;
@@ -125,7 +114,7 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	uint64_t const userID = EFSSessionGetUserID(session);
 	sqlite3 *const db = EFSRepoDBConnect(repo);
 
-	sqlite3_finalize(EXEC(QUERY(db, "BEGIN TRANSACTION")));
+	EXEC(QUERY(db, "BEGIN TRANSACTION"));
 
 	sqlite3_stmt *const insertFile = QUERY(db,
 		"INSERT OR IGNORE INTO \"files\" (\"internalHash\", \"type\", \"size\")\n"
@@ -133,9 +122,8 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	sqlite3_bind_text(insertFile, 1, internalHash, -1, SQLITE_STATIC);
 	sqlite3_bind_text(insertFile, 2, submission->type, -1, SQLITE_STATIC);
 	sqlite3_bind_int64(insertFile, 3, submission->size);
-	sqlite3_step(insertFile);
+	EXEC(insertFile);
 	int64_t const fileID = sqlite3_last_insert_rowid(db);
-	sqlite3_finalize(insertFile);
 
 
 	sqlite3_stmt *const insertURI = QUERY(db,
@@ -166,7 +154,7 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	sqlite3_bind_int64(insertFilePermissions, 1, fileID);
 	sqlite3_bind_int64(insertFilePermissions, 2, userID);
 	sqlite3_bind_int64(insertFilePermissions, 3, userID);
-	sqlite3_finalize(EXEC(insertFilePermissions));
+	EXEC(insertFilePermissions);
 
 
 // TODO: indexing...
@@ -175,7 +163,7 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 //"INSERT INTO \"fileContent\" (\"ftID\", \"fileID\") VALUES (?, ?)"
 
 
-	sqlite3_finalize(EXEC(QUERY(db, "COMMIT")));
+	EXEC(QUERY(db, "COMMIT"));
 	EFSRepoDBClose(repo, db);
 
 	return 0;

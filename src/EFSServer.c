@@ -131,7 +131,10 @@ static bool postQuery(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 
 	EFSFilterRef const filter = EFSJSONFilterBuilderDone(builder);
 
-	(void)EFSFilterCreateQuery(filter);
+	sqlite3 *const db = EFSRepoDBConnect(repo);
+	EFSFilterCreateTempTables(db);
+	EFSFilterExec(filter, db, 0);
+	EFSRepoDBClose(repo, db);
 
 	EFSFilterFree(filter);
 	EFSJSONFilterBuilderFree(builder);

@@ -97,135 +97,140 @@ err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfil
 	return 0;
 }
 
-// TODO: Use a real string library.
-static err_t grow(str_t **const a, size_t *const alen, size_t *const asize, size_t const blen) {
-	if(*alen+blen+1 > *asize) {
-		*asize = MAX(128, MAX(*alen+blen+1, *asize * 2));
-		*a = realloc(*a, *asize);
-		if(!*a) return -1;
-	}
-	return 0;
+void EFSFilterCreateTempTables(sqlite3 *const db) {
+	EXEC(QUERY(db,
+		"CREATE TEMPORARY TABLE \"results\" (\n"
+		"\t" "\"resultID\" INTEGER PRIMARY KEY NOT NULL\n"
+		"\t" "\"fileID\" INTEGER NOT NULL\n"
+		"\t" "\"sort\" INTEGER NOT NULL\n"
+		"\t" "\"depth\" INTEGER NOT NULL\n"
+		")"));
+	EXEC(QUERY(db,
+		"CREATE INDEX \"resultsDepthIndex\"\n"
+		"ON \"results\" (\"depth\" ASC)"));
+	EXEC(QUERY(db,
+		"CREATE TEMPORARY TABLE \"depths\" (\n"
+		"\t" "\"depthID\" INTEGER PRIMARY KEY NOT NULL\n"
+		"\t" "\"subdepth\" INTEGER NOT NULL\n"
+		"\t" "\"depth\" INTEGER NOT NULL\n"
+		")"));
+	EXEC(QUERY(db,
+		"CREATE INDEX \"depthDepthsIndex\"\n"
+		"ON \"depths\" (\"depth\" ASC)"));
 }
-static err_t append(str_t **const a, size_t *const alen, size_t *const asize, strarg_t const b, size_t const blen) {
-	if(grow(a, alen, asize, blen)) return -1;
-	memcpy(*a+*alen, b, blen);
-	*alen += blen;
-	(*a)[*alen] = '\0';
-	return 0;
-}
-static err_t appendchar(str_t **const a, size_t *const alen, size_t *const asize, char const x, count_t const repeat) {
-	if(grow(a, alen, asize, repeat)) return -1;
-	memset(*a+*alen, x, repeat);
-	*alen += repeat;
-	(*a)[*alen] = '\0';
-	return 0;
-}
-#define TAB() ({ \
-	if(-1 == appendchar(sql, len, size, '\t', indent)) return -1; \
-})
-#define APPEND(x) ({ \
-	str_t const __x[] = (x); \
-	if(-1 == append(sql, len, size, __x, sizeof(__x)-1)) return -1; \
-})
-
-// TODO: This isn't actually useful, because we'll have to wrap the filter query in something else before we can use it.
-sqlite3_stmt *EFSFilterCreateQuery(EFSFilterRef const filter) {
-	if(!filter) return NULL;
-	str_t *sql = NULL;
-	size_t len = 0;
-	size_t size = 0;
-	if(-1 == EFSFilterAppendSQL(filter, &sql, &len, &size, 0)) return NULL;
-	fprintf(stderr, "Query:\n%s\n%d, %d\n", sql, (int)len, (int)size);
-	return NULL;
-}
-err_t EFSFilterAppendSQL(EFSFilterRef const filter, str_t **const sql, size_t *const len, size_t *const size, off_t const indent) {
-	if(!filter) return 0;
+void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const depth) {
+	if(!filter) return;
 	switch(filter->type) {
-		case EFSNoFilter:
-			TAB(); APPEND("SELECT \"fileID\" FROM\n");
-			TAB(); APPEND("\"files\" WHERE TRUE");
+		case EFSNoFilter: {
+			sqlite3_stmt *const op = QUERY(db,
+				"INSERT INTO \"results\"\n"
+				"\t" "(\"fileID\", \"sort\", \"depth\")\n"
+				"SELECT \"fileID\", \"fileID\", ?\n"
+				"FROM \"files\" WHERE 1");
+			sqlite3_bind_int64(op, 1, depth);
+			EXEC(op);
 			break;
-		case EFSFullTextFilter:
-			TAB(); APPEND("SELECT f.\"fileID\"\n");
-			TAB(); APPEND("FROM \"fileContent\" AS f\n");
-			TAB(); APPEND("LEFT JOIN \"fulltext\" AS t\n");
-			TAB(); APPEND("\t" "ON (f.\"ftID\" = t.\"rowid\")\n");
-			TAB(); APPEND("WHERE t.\"text\" MATCH ?");
+		} case EFSFullTextFilter: {
+			sqlite3_stmt *const op = QUERY(db,
+				"INSERT INTO \"results\"\n"
+				"\t" "(\"fileID\", \"sort\", \"depth\")\n"
+				"SELECT f.\"fileID\", MIN(f.\"metaFileID\"), ?\n"
+				"FROM \"fileContent\" AS f\n"
+				"LEFT JOIN \"fulltext\" AS t\n"
+				"\t" "ON (f.\"ftID\" = t.\"rowid\")\n"
+				"WHERE t.\"text\" MATCH ?\n"
+				"GROUP BY f.\"fileID\"");
+			sqlite3_bind_int64(op, 1, depth);
+			sqlite3_bind_text(op, 2, filter->data.string, -1, SQLITE_STATIC);
+			EXEC(op);
 			break;
-		case EFSBacklinkFilesFilter:
-			TAB(); APPEND("SELECT DISTINCT f.\"fileID\"\n");
-			TAB(); APPEND("FROM \"fileURIs\" AS f");
-			TAB(); APPEND("LEFT JOIN \"links\" AS l\n");
-			TAB(); APPEND("\t" "ON (f.\"URIID\" = l.\"sourceURIID\")\n");
-			TAB(); APPEND("LEFT JOIN \"URIs\" AS u\n");
-			TAB(); APPEND("\t" "ON (l.\"targetURIID\" = u.\"URIID\")\n");
-			TAB(); APPEND("WHERE u.\"URI\" = ?");
+		} case EFSBacklinkFilesFilter: {
+			sqlite3_stmt *const op = QUERY(db,
+				"INSERT INTO \"results\"\n"
+				"\t" "(\"fileID\", \"sort\", \"depth\")\n"
+				"SELECT f.\"fileID\", MIN(l.\"metaFileID\"), ?\n"
+				"FROM \"fileURIs\" AS f"
+				"LEFT JOIN \"links\" AS l\n"
+				"\t" "ON (f.\"URIID\" = l.\"sourceURIID\")\n"
+				"LEFT JOIN \"URIs\" AS u\n"
+				"\t" "ON (l.\"targetURIID\" = u.\"URIID\")\n"
+				"WHERE u.\"URI\" = ?\n"
+				"GROUP BY f.\"fileID\"");
+			sqlite3_bind_int64(op, 1, depth);
+			sqlite3_bind_text(op, 2, filter->data.string, -1, SQLITE_STATIC);
+			EXEC(op);
 			break;
-		case EFSFileLinksFilter:
-			TAB(); APPEND("SELECT DISTINCT f.\"fileID\"\n");
-			TAB(); APPEND("FROM \"fileURIs\" AS f");
-			TAB(); APPEND("LEFT JOIN \"links\" AS l\n");
-			TAB(); APPEND("\t" "ON (f.\"URIID\" = l.\"targetURIID\")\n");
-			TAB(); APPEND("LEFT JOIN \"URIs\" AS u\n");
-			TAB(); APPEND("\t" "ON (l.\"sourceURIID\" = u.\"URIID\")\n");
-			TAB(); APPEND("WHERE u.\"URI\" = ?");
+		} case EFSFileLinksFilter: {
+			sqlite3_stmt *const op = QUERY(db,
+				"INSERT INTO \"results\"\n"
+				"\t" "(\"fileID\", \"sort\", \"depth\")\n"
+				"SELECT f.\"fileID\", MIN(l.\"metaFileID\"), ?\n"
+				"FROM \"fileURIs\" AS f"
+				"LEFT JOIN \"links\" AS l\n"
+				"\t" "ON (f.\"URIID\" = l.\"targetURIID\")\n"
+				"LEFT JOIN \"URIs\" AS u\n"
+				"\t" "ON (l.\"sourceURIID\" = u.\"URIID\")\n"
+				"WHERE u.\"URI\" = ?\n"
+				"GROUP BY f.\"fileID\"");
+			sqlite3_bind_int64(op, 1, depth);
+			sqlite3_bind_text(op, 2, filter->data.string, -1, SQLITE_STATIC);
+			EXEC(op);
 			break;
-		case EFSPermissionFilter:
-			TAB(); APPEND("SELECT \"fileID\"\n");
-			TAB(); APPEND("FROM \"filePermissions\"\n");
-			TAB(); APPEND("WHERE \"userID\" = ?");
-			break;
-		case EFSIntersectionFilter:
-		case EFSUnionFilter:
-			TAB(); APPEND("SELECT f.\"fileID\"\n");
-			TAB(); APPEND("FROM \"files\" AS f WHERE\n");
+/*		} case EFSPermissionFilter: {
+			QUERY(db,
+				"INSERT INTO \"results\"\n"
+				"\t" "(\"fileID\", \"sort\", \"depth\")\n"
+				"SELECT \"fileID\"\n"
+				"FROM \"filePermissions\"\n"
+				"WHERE \"userID\" = ?");
+			break;*/
+		} case EFSIntersectionFilter: {
+			// continue;
+		} case EFSUnionFilter: {
 			EFSFilterList const *const list = filter->data.filters;
-			if(list) for(index_t i = 0; i < list->count; ++i) {
-				TAB(); APPEND("f.\"fileID\" IN (\n");
-				if(-1 == EFSFilterAppendSQL(list->items[i], sql, len, size, indent+1)) return -1;
-				APPEND("\n");
-				if(i < list->count-1) {
-					if(EFSIntersectionFilter == filter->type) {
-						TAB(); APPEND(") AND\n");
-					} else if(EFSUnionFilter == filter->type) {
-						TAB(); APPEND(") OR\n");
-					}
-				} else {
-					TAB(); APPEND(")");
-				}
-			}
-			if(!list || !list->count) {
-				TAB(); APPEND("\t" "TRUE");
-			}
-			break;
-		default:
-			return -1;
-	}
-	return 0;
-}
-err_t EFSFilterBindQueryArgs(EFSFilterRef const filter, sqlite3_stmt *const stmt, index_t *const index) {
-	if(!filter) return 0;
-	switch(filter->type) {
-		case EFSNoFilter:
-			break;
-		case EFSFullTextFilter:
-		case EFSBacklinkFilesFilter:
-		case EFSFileLinksFilter:
-			if(BTSQLiteErr(sqlite3_bind_text(stmt, (*index)++, filter->data.string, -1, SQLITE_TRANSIENT))) return -1;
-			break;
-		case EFSPermissionFilter:
-			if(BTSQLiteErr(sqlite3_bind_int64(stmt, (*index)++, filter->data.userID))) return -1;
-			break;
-		case EFSIntersectionFilter:
-		case EFSUnionFilter: {
-			EFSFilterList const *const list = filter->data.filters;
+			if(!list || !list->count) break;
+			sqlite3_stmt *const insertDepth = QUERY(db,
+				"INSERT INTO \"depths\" (\"subdepth\", \"depth\")\n"
+				"VALUES (?, ?)");
 			for(index_t i = 0; i < list->count; ++i) {
-				if(-1 == EFSFilterBindQueryArgs(filter, stmt, index)) return -1;
+				EFSFilterExec(list->items[i], db, depth+i+1);
+				sqlite3_bind_int64(insertDepth, 1, depth+i+1);
+				sqlite3_bind_int64(insertDepth, 2, depth);
+				sqlite3_step(insertDepth);
+				sqlite3_reset(insertDepth);
 			}
+			sqlite3_finalize(insertDepth);
+
+			sqlite3_stmt *const op = QUERY(db,
+				"INSERT INTO \"results\"\n"
+				"\t" "(\"fileID\", \"sort\", \"depth\")\n"
+				"SELECT \"fileID\", MIN(\"sort\"), ?\n"
+				"FROM \"results\"\n"
+				"WHERE \"depth\" IN (\n"
+				"\t" "SELECT \"subdepth\" FROM \"depths\"\n"
+				"\t" "WHERE \"depth\" = ?)\n"
+				"AND COUNT(\"fileID\") >= ?\n"
+				"GROUP BY \"fileID\"");
+			sqlite3_bind_int64(op, 1, depth);
+			sqlite3_bind_int64(op, 2, depth);
+			int64_t const threshold =
+				EFSUnionFilter == filter-> type ? 1 : list->count;
+			sqlite3_bind_int64(op, 3, threshold);
+			EXEC(op);
+
+			sqlite3_stmt *const clearDepths = QUERY(db,
+				"DELETE FROM \"depths\" WHERE \"depth\" = ?");
+			sqlite3_bind_int64(clearDepths, 1, depth);
+			EXEC(clearDepths);
+
+			sqlite3_stmt *const clearStack = QUERY(db,
+				"DELETE FROM \"results\" WHERE depth > ?");
+			sqlite3_bind_int64(clearStack, 1, depth);
+			EXEC(clearStack);
 			break;
-		} default:
-			return -1;
+		} default: {
+			BTAssert(0, "Unrecognized filter type %d\n", (int)filter->type);
+		}
 	}
-	return 0;
 }
 

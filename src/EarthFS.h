@@ -61,8 +61,8 @@ void EFSFilterFree(EFSFilterRef const filter);
 err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, size_t const len);
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
 sqlite3_stmt *EFSFilterCreateQuery(EFSFilterRef const filter);
-err_t EFSFilterAppendSQL(EFSFilterRef const filter, str_t **const sql, size_t *const len, size_t *const size, off_t const indent);
-err_t EFSFilterBindQueryArgs(EFSFilterRef const filter, sqlite3_stmt *const stmt, index_t *const index);
+void EFSFilterCreateTempTables(sqlite3 *const db); // "results"
+void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const depth);
 
 EFSJSONFilterBuilderRef EFSJSONFilterBuilderCreate(void);
 void EFSJSONFilterBuilderFree(EFSJSONFilterBuilderRef const builder);
@@ -70,5 +70,16 @@ void EFSJSONFilterBuilderParse(EFSJSONFilterBuilderRef const builder, strarg_t c
 EFSFilterRef EFSJSONFilterBuilderDone(EFSJSONFilterBuilderRef const builder);
 EFSFilterType EFSFilterTypeFromString(strarg_t const type, size_t const len);
 
-#endif
+#define QUERY(db, str) ({ \
+	sqlite3_stmt *__stmt = NULL; \
+	str_t const __str[] = (str);\
+	(void)BTSQLiteErr(sqlite3_prepare_v2((db), __str, sizeof(__str), &__stmt, NULL)); \
+	__stmt; \
+})
+#define EXEC(stmt) ({ \
+	sqlite3_stmt *const __stmt = (stmt); \
+	(void)BTSQLiteErr(sqlite3_step(__stmt)); \
+	(void)sqlite3_finalize(__stmt); \
+})
 
+#endif

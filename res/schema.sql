@@ -38,7 +38,7 @@ CREATE TABLE "links" (
 	"linkID" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 	"sourceURIID" TEXT NOT NULL,
 	"targetURIID" TEXT NOT NULL,
-	"fileID" INTEGER NOT NULL
+	"metaFileID" INTEGER NOT NULL
 );
 CREATE INDEX "linksSourceIndex" ON "links" ("sourceURIID" ASC);
 CREATE INDEX "linksTargetIndex" ON "links" ("targetURIID" ASC);
@@ -58,6 +58,7 @@ CREATE TABLE "fileContent" (
 	"fileContentID" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 	"ftID" INTEGER NOT NULL,
 	"fileID" INTEGER NOT NULL,
+	"metaFileID" INTEGER NOT NULL,
 	"contentTime" INTEGER NOT NULL DEFAULT (strftime('%s'))
 );
 CREATE UNIQUE INDEX "fileContentIndex" ON "fileContent" ("ftID" ASC, "fileID" ASC);
