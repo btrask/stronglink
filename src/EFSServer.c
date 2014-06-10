@@ -96,14 +96,17 @@ static bool postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMe
 	}
 
 	EFSSubmissionRef const sub = EFSRepoCreateSubmission(repo, conn);
+	EFSSessionAddSubmission(session, sub);
+	EFSSubmissionFree(sub);
 
 	return true;
 }
 static bool postQuery(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
-	if(HTTP_POST != method) return false;
+	if(HTTP_POST != method && HTTP_GET != method) return false; // TODO: Temporarily accept/ignore gets.
 	ssize_t const pathlen = prefix("/efs/query", URI);
 	if(pathlen < 0) return false;
 	if(!pathterm(URI, (size_t)pathlen)) return false;
+	if(HTTP_GET == method) return true; // TODO: Accept and ignore.
 	EFSSessionRef const session = auth(repo, conn, method, URI+pathlen);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);

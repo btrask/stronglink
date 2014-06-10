@@ -6,7 +6,7 @@ CREATE TABLE "users" (
     "username" TEXT NOT NULL,
     "passhash" TEXT NOT NULL,
     "token" TEXT,
-    "creationTime" INTEGER NOT NULL DEFAULT (strftime('%s'))
+    "userTime" INTEGER NOT NULL DEFAULT (strftime('%s'))
 );
 CREATE UNIQUE INDEX "usersIndex" ON "users" ("username" ASC);
 
@@ -14,23 +14,25 @@ CREATE TABLE "sessions" (
     "sessionID" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     "sessionKey" TEXT NOT NULL,
     "userID" INTEGER NOT NULL,
-    "creationTime" INTEGER NOT NULL DEFAULT (strftime('%s'))
+    "sessionTime" INTEGER NOT NULL DEFAULT (strftime('%s'))
 );
-CREATE UNIQUE INDEX "sessionsIndex" ON "sessions" ("sessionID" ASC, "sessionKey" ASC);
+CREATE UNIQUE INDEX "sessionsIndex" ON "sessions" ("sessionKey" ASC);
 
 CREATE TABLE "files" (
     "fileID" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     "internalHash" TEXT NOT NULL,
     "type" TEXT NOT NULL,
-    "size" INTEGER NOT NULL
+    "size" INTEGER NOT NULL,
+    "fileTime" INTEGER NOT NULL DEFAULT (strftime('%s'))
 );
 CREATE UNIQUE INDEX "filesHashIndex" ON "files" ("internalHash" ASC, "type" ASC);
+CREATE INDEX "filesTimeIndex" ON "files" ("fileTime" ASC);
 
 CREATE TABLE "URIs" (
 	"URIID" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 	"URI" TEXT NOT NULL
 );
-CREATE UNIQUE INDEX "URIsIndex" ON "URIs" ("URI" ASC, "URIID" ASC);
+CREATE UNIQUE INDEX "URIsIndex" ON "URIs" ("URI" ASC);
 
 CREATE TABLE "links" (
 	"linkID" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -55,10 +57,13 @@ CREATE VIRTUAL TABLE "fulltext" USING "fts4" (
 CREATE TABLE "fileContent" (
 	"fileContentID" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 	"ftID" INTEGER NOT NULL,
-	"fileID" INTEGER NOT NULL
+	"fileID" INTEGER NOT NULL,
+	"contentTime" INTEGER NOT NULL DEFAULT (strftime('%s'))
 );
 CREATE UNIQUE INDEX "fileContentIndex" ON "fileContent" ("ftID" ASC, "fileID" ASC);
+CREATE INDEX "fileContentTimeIndex" ON "fileContent" ("contentTime" ASC);
 
+-- TODO: Using time for ordering sucks, and without time we have no way to define a total order between "files" and "filePermissions." Somehow, we need each permission grant to be associated with a new fileID, but we don't really want to define permissions in files or meta-files. For now, just keep it and don't work about getting the perfect sort order.
 CREATE TABLE "filePermissions" (
 	"filePermissionID" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 	"fileID" INTEGER NOT NULL,

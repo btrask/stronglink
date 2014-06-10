@@ -235,7 +235,8 @@ static int squvco_fileSize(squvco_file *const file, sqlite3_int64 *const outSize
 	return SQLITE_OK;
 }
 static int squvco_lock(squvco_file *const file, int const level) {
-	if(SQLITE_LOCK_NONE == level) return SQLITE_OK;
+	if(level <= SQLITE_LOCK_NONE) return SQLITE_OK;
+	if(queue_length && co_active() == queue[queue_start]) return SQLITE_OK;
 	if(queue_length >= QUEUE_MAX) return SQLITE_BUSY;
 	if(!queue_length) {
 		// TODO: flock() or equivalent, for other processes.
@@ -245,9 +246,9 @@ static int squvco_lock(squvco_file *const file, int const level) {
 	return SQLITE_OK;
 }
 static int squvco_unlock(squvco_file *const file, int const level) {
-	if(SQLITE_LOCK_NONE != level) return SQLITE_OK;
-	if(!queue_length) return SQLITE_MISUSE;
-	if(co_active() != queue[queue_start]) return SQLITE_MISUSE;
+	if(level > SQLITE_LOCK_NONE) return SQLITE_OK;
+	if(!queue_length) return SQLITE_OK;
+	if(co_active() != queue[queue_start]) return SQLITE_OK;
 	queue_length = queue_length - 1;
 	queue_start = (queue_start + 1) % QUEUE_MAX;
 	if(!queue_length) {

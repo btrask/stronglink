@@ -5,7 +5,7 @@
 #include "HTTPServer.h"
 
 // TODO: Find a home for these.
-static err_t mkdirp(str_t *const path, size_t const len, int const mode);
+static err_t mkdirp(str_t *const path, ssize_t len, int const mode);
 #define QUERY(db, str) ({ \
 	sqlite3_stmt *__stmt = NULL; \
 	str_t const __str[] = (str);\
@@ -29,10 +29,17 @@ struct EFSSubmission {
 EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, HTTPConnectionRef const conn) {
 	if(!repo) return NULL;
 	BTAssert(conn, "EFSSubmission connection required");
+
 	EFSSubmissionRef const sub = calloc(1, sizeof(struct EFSSubmission));
+	sub->repo = repo;
+
 	str_t const x[] = "efs-tmp"; // TODO: Generate random filename.
 	(void)BTErrno(asprintf(&sub->path, "/tmp/%s", x)); // TODO: Use temp dir from repo.
 	fd_t const tmp = BTErrno(creat(sub->path, 0400));
+	if(tmp < 0) {
+		EFSSubmissionFree(sub);
+		return NULL;
+	}
 
 	HTTPHeaderList const *const headers = HTTPConnectionGetHeaders(conn);
 	for(index_t i = 0; i < headers->count; ++i) {
@@ -41,6 +48,7 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, HTTPConnectionRe
 		}
 	}
 
+	// TODO: Reading the payload could never be this easy, we need to parse the multipart encoding.
 	EFSHasherRef const hasher = EFSHasherCreate(sub->type);
 	for(;;) {
 		byte_t const *buf = NULL;
@@ -64,6 +72,12 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, HTTPConnectionRe
 }
 void EFSSubmissionFree(EFSSubmissionRef const sub) {
 	if(!sub) return;
+	if(sub->path) {
+		uv_fs_t req = { .data = co_active() };
+		uv_fs_unlink(loop, &req, sub->path, async_fs_cb);
+		co_switch(yield);
+		uv_fs_req_cleanup(&req);
+	}
 	FREE(&sub->path);
 	FREE(&sub->type);
 	EFSURIListFree(sub->URIs); sub->URIs = NULL;
@@ -78,9 +92,17 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	// TODO: Make sure session repo and submission repo match
 	EFSRepoRef const repo = submission->repo;
 
-	str_t *internalPath = NULL;
 	strarg_t const internalHash = EFSURIListGetInternalHash(submission->URIs);
-	(void)BTErrno(asprintf(&internalPath, "%s/%2s/%s", EFSRepoGetDataPath(repo), internalHash, internalHash));
+	str_t *dir = NULL;
+	(void)BTErrno(asprintf(&dir, "%s/%.2s", EFSRepoGetDataPath(repo), internalHash));
+	if(mkdirp(dir, -1, 0700) < 0) {
+		fprintf(stderr, "Couldn't mkdir -p %s\n", dir);
+		FREE(&dir);
+		return -1;
+	}
+
+	str_t *internalPath = NULL;
+	(void)BTErrno(asprintf(&internalPath, "%s/%s", dir, internalHash));
 	uv_fs_t req = { .data = co_active() };
 	uv_fs_link(loop, &req, submission->path, internalPath, async_fs_cb);
 	co_switch(yield);
@@ -88,10 +110,17 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 		fprintf(stderr, "Couldn't move %s to %s\n", submission->path, internalPath);
 		uv_fs_req_cleanup(&req);
 		FREE(&internalPath);
+		FREE(&dir);
 		return -1;
 	}
 	uv_fs_req_cleanup(&req);
 	FREE(&internalPath);
+	FREE(&dir);
+
+	uv_fs_unlink(loop, &req, submission->path, async_fs_cb);
+	co_switch(yield);
+	uv_fs_req_cleanup(&req);
+	FREE(&submission->path);
 
 	uint64_t const userID = EFSSessionGetUserID(session);
 	sqlite3 *const db = EFSRepoDBConnect(repo);
@@ -99,27 +128,31 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	sqlite3_finalize(EXEC(QUERY(db, "BEGIN TRANSACTION")));
 
 	sqlite3_stmt *const insertFile = QUERY(db,
-		"INSERT INTO \"files\" (\"internalHash\", \"type\", \"size\")\n"
+		"INSERT OR IGNORE INTO \"files\" (\"internalHash\", \"type\", \"size\")\n"
 		" VALUES (?, ?, ?)");
 	sqlite3_bind_text(insertFile, 1, internalHash, -1, SQLITE_STATIC);
 	sqlite3_bind_text(insertFile, 2, submission->type, -1, SQLITE_STATIC);
 	sqlite3_bind_int64(insertFile, 3, submission->size);
-	(void)EXEC(insertFile);
+	sqlite3_step(insertFile);
 	int64_t const fileID = sqlite3_last_insert_rowid(db);
 	sqlite3_finalize(insertFile);
 
 
 	sqlite3_stmt *const insertURI = QUERY(db,
-		"INSERT INTO \"URIs\" (\"URI\") VALUES (?)");
+		"INSERT OR IGNORE INTO \"URIs\" (\"URI\") VALUES (?)");
 	sqlite3_stmt *const insertFileURI = QUERY(db,
-		"INSERT INTO \"fileURIs\" (\"fileID\", \"URIID\") VALUES (?, ?)");
+		"INSERT OR IGNORE INTO \"fileURIs\" (\"fileID\", \"URIID\")\n"
+		" SELECT ?, \"URIID\" FROM \"URIs\" WHERE \"URI\" = ? LIMIT 1");
 	for(index_t i = 0; i < EFSURIListGetCount(submission->URIs); ++i) {
-		sqlite3_bind_text(insertURI, 1, EFSURIListGetURI(submission->URIs, i), -1, SQLITE_STATIC);
-		(void)EXEC(insertURI);
-		int64_t const URIID = sqlite3_last_insert_rowid(db);
+		strarg_t const URI = EFSURIListGetURI(submission->URIs, i);
+		sqlite3_bind_text(insertURI, 1, URI, -1, SQLITE_STATIC);
+		sqlite3_step(insertURI);
+		sqlite3_reset(insertURI);
+
 		sqlite3_bind_int64(insertFileURI, 1, fileID);
-		sqlite3_bind_int64(insertFileURI, 2, URIID);
-		(void)EXEC(insertFileURI);
+		sqlite3_bind_text(insertFileURI, 2, URI, -1, SQLITE_STATIC);
+		sqlite3_step(insertFileURI);
+		sqlite3_reset(insertFileURI);
 	}
 	sqlite3_finalize(insertURI);
 	sqlite3_finalize(insertFileURI);
@@ -127,7 +160,7 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 
 	// TODO: Add permissions for other specified users too.
 	sqlite3_stmt *const insertFilePermissions = QUERY(db,
-		"INSERT INTO \"filePermissions\"\n"
+		"INSERT OR IGNORE INTO \"filePermissions\"\n"
 		"\t" " (\"fileID\", \"userID\", \"grantorID\")\n"
 		" VALUES (?, ?, ?)");
 	sqlite3_bind_int64(insertFilePermissions, 1, fileID);
@@ -137,7 +170,7 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 
 
 // TODO: indexing...
-//"INSERT INTO \"links\" (\"sourceURIID\", \"targetURIID\", \"fileID\") VALUES (?, ?, ?)"
+//"INSERT OR IGNORE INTO \"links\" (\"sourceURIID\", \"targetURIID\", \"fileID\") VALUES (?, ?, ?)"
 //"INSERT INTO \"fulltext\" (\"text\") VALUES (?)"
 //"INSERT INTO \"fileContent\" (\"ftID\", \"fileID\") VALUES (?, ?)"
 
@@ -149,7 +182,8 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 }
 
 
-static err_t mkdirp(str_t *const path, size_t const len, int const mode) {
+static err_t mkdirp(str_t *const path, ssize_t len, int const mode) {
+	if(len < 0) len = strlen(path);
 	if(0 == len) return 0;
 	if(1 == len) {
 		if('/' == path[0]) return 0;
@@ -160,7 +194,7 @@ static err_t mkdirp(str_t *const path, size_t const len, int const mode) {
 	co_switch(yield);
 	uv_fs_req_cleanup(&req);
 	if(req.result >= 0) return 0;
-	if(ENOENT != req.result) return -1;
+	if(-ENOENT != req.result) return -1;
 	index_t i = len;
 	for(; i > 0 && '/' != path[i]; --i);
 	if(0 == len || len == i) return -1;
