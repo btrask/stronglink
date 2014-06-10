@@ -80,11 +80,11 @@ static bool_t substr(strarg_t const a, strarg_t const b, size_t const blen) {
 	if(a[i]) return false; // Terminated late.
 	return true;
 }
-// Returns strlen(a) if `b` starts with `a`, otherwise -1.
-static ssize_t prefix(strarg_t const a, strarg_t const b) {
+// Returns strlen(a) if `b` starts with `a`, otherwise 0.
+static size_t prefix(strarg_t const a, strarg_t const b) {
 	for(off_t i = 0; ; ++i) {
 		if(!a[i]) return i;
-		if(a[i] != b[i]) return -1;
+		if(a[i] != b[i]) return 0;
 	}
 }
 
