@@ -71,7 +71,7 @@ static bool getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 	str_t algo[32] = {};
 	str_t hash[256] = {};
 	size_t pathlen = 0; // TODO: correct type for scanf %n ?
-	(void)sscanf(URI, "/efs/file/%31[a-zA-Z0-9%_-]/%255[a-zA-Z0-9%_-]%n", algo, hash, &pathlen);
+	(void)sscanf(URI, "/efs/file/%31[a-zA-Z0-9.%_-]/%255[a-zA-Z0-9.%_-]%n", algo, hash, &pathlen);
 	if(!pathterm(URI, pathlen)) return false;
 	EFSSessionRef const session = auth(repo, conn, method, URI+pathlen);
 	if(!session) {
