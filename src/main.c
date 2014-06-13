@@ -11,6 +11,7 @@ void squvco_register(int const makeDefault);
 void EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn);
 
 int main(int const argc, char const *const *const argv) {
+	signal(SIGPIPE, SIG_IGN);
 	yield = co_active();
 	loop = uv_default_loop();
 	squvco_register(true);
