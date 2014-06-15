@@ -11,6 +11,7 @@ HEADERS := \
 	src/EarthFS.h \
 	src/HTTPServer.h \
 	src/QueryString.h \
+	src/URIList.h \
 	deps/crypt_blowfish-1.0.4/ow-crypt.h \
 	deps/http_parser/http_parser.h \
 	deps/libco/libco.h \
@@ -27,6 +28,7 @@ OBJECTS := \
 	build/EFSServer.o \
 	build/HTTPServer.o \
 	build/QueryString.o \
+	build/URIList.o \
 	build/squvco_vfs.o \
 	build/crypt/crypt_blowfish.o \
 	build/crypt/crypt_gensalt.o \

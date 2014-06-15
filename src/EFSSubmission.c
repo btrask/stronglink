@@ -12,7 +12,8 @@ struct EFSSubmission {
 	str_t *path;
 	str_t *type;
 	ssize_t size; // TODO: Appropriate type? 64-bit unsigned.
-	EFSURIListRef URIs;
+	URIListRef URIs;
+	str_t *internalHash;
 };
 
 EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, HTTPConnectionRef const conn) {
@@ -54,7 +55,8 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, HTTPConnectionRe
 		// TODO: Indexing.
 	}
 	(void)BTErrno(close(tmp));
-	sub->URIs = EFSHasherCreateURIList(hasher);
+	sub->URIs = EFSHasherEnd(hasher);
+	sub->internalHash = strdup(EFSHasherGetInternalHash(hasher));
 	EFSHasherFree(hasher);
 
 	return sub;
@@ -69,7 +71,8 @@ void EFSSubmissionFree(EFSSubmissionRef const sub) {
 	}
 	FREE(&sub->path);
 	FREE(&sub->type);
-	EFSURIListFree(sub->URIs); sub->URIs = NULL;
+	URIListFree(sub->URIs); sub->URIs = NULL;
+	FREE(&sub->internalHash);
 	free(sub);
 }
 
@@ -81,9 +84,8 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	// TODO: Make sure session repo and submission repo match
 	EFSRepoRef const repo = submission->repo;
 
-	strarg_t const internalHash = EFSURIListGetInternalHash(submission->URIs);
 	str_t *dir = NULL;
-	(void)BTErrno(asprintf(&dir, "%s/%.2s", EFSRepoGetDataPath(repo), internalHash));
+	(void)BTErrno(asprintf(&dir, "%s/%.2s", EFSRepoGetDataPath(repo), submission->internalHash));
 	if(mkdirp(dir, -1, 0700) < 0) {
 		fprintf(stderr, "Couldn't mkdir -p %s\n", dir);
 		FREE(&dir);
@@ -91,7 +93,7 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	}
 
 	str_t *internalPath = NULL;
-	(void)BTErrno(asprintf(&internalPath, "%s/%s", dir, internalHash));
+	(void)BTErrno(asprintf(&internalPath, "%s/%s", dir, submission->internalHash));
 	uv_fs_t req = { .data = co_active() };
 	uv_fs_link(loop, &req, submission->path, internalPath, async_fs_cb);
 	co_switch(yield);
@@ -119,7 +121,7 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	sqlite3_stmt *const insertFile = QUERY(db,
 		"INSERT OR IGNORE INTO \"files\" (\"internalHash\", \"type\", \"size\")\n"
 		" VALUES (?, ?, ?)");
-	sqlite3_bind_text(insertFile, 1, internalHash, -1, SQLITE_STATIC);
+	sqlite3_bind_text(insertFile, 1, submission->internalHash, -1, SQLITE_STATIC);
 	sqlite3_bind_text(insertFile, 2, submission->type, -1, SQLITE_STATIC);
 	sqlite3_bind_int64(insertFile, 3, submission->size);
 	EXEC(insertFile);
@@ -131,8 +133,8 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	sqlite3_stmt *const insertFileURI = QUERY(db,
 		"INSERT OR IGNORE INTO \"fileURIs\" (\"fileID\", \"URIID\")\n"
 		" SELECT ?, \"URIID\" FROM \"URIs\" WHERE \"URI\" = ? LIMIT 1");
-	for(index_t i = 0; i < EFSURIListGetCount(submission->URIs); ++i) {
-		strarg_t const URI = EFSURIListGetURI(submission->URIs, i);
+	for(index_t i = 0; i < URIListGetCount(submission->URIs); ++i) {
+		strarg_t const URI = URIListGetURI(submission->URIs, i);
 		sqlite3_bind_text(insertURI, 1, URI, -1, SQLITE_STATIC);
 		sqlite3_step(insertURI);
 		sqlite3_reset(insertURI);

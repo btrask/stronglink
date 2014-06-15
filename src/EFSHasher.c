@@ -16,11 +16,7 @@ struct EFSHasher {
 	str_t *type;
 	SHA_CTX sha1;
 	SHA256_CTX sha256;
-};
-struct EFSURIList {
 	str_t *internalHash;
-	count_t count;
-	str_t *items[0];
 };
 
 EFSHasherRef EFSHasherCreate(strarg_t const type) {
@@ -34,6 +30,7 @@ EFSHasherRef EFSHasherCreate(strarg_t const type) {
 void EFSHasherFree(EFSHasherRef const hasher) {
 	if(!hasher) return;
 	FREE(&hasher->type);
+	FREE(&hasher->internalHash);
 	free(hasher);
 }
 void EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, ssize_t const len) {
@@ -44,7 +41,7 @@ void EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, ssize_t 
 	(void)BTErrno(SHA256_Update(&hasher->sha256, buf, len));
 }
 
-EFSURIListRef EFSHasherCreateURIList(EFSHasherRef const hasher) {
+URIListRef EFSHasherEnd(EFSHasherRef const hasher) {
 	if(!hasher) return NULL;
 
 	byte_t sha1[SHA_DIGEST_LENGTH] = {};
@@ -55,39 +52,28 @@ EFSURIListRef EFSHasherCreateURIList(EFSHasherRef const hasher) {
 	str_t *const sha256h = tohex(sha256, SHA256_DIGEST_LENGTH);
 	// TODO: Base64.
 
-	EFSURIListRef const URIs = calloc(1, sizeof(struct EFSURIList) + sizeof(str_t *) * 4);
-	URIs->internalHash = strdup(sha256h);
-	URIs->count = 4;
-	index_t i = 0;
-	(void)BTErrno(asprintf(&URIs->items[i++], "hash://sha1/%s", sha1h));
-	(void)BTErrno(asprintf(&URIs->items[i++], "hash://sha1/%.16s", sha1h));
-	(void)BTErrno(asprintf(&URIs->items[i++], "hash://sha256/%s", sha256h));
-	(void)BTErrno(asprintf(&URIs->items[i++], "hash://sha256/%.24s", sha256h));
+	hasher->internalHash = strdup(sha256h);
+
+	URIListRef const URIs = URIListCreate();
+	str_t *URI;
+	size_t len;
+
+	len = BTErrno(asprintf(&URI, "hash://sha1/%s", sha1h));
+	if(len > 0) URIListAddURI(URIs, URI, len);
+	len = BTErrno(asprintf(&URI, "hash://sha1/%.16s", sha1h));
+	if(len > 0) URIListAddURI(URIs, URI, len);
+	len = BTErrno(asprintf(&URI, "hash://sha256/%s", sha256h));
+	if(len > 0) URIListAddURI(URIs, URI, len);
+	len = BTErrno(asprintf(&URI, "hash://sha256/%.24s", sha256h));
+	if(len > 0) URIListAddURI(URIs, URI, len);
 
 	free(sha1h);
 	free(sha256h);
 
 	return URIs;
 }
-void EFSURIListFree(EFSURIListRef const list) {
-	if(!list) return;
-	FREE(&list->internalHash);
-	for(index_t i = 0; i < list->count; ++i) {
-		FREE(&list->items[i]);
-	}
-	free(list);
-}
-strarg_t EFSURIListGetInternalHash(EFSURIListRef const list) {
-	if(!list) return NULL;
-	return list->internalHash;
-}
-count_t EFSURIListGetCount(EFSURIListRef const list) {
-	if(!list) return 0;
-	return list->count;
-}
-strarg_t EFSURIListGetURI(EFSURIListRef const list, index_t const x) {
-	if(!list) return NULL;
-	BTAssert(x < list->count, "Invalid index");
-	return list->items[x];
+strarg_t EFSHasherGetInternalHash(EFSHasherRef const hasher) {
+	if(!hasher) return NULL;
+	return hasher->internalHash;
 }
 

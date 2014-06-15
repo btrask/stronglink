@@ -3,12 +3,12 @@
 
 #include "../deps/sqlite/sqlite3.h"
 #include "common.h"
+#include "URIList.h"
 
 typedef struct EFSRepo* EFSRepoRef;
 typedef struct EFSSession* EFSSessionRef;
 typedef struct EFSSubmission* EFSSubmissionRef;
 typedef struct EFSHasher* EFSHasherRef;
-typedef struct EFSURIList* EFSURIListRef;
 typedef struct EFSFilter* EFSFilterRef;
 typedef struct EFSJSONFilterBuilder* EFSJSONFilterBuilderRef;
 
@@ -37,12 +37,8 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 EFSHasherRef EFSHasherCreate(strarg_t const type);
 void EFSHasherFree(EFSHasherRef const hasher);
 void EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, ssize_t const len);
-
-EFSURIListRef EFSHasherCreateURIList(EFSHasherRef const hasher);
-void EFSURIListFree(EFSURIListRef const list);
-strarg_t EFSURIListGetInternalHash(EFSURIListRef const list);
-count_t EFSURIListGetCount(EFSURIListRef const list);
-strarg_t EFSURIListGetURI(EFSURIListRef const list, index_t const x);
+URIListRef EFSHasherEnd(EFSHasherRef const hasher);
+strarg_t EFSHasherGetInternalHash(EFSHasherRef const hasher);
 
 typedef enum {
 	EFSFilterInvalid,
