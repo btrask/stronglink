@@ -88,7 +88,7 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	uv_fs_t req = { .data = co_active() };
 	uv_fs_link(loop, &req, submission->path, internalPath, async_fs_cb);
 	co_switch(yield);
-	if(req.result < 0) {
+	if(req.result < 0 && -EEXIST != req.result) {
 		fprintf(stderr, "Couldn't move %s to %s\n", submission->path, internalPath);
 		uv_fs_req_cleanup(&req);
 		FREE(&internalPath);
@@ -175,6 +175,7 @@ static err_t mkdirp(str_t *const path, ssize_t len, int const mode) {
 	co_switch(yield);
 	uv_fs_req_cleanup(&req);
 	if(req.result >= 0) return 0;
+	if(-EEXIST == req.result) return 0;
 	if(-ENOENT != req.result) return -1;
 	index_t i = len;
 	for(; i > 0 && '/' != path[i]; --i);
