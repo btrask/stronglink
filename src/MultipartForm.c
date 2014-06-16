@@ -120,8 +120,8 @@ static int on_header_value(multipart_parser *const parser, strarg_t const at, si
 	return 0;
 }
 static int on_part_data(multipart_parser *const parser, char const *const at, size_t const len) {
+	if(!len) return 0;
 	FormPartRef const part = multipart_parser_get_data(parser);
-	BTAssert(len, "Parser giving us bad data");
 	BTAssert(!part->chunkLength, "Form part already has chunk");
 	BTAssert(!part->eof, "Form part already ended");
 	part->chunk = (byte_t const *)at;
