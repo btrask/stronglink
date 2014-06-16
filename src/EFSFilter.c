@@ -100,9 +100,9 @@ err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfil
 void EFSFilterCreateTempTables(sqlite3 *const db) {
 	EXEC(QUERY(db,
 		"CREATE TEMPORARY TABLE \"results\" (\n"
-		"\t" "\"resultID\" INTEGER PRIMARY KEY NOT NULL\n"
-		"\t" "\"fileID\" INTEGER NOT NULL\n"
-		"\t" "\"sort\" INTEGER NOT NULL\n"
+		"\t" "\"resultID\" INTEGER PRIMARY KEY NOT NULL,\n"
+		"\t" "\"fileID\" INTEGER NOT NULL,\n"
+		"\t" "\"sort\" INTEGER NOT NULL,\n"
 		"\t" "\"depth\" INTEGER NOT NULL\n"
 		")"));
 	EXEC(QUERY(db,
@@ -110,8 +110,8 @@ void EFSFilterCreateTempTables(sqlite3 *const db) {
 		"ON \"results\" (\"depth\" ASC)"));
 	EXEC(QUERY(db,
 		"CREATE TEMPORARY TABLE \"depths\" (\n"
-		"\t" "\"depthID\" INTEGER PRIMARY KEY NOT NULL\n"
-		"\t" "\"subdepth\" INTEGER NOT NULL\n"
+		"\t" "\"depthID\" INTEGER PRIMARY KEY NOT NULL,\n"
+		"\t" "\"subdepth\" INTEGER NOT NULL,\n"
 		"\t" "\"depth\" INTEGER NOT NULL\n"
 		")"));
 	EXEC(QUERY(db,

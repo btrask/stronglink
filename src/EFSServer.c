@@ -132,40 +132,66 @@ static bool postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMe
 
 	return true;
 }
-static bool postQuery(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
-	if(HTTP_POST != method && HTTP_GET != method) return false; // TODO: Temporarily accept/ignore gets.
+static bool query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+	if(HTTP_POST != method && HTTP_GET != method) return false;
 	size_t pathlen = prefix("/efs/query", URI);
 	if(!pathlen) return false;
 	if('/' == URI[pathlen]) ++pathlen;
 	if(!pathterm(URI, (size_t)pathlen)) return false;
-	if(HTTP_GET == method) return true; // TODO: Accept and ignore.
 	EFSSessionRef const session = auth(repo, conn, method, URI+pathlen);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);
 		return true;
 	}
 
-	// TODO: Check Content-Type header for JSON.
+	EFSJSONFilterBuilderRef builder = NULL;
+	EFSFilterRef filter = NULL;
 
-	EFSJSONFilterBuilderRef const builder = EFSJSONFilterBuilderCreate();
+	if(HTTP_POST == method) {
+		// TODO: Check Content-Type header for JSON.
+		builder = EFSJSONFilterBuilderCreate();
+		for(;;) {
+			byte_t const *buf = NULL;
+			ssize_t const len = HTTPConnectionGetBuffer(conn, &buf);
+			if(-1 == len) {
+				HTTPConnectionSendStatus(conn, 400);
+				return true;
+			}
+			if(!len) break;
 
-	for(;;) {
-		byte_t const *buf = NULL;
-		ssize_t const len = HTTPConnectionGetBuffer(conn, &buf);
-		if(-1 == len) {
-			HTTPConnectionSendStatus(conn, 400);
-			return true;
+			EFSJSONFilterBuilderParse(builder, (str_t const *)buf, len);
 		}
-		if(!len) break;
-
-		EFSJSONFilterBuilderParse(builder, (str_t const *)buf, len);
+		filter = EFSJSONFilterBuilderDone(builder);
+	} else {
+		filter = EFSFilterCreate(EFSNoFilter);
 	}
-
-	EFSFilterRef const filter = EFSJSONFilterBuilderDone(builder);
 
 	sqlite3 *const db = EFSRepoDBConnect(repo);
 	EFSFilterCreateTempTables(db);
 	EFSFilterExec(filter, db, 0);
+
+	HTTPConnectionWriteResponse(conn, 200, "OK");
+//	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
+	// TODO: Ugh, more stuff to support.
+	HTTPConnectionWriteHeader(conn, "Content-Type", "text/uri-list; charset=utf-8");
+	HTTPConnectionBeginBody(conn);
+
+	sqlite3_stmt *const select = QUERY(db,
+		"SELECT f.\"internalHash\"\n"
+		"FROM \"files\" AS f\n"
+		"LEFT JOIN \"results\" AS r ON (f.\"fileID\" = r.\"fileID\")\n"
+		"ORDER BY r.\"sort\" DESC LIMIT 50");
+	while(SQLITE_ROW == sqlite3_step(select)) {
+		// TODO: Hacks.
+		strarg_t const hash = (strarg_t)sqlite3_column_text(select, 0);
+		HTTPConnectionWrite(conn, (byte_t const *)"hash://sha256/", 14);
+		HTTPConnectionWrite(conn, (byte_t const *)hash, strlen(hash));
+		HTTPConnectionWrite(conn, (byte_t const *)"\n", 1);
+	}
+	sqlite3_finalize(select);
+
+	HTTPConnectionClose(conn);
+
 	EFSRepoDBClose(repo, db);
 
 	EFSFilterFree(filter);
@@ -181,7 +207,7 @@ void EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn) {
 
 	if(getFile(repo, conn, method, URI)) return;
 	if(postFile(repo, conn, method, URI)) return;
-	if(postQuery(repo, conn, method, URI)) return;
+	if(query(repo, conn, method, URI)) return;
 
 	// TODO: Validate URI (no `..` segments, etc.) and append `index.html` if necessary.
 	// Also, don't use a hardcoded path...

@@ -23,9 +23,10 @@ typedef struct {
 	uv_file file;
 } squvco_file;
 
-static int squvco_open(sqlite3_vfs *const vfs, char const *const path, squvco_file *const file, int const sqflags, int *const outFlags) {
+static int squvco_open(sqlite3_vfs *const vfs, char const *const inpath, squvco_file *const file, int const sqflags, int *const outFlags) {
 	int uvflags = 0;
-	if(!path) return SQLITE_IOERR;
+	char *const tmp = inpath ? NULL : tempnam(NULL, "squvco"); // TODO: Yes, even this blocks. Plus, I don't think it's very portable. We should roll our own.
+	char const *const path = inpath ? inpath : tmp;
 	if(sqflags & SQLITE_OPEN_EXCLUSIVE) uvflags |= O_EXCL;
 	if(sqflags & SQLITE_OPEN_CREATE) uvflags |= O_CREAT;
 	if(sqflags & SQLITE_OPEN_READWRITE) uvflags |= O_RDWR;
@@ -33,11 +34,11 @@ static int squvco_open(sqlite3_vfs *const vfs, char const *const path, squvco_fi
 	uv_fs_t req = { .data = co_active() };
 	uv_fs_open(loop, &req, path, uvflags, 0600, async_fs_cb);
 	co_switch(yield);
-	int const result = req.result;
 	uv_fs_req_cleanup(&req);
-	if(result < 0) return SQLITE_CANTOPEN;
+	free(tmp);
+	if(req.result < 0) return SQLITE_CANTOPEN;
 	file->methods = &io_methods;
-	file->file = result;
+	file->file = req.result;
 	return SQLITE_OK;
 }
 static int squvco_delete(sqlite3_vfs *const vfs, char const *const path, int const syncDir) {
