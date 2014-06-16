@@ -32,6 +32,12 @@ typedef int err_t;
 	__a > __b ? __a : __b; \
 })
 
+#define SUB_ZERO(a, b) ({ \
+	__typeof__(a) const __a = (a); \
+	__typeof__(b) const __b = (b); \
+	__a > __b ? __a - __b : 0; \
+})
+
 #define BTAssert(x, fmt, ...) ({ \
 	if(0 == (x)) { \
 		fprintf(stderr, "%s:%d: assertion '%s' failed\n", __PRETTY_FUNCTION__, __LINE__, #x); \

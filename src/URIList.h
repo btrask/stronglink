@@ -19,7 +19,7 @@ void LineParserReset(LineParserRef const p);
 
 typedef struct URIListParser* URIListParserRef;
 
-URIListParserRef URIListParserCreate(void);
+URIListParserRef URIListParserCreate(strarg_t const type);
 void URIListParserFree(URIListParserRef const lp);
 void URIListParserWrite(URIListParserRef const lp, byte_t const *const buf, size_t const len);
 URIListRef URIListParserEnd(URIListParserRef const lp, bool_t const truncate);

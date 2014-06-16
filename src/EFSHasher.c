@@ -58,13 +58,14 @@ URIListRef EFSHasherEnd(EFSHasherRef const hasher) {
 	str_t *URI;
 	size_t len;
 
-	len = BTErrno(asprintf(&URI, "hash://sha1/%s", sha1h));
-	if(len > 0) URIListAddURI(URIs, URI, len);
-	len = BTErrno(asprintf(&URI, "hash://sha1/%.16s", sha1h));
-	if(len > 0) URIListAddURI(URIs, URI, len);
+	// Make sure the preferred URI (e.g. the one used for internalHash) is first.
 	len = BTErrno(asprintf(&URI, "hash://sha256/%s", sha256h));
 	if(len > 0) URIListAddURI(URIs, URI, len);
 	len = BTErrno(asprintf(&URI, "hash://sha256/%.24s", sha256h));
+	if(len > 0) URIListAddURI(URIs, URI, len);
+	len = BTErrno(asprintf(&URI, "hash://sha1/%s", sha1h));
+	if(len > 0) URIListAddURI(URIs, URI, len);
+	len = BTErrno(asprintf(&URI, "hash://sha1/%.16s", sha1h));
 	if(len > 0) URIListAddURI(URIs, URI, len);
 
 	free(sha1h);

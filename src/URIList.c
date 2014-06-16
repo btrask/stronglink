@@ -137,7 +137,9 @@ static err_t URIListParserAddURI(void *const list, strarg_t const URI, size_t co
 	return URIListAddURI((URIListRef)list, URI, (ssize_t)len);
 }
 
-URIListParserRef URIListParserCreate(void) {
+URIListParserRef URIListParserCreate(strarg_t const type) {
+	if(0 != strcasecmp("text/uri-list; charset=ascii", type) &&
+		0 != strcasecmp("text/uri-list; charset=utf-8", type)) return NULL;
 	URIListParserRef const lp = calloc(1, sizeof(struct URIListParser));
 	lp->list = URIListCreate();
 	lp->parser = LineParserCreate(URIListParserAddURI, lp->list);
