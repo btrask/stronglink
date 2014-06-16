@@ -12,6 +12,7 @@ extern "C"
 
 #include <stdlib.h>
 #include <ctype.h>
+#include <unistd.h> /* Hack */
 
 typedef struct multipart_parser multipart_parser;
 typedef struct multipart_parser_settings multipart_parser_settings;
@@ -36,7 +37,7 @@ multipart_parser* multipart_parser_init
 
 void multipart_parser_free(multipart_parser* p);
 
-size_t multipart_parser_execute(multipart_parser* p, const char *buf, size_t len);
+ssize_t multipart_parser_execute(multipart_parser* p, const char *buf, size_t len);
 
 void multipart_parser_set_data(multipart_parser* p, void* data);
 void * multipart_parser_get_data(multipart_parser* p);

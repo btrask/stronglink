@@ -35,7 +35,7 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 		byte_t const *buf = NULL;
 		ssize_t const rlen = read(context, &buf);
 		if(rlen < 0) {
-			fprintf(stderr, "EFSSubmission read error");
+			fprintf(stderr, "EFSSubmission read error\n");
 			break;
 		}
 		if(!rlen) break;
