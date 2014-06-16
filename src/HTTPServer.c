@@ -85,6 +85,7 @@ HeaderFieldList const *HTTPServerGetHeaderFields(HTTPServerRef const server) {
 HeadersRef HeadersCreate(HeaderFieldList const *const fields) {
 	if(!fields) return NULL;
 	HeadersRef const headers = calloc(1, sizeof(struct Headers));
+	headers->fields = fields;
 	headers->field = malloc(FIELD_MAX+1);
 	headers->field[0] = '\0';
 	headers->current = fields->count;
@@ -178,7 +179,7 @@ ssize_t HTTPConnectionGetBuffer(HTTPConnectionRef const conn, byte_t const **con
 	if(!conn) return -1;
 	if(!conn->chunkLength) {
 		if(conn->eof) return 0;
-		if(-1 == readOnce(conn)) return -1;
+		if(readOnce(conn) < 0) return -1;
 	}
 	size_t const used = conn->chunkLength;
 	*buf = conn->chunk;

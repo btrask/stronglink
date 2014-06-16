@@ -2,7 +2,6 @@
 #include <fcntl.h>
 #include "async.h"
 #include "EarthFS.h"
-#include "HTTPServer.h"
 
 // TODO: Find a home for these.
 static err_t mkdirp(str_t *const path, ssize_t len, int const mode);
@@ -11,17 +10,17 @@ struct EFSSubmission {
 	EFSRepoRef repo;
 	str_t *path;
 	str_t *type;
-	ssize_t size; // TODO: Appropriate type? 64-bit unsigned.
+	int64_t size;
 	URIListRef URIs;
 	str_t *internalHash;
 };
 
-EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, HTTPConnectionRef const conn) {
+EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context) {
 	if(!repo) return NULL;
-	BTAssert(conn, "EFSSubmission connection required");
 
 	EFSSubmissionRef const sub = calloc(1, sizeof(struct EFSSubmission));
 	sub->repo = repo;
+	sub->type = strdup(type);
 
 	str_t const x[] = "efs-tmp"; // TODO: Generate random filename.
 	(void)BTErrno(asprintf(&sub->path, "/tmp/%s", x)); // TODO: Use temp dir from repo.
@@ -31,20 +30,12 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, HTTPConnectionRe
 		return NULL;
 	}
 
-/*	HTTPHeaderList const *const headers = HTTPConnectionGetHeaders(conn);
-	for(index_t i = 0; i < headers->count; ++i) {
-		if(0 == strcasecmp("content-type", headers->items[i].field)) {
-			sub->type = strdup(headers->items[i].value);
-		}
-	}*/
-
-	// TODO: Reading the payload could never be this easy, we need to parse the multipart encoding.
 	EFSHasherRef const hasher = EFSHasherCreate(sub->type);
 	for(;;) {
 		byte_t const *buf = NULL;
-		ssize_t const rlen = HTTPConnectionGetBuffer(conn, &buf);
+		ssize_t const rlen = read(context, &buf);
 		if(rlen < 0) {
-			fprintf(stderr, "EFSSubmission connection read error");
+			fprintf(stderr, "EFSSubmission read error");
 			break;
 		}
 		if(!rlen) break;

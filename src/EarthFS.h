@@ -29,8 +29,7 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const user, s
 void EFSSessionFree(EFSSessionRef const session);
 int64_t EFSSessionGetUserID(EFSSessionRef const session);
 
-// TODO: We want a cleaner split between EFS and HTTP.
-//EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, HTTPConnectionRef const conn);
+EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context);
 void EFSSubmissionFree(EFSSubmissionRef const sub);
 err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef const submission);
 

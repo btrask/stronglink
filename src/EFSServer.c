@@ -2,6 +2,7 @@
 #include "common.h"
 #include "EarthFS.h"
 #include "HTTPServer.h"
+#include "MultipartForm.h"
 #include "QueryString.h"
 
 typedef struct {
@@ -14,8 +15,6 @@ HeaderFieldList const EFSHeaderFieldList = {
 	.count = numberof(EFSHeaderFields),
 	.items = EFSHeaderFields,
 };
-
-EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, HTTPConnectionRef const conn);
 
 static bool_t pathterm(strarg_t const URI, size_t const len) {
 	char const x = URI[len];
@@ -108,17 +107,28 @@ static bool postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMe
 		return true;
 	}
 
-	EFSHeaders *const headers = HTTPConnectionGetHeaders(conn);
-	size_t const tlen = prefix("multipart/form-data; boundary=", headers->content_type);
-	if(!tlen) {
+	EFSHeaders *const reqheaders = HTTPConnectionGetHeaders(conn);
+
+	fprintf(stderr, "POST %s\n", reqheaders->content_type);
+
+	MultipartFormRef const form = MultipartFormCreate(conn, reqheaders->content_type, &EFSHeaderFieldList); // TODO: We shouldn't be reusing EFSHeaderFieldList for two purposes, but it's so simple that it works for now.
+	if(!form) {
 		HTTPConnectionSendStatus(conn, 400);
 		return true;
 	}
-	
 
-	EFSSubmissionRef const sub = EFSRepoCreateSubmission(repo, conn);
-	EFSSessionAddSubmission(session, sub);
-	EFSSubmissionFree(sub);
+	for(;;) {
+		FormPartRef const part = MultipartFormGetPart(form);
+		if(!part) break;
+		EFSHeaders *const partheaders = FormPartGetHeaders(part);
+		fprintf(stderr, "Got part of type %s\n", partheaders->content_type);
+		EFSSubmissionRef const sub = EFSRepoCreateSubmission(repo, partheaders->content_type, (ssize_t (*)())FormPartGetBuffer, part);
+		EFSSessionAddSubmission(session, sub);
+		EFSSubmissionFree(sub);
+		fprintf(stderr, "Part over\n");
+	}
+
+	MultipartFormFree(form);
 
 	return true;
 }

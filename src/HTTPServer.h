@@ -1,3 +1,6 @@
+#ifndef HTTPSERVER_H
+#define HTTPSERVER_H
+
 #include "../deps/http_parser/http_parser.h"
 #include "common.h"
 
@@ -53,3 +56,4 @@ void HTTPConnectionSendMessage(HTTPConnectionRef const conn, uint16_t const stat
 void HTTPConnectionSendStatus(HTTPConnectionRef const conn, uint16_t const status);
 void HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path);
 
+#endif
