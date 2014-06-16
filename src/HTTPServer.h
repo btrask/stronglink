@@ -1,6 +1,7 @@
 #ifndef HTTPSERVER_H
 #define HTTPSERVER_H
 
+#include <uv.h>
 #include "../deps/http_parser/http_parser.h"
 #include "common.h"
 
@@ -49,6 +50,7 @@ void HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const st
 void HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value);
 void HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, size_t const len);
 void HTTPConnectionBeginBody(HTTPConnectionRef const conn);
+void HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file);
 void HTTPConnectionClose(HTTPConnectionRef const conn);
 
 // Convenience
