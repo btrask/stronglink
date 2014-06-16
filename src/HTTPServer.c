@@ -249,7 +249,7 @@ static int on_header_value(http_parser *const parser, char const *const at, size
 			if(0 != strcasecmp(conn->field, fields->items[i].name)) continue;
 			if(conn->headers[i]) break; // Ignore duplicate headers.
 			conn->valueIndex = i;
-			conn->headers[i] = malloc(fields->items[i].size);
+			conn->headers[i] = malloc(fields->items[i].size+1);
 			conn->headers[i][0] = '\0';
 			break;
 		}
