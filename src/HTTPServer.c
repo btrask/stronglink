@@ -24,6 +24,7 @@ typedef struct HTTPConnection {
 	// Request
 	str_t *URI;
 	str_t *field;
+	index_t valueIndex;
 	str_t **headers;
 	byte_t const *chunk;
 	size_t chunkLength;
@@ -242,16 +243,22 @@ static int on_header_field(http_parser *const parser, char const *const at, size
 static int on_header_value(http_parser *const parser, char const *const at, size_t const len) {
 	HTTPConnectionRef const conn = parser->data;
 	HeaderFieldList const *const fields = conn->server->fields;
-	for(index_t i = 0; i < fields->count; ++i) {
-		if(0 != strcasecmp(conn->field, fields->items[i].name)) continue;
-		if(!conn->headers[i]) {
+	if(conn->field[0]) {
+		conn->valueIndex = fields->count; // Mark as invalid.
+		for(index_t i = 0; i < fields->count; ++i) {
+			if(0 != strcasecmp(conn->field, fields->items[i].name)) continue;
+			if(conn->headers[i]) break; // Ignore duplicate headers.
+			conn->valueIndex = i;
 			conn->headers[i] = malloc(fields->items[i].size);
 			conn->headers[i][0] = '\0';
+			break;
 		}
-		append(conn->headers[i], fields->items[i].size, at, len);
-		break;
+		conn->field[0] = '\0';
 	}
-	conn->field[0] = '\0';
+	if(conn->valueIndex < fields->count) {
+		index_t const i = conn->valueIndex;
+		append(conn->headers[i], fields->items[i].size, at, len);
+	}
 	return 0;
 }
 static int on_headers_complete(http_parser *const parser) {
