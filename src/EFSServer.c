@@ -83,6 +83,7 @@ static bool getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 	str_t hash[256] = {};
 	size_t pathlen = 0; // TODO: correct type for scanf %n ?
 	(void)sscanf(URI, "/efs/file/%31[a-zA-Z0-9.%_-]/%255[a-zA-Z0-9.%_-]%n", algo, hash, &pathlen);
+	if('/' == URI[pathlen]) ++pathlen;
 	if(!pathterm(URI, pathlen)) return false;
 	EFSSessionRef const session = auth(repo, conn, method, URI+pathlen);
 	if(!session) {
@@ -97,8 +98,9 @@ static bool getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 }
 static bool postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_POST != method) return false;
-	size_t const pathlen = prefix("/efs/file", URI);
+	size_t pathlen = prefix("/efs/file", URI);
 	if(!pathlen) return false;
+	if('/' == URI[pathlen]) ++pathlen;
 	if(!pathterm(URI, (size_t)pathlen)) return false;
 	EFSSessionRef const session = auth(repo, conn, method, URI+pathlen);
 	if(!session) {
@@ -122,8 +124,9 @@ static bool postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMe
 }
 static bool postQuery(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_POST != method && HTTP_GET != method) return false; // TODO: Temporarily accept/ignore gets.
-	size_t const pathlen = prefix("/efs/query", URI);
+	size_t pathlen = prefix("/efs/query", URI);
 	if(!pathlen) return false;
+	if('/' == URI[pathlen]) ++pathlen;
 	if(!pathterm(URI, (size_t)pathlen)) return false;
 	if(HTTP_GET == method) return true; // TODO: Accept and ignore.
 	EFSSessionRef const session = auth(repo, conn, method, URI+pathlen);
