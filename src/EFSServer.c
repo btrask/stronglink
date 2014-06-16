@@ -4,6 +4,17 @@
 #include "HTTPServer.h"
 #include "QueryString.h"
 
+typedef struct {
+	strarg_t content_type;
+} EFSHeaders;
+static HeaderField const EFSHeaderFields[] = {
+	{"content-type", 100},
+};
+HeaderFieldList const EFSHeaderFieldList = {
+	.count = numberof(EFSHeaderFields),
+	.items = EFSHeaderFields,
+};
+
 EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, HTTPConnectionRef const conn);
 
 static bool_t pathterm(strarg_t const URI, size_t const len) {
@@ -87,13 +98,21 @@ static bool getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 static bool postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_POST != method) return false;
 	size_t const pathlen = prefix("/efs/file", URI);
-	if(pathlen) return false;
+	if(!pathlen) return false;
 	if(!pathterm(URI, (size_t)pathlen)) return false;
 	EFSSessionRef const session = auth(repo, conn, method, URI+pathlen);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);
 		return true;
 	}
+
+	EFSHeaders *const headers = HTTPConnectionGetHeaders(conn);
+	size_t const tlen = prefix("multipart/form-data; boundary=", headers->content_type);
+	if(!tlen) {
+		HTTPConnectionSendStatus(conn, 400);
+		return true;
+	}
+	
 
 	EFSSubmissionRef const sub = EFSRepoCreateSubmission(repo, conn);
 	EFSSessionAddSubmission(session, sub);
@@ -104,7 +123,7 @@ static bool postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMe
 static bool postQuery(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_POST != method && HTTP_GET != method) return false; // TODO: Temporarily accept/ignore gets.
 	size_t const pathlen = prefix("/efs/query", URI);
-	if(pathlen) return false;
+	if(!pathlen) return false;
 	if(!pathterm(URI, (size_t)pathlen)) return false;
 	if(HTTP_GET == method) return true; // TODO: Accept and ignore.
 	EFSSessionRef const session = auth(repo, conn, method, URI+pathlen);

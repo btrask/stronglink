@@ -31,12 +31,12 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, HTTPConnectionRe
 		return NULL;
 	}
 
-	HTTPHeaderList const *const headers = HTTPConnectionGetHeaders(conn);
+/*	HTTPHeaderList const *const headers = HTTPConnectionGetHeaders(conn);
 	for(index_t i = 0; i < headers->count; ++i) {
 		if(0 == strcasecmp("content-type", headers->items[i].field)) {
 			sub->type = strdup(headers->items[i].value);
 		}
-	}
+	}*/
 
 	// TODO: Reading the payload could never be this easy, we need to parse the multipart encoding.
 	EFSHasherRef const hasher = EFSHasherCreate(sub->type);

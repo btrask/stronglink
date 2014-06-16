@@ -3,10 +3,13 @@
 #include "async.h"
 
 #define BUFFER_SIZE (1024 * 8)
+#define URI_MAX 1024
+#define FIELD_MAX 80
 
 struct HTTPServer {
 	HTTPListener listener;
 	void *context;
+	HeaderFieldList const *fields;
 	uv_tcp_t *socket;
 };
 typedef struct HTTPConnection {
@@ -20,9 +23,8 @@ typedef struct HTTPConnection {
 
 	// Request
 	str_t *URI;
-	size_t URISize;
-	count_t headersSize;
-	HTTPHeaderList *headers;
+	str_t *field;
+	str_t **headers;
 	byte_t const *chunk;
 	size_t chunkLength;
 	bool_t eof;
@@ -33,11 +35,12 @@ static void connection_cb(uv_stream_t *const socket, int const status);
 static void write_cb(uv_write_t *const req, int status);
 static strarg_t statusstr(uint16_t const status);
 
-HTTPServerRef HTTPServerCreate(HTTPListener const listener, void *const context) {
+HTTPServerRef HTTPServerCreate(HTTPListener const listener, void *const context, HeaderFieldList const *const fields) {
 	BTAssert(listener, "HTTPServer listener required");
 	HTTPServerRef const server = calloc(1, sizeof(struct HTTPServer));
 	server->listener = listener;
 	server->context = context;
+	server->fields = fields;
 	server->socket = NULL;
 	return server;
 }
@@ -67,6 +70,10 @@ void HTTPServerClose(HTTPServerRef const server) {
 	uv_close((uv_handle_t *)server->socket, NULL);
 	FREE(&server->socket);
 }
+HeaderFieldList const *HTTPServerGetHeaderFields(HTTPServerRef const server) {
+	if(!server) return NULL;
+	return server->fields;
+}
 
 HTTPMethod HTTPConnectionGetRequestMethod(HTTPConnectionRef const conn) {
 	if(!conn) return 0;
@@ -76,7 +83,7 @@ strarg_t HTTPConnectionGetRequestURI(HTTPConnectionRef const conn) {
 	if(!conn) return NULL;
 	return conn->URI;
 }
-HTTPHeaderList const *HTTPConnectionGetHeaders(HTTPConnectionRef const conn) {
+void *HTTPConnectionGetHeaders(HTTPConnectionRef const conn) {
 	// TODO: Convenient method for random access lookup.
 	if(!conn) return NULL;
 	return conn->headers;
@@ -211,19 +218,12 @@ void HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path) {
 
 // INTERNAL
 
-static ssize_t append(str_t **const dst, size_t *const dsize, strarg_t const src, size_t const len) {
-	size_t const old = *dst ? strlen(*dst) : 0;
-	if(old + len > *dsize) {
-		*dsize = MAX(10, MAX(*dsize * 2, len+1));
-		*dst = realloc(*dst, *dsize);
-		if(!*dst) {
-			*dsize = 0;
-			return -1;
-		}
-	}
-	memcpy(*dst + old, src, len);
-	(*dst)[old+len] = '\0';
-	return old+len;
+static size_t append(str_t *const dst, size_t const dsize, strarg_t const src, size_t const slen) {
+	size_t const olen = strlen(dst);
+	size_t const nlen = MIN(olen + slen, dsize);
+	memcpy(dst + olen, src, nlen - olen);
+	dst[nlen] = '\0';
+	return nlen - olen;
 }
 
 static int on_message_begin(http_parser *const parser) {
@@ -231,41 +231,37 @@ static int on_message_begin(http_parser *const parser) {
 }
 static int on_url(http_parser *const parser, char const *const at, size_t const len) {
 	HTTPConnectionRef const conn = parser->data;
-	ssize_t const total = append(&conn->URI, &conn->URISize, at, len);
-	return -1 == total ? -1 : 0;
+	append(conn->URI, URI_MAX, at, len);
+	return 0;
 }
 static int on_header_field(http_parser *const parser, char const *const at, size_t const len) {
 	HTTPConnectionRef const conn = parser->data;
-	if(conn->headers->items[conn->headers->count].value) {
-		if(++conn->headers->count >= conn->headersSize) {
-			conn->headersSize *= 2;
-			conn->headers = realloc(conn->headers, sizeof(HTTPHeaderList) + sizeof(HTTPHeader) * conn->headersSize);
-			if(!conn->headers) return -1;
-			memset(&conn->headers->items[conn->headers->count], 0, sizeof(HTTPHeader) * (conn->headersSize - conn->headers->count));
-		}
-	}
-	HTTPHeader *const header = &conn->headers->items[conn->headers->count];
-	ssize_t const total = append(&header->field, &header->fsize, at, len);
-	return -1 == total ? -1 : 0;
+	append(conn->field, FIELD_MAX, at, len);
+	return 0;
 }
 static int on_header_value(http_parser *const parser, char const *const at, size_t const len) {
 	HTTPConnectionRef const conn = parser->data;
-	HTTPHeader *const header = &conn->headers->items[conn->headers->count];
-	ssize_t const total = append(&header->value, &header->vsize, at, len);
-	return -1 == total ? -1 : 0;
+	HeaderFieldList const *const fields = conn->server->fields;
+	for(index_t i = 0; i < fields->count; ++i) {
+		if(0 != strcasecmp(conn->field, fields->items[i].name)) continue;
+		if(!conn->headers[i]) {
+			conn->headers[i] = malloc(fields->items[i].size);
+			conn->headers[i][0] = '\0';
+		}
+		append(conn->headers[i], fields->items[i].size, at, len);
+		break;
+	}
+	conn->field[0] = '\0';
+	return 0;
 }
 static int on_headers_complete(http_parser *const parser) {
 	HTTPConnectionRef const conn = parser->data;
-	++conn->headers->count; // Last header finished.
-/*	for(index_t i = 0; i < conn->headers->count; ++i) {
-		fprintf(stderr, "%s: %s\n", conn->headers->items[i].field, conn->headers->items[i].value);
-	}*/
-	// TODO: Lowercase and sort by field name for faster access.
+	conn->field[0] = '\0';
 	return 0;
 }
 static int on_body(http_parser *const parser, char const *const at, size_t const len) {
 	HTTPConnectionRef const conn = parser->data;
-	BTAssert(conn->URI, "Body chunk received out of order");
+	BTAssert(conn->URI[0], "Body chunk received out of order");
 	BTAssert(!conn->chunkLength, "Chunk already waiting");
 	BTAssert(!conn->eof, "Message already complete");
 	conn->chunk = (byte_t const *)at;
@@ -320,39 +316,25 @@ static err_t readHeaders(HTTPConnectionRef const conn) {
 	}
 }
 static err_t handleMessage(HTTPConnectionRef const conn) {
-	conn->headersSize = 10;
-	conn->headers = calloc(1, sizeof(HTTPHeaderList) + sizeof(HTTPHeader) * conn->headersSize);
-
 	err_t const err = readHeaders(conn);
-	if(-1 != err) {
-		BTAssert(conn->URI, "No URI in request");
-		conn->server->listener(conn->server->context, conn);
-		if(!conn->eof) {
-			// Use up any unread data.
-			do {
-				conn->chunk = NULL;
-				conn->chunkLength = 0;
-			} while(readOnce(conn) >= 0);
-		}
+	if(err) return err;
+	BTAssert(conn->URI[0], "No URI in request");
+	conn->server->listener(conn->server->context, conn);
+	if(!conn->eof) {
+		// Use up any unread data.
+		do {
+			conn->chunk = NULL;
+			conn->chunkLength = 0;
+		} while(readOnce(conn) >= 0);
 	}
-
-	FREE(&conn->URI);
-	conn->URISize = 0;
-	for(index_t i = 0; i < conn->headers->count; ++i) {
-		FREE(&conn->headers->items[i].field);
-		conn->headers->items[i].fsize = 0;
-		FREE(&conn->headers->items[i].value);
-		conn->headers->items[i].vsize = 0;
-	}
-	FREE(&conn->headers);
-	conn->headersSize = 0;
-	return err;
+	return 0;
 }
 static struct {
 	uv_stream_t *socket;
 } fiber_args = {};
 static void handleStream(void) {
 	uv_stream_t *const socket = fiber_args.socket;
+	HTTPServerRef const server = socket->data;
 	uv_tcp_t stream;
 	(void)BTUVErr(uv_tcp_init(loop, &stream));
 	if(BTUVErr(uv_accept(socket, (uv_stream_t *)&stream))) {
@@ -363,26 +345,42 @@ static void handleStream(void) {
 
 	struct http_parser parser;
 	http_parser_init(&parser, HTTP_REQUEST);
-	byte_t buf[BUFFER_SIZE];
-	for(;;) {
+	byte_t *const buf = malloc(BUFFER_SIZE);
+	str_t *const URI = malloc(URI_MAX+1);
+	str_t *const field = malloc(FIELD_MAX+1);
+	str_t **const headers = calloc(server->fields->count, sizeof(str_t *));
+	err_t status = 0;
+	while(0 == status) {
 		HTTPConnection conn = {};
-		conn.server = socket->data;
+		conn.server = server;
 		conn.thread = co_active();
 		conn.stream = &stream;
 		conn.parser = &parser;
+		conn.buf = buf;
+		conn.URI = URI;
+		conn.field = field;
+		conn.headers = headers;
 		stream.data = &conn;
 		parser.data = &conn;
-		conn.buf = buf;
-		if(-1 == handleMessage(&conn)) break;
+		URI[0] = '\0';
+		field[0] = '\0';
+		status = handleMessage(&conn);
+		for(index_t i = 0; i < server->fields->count; ++i) {
+			FREE(&headers[i]);
+		}
 	}
 	fprintf(stderr, "Stream closing\n");
+	free(buf);
+	free(URI);
+	free(field);
+	free(headers);
 	uv_close((uv_handle_t *)&stream, NULL);
 	co_switch(yield);
 	// TODO: Destroy the thread.
 }
 static void connection_cb(uv_stream_t *const socket, int const status) {
 	fiber_args.socket = socket;
-	co_switch(co_create(1024 * 100 * sizeof(void *) / 4, handleStream));
+	co_switch(co_create(1024 * 50 * sizeof(void *) / 4, handleStream));
 }
 
 static strarg_t statusstr(uint16_t const status) {
