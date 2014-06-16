@@ -15,6 +15,7 @@ HEADERS := \
 	deps/crypt_blowfish-1.0.4/ow-crypt.h \
 	deps/http_parser/http_parser.h \
 	deps/libco/libco.h \
+	deps/multipart-parser-c/multipart_parser.h \
 	deps/sqlite/sqlite3.h
 
 OBJECTS := \
@@ -36,6 +37,7 @@ OBJECTS := \
 	build/crypt/x86.S.o \
 	build/http_parser.o \
 	build/libco.o \
+	build/multipart_parser.o \
 	build/sqlite3.o
 
 .DEFAULT_GOAL := all
@@ -64,6 +66,10 @@ build/libco.o: deps/libco/sjlj.c deps/libco/libco.h
 	@-mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) -Wno-parentheses
 	# x86 version is crashing a lot for us with Clang 3.3.
+
+build/multipart_parser.o: deps/multipart-parser-c/multipart_parser.c deps/multipart-parser-c/multipart_parser.h
+	@-mkdir -p $(dir $@)
+	$(CC) -c -o $@ $< $(CFLAGS) -std=c89 -ansi -pedantic -Wall
 
 build/sqlite3.o: deps/sqlite/sqlite3.c deps/sqlite/sqlite3.h
 	@-mkdir -p $(dir $@)
