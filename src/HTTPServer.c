@@ -23,14 +23,20 @@ typedef struct HTTPConnection {
 
 	// Request
 	str_t *URI;
-	str_t *field;
-	index_t valueIndex;
-	str_t **headers;
+	HeadersRef headers;
 	byte_t const *chunk;
 	size_t chunkLength;
 	bool_t eof;
 } HTTPConnection;
 
+struct Headers {
+	HeaderFieldList const *fields;
+	str_t *field;
+	index_t current;
+	str_t **data;
+};
+
+static size_t append(str_t *const dst, size_t const dsize, strarg_t const src, size_t const slen);
 static err_t readOnce(HTTPConnectionRef const conn);
 static void connection_cb(uv_stream_t *const socket, int const status);
 static void write_cb(uv_write_t *const req, int status);
@@ -76,6 +82,76 @@ HeaderFieldList const *HTTPServerGetHeaderFields(HTTPServerRef const server) {
 	return server->fields;
 }
 
+HeadersRef HeadersCreate(HeaderFieldList const *const fields) {
+	if(!fields) return NULL;
+	HeadersRef const headers = calloc(1, sizeof(struct Headers));
+	headers->field = malloc(FIELD_MAX+1);
+	headers->field[0] = '\0';
+	headers->current = fields->count;
+	headers->data = calloc(fields->count, sizeof(str_t *));
+	return headers;
+}
+void HeadersFree(HeadersRef const headers) {
+	if(!headers) return;
+	FREE(&headers->field);
+	for(index_t i = 0; i < headers->fields->count; ++i) {
+		FREE(&headers->data[i]);
+	}
+	FREE(headers->data);
+	free(headers);
+}
+err_t HeadersAppendFieldChunk(HeadersRef const headers, strarg_t const chunk, size_t const len) {
+	if(!headers) return 0;
+	append(headers->field, FIELD_MAX, chunk, len);
+	return 0;
+}
+err_t HeadersAppendValueChunk(HeadersRef const headers, strarg_t const chunk, size_t const len) {
+	if(!headers) return 0;
+	HeaderFieldList const *const fields = headers->fields;
+	if(headers->field[0]) {
+		headers->current = fields->count; // Mark as invalid.
+		for(index_t i = 0; i < fields->count; ++i) {
+			if(0 != strcasecmp(headers->field, fields->items[i].name)) continue;
+			if(headers->data[i]) continue; // Use separate slots for duplicate headers, if available.
+			headers->current = i;
+			headers->data[i] = malloc(fields->items[i].size+1);
+			if(!headers->data[i]) return -1;
+			headers->data[i][0] = '\0';
+			break;
+		}
+		headers->field[0] = '\0';
+	}
+	if(headers->current < fields->count) {
+		index_t const i = headers->current;
+		append(headers->data[i], fields->items[i].size, chunk, len);
+	}
+	return 0;
+}
+void HeadersEnd(HeadersRef const headers) {
+	if(!headers) return;
+	// No-op.
+}
+void *HeadersGetData(HeadersRef const headers) {
+	if(!headers) return NULL;
+	return headers->data;
+}
+void HeadersClear(HeadersRef const headers) {
+	if(!headers) return;
+	headers->field[0] = '\0';
+	headers->current = headers->fields->count;
+	for(index_t i = 0; i < headers->fields->count; ++i) {
+		FREE(&headers->data[i]);
+	}
+}
+
+static size_t append(str_t *const dst, size_t const dsize, strarg_t const src, size_t const slen) {
+	size_t const olen = strlen(dst);
+	size_t const nlen = MIN(olen + slen, dsize);
+	memcpy(dst + olen, src, nlen - olen);
+	dst[nlen] = '\0';
+	return nlen - olen;
+}
+
 HTTPMethod HTTPConnectionGetRequestMethod(HTTPConnectionRef const conn) {
 	if(!conn) return 0;
 	return conn->parser->method;
@@ -85,12 +161,10 @@ strarg_t HTTPConnectionGetRequestURI(HTTPConnectionRef const conn) {
 	return conn->URI;
 }
 void *HTTPConnectionGetHeaders(HTTPConnectionRef const conn) {
-	// TODO: Convenient method for random access lookup.
 	if(!conn) return NULL;
-	return conn->headers;
+	return HeadersGetData(conn->headers);
 }
 ssize_t HTTPConnectionRead(HTTPConnectionRef const conn, byte_t *const buf, size_t const len) {
-	// TODO: Zero-copy version that provides access to the original buffer.
 	if(!conn) return -1;
 	if(!conn->chunkLength) return conn->eof ? 0 : -1;
 	size_t const used = MIN(len, conn->chunkLength);
@@ -219,13 +293,6 @@ void HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path) {
 
 // INTERNAL
 
-static size_t append(str_t *const dst, size_t const dsize, strarg_t const src, size_t const slen) {
-	size_t const olen = strlen(dst);
-	size_t const nlen = MIN(olen + slen, dsize);
-	memcpy(dst + olen, src, nlen - olen);
-	dst[nlen] = '\0';
-	return nlen - olen;
-}
 
 static int on_message_begin(http_parser *const parser) {
 	return 0;
@@ -237,33 +304,17 @@ static int on_url(http_parser *const parser, char const *const at, size_t const 
 }
 static int on_header_field(http_parser *const parser, char const *const at, size_t const len) {
 	HTTPConnectionRef const conn = parser->data;
-	append(conn->field, FIELD_MAX, at, len);
+	HeadersAppendFieldChunk(conn->headers, at, len);
 	return 0;
 }
 static int on_header_value(http_parser *const parser, char const *const at, size_t const len) {
 	HTTPConnectionRef const conn = parser->data;
-	HeaderFieldList const *const fields = conn->server->fields;
-	if(conn->field[0]) {
-		conn->valueIndex = fields->count; // Mark as invalid.
-		for(index_t i = 0; i < fields->count; ++i) {
-			if(0 != strcasecmp(conn->field, fields->items[i].name)) continue;
-			if(conn->headers[i]) break; // Ignore duplicate headers.
-			conn->valueIndex = i;
-			conn->headers[i] = malloc(fields->items[i].size+1);
-			conn->headers[i][0] = '\0';
-			break;
-		}
-		conn->field[0] = '\0';
-	}
-	if(conn->valueIndex < fields->count) {
-		index_t const i = conn->valueIndex;
-		append(conn->headers[i], fields->items[i].size, at, len);
-	}
+	HeadersAppendValueChunk(conn->headers, at, len);
 	return 0;
 }
 static int on_headers_complete(http_parser *const parser) {
 	HTTPConnectionRef const conn = parser->data;
-	conn->field[0] = '\0';
+	HeadersEnd(conn->headers);
 	return 0;
 }
 static int on_body(http_parser *const parser, char const *const at, size_t const len) {
@@ -354,8 +405,7 @@ static void handleStream(void) {
 	http_parser_init(&parser, HTTP_REQUEST);
 	byte_t *const buf = malloc(BUFFER_SIZE);
 	str_t *const URI = malloc(URI_MAX+1);
-	str_t *const field = malloc(FIELD_MAX+1);
-	str_t **const headers = calloc(server->fields->count, sizeof(str_t *));
+	HeadersRef const headers = HeadersCreate(server->fields);
 	err_t status = 0;
 	while(0 == status) {
 		HTTPConnection conn = {};
@@ -365,22 +415,17 @@ static void handleStream(void) {
 		conn.parser = &parser;
 		conn.buf = buf;
 		conn.URI = URI;
-		conn.field = field;
 		conn.headers = headers;
 		stream.data = &conn;
 		parser.data = &conn;
 		URI[0] = '\0';
-		field[0] = '\0';
 		status = handleMessage(&conn);
-		for(index_t i = 0; i < server->fields->count; ++i) {
-			FREE(&headers[i]);
-		}
+		HeadersClear(headers);
 	}
 	fprintf(stderr, "Stream closing\n");
 	free(buf);
 	free(URI);
-	free(field);
-	free(headers);
+	HeadersFree(headers);
 	uv_close((uv_handle_t *)&stream, NULL);
 	co_switch(yield);
 	// TODO: Destroy the thread.

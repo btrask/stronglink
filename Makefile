@@ -10,6 +10,7 @@ HEADERS := \
 	src/async.h \
 	src/EarthFS.h \
 	src/HTTPServer.h \
+	src/MultipartForm.h \
 	src/QueryString.h \
 	src/URIList.h \
 	deps/crypt_blowfish-1.0.4/ow-crypt.h \
@@ -28,6 +29,7 @@ OBJECTS := \
 	build/EFSJSONFilterBuilder.o \
 	build/EFSServer.o \
 	build/HTTPServer.o \
+	build/MultipartForm.o \
 	build/QueryString.o \
 	build/URIList.o \
 	build/squvco_vfs.o \

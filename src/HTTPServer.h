@@ -12,6 +12,7 @@ typedef struct {
 
 typedef struct HTTPServer* HTTPServerRef;
 typedef struct HTTPConnection* HTTPConnectionRef;
+typedef struct Headers* HeadersRef;
 
 typedef void (*HTTPListener)(void *const context, HTTPConnectionRef const conn);
 
@@ -22,6 +23,15 @@ void HTTPServerFree(HTTPServerRef const server);
 int HTTPServerListen(HTTPServerRef const server, uint16_t const port, strarg_t const address);
 void HTTPServerClose(HTTPServerRef const server);
 HeaderFieldList const *HTTPServerGetHeaderFields(HTTPServerRef const server);
+
+// Also used by MultipartForm.
+HeadersRef HeadersCreate(HeaderFieldList const *const fields);
+void HeadersFree(HeadersRef const headers);
+err_t HeadersAppendFieldChunk(HeadersRef const headers, strarg_t const chunk, size_t const len);
+err_t HeadersAppendValueChunk(HeadersRef const headers, strarg_t const chunk, size_t const len);
+void HeadersEnd(HeadersRef const headers);
+void *HeadersGetData(HeadersRef const headers);
+void HeadersClear(HeadersRef const headers);
 
 // Connection reading
 HTTPMethod HTTPConnectionGetRequestMethod(HTTPConnectionRef const conn);
