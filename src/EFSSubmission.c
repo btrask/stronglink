@@ -25,13 +25,26 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 	sub->repo = repo;
 	sub->type = strdup(type);
 
-	str_t const x[] = "efs-tmp"; // TODO: Generate random filename.
-	(void)BTErrno(asprintf(&sub->path, "/tmp/%s", x)); // TODO: Use temp dir from repo.
-	fd_t const tmp = BTErrno(creat(sub->path, 0400));
-	if(tmp < 0) {
+	str_t *tmpdir = strdup(EFSRepoGetTempPath(repo));
+	if(mkdirp(tmpdir, -1, 0700) < 0) {
+		fprintf(stderr, "Error: couldn't create temp dir %s\n", tmpdir);
+		FREE(&tmpdir);
 		EFSSubmissionFree(sub);
 		return NULL;
 	}
+	str_t const x[] = "efs-tmp"; // TODO: Generate random filename.
+	(void)BTErrno(asprintf(&sub->path, "%s/%s", tmpdir, x));
+	FREE(&tmpdir);
+	uv_fs_t req = { .data = co_active() };
+	uv_fs_open(loop, &req, sub->path, O_CREAT | O_EXCL | O_TRUNC, 0400, async_fs_cb);
+	co_switch(yield);
+	uv_fs_req_cleanup(&req);
+	if(req.result < 0) {
+		fprintf(stderr, "Error: couldn't create temp file %s\n", sub->path);
+		EFSSubmissionFree(sub);
+		return NULL;
+	}
+	uv_file const tmp = req.result;
 
 	EFSHasherRef const hasher = EFSHasherCreate(sub->type);
 	URIListParserRef const metaURIsParser = URIListParserCreate(sub->type);
@@ -45,12 +58,16 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 		}
 		if(!rlen) break;
 
-		size_t const indexable = MIN(rlen, SUB_ZERO(INDEX_MAX, sub->size));
+		uv_buf_t info = uv_buf_init((char *)buf, rlen);
+		uv_fs_write(loop, &req, tmp, &info, 1, sub->size, async_fs_cb);
+		co_switch(yield);
+		uv_fs_req_cleanup(&req);
 
+		size_t const indexable = MIN(rlen, SUB_ZERO(INDEX_MAX, sub->size));
 		EFSHasherWrite(hasher, buf, rlen);
 		URIListParserWrite(metaURIsParser, buf, indexable);
 		// TODO: Full-text indexing.
-		(void)BTErrno(write(tmp, buf, rlen)); // TODO: libuv
+
 		sub->size += rlen;
 	}
 
@@ -60,7 +77,10 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 
 	EFSHasherFree(hasher);
 	URIListParserFree(metaURIsParser);
-	close(tmp);
+
+	uv_fs_close(loop, &req, tmp, async_fs_cb);
+	co_switch(yield);
+	uv_fs_req_cleanup(&req);
 
 	return sub;
 }

@@ -25,20 +25,40 @@ typedef struct {
 
 static int squvco_open(sqlite3_vfs *const vfs, char const *const inpath, squvco_file *const file, int const sqflags, int *const outFlags) {
 	int uvflags = 0;
-	char *const tmp = inpath ? NULL : tempnam(NULL, "squvco"); // TODO: Yes, even this blocks. Plus, I don't think it's very portable. We should roll our own.
-	char const *const path = inpath ? inpath : tmp;
-	if(sqflags & SQLITE_OPEN_EXCLUSIVE) uvflags |= O_EXCL;
-	if(sqflags & SQLITE_OPEN_CREATE) uvflags |= O_CREAT;
+	bool_t const usetmp = !inpath;
+	if(sqflags & SQLITE_OPEN_EXCLUSIVE || usetmp) uvflags |= O_EXCL;
+	if(sqflags & SQLITE_OPEN_CREATE || usetmp) uvflags |= O_CREAT;
 	if(sqflags & SQLITE_OPEN_READWRITE) uvflags |= O_RDWR;
 	if(sqflags & SQLITE_OPEN_READONLY) uvflags |= O_RDONLY;
+	if(usetmp) uvflags |= O_TRUNC;
+
 	uv_fs_t req = { .data = co_active() };
-	uv_fs_open(loop, &req, path, uvflags, 0600, async_fs_cb);
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
-	free(tmp);
-	if(req.result < 0) return SQLITE_CANTOPEN;
+	for(;;) {
+		char *const tmp = usetmp ? tempnam(NULL, "squvco") : NULL; // TODO: Blocking, unportable, etc.
+		char const *const path = usetmp ? tmp : inpath;
+		uv_fs_open(loop, &req, path, uvflags, 0600, async_fs_cb);
+		co_switch(yield);
+		uv_fs_req_cleanup(&req);
+		if(!usetmp) {
+			if(req.result < 0) return SQLITE_CANTOPEN;
+			file->file = req.result;
+			break;
+		}
+		if(-EEXIST == req.result) {
+			free(tmp);
+			continue;
+		} else if(req.result < 0) {
+			free(tmp);
+			return SQLITE_CANTOPEN;
+		}
+		file->file = req.result;
+		uv_fs_unlink(loop, &req, path, async_fs_cb); // TODO: Is this safe on Windows?
+		co_switch(yield);
+		uv_fs_req_cleanup(&req);
+		free(tmp);
+		break;
+	}
 	file->methods = &io_methods;
-	file->file = req.result;
 	return SQLITE_OK;
 }
 static int squvco_delete(sqlite3_vfs *const vfs, char const *const path, int const syncDir) {

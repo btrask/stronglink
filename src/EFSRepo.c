@@ -4,7 +4,8 @@
 struct EFSRepo {
 	str_t *path;
 	str_t *dataPath;
-	str_t *DBPath; // TODO: sqlite3 permissions object? not an actual DB connection.
+	str_t *tempPath;
+	str_t *DBPath;
 };
 
 EFSRepoRef EFSRepoCreate(strarg_t const path) {
@@ -12,6 +13,7 @@ EFSRepoRef EFSRepoCreate(strarg_t const path) {
 	EFSRepoRef const repo = calloc(1, sizeof(struct EFSRepo));
 	repo->path = strdup(path);
 	(void)BTErrno(asprintf(&repo->dataPath, "%s/data", path));
+	(void)BTErrno(asprintf(&repo->tempPath, "%s/tmp", path));
 	(void)BTErrno(asprintf(&repo->DBPath, "%s/efs.db", path));
 	return repo;
 }
@@ -28,9 +30,9 @@ strarg_t EFSRepoGetDataPath(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->dataPath;
 }
-strarg_t EFSRepoGetDBPath(EFSRepoRef const repo) {
+strarg_t EFSRepoGetTempPath(EFSRepoRef const repo) {
 	if(!repo) return NULL;
-	return repo->DBPath;
+	return repo->tempPath;
 }
 sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo) {
 	if(!repo) return NULL;
