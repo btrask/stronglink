@@ -162,6 +162,8 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	EXEC(insertFilePermission);
 
 
+	// TODO: Handle `text/uri-list` versus `text/efs-meta+uri-list`.
+	// A plain URI list is like a directory, it isn't meta at all.
 	count_t const metaURICount = URIListGetCount(sub->metaURIs);
 	sqlite3_stmt *const insertLink = QUERY(db,
 		"INSERT OR IGNORE INTO \"links\"\n"
@@ -189,6 +191,7 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 
 
 // TODO: Full-text indexing...
+// Type: `text/efs-meta+plain` ?
 //
 //"INSERT INTO \"fulltext\" (\"text\") VALUES (?)"
 //"INSERT INTO \"fileContent\" (\"ftID\", \"fileID\") VALUES (?, ?)"
