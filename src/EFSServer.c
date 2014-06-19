@@ -160,7 +160,7 @@ static bool postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMe
 		return true;
 	}
 
-	HTTPConnectionWriteResponse(conn, 200, "OK");
+	HTTPConnectionWriteResponse(conn, 201, "Created");
 	HTTPConnectionWriteHeader(conn, "X-Location", EFSSubmissionGetPrimaryURI(sub));
 	HTTPConnectionWriteContentLength(conn, 0);
 	HTTPConnectionBeginBody(conn);
