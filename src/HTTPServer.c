@@ -20,13 +20,14 @@ typedef struct HTTPConnection {
 	http_parser *parser;
 	byte_t *buf;
 	ssize_t nread;
+	bool_t streamEOF; // Unless you are deciding whether to start a new message, you should pretty much always use messageEOF instead. Perhaps we could get rid of this by using on_message_begin instead.
 
 	// Incoming
 	str_t *requestURI;
 	HeadersRef headers;
 	byte_t const *chunk;
 	size_t chunkLength;
-	bool_t eof;
+	bool_t messageEOF;
 
 	// Outgoing
 	// nothing yet...
@@ -170,18 +171,18 @@ void *HTTPConnectionGetHeaders(HTTPConnectionRef const conn) {
 }
 ssize_t HTTPConnectionRead(HTTPConnectionRef const conn, byte_t *const buf, size_t const len) {
 	if(!conn) return -1;
-	if(!conn->chunkLength) return conn->eof ? 0 : -1;
+	if(!conn->chunkLength) return conn->messageEOF ? 0 : -1;
 	size_t const used = MIN(len, conn->chunkLength);
 	memcpy(buf, conn->chunk, used);
 	conn->chunk += used;
 	conn->chunkLength -= used;
-	if(!conn->eof && -1 == readOnce(conn)) return -1;
+	if(!conn->messageEOF && -1 == readOnce(conn)) return -1;
 	return used;
 }
 ssize_t HTTPConnectionGetBuffer(HTTPConnectionRef const conn, byte_t const **const buf) {
 	if(!conn) return -1;
 	if(!conn->chunkLength) {
-		if(conn->eof) return 0;
+		if(conn->messageEOF) return 0;
 		if(readOnce(conn) < 0) return -1;
 	}
 	size_t const used = conn->chunkLength;
@@ -333,14 +334,14 @@ static int on_body(http_parser *const parser, char const *const at, size_t const
 	HTTPConnectionRef const conn = parser->data;
 	BTAssert(conn->requestURI[0], "Body chunk received out of order");
 	BTAssert(!conn->chunkLength, "Chunk already waiting");
-	BTAssert(!conn->eof, "Message already complete");
+	BTAssert(!conn->messageEOF, "Message already complete");
 	conn->chunk = (byte_t const *)at;
 	conn->chunkLength = len;
 	return 0;
 }
 static int on_message_complete(http_parser *const parser) {
 	HTTPConnectionRef const conn = parser->data;
-	conn->eof = 1;
+	conn->messageEOF = true;
 	return 0;
 }
 static http_parser_settings const settings = {
@@ -365,7 +366,7 @@ static void read_cb(uv_stream_t *const stream, ssize_t const nread, const uv_buf
 }
 
 static ssize_t readOnce(HTTPConnectionRef const conn) {
-	if(conn->eof) return -1;
+	if(conn->messageEOF) return -1;
 	conn->nread = 0;
 	for(;;) {
 		uv_read_start((uv_stream_t *)conn->stream, alloc_cb, read_cb);
@@ -373,7 +374,10 @@ static ssize_t readOnce(HTTPConnectionRef const conn) {
 		uv_read_stop((uv_stream_t *)conn->stream);
 		if(conn->nread) break;
 	}
-	if(UV_EOF == conn->nread) conn->nread = 0;
+	if(UV_EOF == conn->nread) {
+		conn->streamEOF = true;
+		conn->nread = 0;
+	}
 	if(conn->nread < 0) return -1;
 	size_t const plen = http_parser_execute(conn->parser, &settings, (char const *)conn->buf, conn->nread);
 	if(plen != conn->nread) return -1;
@@ -381,8 +385,9 @@ static ssize_t readOnce(HTTPConnectionRef const conn) {
 }
 static err_t readHeaders(HTTPConnectionRef const conn) {
 	for(;;) {
-		if(-1 == readOnce(conn)) return -1;
-		if(conn->chunkLength || conn->eof) return 0;
+		if(readOnce(conn) < 0) return -1;
+		if(conn->chunkLength || conn->messageEOF) return 0;
+		if(conn->streamEOF) return -1;
 	}
 }
 static err_t handleMessage(HTTPConnectionRef const conn) {
@@ -390,7 +395,7 @@ static err_t handleMessage(HTTPConnectionRef const conn) {
 	if(err) return err;
 	BTAssert(conn->requestURI[0], "No URI in request");
 	conn->server->listener(conn->server->context, conn);
-	if(!conn->eof) {
+	if(!conn->messageEOF) {
 		// Use up any unread data.
 		do {
 			conn->chunk = NULL;
