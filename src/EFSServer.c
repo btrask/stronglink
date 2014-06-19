@@ -64,18 +64,6 @@ static EFSSessionRef auth(EFSRepoRef const repo, HTTPConnectionRef const conn, H
 }
 
 
-typedef struct {
-	str_t *path;
-	str_t *type;
-	size_t size;
-	// alternate uris?
-	// tags? [we don't actually support tags, we just support links]
-	// 	but we support links to tag files... we could have a table for them too
-} EFSFileInfo;
-
-EFSFileInfo *EFSSessionCopyInfoForAddress(EFSSessionRef const session, strarg_t const URI); // TODO
-
-
 static bool getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_GET != method && HTTP_HEAD != method) return false;
 	str_t algo[32] = {};
