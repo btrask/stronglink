@@ -21,7 +21,7 @@ struct EFSSubmission {
 EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context) {
 	if(!repo) return NULL;
 
-	EFSSubmissionRef const sub = calloc(1, sizeof(struct EFSSubmission));
+	EFSSubmissionRef sub = calloc(1, sizeof(struct EFSSubmission));
 	sub->repo = repo;
 	sub->type = strdup(type);
 
@@ -36,7 +36,7 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 	(void)BTErrno(asprintf(&sub->path, "%s/%s", tmpdir, x));
 	FREE(&tmpdir);
 	uv_fs_t req = { .data = co_active() };
-	uv_fs_open(loop, &req, sub->path, O_CREAT | O_EXCL | O_TRUNC, 0400, async_fs_cb);
+	uv_fs_open(loop, &req, sub->path, O_CREAT | O_EXCL | O_TRUNC | O_WRONLY, 0400, async_fs_cb);
 	co_switch(yield);
 	uv_fs_req_cleanup(&req);
 	if(req.result < 0) {
@@ -52,16 +52,22 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 	for(;;) {
 		byte_t const *buf = NULL;
 		ssize_t const rlen = read(context, &buf);
+		if(0 == rlen) break;
 		if(rlen < 0) {
-			fprintf(stderr, "EFSSubmission read error\n");
-			break;
+			fprintf(stderr, "EFSSubmission read error %d\n", rlen);
+			EFSSubmissionFree(sub); sub = NULL;
+			goto bail;
 		}
-		if(!rlen) break;
 
 		uv_buf_t info = uv_buf_init((char *)buf, rlen);
 		uv_fs_write(loop, &req, tmp, &info, 1, sub->size, async_fs_cb);
 		co_switch(yield);
 		uv_fs_req_cleanup(&req);
+		if(req.result < 0) {
+			fprintf(stderr, "EFSSubmission write error %d\n", req.result);
+			EFSSubmissionFree(sub); sub = NULL;
+			goto bail;
+		}
 
 		size_t const indexable = MIN(rlen, SUB_ZERO(INDEX_MAX, sub->size));
 		EFSHasherWrite(hasher, buf, rlen);
@@ -75,6 +81,7 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 	sub->internalHash = strdup(EFSHasherGetInternalHash(hasher));
 	sub->metaURIs = URIListParserEnd(metaURIsParser, sub->size > INDEX_MAX);
 
+bail:
 	EFSHasherFree(hasher);
 	URIListParserFree(metaURIsParser);
 

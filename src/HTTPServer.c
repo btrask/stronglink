@@ -270,24 +270,26 @@ void HTTPConnectionSendStatus(HTTPConnectionRef const conn, uint16_t const statu
 	strarg_t const msg = statusstr(status);
 	HTTPConnectionSendMessage(conn, status, msg);
 }
-void HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path) {
+void HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path, strarg_t const type, int64_t size) {
 	uv_fs_t req = { .data = co_active() };
 	uv_fs_open(loop, &req, path, O_RDONLY, 0600, async_fs_cb);
 	co_switch(yield);
 	uv_fs_req_cleanup(&req);
 	uv_file const file = req.result;
 	if(file < 0) return HTTPConnectionSendStatus(conn, 400); // TODO: Error conversion.
-	uv_fs_fstat(loop, &req, file, async_fs_cb);
-	co_switch(yield);
-	if(req.result < 0) {
-		uv_fs_req_cleanup(&req);
-		return HTTPConnectionSendStatus(conn, 400);
+	if(size < 0) {
+		uv_fs_fstat(loop, &req, file, async_fs_cb);
+		co_switch(yield);
+		if(req.result < 0) {
+			uv_fs_req_cleanup(&req);
+			return HTTPConnectionSendStatus(conn, 400);
+		}
+		size = req.statbuf.st_size;
 	}
-	size_t const size = req.statbuf.st_size;
 	uv_fs_req_cleanup(&req);
 	HTTPConnectionWriteResponse(conn, 200, "OK");
 	HTTPConnectionWriteContentLength(conn, size);
-	// TODO: Content-Type
+	if(type) HTTPConnectionWriteHeader(conn, "Content-Type", type);
 	HTTPConnectionBeginBody(conn);
 	HTTPConnectionWriteFile(conn, file);
 	HTTPConnectionClose(conn);

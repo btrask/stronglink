@@ -82,17 +82,49 @@ static bool getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 	str_t hash[256] = {};
 	size_t pathlen = 0; // TODO: correct type for scanf %n ?
 	(void)sscanf(URI, "/efs/file/%31[a-zA-Z0-9.-]/%255[a-zA-Z0-9.%_-]%n", algo, hash, &pathlen);
+	if(!pathlen) return false;
 	if('/' == URI[pathlen]) ++pathlen;
 	if(!pathterm(URI, pathlen)) return false;
 	EFSSessionRef const session = auth(repo, conn, method, URI+pathlen);
-	if(!session) {
+	if(!session) { // TODO: Check session mode.
 		HTTPConnectionSendStatus(conn, 403);
 		return true;
 	}
 
+	sqlite3 *const db = EFSRepoDBConnect(repo);
+	sqlite3_stmt *const select = QUERY(db,
+		"SELECT f.\"internalHash\", f.\"type\", f.\"size\"\n"
+		"FROM \"files\" AS f\n"
+		"LEFT JOIN \"fileURIs\" AS f2 ON (f2.\"fileID\" = f.\"fileID\")\n"
+		"LEFT JOIN \"URIs\" AS u ON (u.\"URIID\" = f2.\"URIID\")\n"
+		"WHERE u.\"URI\" = ('hash://' || ? || '/' || ?)\n"
+		"ORDER BY f.\"fileID\" ASC LIMIT 1");
+	sqlite3_bind_text(select, 1, algo, -1, SQLITE_STATIC); // TODO: Lowercase.
+	sqlite3_bind_text(select, 2, hash, -1, SQLITE_STATIC);
+	int const status = sqlite3_step(select);
+	if(SQLITE_ROW != status) {
+		sqlite3_finalize(select);
+		EFSRepoDBClose(repo, db);
+		HTTPConnectionSendStatus(conn, 404);
+		return true;
+	}
 
-	HTTPConnectionSendStatus(conn, 200); // TODO
+	str_t *internalHash = strdup((char const *)sqlite3_column_text(select, 0));
+	str_t *type = strdup((char const *)sqlite3_column_text(select, 1));
+	int64_t const size = sqlite3_column_int64(select, 2);
 
+	sqlite3_finalize(select);
+	EFSRepoDBClose(repo, db);
+
+	str_t *path;
+	asprintf(&path, "%s/%.2s/%s", EFSRepoGetDataPath(repo), internalHash, internalHash);
+
+	// TODO: Do we need to send other headers?
+	HTTPConnectionSendFile(conn, path, type, size);
+
+	FREE(&path);
+	FREE(&internalHash);
+	FREE(&type);
 	return true;
 }
 static bool postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
@@ -213,7 +245,7 @@ void EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn) {
 	// Also, don't use a hardcoded path...
 	str_t *path = NULL;
 	(void)BTErrno(asprintf(&path, "/home/ben/Code/EarthFS-C/build/www/%s", URI));
-	HTTPConnectionSendFile(conn, path);
+	HTTPConnectionSendFile(conn, path, NULL, -1); // TODO: Determine file type.
 	FREE(&path);
 }
 

@@ -34,7 +34,7 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const usernam
 	(void)BTSQLiteErr(sqlite3_bind_text(stmt, 1, username, -1, SQLITE_TRANSIENT));
 	(void)BTSQLiteErr(sqlite3_step(stmt));
 
-	int64_t const userID = sqlite3_column_int(stmt, 0);
+	int64_t const userID = sqlite3_column_int64(stmt, 0);
 	strarg_t passhash = (strarg_t)sqlite3_column_text(stmt, 1);
 
 	if(!passhash) {
