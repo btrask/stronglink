@@ -105,6 +105,10 @@ void EFSSubmissionFree(EFSSubmissionRef const sub) {
 	FREE(&sub->internalHash);
 	free(sub);
 }
+strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub) {
+	if(!sub) return NULL;
+	return URIListGetURI(sub->URIs, 0);
+}
 
 err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef const sub) {
 	if(!session) return 0;

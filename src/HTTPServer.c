@@ -21,12 +21,15 @@ typedef struct HTTPConnection {
 	byte_t *buf;
 	ssize_t nread;
 
-	// Request
-	str_t *URI;
+	// Incoming
+	str_t *requestURI;
 	HeadersRef headers;
 	byte_t const *chunk;
 	size_t chunkLength;
 	bool_t eof;
+
+	// Outgoing
+	// nothing yet...
 } HTTPConnection;
 
 struct Headers {
@@ -159,7 +162,7 @@ HTTPMethod HTTPConnectionGetRequestMethod(HTTPConnectionRef const conn) {
 }
 strarg_t HTTPConnectionGetRequestURI(HTTPConnectionRef const conn) {
 	if(!conn) return NULL;
-	return conn->URI;
+	return conn->requestURI;
 }
 void *HTTPConnectionGetHeaders(HTTPConnectionRef const conn) {
 	if(!conn) return NULL;
@@ -248,9 +251,10 @@ void HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file) {
 	}
 	free(buf);
 }
-void HTTPConnectionClose(HTTPConnectionRef const conn) {
+void HTTPConnectionEnd(HTTPConnectionRef const conn) {
 	if(!conn) return;
-	// TODO: Figure out keepalive. Do we just never close connections?
+	HTTPConnectionWrite(conn, (byte_t *)"", 0);
+	// TODO: Figure out keep-alive. If the client doesn't support it, we should close the connection here.
 }
 
 void HTTPConnectionSendMessage(HTTPConnectionRef const conn, uint16_t const status, strarg_t const msg) {
@@ -263,7 +267,7 @@ void HTTPConnectionSendMessage(HTTPConnectionRef const conn, uint16_t const stat
 	if(HTTP_HEAD != HTTPConnectionGetRequestMethod(conn)) {
 		HTTPConnectionWrite(conn, (byte_t const *)msg, len);
 	}
-	HTTPConnectionClose(conn);
+	HTTPConnectionEnd(conn);
 	if(status >= 400) fprintf(stderr, "%s: %d %s\n", HTTPConnectionGetRequestURI(conn), (int)status, msg);
 }
 void HTTPConnectionSendStatus(HTTPConnectionRef const conn, uint16_t const status) {
@@ -292,7 +296,7 @@ void HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path, s
 	if(type) HTTPConnectionWriteHeader(conn, "Content-Type", type);
 	HTTPConnectionBeginBody(conn);
 	HTTPConnectionWriteFile(conn, file);
-	HTTPConnectionClose(conn);
+	HTTPConnectionEnd(conn);
 	uv_fs_close(loop, &req, file, async_fs_cb);
 	co_switch(yield);
 	uv_fs_req_cleanup(&req);
@@ -307,7 +311,7 @@ static int on_message_begin(http_parser *const parser) {
 }
 static int on_url(http_parser *const parser, char const *const at, size_t const len) {
 	HTTPConnectionRef const conn = parser->data;
-	append(conn->URI, URI_MAX, at, len);
+	append(conn->requestURI, URI_MAX, at, len);
 	return 0;
 }
 static int on_header_field(http_parser *const parser, char const *const at, size_t const len) {
@@ -327,7 +331,7 @@ static int on_headers_complete(http_parser *const parser) {
 }
 static int on_body(http_parser *const parser, char const *const at, size_t const len) {
 	HTTPConnectionRef const conn = parser->data;
-	BTAssert(conn->URI[0], "Body chunk received out of order");
+	BTAssert(conn->requestURI[0], "Body chunk received out of order");
 	BTAssert(!conn->chunkLength, "Chunk already waiting");
 	BTAssert(!conn->eof, "Message already complete");
 	conn->chunk = (byte_t const *)at;
@@ -384,7 +388,7 @@ static err_t readHeaders(HTTPConnectionRef const conn) {
 static err_t handleMessage(HTTPConnectionRef const conn) {
 	err_t const err = readHeaders(conn);
 	if(err) return err;
-	BTAssert(conn->URI[0], "No URI in request");
+	BTAssert(conn->requestURI[0], "No URI in request");
 	conn->server->listener(conn->server->context, conn);
 	if(!conn->eof) {
 		// Use up any unread data.
@@ -412,7 +416,7 @@ static void handleStream(void) {
 	struct http_parser parser;
 	http_parser_init(&parser, HTTP_REQUEST);
 	byte_t *const buf = malloc(BUFFER_SIZE);
-	str_t *const URI = malloc(URI_MAX+1);
+	str_t *const requestURI = malloc(URI_MAX+1);
 	HeadersRef const headers = HeadersCreate(server->fields);
 	err_t status = 0;
 	while(0 == status) {
@@ -422,17 +426,17 @@ static void handleStream(void) {
 		conn.stream = &stream;
 		conn.parser = &parser;
 		conn.buf = buf;
-		conn.URI = URI;
+		conn.requestURI = requestURI;
 		conn.headers = headers;
 		stream.data = &conn;
 		parser.data = &conn;
-		URI[0] = '\0';
+		requestURI[0] = '\0';
 		status = handleMessage(&conn);
 		HeadersClear(headers);
 	}
 	fprintf(stderr, "Stream closing\n");
 	free(buf);
-	free(URI);
+	free(requestURI);
 	HeadersFree(headers);
 	uv_close((uv_handle_t *)&stream, NULL);
 	co_switch(yield);

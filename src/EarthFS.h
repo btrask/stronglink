@@ -32,6 +32,7 @@ int64_t EFSSessionGetUserID(EFSSessionRef const session);
 
 EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context);
 void EFSSubmissionFree(EFSSubmissionRef const sub);
+strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub);
 err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef const submission);
 
 EFSHasherRef EFSHasherCreate(strarg_t const type);

@@ -51,7 +51,7 @@ void HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const fiel
 void HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, size_t const len);
 void HTTPConnectionBeginBody(HTTPConnectionRef const conn);
 void HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file);
-void HTTPConnectionClose(HTTPConnectionRef const conn);
+void HTTPConnectionEnd(HTTPConnectionRef const conn);
 
 // Convenience
 void HTTPConnectionSendMessage(HTTPConnectionRef const conn, uint16_t const status, strarg_t const msg);

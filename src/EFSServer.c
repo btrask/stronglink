@@ -94,6 +94,7 @@ static bool getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 		sqlite3_finalize(select);
 		EFSRepoDBClose(repo, db);
 		HTTPConnectionSendStatus(conn, 404);
+		EFSSessionFree(session);
 		return true;
 	}
 
@@ -113,6 +114,7 @@ static bool getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 	FREE(&path);
 	FREE(&internalHash);
 	FREE(&type);
+	EFSSessionFree(session);
 	return true;
 }
 static bool postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
@@ -127,29 +129,47 @@ static bool postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMe
 		return true;
 	}
 
-	EFSHeaders *const reqheaders = HTTPConnectionGetHeaders(conn);
+	strarg_t type;
+	ssize_t (*read)();
+	void *context;
 
-	fprintf(stderr, "POST %s\n", reqheaders->content_type);
+	EFSHeaders *const h1 = HTTPConnectionGetHeaders(conn);
+	MultipartFormRef const form = MultipartFormCreate(conn, h1->content_type, &EFSHeaderFieldList); // TODO: We shouldn't be reusing EFSHeaderFieldList for two purposes, but it's so simple that it works for now.
+	if(form) {
+		FormPartRef const part = MultipartFormGetPart(form);
+		if(!part) {
+			HTTPConnectionSendStatus(conn, 400);
+			EFSSessionFree(session);
+			return true;
+		}
+		EFSHeaders *const h2 = FormPartGetHeaders(part);
+		type = h2->content_type;
+		read = FormPartGetBuffer;
+		context = part;
+	} else {
+		type = h1->content_type;
+		read = HTTPConnectionGetBuffer;
+		context = conn;
+	}
 
-	MultipartFormRef const form = MultipartFormCreate(conn, reqheaders->content_type, &EFSHeaderFieldList); // TODO: We shouldn't be reusing EFSHeaderFieldList for two purposes, but it's so simple that it works for now.
-	if(!form) {
-		HTTPConnectionSendStatus(conn, 400);
+	EFSSubmissionRef const sub = EFSRepoCreateSubmission(repo, type, read, context);
+	if(EFSSessionAddSubmission(session, sub) < 0) {
+		EFSSubmissionFree(sub);
+		EFSSessionFree(session);
+		HTTPConnectionSendStatus(conn, 500);
 		return true;
 	}
 
-	for(;;) {
-		FormPartRef const part = MultipartFormGetPart(form);
-		if(!part) break;
-		EFSHeaders *const partheaders = FormPartGetHeaders(part);
-		fprintf(stderr, "Got part of type %s\n", partheaders->content_type);
-		EFSSubmissionRef const sub = EFSRepoCreateSubmission(repo, partheaders->content_type, (ssize_t (*)())FormPartGetBuffer, part);
-		EFSSessionAddSubmission(session, sub);
-		EFSSubmissionFree(sub);
-		fprintf(stderr, "Part over\n");
-	}
+	HTTPConnectionWriteResponse(conn, 200, "OK");
+	HTTPConnectionWriteHeader(conn, "X-Location", EFSSubmissionGetPrimaryURI(sub));
+	HTTPConnectionWriteContentLength(conn, 0);
+	HTTPConnectionBeginBody(conn);
+	HTTPConnectionEnd(conn);
+	fprintf(stderr, "POST %s -> %s\n", type, EFSSubmissionGetPrimaryURI(sub));
 
+	EFSSubmissionFree(sub);
 	MultipartFormFree(form);
-
+	EFSSessionFree(session);
 	return true;
 }
 static bool query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
@@ -175,6 +195,7 @@ static bool query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMetho
 			ssize_t const len = HTTPConnectionGetBuffer(conn, &buf);
 			if(-1 == len) {
 				HTTPConnectionSendStatus(conn, 400);
+				EFSSessionFree(session);
 				return true;
 			}
 			if(!len) break;
@@ -210,13 +231,13 @@ static bool query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMetho
 	}
 	sqlite3_finalize(select);
 
-	HTTPConnectionClose(conn);
+	HTTPConnectionEnd(conn);
 
 	EFSRepoDBClose(repo, db);
 
 	EFSFilterFree(filter);
 	EFSJSONFilterBuilderFree(builder);
-
+	EFSSessionFree(session);
 	return true;
 }
 
