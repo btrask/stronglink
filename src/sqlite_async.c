@@ -10,6 +10,7 @@ static cothread_t queue[QUEUE_MAX];
 static index_t queue_start = 0;
 static count_t queue_length = 0;
 static uv_timer_t queue_timer = {};*/
+static sqlite3_mutex *lock;
 
 static sqlite3_io_methods const io_methods;
 
@@ -24,7 +25,6 @@ static sqlite3_io_methods const io_methods;
 typedef struct {
 	sqlite3_io_methods const *methods;
 	uv_file file;
-	sqlite3_mutex *lock;
 } async_file;
 
 static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_file *const file, int const sqflags, int *const outFlags) {
@@ -63,7 +63,6 @@ static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_fi
 		break;
 	}
 	file->methods = &io_methods;
-	file->lock = sqlite3_mutex_alloc(SQLITE_MUTEX_RECURSIVE);
 	return SQLITE_OK;
 }
 static int async_delete(sqlite3_vfs *const vfs, char const *const path, int const syncDir) {
@@ -262,10 +261,10 @@ static int async_fileSize(async_file *const file, sqlite3_int64 *const outSize) 
 }
 static int async_lock(async_file *const file, int const level) {
 	if(level <= SQLITE_LOCK_NONE) return SQLITE_OK;
-	if(sqlite3_mutex_held(file->lock)) return SQLITE_OK;
-	sqlite3_mutex_enter(file->lock);
+	if(sqlite3_mutex_held(lock)) return SQLITE_OK;
+	sqlite3_mutex_enter(lock);
 	return SQLITE_OK;
-//	return sqlite3_mutex_try(file->lock);
+//	return sqlite3_mutex_try(lock);
 
 /*	if(level <= SQLITE_LOCK_NONE) return SQLITE_OK;
 	if(queue_length && co_active() == queue[queue_start]) return SQLITE_OK;
@@ -279,8 +278,8 @@ static int async_lock(async_file *const file, int const level) {
 }
 static int async_unlock(async_file *const file, int const level) {
 	if(level > SQLITE_LOCK_NONE) return SQLITE_OK;
-	if(sqlite3_mutex_notheld(file->lock)) return SQLITE_OK;
-	sqlite3_mutex_leave(file->lock);
+	if(sqlite3_mutex_notheld(lock)) return SQLITE_OK;
+	sqlite3_mutex_leave(lock);
 	return SQLITE_OK;
 
 /*	if(level > SQLITE_LOCK_NONE) return SQLITE_OK;
@@ -298,7 +297,7 @@ static int async_unlock(async_file *const file, int const level) {
 	return SQLITE_OK;*/
 }
 static int async_checkReservedLock(async_file *const file, int *const outRes) {
-	*outRes = sqlite3_mutex_held(file->lock);
+	*outRes = sqlite3_mutex_held(lock);
 //	*outRes = queue_length && co_active() == queue[queue_start];
 	return SQLITE_OK;
 }
@@ -452,6 +451,7 @@ static sqlite3_mutex_methods const async_mutex_methods = {
 void sqlite_async_register(void) {
 //	uv_timer_init(loop, &queue_timer);
 	BTSQLiteErr(sqlite3_config(SQLITE_CONFIG_MUTEX, &async_mutex_methods));
+	lock = sqlite3_mutex_alloc(SQLITE_MUTEX_RECURSIVE);
 	BTSQLiteErr(sqlite3_vfs_register(&async_vfs, 1));
 }
 
