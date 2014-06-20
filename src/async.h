@@ -1,8 +1,8 @@
 #include <uv.h>
 #include "../deps/libco/libco.h"
 
-extern uv_loop_t *const loop;
-extern cothread_t const yield;
+extern uv_loop_t *loop;
+extern cothread_t yield;
 
 static void async_fs_cb(uv_fs_t *const req) {
 	co_switch(req->data);

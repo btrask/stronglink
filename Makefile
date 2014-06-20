@@ -42,6 +42,11 @@ OBJECTS := \
 	build/multipart_parser.o \
 	build/sqlite3.o
 
+TEST_OBJECTS := \
+	build/sqlite_async.o \
+	build/libco.o \
+	build/sqlite3.o
+
 .DEFAULT_GOAL := all
 
 include client/Makefile
@@ -81,8 +86,16 @@ build/%.o: src/%.c $(HEADERS)
 	@-mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) -Werror
 
+test: build/test/sqlite_async
+	./build/test/sqlite_async
+
+build/test/sqlite_async: test/test_sqlite_async.c $(TEST_OBJECTS) $(HEADERS)
+	@-mkdir -p $(dir $@)
+	$(CC) -c -o $@.o $< $(CFLAGS) -Werror -Wall -Wno-unused-function
+	$(CC) -o $@ $@.o $(TEST_OBJECTS) $(CFLAGS) -luv
+
 clean:
 	-rm -rf build/
 
-.PHONY: all clean
+.PHONY: all clean test
 

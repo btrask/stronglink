@@ -1,5 +1,4 @@
-#include <uv.h>
-#include "../deps/libco/libco.h"
+#include "async.h"
 #include "EarthFS.h"
 #include "HTTPServer.h"
 

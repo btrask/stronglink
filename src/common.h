@@ -76,6 +76,18 @@ typedef int err_t;
 	*__x = NULL; \
 })
 
+#define QUERY(db, str) ({ \
+	sqlite3_stmt *__stmt = NULL; \
+	str_t const __str[] = (str);\
+	(void)BTSQLiteErr(sqlite3_prepare_v2((db), __str, sizeof(__str), &__stmt, NULL)); \
+	__stmt; \
+})
+#define EXEC(stmt) ({ \
+	sqlite3_stmt *const __stmt = (stmt); \
+	(void)BTSQLiteErr(sqlite3_step(__stmt)); \
+	(void)sqlite3_finalize(__stmt); \
+})
+
 // Compares nul-terminated string `a` with substring of `blen` at `b`.
 static bool_t substr(strarg_t const a, strarg_t const b, size_t const blen) {
 	off_t i = 0;

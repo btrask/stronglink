@@ -67,16 +67,4 @@ void EFSJSONFilterBuilderParse(EFSJSONFilterBuilderRef const builder, strarg_t c
 EFSFilterRef EFSJSONFilterBuilderDone(EFSJSONFilterBuilderRef const builder);
 EFSFilterType EFSFilterTypeFromString(strarg_t const type, size_t const len);
 
-#define QUERY(db, str) ({ \
-	sqlite3_stmt *__stmt = NULL; \
-	str_t const __str[] = (str);\
-	(void)BTSQLiteErr(sqlite3_prepare_v2((db), __str, sizeof(__str), &__stmt, NULL)); \
-	__stmt; \
-})
-#define EXEC(stmt) ({ \
-	sqlite3_stmt *const __stmt = (stmt); \
-	(void)BTSQLiteErr(sqlite3_step(__stmt)); \
-	(void)sqlite3_finalize(__stmt); \
-})
-
 #endif
