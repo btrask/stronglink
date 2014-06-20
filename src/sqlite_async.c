@@ -263,7 +263,9 @@ static int async_fileSize(async_file *const file, sqlite3_int64 *const outSize) 
 static int async_lock(async_file *const file, int const level) {
 	if(level <= SQLITE_LOCK_NONE) return SQLITE_OK;
 	if(sqlite3_mutex_held(file->lock)) return SQLITE_OK;
-	return sqlite3_mutex_try(file->lock);
+	sqlite3_mutex_enter(file->lock);
+	return SQLITE_OK;
+//	return sqlite3_mutex_try(file->lock);
 
 /*	if(level <= SQLITE_LOCK_NONE) return SQLITE_OK;
 	if(queue_length && co_active() == queue[queue_start]) return SQLITE_OK;
@@ -393,9 +395,10 @@ static void async_mutexEnter(async_mutex *const m) {
 	co_switch(yield);
 }
 static int async_mutexTry(async_mutex *const m) {
-	if(m->count && co_active() != m->queue[m->current]) return SQLITE_BUSY;
+	return SQLITE_BUSY;
+/*	if(m->count && co_active() != m->queue[m->current]) return SQLITE_BUSY;
 	async_mutexEnter(m);
-	return SQLITE_OK;
+	return SQLITE_OK;*/
 }
 static void async_mutexLeave(async_mutex *const m) {
 	cothread_t const active = co_active();

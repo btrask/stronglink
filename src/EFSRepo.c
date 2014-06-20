@@ -47,6 +47,7 @@ sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo) {
 		SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX,
 		NULL
 	));
+//	BTSQLiteErr(sqlite3_busy_timeout(db, 5));
 	return db;
 }
 void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 *const db) {
