@@ -17,7 +17,7 @@ URIListRef URIListCreate(void) {
 }
 void URIListFree(URIListRef const list) {
 	if(!list) return;
-	for(index_t i = 0; i < list->size; ++i) {
+	for(index_t i = 0; i < list->count; ++i) {
 		FREE(&list->items[i]);
 	}
 	FREE(&list->items);
