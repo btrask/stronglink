@@ -24,6 +24,7 @@ static void file_unlock_cb(uv_timer_t *const timer) {
 typedef struct {
 	sqlite3_io_methods const *methods;
 	uv_file file;
+	sqlite3_mutex *lock;
 } async_file;
 
 static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_file *const file, int const sqflags, int *const outFlags) {
@@ -62,6 +63,7 @@ static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_fi
 		break;
 	}
 	file->methods = &io_methods;
+	file->lock = sqlite3_mutex_alloc(SQLITE_MUTEX_RECURSIVE);
 	return SQLITE_OK;
 }
 static int async_delete(sqlite3_vfs *const vfs, char const *const path, int const syncDir) {
@@ -260,6 +262,10 @@ static int async_fileSize(async_file *const file, sqlite3_int64 *const outSize) 
 }
 static int async_lock(async_file *const file, int const level) {
 	if(level <= SQLITE_LOCK_NONE) return SQLITE_OK;
+	if(sqlite3_mutex_held(file->lock)) return SQLITE_OK;
+	return sqlite3_mutex_try(file->lock);
+
+/*	if(level <= SQLITE_LOCK_NONE) return SQLITE_OK;
 	if(queue_length && co_active() == queue[queue_start]) return SQLITE_OK;
 	if(queue_length >= QUEUE_MAX) return SQLITE_BUSY;
 	if(!queue_length) {
@@ -267,10 +273,15 @@ static int async_lock(async_file *const file, int const level) {
 	}
 	queue[(queue_start + queue_length) % QUEUE_MAX] = co_active();
 	if(queue_length++) co_switch(yield);
-	return SQLITE_OK;
+	return SQLITE_OK;*/
 }
 static int async_unlock(async_file *const file, int const level) {
 	if(level > SQLITE_LOCK_NONE) return SQLITE_OK;
+	if(sqlite3_mutex_notheld(file->lock)) return SQLITE_OK;
+	sqlite3_mutex_leave(file->lock);
+	return SQLITE_OK;
+
+/*	if(level > SQLITE_LOCK_NONE) return SQLITE_OK;
 	if(!queue_length) return SQLITE_OK;
 	if(co_active() != queue[queue_start]) return SQLITE_OK;
 	queue_length = queue_length - 1;
@@ -282,7 +293,7 @@ static int async_unlock(async_file *const file, int const level) {
 		queue_timer.data = queue[queue_start];
 		uv_timer_start(&queue_timer, file_unlock_cb, 0, 0);
 	}
-	return SQLITE_OK;
+	return SQLITE_OK;*/
 }
 static int async_checkReservedLock(async_file *const file, int *const outRes) {
 	*outRes = queue_length && co_active() == queue[queue_start];

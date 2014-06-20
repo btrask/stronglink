@@ -165,7 +165,7 @@ static bool postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMe
 	HTTPConnectionWriteContentLength(conn, 0);
 	HTTPConnectionBeginBody(conn);
 	HTTPConnectionEnd(conn);
-	fprintf(stderr, "POST %s -> %s\n", type, EFSSubmissionGetPrimaryURI(sub));
+//	fprintf(stderr, "POST %s -> %s\n", type, EFSSubmissionGetPrimaryURI(sub));
 
 	EFSSubmissionFree(sub);
 	MultipartFormFree(form);

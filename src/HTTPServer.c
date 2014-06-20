@@ -269,7 +269,7 @@ void HTTPConnectionSendMessage(HTTPConnectionRef const conn, uint16_t const stat
 		HTTPConnectionWrite(conn, (byte_t const *)msg, len);
 	}
 	HTTPConnectionEnd(conn);
-	if(status >= 400) fprintf(stderr, "%s: %d %s\n", HTTPConnectionGetRequestURI(conn), (int)status, msg);
+//	if(status >= 400) fprintf(stderr, "%s: %d %s\n", HTTPConnectionGetRequestURI(conn), (int)status, msg);
 }
 void HTTPConnectionSendStatus(HTTPConnectionRef const conn, uint16_t const status) {
 	strarg_t const msg = statusstr(status);
