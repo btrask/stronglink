@@ -27,6 +27,7 @@ void test_thread(void) {
 		"\t" "b TEXT,\n"
 		"\t" "c TEXT\n"
 		")"));
+	EXEC(QUERY(db, "CREATE INDEX IF NOT EXISTS testIndex ON test (b ASC)"));
 
 	for(index_t i = 0; i < 100; ++i) {
 		EXEC(QUERY(db, "BEGIN TRANSACTION"));
