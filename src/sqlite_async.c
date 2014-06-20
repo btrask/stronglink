@@ -366,6 +366,7 @@ static async_mutex *async_mutexAlloc(int const type) {
 	m->count = 0;
 	m->size = 10;
 	uv_timer_init(loop, &m->timer);
+	m->timer.data = NULL;
 	m->recursion = 0;
 	m->queue = malloc(sizeof(cothread_t) * m->size);
 	return m;
