@@ -32,7 +32,7 @@ OBJECTS := \
 	build/MultipartForm.o \
 	build/QueryString.o \
 	build/URIList.o \
-	build/squvco_vfs.o \
+	build/sqlite_async.o \
 	build/crypt/crypt_blowfish.o \
 	build/crypt/crypt_gensalt.o \
 	build/crypt/wrapper.o \
@@ -75,7 +75,7 @@ build/multipart_parser.o: deps/multipart-parser-c/multipart_parser.c deps/multip
 
 build/sqlite3.o: deps/sqlite/sqlite3.c deps/sqlite/sqlite3.h
 	@-mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS) -DSQLITE_THREADSAFE=0 -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -Wno-unused-value
+	$(CC) -c -o $@ $< $(CFLAGS) -DSQLITE_MUTEX_APPDEF=1 -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -Wno-unused-value -DSQLITE_DEBUG
 
 build/%.o: src/%.c $(HEADERS)
 	@-mkdir -p $(dir $@)
