@@ -5,22 +5,29 @@
 
 #define MAXPATHNAME 512
 
-/*#define QUEUE_MAX 10
+#define FILE_LOCK_MODE 2
+
+#if FILE_LOCK_MODE==0
+#elif FILE_LOCK_MODE==1
+#define QUEUE_MAX 10
 static cothread_t queue[QUEUE_MAX];
 static index_t queue_start = 0;
 static count_t queue_length = 0;
-static uv_timer_t queue_timer = {};*/
-static sqlite3_mutex *lock;
-
-static sqlite3_io_methods const io_methods;
-
-/*static void file_unlock_cb(uv_timer_t *const timer) {
+static uv_timer_t queue_timer = {};
+static void file_unlock_cb(uv_timer_t *const timer) {
 	cothread_t const thread = timer->data;
 	BTAssert(thread == queue[queue_start], "File unlock error");
 	timer->data = NULL;
 	co_switch(thread);
 	uv_timer_stop(timer);
-}*/
+}
+#elif FILE_LOCK_MODE==2
+static sqlite3_mutex *lock;
+#else
+#error "Invalid file lock mode"
+#endif
+
+static sqlite3_io_methods const io_methods;
 
 typedef struct {
 	sqlite3_io_methods const *methods;
@@ -260,13 +267,10 @@ static int async_fileSize(async_file *const file, sqlite3_int64 *const outSize) 
 	return SQLITE_OK;
 }
 static int async_lock(async_file *const file, int const level) {
-	if(level <= SQLITE_LOCK_NONE) return SQLITE_OK;
-	if(sqlite3_mutex_held(lock)) return SQLITE_OK;
-	sqlite3_mutex_enter(lock);
+#if FILE_LOCK_MODE==0
 	return SQLITE_OK;
-//	return sqlite3_mutex_try(lock);
-
-/*	if(level <= SQLITE_LOCK_NONE) return SQLITE_OK;
+#elif FILE_LOCK_MODE==1
+	if(level <= SQLITE_LOCK_NONE) return SQLITE_OK;
 	if(queue_length && co_active() == queue[queue_start]) return SQLITE_OK;
 	if(queue_length >= QUEUE_MAX) return SQLITE_BUSY;
 	if(!queue_length) {
@@ -274,15 +278,20 @@ static int async_lock(async_file *const file, int const level) {
 	}
 	queue[(queue_start + queue_length) % QUEUE_MAX] = co_active();
 	if(queue_length++) co_switch(yield);
-	return SQLITE_OK;*/
+	return SQLITE_OK;
+#elif FILE_LOCK_MODE==2
+	if(level <= SQLITE_LOCK_NONE) return SQLITE_OK;
+	if(sqlite3_mutex_held(lock)) return SQLITE_OK;
+	sqlite3_mutex_enter(lock);
+	return SQLITE_OK;
+//	return sqlite3_mutex_try(lock);
+#endif
 }
 static int async_unlock(async_file *const file, int const level) {
-	if(level > SQLITE_LOCK_NONE) return SQLITE_OK;
-	if(sqlite3_mutex_notheld(lock)) return SQLITE_OK;
-	sqlite3_mutex_leave(lock);
+#if FILE_LOCK_MODE==0
 	return SQLITE_OK;
-
-/*	if(level > SQLITE_LOCK_NONE) return SQLITE_OK;
+#elif FILE_LOCK_MODE==1
+	if(level > SQLITE_LOCK_NONE) return SQLITE_OK;
 	if(!queue_length) return SQLITE_OK;
 	if(co_active() != queue[queue_start]) return SQLITE_OK;
 	queue_length = queue_length - 1;
@@ -294,11 +303,22 @@ static int async_unlock(async_file *const file, int const level) {
 		queue_timer.data = queue[queue_start];
 		uv_timer_start(&queue_timer, file_unlock_cb, 0, 0);
 	}
-	return SQLITE_OK;*/
+	return SQLITE_OK;
+#elif FILE_LOCK_MODE==2
+	if(level > SQLITE_LOCK_NONE) return SQLITE_OK;
+	if(sqlite3_mutex_notheld(lock)) return SQLITE_OK;
+	sqlite3_mutex_leave(lock);
+	return SQLITE_OK;
+#endif
 }
 static int async_checkReservedLock(async_file *const file, int *const outRes) {
+#if FILE_LOCK_MODE==0
+	*outRes = 0;
+#elif FILE_LOCK_MODE==1
+	*outRes = queue_length && co_active() == queue[queue_start];
+#elif FILE_LOCK_MODE==2
 	*outRes = sqlite3_mutex_held(lock);
-//	*outRes = queue_length && co_active() == queue[queue_start];
+#endif
 	return SQLITE_OK;
 }
 static int async_fileControl(async_file *const file, int op, void *pArg) {
@@ -362,14 +382,14 @@ static async_mutex *async_mutexAlloc(int const type) {
 		BTAssert(type < GLOBAL_MUTEX_COUNT, "Unknown static mutex %d", type);
 		return global_mutexes[type - SQLITE_MUTEX_RECURSIVE - 1];
 	}
-	async_mutex *const m = malloc(sizeof(async_mutex));
+	async_mutex *const m = calloc(1, sizeof(async_mutex));
 	m->current = 0;
 	m->count = 0;
 	m->size = 10;
 	uv_timer_init(loop, &m->timer);
 	m->timer.data = NULL;
 	m->recursion = 0;
-	m->queue = malloc(sizeof(cothread_t) * m->size);
+	m->queue = calloc(m->size, sizeof(cothread_t));
 	return m;
 }
 static void async_mutexFree(async_mutex *const m) {
@@ -394,10 +414,10 @@ static void async_mutexEnter(async_mutex *const m) {
 	co_switch(yield);
 }
 static int async_mutexTry(async_mutex *const m) {
-	return SQLITE_BUSY;
-/*	if(m->count && co_active() != m->queue[m->current]) return SQLITE_BUSY;
+//	return SQLITE_BUSY;
+	if(m->count && co_active() != m->queue[m->current]) return SQLITE_BUSY;
 	async_mutexEnter(m);
-	return SQLITE_OK;*/
+	return SQLITE_OK;
 }
 static void async_mutexLeave(async_mutex *const m) {
 	cothread_t const active = co_active();
@@ -412,7 +432,7 @@ static void async_mutexLeave(async_mutex *const m) {
 		return;
 	}
 	m->recursion = 1;
-	m->timer.data = m->queue[m->current];
+	m->timer.data = next;
 	uv_timer_start(&m->timer, mutex_unlock_cb, 0, 0);
 }
 static int async_mutexHeld(async_mutex *const m) {
@@ -449,9 +469,13 @@ static sqlite3_mutex_methods const async_mutex_methods = {
 };
 
 void sqlite_async_register(void) {
-//	uv_timer_init(loop, &queue_timer);
 	BTSQLiteErr(sqlite3_config(SQLITE_CONFIG_MUTEX, &async_mutex_methods));
+#if FILE_LOCK_MODE==0
+#elif FILE_LOCK_MODE==1
+	uv_timer_init(loop, &queue_timer);
+#elif FILE_LOCK_MODE==2
 	lock = sqlite3_mutex_alloc(SQLITE_MUTEX_RECURSIVE);
+#endif
 	BTSQLiteErr(sqlite3_vfs_register(&async_vfs, 1));
 }
 
