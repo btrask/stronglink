@@ -5,21 +5,21 @@
 
 #define MAXPATHNAME 512
 
-#define QUEUE_MAX 10
+/*#define QUEUE_MAX 10
 static cothread_t queue[QUEUE_MAX];
 static index_t queue_start = 0;
 static count_t queue_length = 0;
-static uv_timer_t queue_timer = {};
+static uv_timer_t queue_timer = {};*/
 
 static sqlite3_io_methods const io_methods;
 
-static void file_unlock_cb(uv_timer_t *const timer) {
+/*static void file_unlock_cb(uv_timer_t *const timer) {
 	cothread_t const thread = timer->data;
 	BTAssert(thread == queue[queue_start], "File unlock error");
 	timer->data = NULL;
 	co_switch(thread);
 	uv_timer_stop(timer);
-}
+}*/
 
 typedef struct {
 	sqlite3_io_methods const *methods;
@@ -296,7 +296,8 @@ static int async_unlock(async_file *const file, int const level) {
 	return SQLITE_OK;*/
 }
 static int async_checkReservedLock(async_file *const file, int *const outRes) {
-	*outRes = queue_length && co_active() == queue[queue_start];
+	*outRes = sqlite3_mutex_held(file->lock);
+//	*outRes = queue_length && co_active() == queue[queue_start];
 	return SQLITE_OK;
 }
 static int async_fileControl(async_file *const file, int op, void *pArg) {
@@ -445,7 +446,7 @@ static sqlite3_mutex_methods const async_mutex_methods = {
 };
 
 void sqlite_async_register(void) {
-	uv_timer_init(loop, &queue_timer);
+//	uv_timer_init(loop, &queue_timer);
 	BTSQLiteErr(sqlite3_config(SQLITE_CONFIG_MUTEX, &async_mutex_methods));
 	BTSQLiteErr(sqlite3_vfs_register(&async_vfs, 1));
 }
