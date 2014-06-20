@@ -277,6 +277,7 @@ static int squvco_unlock(squvco_file *const file, int const level) {
 	} else {
 		// So that we don't "steal the stack"
 		uv_timer_t timer = { .data = queue[queue_start] };
+		uv_timer_init(loop, &timer);
 		uv_timer_start(&timer, unlock_cb, 0, 0);
 	}
 	return SQLITE_OK;

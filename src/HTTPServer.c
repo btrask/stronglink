@@ -413,8 +413,8 @@ static void handleStream(void) {
 	uv_tcp_t stream;
 	(void)BTUVErr(uv_tcp_init(loop, &stream));
 	if(BTUVErr(uv_accept(socket, (uv_stream_t *)&stream))) {
-		fprintf(stderr, "Accept failed\n");
-		co_switch(yield); // TODO: Destroy thread
+		fprintf(stderr, "Accept failed %p\n", co_active());
+		co_terminate();
 		return;
 	}
 
@@ -439,17 +439,18 @@ static void handleStream(void) {
 		status = handleMessage(&conn);
 		HeadersClear(headers);
 	}
-	fprintf(stderr, "Stream closing\n");
 	free(buf);
 	free(requestURI);
 	HeadersFree(headers);
 	uv_close((uv_handle_t *)&stream, NULL);
-	co_switch(yield);
-	// TODO: Destroy the thread.
+//	fprintf(stderr, "Closing thread %p\n", co_active());
+	co_terminate();
 }
 static void connection_cb(uv_stream_t *const socket, int const status) {
 	fiber_args.socket = socket;
-	co_switch(co_create(1024 * 50 * sizeof(void *) / 4, handleStream));
+	cothread_t const thread = co_create(1024 * 50 * sizeof(void *) / 4, handleStream);
+//	fprintf(stderr, "Opening thread %p\n", thread);
+	co_switch(thread);
 }
 
 static strarg_t statusstr(uint16_t const status) {
