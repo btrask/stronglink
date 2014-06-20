@@ -1,7 +1,7 @@
 ROOT_DIR := .
 
 CC := clang
-CFLAGS := -g -O0
+CFLAGS := -g -O0 -std=gnu99
 
 # TODO: Isn't there a way to have it find everything automatically?
 
