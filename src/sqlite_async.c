@@ -424,7 +424,7 @@ static int async_mutexNotheld(async_mutex *const m) {
 
 static int async_mutexInit(void) {
 	if(global_mutexes) return SQLITE_OK;
-	global_mutexes = calloc(sizeof(async_mutex), GLOBAL_MUTEX_COUNT);
+	global_mutexes = calloc(GLOBAL_MUTEX_COUNT, sizeof(async_mutex *));
 	for(index_t i = 0; i < GLOBAL_MUTEX_COUNT; ++i) {
 		global_mutexes[i] = async_mutexAlloc(SQLITE_MUTEX_RECURSIVE);
 	}
