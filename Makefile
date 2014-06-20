@@ -64,7 +64,7 @@ build/http_parser.o: deps/http_parser/http_parser.c deps/http_parser/http_parser
 	@-mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-build/libco.o: deps/libco/sjlj.c deps/libco/libco.h
+build/libco.o: deps/libco/ucontext.c deps/libco/libco.h
 	@-mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) -Wno-parentheses
 	# x86 version is crashing a lot for us with Clang 3.3.
