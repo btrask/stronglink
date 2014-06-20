@@ -1,6 +1,6 @@
 ROOT_DIR := .
 
-CC := clang
+CC := gcc
 CFLAGS := -g -O0 -std=gnu99
 
 # TODO: Isn't there a way to have it find everything automatically?
@@ -50,7 +50,7 @@ all: build/earthfs client
 
 build/earthfs: $(OBJECTS)
 	@-mkdir -p $(dir $@)
-	$(CC) -o $@ $^ $(CFLAGS) -lssl -luv -lyajl
+	$(CC) -o $@ $^ $(CFLAGS) -lcrypto -luv -lyajl
 
 build/crypt/%.S.o: deps/crypt_blowfish-1.0.4/%.S
 	@-mkdir -p $(dir $@)
@@ -64,10 +64,10 @@ build/http_parser.o: deps/http_parser/http_parser.c deps/http_parser/http_parser
 	@-mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-build/libco.o: deps/libco/ucontext.c deps/libco/libco.h
+build/libco.o: deps/libco/libco.c deps/libco/libco.h
 	@-mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) -Wno-parentheses
-	# x86 version is crashing a lot for us with Clang 3.3.
+	# x86 version seems incompatible with Clang 3.3.
 
 build/multipart_parser.o: deps/multipart-parser-c/multipart_parser.c deps/multipart-parser-c/multipart_parser.h
 	@-mkdir -p $(dir $@)
