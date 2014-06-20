@@ -334,6 +334,7 @@ typedef struct {
 	cothread_t *queue;
 } async_mutex;
 
+#define GLOBAL_MUTEX_COUNT 10
 static async_mutex **global_mutexes;
 
 static void mutex_unlock_cb(uv_timer_t *const timer) {
@@ -345,6 +346,7 @@ static void mutex_unlock_cb(uv_timer_t *const timer) {
 
 static async_mutex *async_mutexAlloc(int const type) {
 	if(type > SQLITE_MUTEX_RECURSIVE) {
+		BTAssert(type < GLOBAL_MUTEX_COUNT, "Unknown static mutex %d", type);
 		return global_mutexes[type - SQLITE_MUTEX_RECURSIVE - 1];
 	}
 	async_mutex *const m = malloc(sizeof(async_mutex));
@@ -409,8 +411,8 @@ static int async_mutexNotheld(async_mutex *const m) {
 
 static int async_mutexInit(void) {
 	if(global_mutexes) return SQLITE_OK;
-	global_mutexes = calloc(sizeof(async_mutex), 10);
-	for(index_t i = 0; i < 10; ++i) {
+	global_mutexes = calloc(sizeof(async_mutex), GLOBAL_MUTEX_COUNT);
+	for(index_t i = 0; i < GLOBAL_MUTEX_COUNT; ++i) {
 		global_mutexes[i] = async_mutexAlloc(SQLITE_MUTEX_RECURSIVE);
 	}
 	return SQLITE_OK;
