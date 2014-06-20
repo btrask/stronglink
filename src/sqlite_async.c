@@ -247,7 +247,7 @@ static int async_sync(async_file *const file, int const flags) {
 	co_switch(yield);
 	int const result = req.result;
 	uv_fs_req_cleanup(&req);
-	if(result < 0) return SQLITE_IOERR_TRUNCATE;
+	if(result < 0) return SQLITE_IOERR_FSYNC;
 	return SQLITE_OK;
 }
 static int async_fileSize(async_file *const file, sqlite3_int64 *const outSize) {
