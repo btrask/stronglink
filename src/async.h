@@ -14,7 +14,12 @@ static void async_timer_cb(uv_timer_t *const timer) {
 static void async_write_cb(uv_write_t *const req, int status) {
 	co_switch(req->data);
 }
+static void async_close_cb(uv_handle_t *const handle) {
+	co_switch(handle->data);
+}
 
 void async_init(void);
+void async_wakeup(cothread_t const thread);
+
 void co_terminate(void);
 

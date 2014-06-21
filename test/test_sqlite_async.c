@@ -45,11 +45,14 @@ static index_t mcount = 0;
 void test_mutex(void) {
 	sqlite3_mutex_enter(m1);
 	++mcount;
+
 	uv_timer_t timer = { .data = co_active() };
 	uv_timer_init(loop, &timer);
-	uv_timer_start(&timer, async_timer_cb, 0, 0);
+//	uv_timer_start(&timer, async_timer_cb, 0, 0);
+//	co_switch(yield);
+//	uv_timer_stop(&timer);
+	uv_close((uv_handle_t *)&timer, async_close_cb);
 	co_switch(yield);
-	uv_timer_stop(&timer);
 
 	int err = sqlite3_mutex_try(m2);
 	assert(SQLITE_OK == err);

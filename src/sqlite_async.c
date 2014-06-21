@@ -15,14 +15,6 @@
 static cothread_t queue[QUEUE_MAX];
 static index_t queue_start = 0;
 static count_t queue_length = 0;
-static uv_timer_t queue_timer = {};
-static void file_unlock_cb(uv_timer_t *const timer) {
-	cothread_t const thread = timer->data;
-	BTAssert(thread == queue[queue_start], "File unlock error");
-	timer->data = NULL;
-	uv_timer_stop(timer);
-	co_switch(thread);
-}
 #elif FILE_LOCK_MODE==2
 static sqlite3_mutex *lock;
 #else
@@ -151,7 +143,8 @@ static int async_sleep(sqlite3_vfs *const vfs, int const microseconds) {
 	uv_timer_init(loop, &timer);
 	uv_timer_start(&timer, async_timer_cb, microseconds / 1000, 0);
 	co_switch(yield);
-	uv_timer_stop(&timer);
+	uv_close((uv_handle_t *)&timer, async_close_cb);
+	co_switch(yield);
 	return microseconds;
 }
 static int async_currentTime(sqlite3_vfs *const vfs, double *const outTime) {
@@ -317,9 +310,7 @@ static int async_unlock(async_file *const file, int const level) {
 	if(!queue_length) {
 		// TODO: Unlock file.
 	} else {
-		BTAssert(!queue_timer.data, "File unlock already in progress");
-		queue_timer.data = queue[queue_start];
-		uv_timer_start(&queue_timer, file_unlock_cb, 0, 0);
+		async_wakeup(queue[queue_start]);
 	}
 	return SQLITE_OK;
 #elif FILE_LOCK_MODE==2
@@ -385,20 +376,12 @@ typedef struct {
 	index_t current;
 	count_t count;
 	count_t size;
-	uv_timer_t timer;
 	count_t recursion;
 	cothread_t *queue;
 } async_mutex;
 
 #define GLOBAL_MUTEX_COUNT 10
 static async_mutex **global_mutexes;
-
-static void mutex_unlock_cb(uv_timer_t *const timer) {
-	cothread_t const thread = timer->data;
-	timer->data = NULL;
-	uv_timer_stop(timer);
-	co_switch(thread);
-}
 
 static async_mutex *async_mutexAlloc(int const type) {
 	if(type > SQLITE_MUTEX_RECURSIVE) {
@@ -410,8 +393,6 @@ static async_mutex *async_mutexAlloc(int const type) {
 	m->current = 0;
 	m->count = 0;
 	m->size = 10;
-	uv_timer_init(loop, &m->timer);
-	m->timer.data = NULL;
 	m->recursion = 0;
 	m->queue = calloc(m->size, sizeof(cothread_t));
 	return m;
@@ -452,13 +433,7 @@ static void async_mutexLeave(async_mutex *const m) {
 	m->current = (m->current + 1) % m->size;
 	if(!--m->count) return;
 	cothread_t const next = m->queue[m->current];
-	if(m->timer.data) {
-		BTAssert(next == m->timer.data, "Mutex already scheduled next thread");
-		return;
-	}
-	m->recursion = 1;
-	m->timer.data = next;
-	uv_timer_start(&m->timer, mutex_unlock_cb, 0, 0);
+	async_wakeup(next);
 }
 static int async_mutexHeld(async_mutex *const m) {
 //	DEBUG_LOG();
@@ -482,6 +457,11 @@ static int async_mutexInit(void) {
 }
 static int async_mutexEnd(void) {
 	DEBUG_LOG();
+	if(!global_mutexes) return SQLITE_OK;
+	for(index_t i = 0; i < GLOBAL_MUTEX_COUNT; ++i) {
+		async_mutexFree(global_mutexes[i]);
+	}
+	FREE(&global_mutexes);
 	return SQLITE_OK;
 }
 
@@ -501,7 +481,6 @@ void sqlite_async_register(void) {
 	BTSQLiteErr(sqlite3_config(SQLITE_CONFIG_MUTEX, &async_mutex_methods));
 #if FILE_LOCK_MODE==0
 #elif FILE_LOCK_MODE==1
-	uv_timer_init(loop, &queue_timer);
 #elif FILE_LOCK_MODE==2
 	lock = sqlite3_mutex_alloc(SQLITE_MUTEX_RECURSIVE);
 #endif

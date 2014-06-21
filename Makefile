@@ -1,6 +1,6 @@
 ROOT_DIR := .
 
-CC := clang
+CC := gcc
 CFLAGS := -g -O0 -std=gnu99
 
 # TODO: Isn't there a way to have it find everything automatically?
@@ -71,7 +71,7 @@ build/http_parser.o: deps/http_parser/http_parser.c deps/http_parser/http_parser
 	@-mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-build/libco.o: deps/libco/ucontext.c deps/libco/libco.h
+build/libco.o: deps/libco/libco.c deps/libco/libco.h
 	@-mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) -Wno-parentheses
 	# x86 version seems incompatible with Clang 3.3.
