@@ -20,8 +20,8 @@ static void file_unlock_cb(uv_timer_t *const timer) {
 	cothread_t const thread = timer->data;
 	BTAssert(thread == queue[queue_start], "File unlock error");
 	timer->data = NULL;
-	co_switch(thread);
 	uv_timer_stop(timer);
+	co_switch(thread);
 }
 #elif FILE_LOCK_MODE==2
 static sqlite3_mutex *lock;
@@ -396,8 +396,8 @@ static async_mutex **global_mutexes;
 static void mutex_unlock_cb(uv_timer_t *const timer) {
 	cothread_t const thread = timer->data;
 	timer->data = NULL;
-	co_switch(thread);
 	uv_timer_stop(timer);
+	co_switch(thread);
 }
 
 static async_mutex *async_mutexAlloc(int const type) {
