@@ -7,9 +7,7 @@ void sqlite_async_register(void);
 
 void test_thread(void) {
 	int err = 0;
-//	fprintf(stderr, "start %p\n", co_active());
 
-//for(index_t i = 0; i < 20; ++i) {
 	sqlite3 *db = NULL;
 	err = sqlite3_open_v2(
 		NULL, // TODO: Test real paths too.
@@ -37,13 +35,11 @@ void test_thread(void) {
 
 	err = sqlite3_close(db);
 	assert(SQLITE_OK == err);
-//}
-//	fprintf(stderr, "stop  %p\n", co_active());
+
 	co_terminate();
-//	co_switch(yield);
 }
 
-/*static sqlite3_mutex *m1;
+static sqlite3_mutex *m1;
 static sqlite3_mutex *m2;
 static index_t mcount = 0;
 void test_mutex(void) {
@@ -55,9 +51,9 @@ void test_mutex(void) {
 	sqlite3_mutex_leave(m2);
 	--mcount;
 	sqlite3_mutex_leave(m1);
-//	co_terminate();
-	co_switch(yield);
-}*/
+
+	co_terminate();
+}
 
 #define STACK_SIZE (1024 * 100 * sizeof(void *) / 4)
 int main() {
@@ -69,16 +65,15 @@ int main() {
 	}
 	uv_run(loop, UV_RUN_DEFAULT);
 
-/*	m1 = sqlite3_mutex_alloc(SQLITE_MUTEX_RECURSIVE);
+	m1 = sqlite3_mutex_alloc(SQLITE_MUTEX_RECURSIVE);
 	m2 = sqlite3_mutex_alloc(SQLITE_MUTEX_RECURSIVE);
 	for(index_t i = 0; i < 10; ++i) {
 		co_switch(co_create(STACK_SIZE, test_mutex));
 	}
-	uv_run(loop, UV_RUN_DEFAULT);*/
+	uv_run(loop, UV_RUN_DEFAULT);
 
 	uv_timer_t timer = {};
 	uv_timer_init(loop, &timer);
-
 
 	return 0;
 }
