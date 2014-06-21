@@ -449,6 +449,7 @@ static void handleStream(void) {
 	free(buf);
 	free(requestURI);
 	HeadersFree(headers);
+	stream.data = co_active();
 	uv_close((uv_handle_t *)&stream, async_close_cb);
 	co_switch(yield);
 //	fprintf(stderr, "Closing thread %p\n", co_active());
