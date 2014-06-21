@@ -15,16 +15,6 @@ static void async_write_cb(uv_write_t *const req, int status) {
 	co_switch(req->data);
 }
 
-static void async_terminate_cb(uv_timer_t *const timer) {
-	co_delete(timer->data);
-	uv_timer_stop(timer);
-	free(timer);
-}
-static void co_terminate(void) {
-	uv_timer_t *const timer = malloc(sizeof(uv_timer_t));
-	timer->data = co_active();
-	uv_timer_init(loop, timer);
-	uv_timer_start(timer, async_terminate_cb, 0, 0);
-	co_switch(yield);
-}
+void async_init(void);
+void co_terminate(void);
 

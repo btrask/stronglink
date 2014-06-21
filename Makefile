@@ -32,6 +32,7 @@ OBJECTS := \
 	build/MultipartForm.o \
 	build/QueryString.o \
 	build/URIList.o \
+	build/async.o \
 	build/sqlite_async.o \
 	build/crypt/crypt_blowfish.o \
 	build/crypt/crypt_gensalt.o \
@@ -43,6 +44,7 @@ OBJECTS := \
 	build/sqlite3.o
 
 TEST_OBJECTS := \
+	build/async.o \
 	build/sqlite_async.o \
 	build/libco.o \
 	build/sqlite3.o
