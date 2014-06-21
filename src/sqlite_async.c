@@ -3,7 +3,7 @@
 #include "common.h"
 #include "async.h"
 
-#define DEBUG_LOG() fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
+#define DEBUG_LOG() //fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
 
 #define MAXPATHNAME 512
 
@@ -498,7 +498,7 @@ static sqlite3_mutex_methods const async_mutex_methods = {
 };
 
 void sqlite_async_register(void) {
-//	BTSQLiteErr(sqlite3_config(SQLITE_CONFIG_MUTEX, &async_mutex_methods));
+	BTSQLiteErr(sqlite3_config(SQLITE_CONFIG_MUTEX, &async_mutex_methods));
 #if FILE_LOCK_MODE==0
 #elif FILE_LOCK_MODE==1
 	uv_timer_init(loop, &queue_timer);

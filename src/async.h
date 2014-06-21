@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <uv.h>
 #include "../deps/libco/libco.h"
 
