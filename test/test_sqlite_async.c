@@ -58,11 +58,11 @@ void test_mutex(void) {
 	co_switch(yield);
 }*/
 
-#define STACK_SIZE (1024 * 50 * sizeof(void *) / 4)
+#define STACK_SIZE (1024 * 1000 * sizeof(void *) / 4)
 int main() {
 	yield = co_active();
 	loop = uv_default_loop();
-	sqlite_async_register();
+//	sqlite_async_register();
 
 	for(index_t i = 0; i < 20; ++i) {
 		co_switch(co_create(STACK_SIZE, test_thread));
