@@ -1,7 +1,7 @@
 ROOT_DIR := .
 
 CC := gcc
-CFLAGS := -g -O0 -std=gnu99
+CFLAGS := -std=gnu99 -g -O0 -DSQLITE_DEBUG
 
 # TODO: Isn't there a way to have it find everything automatically?
 
@@ -82,7 +82,7 @@ build/multipart_parser.o: deps/multipart-parser-c/multipart_parser.c deps/multip
 
 build/sqlite3.o: deps/sqlite/sqlite3.c deps/sqlite/sqlite3.h
 	@-mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS) -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -Wno-unused-value -DSQLITE_DEBUG # -DSQLITE_MUTEX_APPDEF=1
+	$(CC) -c -o $@ $< $(CFLAGS) -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -DSQLITE_MUTEX_APPDEF=1 -Wno-unused-value
 
 build/%.o: src/%.c $(HEADERS)
 	@-mkdir -p $(dir $@)
