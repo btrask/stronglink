@@ -5,7 +5,7 @@
 
 void sqlite_async_register(void);
 
-void test_thread(void) {
+void test_db(void) {
 	int err = 0;
 
 	sqlite3 *db = NULL;
@@ -45,6 +45,12 @@ static index_t mcount = 0;
 void test_mutex(void) {
 	sqlite3_mutex_enter(m1);
 	++mcount;
+	uv_timer_t timer = { .data = co_active() };
+	uv_timer_init(loop, &timer);
+	uv_timer_start(&timer, async_timer_cb, 0, 0);
+	co_switch(yield);
+	uv_timer_stop(&timer);
+
 	int err = sqlite3_mutex_try(m2);
 	assert(SQLITE_OK == err);
 	assert(1 == mcount);
@@ -61,7 +67,7 @@ int main() {
 	sqlite_async_register();
 
 	for(index_t i = 0; i < 20; ++i) {
-		co_switch(co_create(STACK_SIZE, test_thread));
+		co_switch(co_create(STACK_SIZE, test_db));
 	}
 	uv_run(loop, UV_RUN_DEFAULT);
 
