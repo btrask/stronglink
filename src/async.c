@@ -25,7 +25,6 @@ void co_terminate(void) {
 
 static void wakeup_cb(uv_handle_t *const handle) {
 	cothread_t const thread = handle->data;
-	fprintf(stderr, "Woke %p\n", thread);
 	free(handle);
 	co_switch(thread);
 }
@@ -35,6 +34,5 @@ void async_wakeup(cothread_t const thread) {
 	timer->data = thread;
 	uv_timer_init(loop, timer);
 	uv_close((uv_handle_t *)timer, wakeup_cb);
-	fprintf(stderr, "Waking %p\n", thread);
 }
 
