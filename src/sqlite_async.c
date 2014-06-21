@@ -412,19 +412,13 @@ static void async_mutexEnter(async_mutex *const m) {
 		// TODO: Grow.
 	}
 	m->queue[(m->current + m->count - 1) % m->size] = active;
-	if(1 == m->count) {
-		BTAssert(0 == m->recursion, "Acquired lock in invalid state");
-		m->recursion = 1;
-		return;
-	}
-	co_switch(yield);
+	if(m->count > 1) co_switch(yield);
 	BTAssert(active == m->queue[m->current], "Wrong thread acquired lock");
 	BTAssert(0 == m->recursion, "Acquired lock in invalid state");
 	m->recursion = 1;
 }
 static int async_mutexTry(async_mutex *const m) {
 	DEBUG_LOG();
-//	return SQLITE_BUSY;
 	if(m->count && co_active() != m->queue[m->current]) return SQLITE_BUSY;
 	async_mutexEnter(m);
 	return SQLITE_OK;
