@@ -9,9 +9,10 @@ uv_loop_t *loop = NULL;
 void sqlite_async_register(void);
 
 void test_thread(void) {
-	int err = 0;
+//	int err = 0;
 
-	sqlite3 *db = NULL;
+//for(index_t i = 0; i < 20; ++i) {
+/*	sqlite3 *db = NULL;
 	err = sqlite3_open_v2(
 		NULL, // TODO: Test real paths too.
 		&db,
@@ -19,7 +20,7 @@ void test_thread(void) {
 		NULL
 	);
 	assert(SQLITE_OK == err);
-	assert(NULL != db);
+	assert(NULL != db);*/
 
 /*	EXEC(QUERY(db,
 		"CREATE TABLE IF NOT EXISTS test (\n"
@@ -36,10 +37,11 @@ void test_thread(void) {
 		EXEC(QUERY(db, "COMMIT"));
 	}*/
 
-	err = sqlite3_close(db);
-	assert(SQLITE_OK == err);
-
+//	err = sqlite3_close(db);
+//	assert(SQLITE_OK == err);
+//}
 	co_terminate();
+//	co_switch(yield);
 }
 
 /*static sqlite3_mutex *m1;
@@ -64,9 +66,9 @@ int main() {
 	loop = uv_default_loop();
 //	sqlite_async_register();
 
-	for(index_t i = 0; i < 20; ++i) {
+//	for(index_t i = 0; i < 20; ++i) {
 		co_switch(co_create(STACK_SIZE, test_thread));
-	}
+//	}
 	uv_run(loop, UV_RUN_DEFAULT);
 
 /*	m1 = sqlite3_mutex_alloc(SQLITE_MUTEX_RECURSIVE);

@@ -1,6 +1,6 @@
 ROOT_DIR := .
 
-CC := gcc
+CC := clang
 CFLAGS := -g -O0 -std=gnu99
 
 # TODO: Isn't there a way to have it find everything automatically?
