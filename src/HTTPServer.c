@@ -75,10 +75,17 @@ int HTTPServerListen(HTTPServerRef const server, uint16_t const port, strarg_t c
 	if(BTUVErr(uv_listen((uv_stream_t *)server->socket, 511, connection_cb))) return -1;
 	return 0;
 }
+static void socket_close_cb(uv_handle_t *const handle) {
+	bool_t *const safe = handle->data;
+	*safe = true;
+}
 void HTTPServerClose(HTTPServerRef const server) {
 	if(!server) return;
 	if(!server->socket) return;
-	uv_close((uv_handle_t *)server->socket, NULL);
+	bool_t safe = false;
+	server->socket->data = &safe;
+	uv_close((uv_handle_t *)server->socket, socket_close_cb);
+	while(!safe) uv_run(loop, UV_RUN_ONCE);
 	FREE(&server->socket);
 }
 HeaderFieldList const *HTTPServerGetHeaderFields(HTTPServerRef const server) {
@@ -442,7 +449,8 @@ static void handleStream(void) {
 	free(buf);
 	free(requestURI);
 	HeadersFree(headers);
-	uv_close((uv_handle_t *)&stream, NULL);
+	uv_close((uv_handle_t *)&stream, async_close_cb);
+	co_switch(yield);
 //	fprintf(stderr, "Closing thread %p\n", co_active());
 	co_terminate();
 }
