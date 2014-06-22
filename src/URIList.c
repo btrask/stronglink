@@ -134,6 +134,7 @@ struct URIListParser {
 };
 
 static err_t URIListParserAddURI(void *const list, strarg_t const URI, size_t const len) {
+	if(!len) return 0;
 	return URIListAddURI((URIListRef)list, URI, (ssize_t)len);
 }
 
