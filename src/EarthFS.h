@@ -46,7 +46,7 @@ strarg_t EFSHasherGetInternalHash(EFSHasherRef const hasher);
 typedef enum {
 	EFSFilterInvalid,
 	EFSNoFilter,
-	EFSTypeFilter,
+	EFSFileTypeFilter,
 	EFSIntersectionFilter,
 	EFSUnionFilter,
 	EFSFullTextFilter,

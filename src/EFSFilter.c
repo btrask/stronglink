@@ -18,7 +18,7 @@ struct EFSFilter {
 EFSFilterRef EFSFilterCreate(EFSFilterType const type) {
 	switch(type) {
 		case EFSNoFilter:
-		case EFSTypeFilter:
+		case EFSFileTypeFilter:
 		case EFSIntersectionFilter:
 		case EFSUnionFilter:
 		case EFSFullTextFilter:
@@ -44,7 +44,7 @@ void EFSFilterFree(EFSFilterRef const filter) {
 		case EFSNoFilter:
 		case EFSPermissionFilter:
 			break;
-		case EFSTypeFilter:
+		case EFSFileTypeFilter:
 		case EFSFullTextFilter:
 		case EFSBacklinkFilesFilter:
 		case EFSFileLinksFilter:
@@ -66,7 +66,7 @@ void EFSFilterFree(EFSFilterRef const filter) {
 err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, size_t const len) {
 	if(!filter) return 0;
 	switch(filter->type) {
-		case EFSTypeFilter:
+		case EFSFileTypeFilter:
 		case EFSFullTextFilter:
 		case EFSBacklinkFilesFilter:
 		case EFSFileLinksFilter:
@@ -133,7 +133,7 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 			sqlite3_bind_int64(op, 1, depth);
 			EXEC(op);
 			break;
-		} case EFSTypeFilter: {
+		} case EFSFileTypeFilter: {
 			sqlite3_stmt *const op = QUERY(db,
 				"INSERT INTO \"results\"\n"
 				"\t" "(\"fileID\", \"sort\", \"depth\")\n"
@@ -162,7 +162,7 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 				"INSERT INTO \"results\"\n"
 				"\t" "(\"fileID\", \"sort\", \"depth\")\n"
 				"SELECT f.\"fileID\", MIN(l.\"metaFileID\"), ?\n"
-				"FROM \"fileURIs\" AS f"
+				"FROM \"fileURIs\" AS f\n"
 				"LEFT JOIN \"links\" AS l\n"
 				"\t" "ON (f.\"URIID\" = l.\"sourceURIID\")\n"
 				"LEFT JOIN \"URIs\" AS u\n"
@@ -178,7 +178,7 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 				"INSERT INTO \"results\"\n"
 				"\t" "(\"fileID\", \"sort\", \"depth\")\n"
 				"SELECT f.\"fileID\", MIN(l.\"metaFileID\"), ?\n"
-				"FROM \"fileURIs\" AS f"
+				"FROM \"fileURIs\" AS f\n"
 				"LEFT JOIN \"links\" AS l\n"
 				"\t" "ON (f.\"URIID\" = l.\"targetURIID\")\n"
 				"LEFT JOIN \"URIs\" AS u\n"
@@ -222,8 +222,8 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 				"WHERE \"depth\" IN (\n"
 				"\t" "SELECT \"subdepth\" FROM \"depths\"\n"
 				"\t" "WHERE \"depth\" = ?)\n"
-				"AND COUNT(\"fileID\") >= ?\n"
-				"GROUP BY \"fileID\"");
+				"GROUP BY \"fileID\"\n"
+				"HAVING COUNT(\"fileID\") >= ?");
 			sqlite3_bind_int64(op, 1, depth);
 			sqlite3_bind_int64(op, 2, depth);
 			int64_t const threshold =

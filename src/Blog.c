@@ -10,12 +10,8 @@ typedef struct {
 	str_t *type;
 	int64_t size;
 } EFSFileInfo;
-typedef struct {
-	count_t count;
-	EFSFileInfo items[0];
-} EFSFileInfoList;
 
-EFSFileInfoList *EFSSessionCreateFileInfoList(EFSSessionRef const session, EFSFilterRef const filter, count_t const max) { // TODO: Return actual count somehow?
+URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilterRef const filter, count_t const max) {
 	if(!session) return NULL;
 	// TODO: Check session mode.
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
@@ -23,33 +19,62 @@ EFSFileInfoList *EFSSessionCreateFileInfoList(EFSSessionRef const session, EFSFi
 	EFSFilterCreateTempTables(db);
 	EFSFilterExec(filter, db, 0);
 	sqlite3_stmt *const select = QUERY(db,
-		"SELECT f.\"internalHash\", f.\"type\", f.\"size\"\n"
-		"FROM \"results\" AS r\n"
-		"LEFT JOIN \"files\" AS f ON (f.\"fileID\" = r.\"fileID\")\n"
+		"SELECT ('hash://' || ? || '/' || f.\"internalHash\")\n"
+		"FROM \"files\" AS f\n"
+		"INNER JOIN \"results\" AS r ON (r.\"fileID\" = f.\"fileID\")\n"
 		"ORDER BY r.\"sort\" ASC LIMIT ?");
-	sqlite3_bind_int64(select, 1, max);
-	EFSFileInfoList *const files = malloc(sizeof(EFSFileInfoList) + sizeof(EFSFileInfo) * max);
-	index_t i = 0;
-	for(; i < max; ++i) {
-		if(SQLITE_ROW != sqlite3_step(select)) break;
-		files->items[i].internalHash = strdup(sqlite3_column_text(select, 0));
-		files->items[i].type = strdup(sqlite3_column_text(select, 1));
-		files->items[i].size = sqlite3_column_int64(select, 2);
+	sqlite3_bind_text(select, 1, "sha256", -1, SQLITE_STATIC);
+	sqlite3_bind_int64(select, 2, max);
+	URIListRef const URIs = URIListCreate();
+	while(SQLITE_ROW == sqlite3_step(select)) {
+		strarg_t const URI = sqlite3_column_text(select, 0);
+		URIListAddURI(URIs, URI, strlen(URI));
 	}
-	files->count = i;
 	sqlite3_finalize(select);
+	EXEC(QUERY(db, "DELETE FROM \"results\"")); // TODO: Shouldn't be necessary?
 	EFSRepoDBClose(repo, db);
-	return files;
+	return URIs;
 }
-void EFSFileInfoListFree(EFSFileInfoList *const list) {
-	if(!list) return;
-	for(index_t i = 0; i < list->count; ++i) {
-		FREE(&list->items[i].internalHash);
-		FREE(&list->items[i].type);
-		list->items[i].size = 0;
+// TODO: This should probably be generalized to EFSSessionGetFileInfo, accepting a filter and using the first result.
+// Ideally it wouldn't be creating and destroying its own DB connection every time too.
+err_t EFSSessionGetPreviewInfoForURI(EFSSessionRef const session, EFSFileInfo *const info, strarg_t const URI) {
+	if(!session) return -1;
+	// TODO: Check session mode.
+
+	// TODO: Public API for easily creating filters.
+	// Although this API should be public too.
+	EFSFilterRef const URIFilter = EFSFilterCreate(EFSBacklinkFilesFilter);
+	EFSFilterAddStringArg(URIFilter, URI, strlen(URI));
+	EFSFilterRef const previewFilter = EFSFilterCreate(EFSBacklinkFilesFilter);
+	EFSFilterAddStringArg(previewFilter, "efs://preview", 13);
+	EFSFilterRef const filter = EFSFilterCreate(EFSIntersectionFilter);
+	EFSFilterAddFilterArg(filter, URIFilter);
+	EFSFilterAddFilterArg(filter, previewFilter);
+
+	EFSRepoRef const repo = EFSSessionGetRepo(session);
+	sqlite3 *const db = EFSRepoDBConnect(repo);
+	EFSFilterCreateTempTables(db);
+	EFSFilterExec(filter, db, 0);
+	sqlite3_stmt *const select = QUERY(db,
+		"SELECT f.\"internalHash\", f.\"type\", f.\"size\"\n"
+		"FROM \"files\" AS f\n"
+		"INNER JOIN \"results\" AS r ON (r.\"fileID\" = f.\"fileID\")\n"
+		"ORDER BY r.\"sort\" ASC LIMIT 1");
+	if(SQLITE_ROW != sqlite3_step(select)) {
+		EFSRepoDBClose(repo, db);
+		EFSFilterFree(filter);
+		return -1;
 	}
-	free(list);
+	info->internalHash = strdup(sqlite3_column_text(select, 0));
+	info->type = strdup(sqlite3_column_text(select, 1));
+	info->size = sqlite3_column_int64(select, 2);
+
+	EXEC(QUERY(db, "DELETE FROM \"results\"")); // TODO: Shouldn't be necessary?
+	EFSRepoDBClose(repo, db);
+	EFSFilterFree(filter);
+	return 0;
 }
+
 
 EFSSessionRef auth(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const qs); // Hack.
 
@@ -71,12 +96,10 @@ static bool_t getPage(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 	}
 
 	// TODO: Parse querystring `q` parameter
-	// TODO: Make sure the results are marked as previews (security critical)
-	EFSFilterRef const filter = EFSFilterCreate(EFSTypeFilter);
-	strarg_t const previewType = "text/preview+html; charset=utf-8"; // TODO: HACK
-	EFSFilterAddStringArg(filter, previewType, strlen(previewType));
+	// TODO: Filter OUT previews. Make sure all of the files are real "user files."
+	EFSFilterRef const filter = EFSFilterCreate(EFSNoFilter);
 
-	EFSFileInfoList *const files = EFSSessionCreateFileInfoList(session, filter, RESULTS_MAX);
+	URIListRef const URIs = EFSSessionCreateFilteredURIList(session, filter, RESULTS_MAX);
 
 	HTTPConnectionWriteResponse(conn, 200, "OK");
 	HTTPConnectionWriteHeader(conn, "Content-Type", "text/html; charset=utf-8");
@@ -94,8 +117,27 @@ static bool_t getPage(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 	HTTPConnectionWrite(conn, "\r\n", 2);
 
 	uv_fs_t req = { .data = co_active() };
-	for(index_t i = 0; i < files->count; ++i) {
-		str_t *const path = EFSRepoCopyInternalPath(repo, files->items[i].internalHash);
+	for(index_t i = 0; i < URIListGetCount(URIs); ++i) {
+		EFSFileInfo info;
+		strarg_t const URI = URIListGetURI(URIs, i);
+		if(EFSSessionGetPreviewInfoForURI(session, &info, URI) < 0) {
+			str_t const empty[] =
+				"<div class=\"entry\">\n"
+				"\t" "<div class=\"title\">\n"
+				"\t" "\t" "<a href=\"#\">hash://asdf/asdf</a>\n"
+				"\t" "</div>"
+				"\t" "<div class=\"content\">\n"
+				"\t" "\t" "(no preview)\n"
+				"\t" "</div>\n"
+				"</div>";
+			size_t const emptylen = sizeof(empty)-1;
+			HTTPConnectionWriteChunkLength(conn, emptylen);
+			HTTPConnectionWrite(conn, empty, emptylen);
+			HTTPConnectionWrite(conn, "\r\n", 2);
+			continue;
+		}
+		fprintf(stderr, "%s\n\t%s\n", URI, info.internalHash);
+		str_t *const path = EFSRepoCopyInternalPath(repo, info.internalHash);
 		if(!path) continue;
 		uv_fs_open(loop, &req, path, O_RDONLY, 0400, async_fs_cb);
 		co_switch(yield);
@@ -103,11 +145,13 @@ static bool_t getPage(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 		free(path);
 		uv_file const file = req.result;
 		if(file < 0) continue;
-		str_t const before[] = "<div class=\"entry\">";
-		str_t const after[] = "</div>";
+		str_t const before[] =
+			"<div class=\"entry\">\n"
+			"<div class=\"title\"><a href=\"#\">hash://asdf/asdf</a></div>\n";
+		str_t const after[] = "\n</div>\n";
 		size_t const blen = sizeof(before)-1;
 		size_t const alen = sizeof(after)-1;
-		HTTPConnectionWriteChunkLength(conn, files->items[i].size + blen + alen);
+		HTTPConnectionWriteChunkLength(conn, blen + info.size + alen);
 		HTTPConnectionWrite(conn, before, blen);
 		HTTPConnectionWriteFile(conn, file);
 		HTTPConnectionWrite(conn, after, alen);
@@ -123,7 +167,7 @@ static bool_t getPage(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 	HTTPConnectionWrite(conn, "\r\n", 2);
 	HTTPConnectionEnd(conn);
 
-	EFSFileInfoListFree(files);
+	URIListFree(URIs);
 	return true;
 }
 
