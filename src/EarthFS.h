@@ -16,6 +16,7 @@ EFSRepoRef EFSRepoCreate(strarg_t const path);
 void EFSRepoFree(EFSRepoRef const repo);
 strarg_t EFSRepoGetPath(EFSRepoRef const repo);
 strarg_t EFSRepoGetDataPath(EFSRepoRef const repo);
+str_t *EFSRepoCopyInternalPath(EFSRepoRef const repo, strarg_t const internalHash);
 strarg_t EFSRepoGetTempPath(EFSRepoRef const repo);
 sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo);
 void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 *const db);
@@ -28,6 +29,7 @@ typedef enum {
 
 EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const user, strarg_t const pass, strarg_t const cookie, EFSMode const mode);
 void EFSSessionFree(EFSSessionRef const session);
+EFSRepoRef const EFSSessionGetRepo(EFSSessionRef const session);
 int64_t EFSSessionGetUserID(EFSSessionRef const session);
 
 EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context);
@@ -44,6 +46,7 @@ strarg_t EFSHasherGetInternalHash(EFSHasherRef const hasher);
 typedef enum {
 	EFSFilterInvalid,
 	EFSNoFilter,
+	EFSTypeFilter,
 	EFSIntersectionFilter,
 	EFSUnionFilter,
 	EFSFullTextFilter,

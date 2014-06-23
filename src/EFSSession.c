@@ -71,6 +71,10 @@ void EFSSessionFree(EFSSessionRef const session) {
 	session->mode = 0;
 	free(session);
 }
+EFSRepoRef const EFSSessionGetRepo(EFSSessionRef const session) {
+	if(!session) return NULL;
+	return session->repo;
+}
 int64_t EFSSessionGetUserID(EFSSessionRef const session) {
 	if(!session) return -1;
 	return session->userID;

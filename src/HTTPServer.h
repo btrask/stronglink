@@ -46,11 +46,13 @@ ssize_t HTTPConnectionGetBuffer(HTTPConnectionRef const conn, byte_t const **con
 
 // Connection writing
 void HTTPConnectionWrite(HTTPConnectionRef const conn, byte_t const *const buf, size_t const len);
+void HTTPConnectionWritev(HTTPConnectionRef const conn, uv_buf_t const *const parts, unsigned int const count);
 void HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, strarg_t const message);
 void HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value);
 void HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, size_t const len);
 void HTTPConnectionBeginBody(HTTPConnectionRef const conn);
 void HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file);
+void HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, size_t const len);
 void HTTPConnectionEnd(HTTPConnectionRef const conn);
 
 // Convenience

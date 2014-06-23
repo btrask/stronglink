@@ -18,6 +18,7 @@ struct EFSFilter {
 EFSFilterRef EFSFilterCreate(EFSFilterType const type) {
 	switch(type) {
 		case EFSNoFilter:
+		case EFSTypeFilter:
 		case EFSIntersectionFilter:
 		case EFSUnionFilter:
 		case EFSFullTextFilter:
@@ -43,6 +44,7 @@ void EFSFilterFree(EFSFilterRef const filter) {
 		case EFSNoFilter:
 		case EFSPermissionFilter:
 			break;
+		case EFSTypeFilter:
 		case EFSFullTextFilter:
 		case EFSBacklinkFilesFilter:
 		case EFSFileLinksFilter:
@@ -64,6 +66,7 @@ void EFSFilterFree(EFSFilterRef const filter) {
 err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, size_t const len) {
 	if(!filter) return 0;
 	switch(filter->type) {
+		case EFSTypeFilter:
 		case EFSFullTextFilter:
 		case EFSBacklinkFilesFilter:
 		case EFSFileLinksFilter:
@@ -128,6 +131,16 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 				"SELECT \"fileID\", \"fileID\", ?\n"
 				"FROM \"files\" WHERE 1");
 			sqlite3_bind_int64(op, 1, depth);
+			EXEC(op);
+			break;
+		} case EFSTypeFilter: {
+			sqlite3_stmt *const op = QUERY(db,
+				"INSERT INTO \"results\"\n"
+				"\t" "(\"fileID\", \"sort\", \"depth\")\n"
+				"SELECT \"fileID\", \"fileID\", ?\n"
+				"FROM \"files\" WHERE \"type\" = ?");
+			sqlite3_bind_int64(op, 1, depth);
+			sqlite3_bind_text(op, 2, filter->data.string, -1, SQLITE_STATIC);
 			EXEC(op);
 			break;
 		} case EFSFullTextFilter: {

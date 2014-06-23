@@ -6,7 +6,8 @@
 #define INDEX_MAX (1024 * 100)
 
 // TODO: Find a home for these.
-static err_t mkdirp(str_t *const path, ssize_t len, int const mode);
+static ssize_t dirname(strarg_t const path, size_t const len);
+static err_t mkdirp(str_t *const path, size_t const len, int const mode);
 
 struct EFSSubmission {
 	EFSRepoRef repo;
@@ -77,6 +78,11 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 		sub->size += rlen;
 	}
 
+	if(!sub->size) {
+		EFSSubmissionFree(sub); sub = NULL;
+		goto bail;
+	}
+
 	sub->URIs = EFSHasherEnd(hasher);
 	sub->internalHash = strdup(EFSHasherGetInternalHash(hasher));
 	sub->metaURIs = URIListParserEnd(metaURIsParser, sub->size > INDEX_MAX);
@@ -118,29 +124,26 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	// TODO: Make sure session repo and submission repo match
 	EFSRepoRef const repo = sub->repo;
 
-	str_t *dir = NULL;
-	(void)BTErrno(asprintf(&dir, "%s/%.2s", EFSRepoGetDataPath(repo), sub->internalHash));
-	if(mkdirp(dir, -1, 0700) < 0) {
-		fprintf(stderr, "Couldn't mkdir -p %s\n", dir);
-		FREE(&dir);
+	str_t *internalPath = EFSRepoCopyInternalPath(repo, sub->internalHash);
+	ssize_t const dlen = dirname(internalPath, strlen(internalPath));
+	internalPath[dlen] = '\0';
+	if(mkdirp(internalPath, dlen, 0700) < 0) {
+		fprintf(stderr, "Couldn't mkdir -p %s\n", internalPath);
+		FREE(&internalPath);
 		return -1;
 	}
+	internalPath[dlen] = '/';
 
-	str_t *internalPath = NULL;
-	(void)BTErrno(asprintf(&internalPath, "%s/%s", dir, sub->internalHash));
 	uv_fs_t req = { .data = co_active() };
 	uv_fs_link(loop, &req, sub->path, internalPath, async_fs_cb);
 	co_switch(yield);
+	uv_fs_req_cleanup(&req);
 	if(req.result < 0 && -EEXIST != req.result) {
 		fprintf(stderr, "Couldn't move %s to %s\n", sub->path, internalPath);
-		uv_fs_req_cleanup(&req);
 		FREE(&internalPath);
-		FREE(&dir);
 		return -1;
 	}
-	uv_fs_req_cleanup(&req);
 	FREE(&internalPath);
-	FREE(&dir);
 
 	uv_fs_unlink(loop, &req, sub->path, async_fs_cb);
 	co_switch(yield);
@@ -234,9 +237,25 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	return 0;
 }
 
-
-static err_t mkdirp(str_t *const path, ssize_t len, int const mode) {
-	if(len < 0) len = strlen(path);
+/* Example paths:
+- /asdf -> /
+- / - > (error)
+- "" -> (error)
+- /asdf/ -> /
+- /asdf/asdf -> /asdf
+- asdf/asdf -> asdf
+Doesn't handle "./" or "/./"
+TODO: Unit tests
+TODO: Windows pathnames
+*/
+static ssize_t dirname(strarg_t const path, size_t const len) {
+	if(!len) return -1;
+	index_t i = len;
+	if(0 == i--) return -1; // Ignore trailing slash.
+	for(; i >= 0; --i) if('/' == path[i]) return i;
+	return -1;
+}
+static err_t mkdirp(str_t *const path, size_t const len, int const mode) {
 	if(0 == len) return 0;
 	if(1 == len) {
 		if('/' == path[0]) return 0;
@@ -249,12 +268,11 @@ static err_t mkdirp(str_t *const path, ssize_t len, int const mode) {
 	if(req.result >= 0) return 0;
 	if(-EEXIST == req.result) return 0;
 	if(-ENOENT != req.result) return -1;
-	index_t i = len;
-	for(; i > 0 && '/' != path[i]; --i);
-	if(0 == len || len == i) return -1;
-	path[i] = '\0';
-	if(mkdirp(path, i, mode) < 0) return -1;
-	path[i] = '/';
+	ssize_t const dlen = dirname(path, len);
+	if(dlen < 0) return -1;
+	path[dlen] = '\0';
+	if(mkdirp(path, dlen, mode) < 0) return -1;
+	path[dlen] = '/';
 	uv_fs_mkdir(loop, &req, path, mode, async_fs_cb);
 	co_switch(yield);
 	uv_fs_req_cleanup(&req);

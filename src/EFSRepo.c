@@ -30,6 +30,12 @@ strarg_t EFSRepoGetDataPath(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->dataPath;
 }
+str_t *EFSRepoCopyInternalPath(EFSRepoRef const repo, strarg_t const internalHash) {
+	if(!repo) return NULL;
+	str_t *str;
+	if(asprintf(&str, "%s/%.2s/%s", repo->dataPath, internalHash, internalHash) < 0) return NULL;
+	return str;
+}
 strarg_t EFSRepoGetTempPath(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->tempPath;

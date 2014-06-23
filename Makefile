@@ -43,6 +43,8 @@ OBJECTS := \
 	build/multipart_parser.o \
 	build/sqlite3.o
 
+OBJECTS += build/Blog.o
+
 TEST_OBJECTS := \
 	build/async.o \
 	build/sqlite_async.o \
@@ -51,9 +53,7 @@ TEST_OBJECTS := \
 
 .DEFAULT_GOAL := all
 
-include client/Makefile
-
-all: build/earthfs client
+all: build/earthfs
 
 build/earthfs: $(OBJECTS)
 	@-mkdir -p $(dir $@)

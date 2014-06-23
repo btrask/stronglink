@@ -16,10 +16,6 @@ HeaderFieldList const EFSHeaderFieldList = {
 	.items = EFSHeaderFields,
 };
 
-static bool_t pathterm(strarg_t const URI, size_t const len) {
-	char const x = URI[len];
-	return '\0' == x || '?' == x || '#' == x;
-}
 static EFSMode method2mode(HTTPMethod const method) {
 	switch(method) {
 		case HTTP_GET:
@@ -34,7 +30,8 @@ static EFSMode method2mode(HTTPMethod const method) {
 }
 
 
-static EFSSessionRef auth(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const qs) {
+// TODO: This should be static, but for now we're accessing it from Blog.c.
+EFSSessionRef auth(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const qs) {
 	str_t *user = NULL;
 	str_t *pass = NULL;
 
@@ -64,7 +61,10 @@ static EFSSessionRef auth(EFSRepoRef const repo, HTTPConnectionRef const conn, H
 }
 
 
-static bool getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+// TODO: These methods ought to be built on a public C API because the C API needs to support the same features as the HTTP interface.
+
+
+static bool_t getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_GET != method && HTTP_HEAD != method) return false;
 	str_t algo[32] = {};
 	str_t hash[256] = {};
@@ -74,7 +74,7 @@ static bool getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 	if('/' == URI[pathlen]) ++pathlen;
 	if(!pathterm(URI, pathlen)) return false;
 	EFSSessionRef const session = auth(repo, conn, method, URI+pathlen);
-	if(!session) { // TODO: Check session mode.
+	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);
 		return true;
 	}
@@ -105,8 +105,7 @@ static bool getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 	sqlite3_finalize(select);
 	EFSRepoDBClose(repo, db);
 
-	str_t *path;
-	asprintf(&path, "%s/%.2s/%s", EFSRepoGetDataPath(repo), internalHash, internalHash);
+	str_t *path = EFSRepoCopyInternalPath(repo, internalHash);
 
 	// TODO: Do we need to send other headers?
 	HTTPConnectionSendFile(conn, path, type, size);
@@ -117,7 +116,7 @@ static bool getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 	EFSSessionFree(session);
 	return true;
 }
-static bool postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool_t postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_POST != method) return false;
 	size_t pathlen = prefix("/efs/file", URI);
 	if(!pathlen) return false;
@@ -172,13 +171,13 @@ static bool postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMe
 	EFSSessionFree(session);
 	return true;
 }
-static bool query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool_t query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_POST != method && HTTP_GET != method) return false;
 	size_t pathlen = prefix("/efs/query", URI);
 	if(!pathlen) return false;
 	if('/' == URI[pathlen]) ++pathlen;
 	if(!pathterm(URI, (size_t)pathlen)) return false;
-	EFSSessionRef const session = auth(repo, conn, method, URI+pathlen);
+	EFSSessionRef const session = auth(repo, conn, HTTP_GET, URI+pathlen);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);
 		return true;
@@ -210,27 +209,37 @@ static bool query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMetho
 	sqlite3 *const db = EFSRepoDBConnect(repo);
 	EFSFilterCreateTempTables(db);
 	EFSFilterExec(filter, db, 0);
-
-	HTTPConnectionWriteResponse(conn, 200, "OK");
-//	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
-	// TODO: Ugh, more stuff to support.
-	HTTPConnectionWriteHeader(conn, "Content-Type", "text/uri-list; charset=utf-8");
-	HTTPConnectionBeginBody(conn);
-
 	sqlite3_stmt *const select = QUERY(db,
 		"SELECT f.\"internalHash\"\n"
 		"FROM \"files\" AS f\n"
 		"LEFT JOIN \"results\" AS r ON (f.\"fileID\" = r.\"fileID\")\n"
 		"ORDER BY r.\"sort\" DESC LIMIT 50");
+
+	HTTPConnectionWriteResponse(conn, 200, "OK");
+	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
+	// TODO: Ugh, more stuff to support.
+	HTTPConnectionWriteHeader(conn, "Content-Type", "text/uri-list; charset=utf-8");
+	HTTPConnectionBeginBody(conn);
+
+	strarg_t const prefix = "hash://sha256/"; // TODO: Handle different types of internal hashes.
+	size_t const prefixlen = strlen(prefix);
 	while(SQLITE_ROW == sqlite3_step(select)) {
-		// TODO: Hacks.
 		strarg_t const hash = (strarg_t)sqlite3_column_text(select, 0);
-		HTTPConnectionWrite(conn, (byte_t const *)"hash://sha256/", 14);
-		HTTPConnectionWrite(conn, (byte_t const *)hash, strlen(hash));
-		HTTPConnectionWrite(conn, (byte_t const *)"\n", 1);
+		size_t const hashlen = strlen(hash);
+		size_t const total = prefixlen + hashlen + 1;
+		HTTPConnectionWriteChunkLength(conn, total);
+		uv_buf_t parts[] = {
+			uv_buf_init((char *)prefix, prefixlen),
+			uv_buf_init((char *)hash, hashlen),
+			uv_buf_init("\n", 1),
+			uv_buf_init("\r\n", 2),
+		};
+		HTTPConnectionWritev(conn, parts, numberof(parts));
 	}
 	sqlite3_finalize(select);
 
+	HTTPConnectionWriteChunkLength(conn, 0);
+	HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
 	HTTPConnectionEnd(conn);
 
 	EFSRepoDBClose(repo, db);
@@ -242,19 +251,10 @@ static bool query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMetho
 }
 
 
-void EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn) {
-	HTTPMethod const method = HTTPConnectionGetRequestMethod(conn);
-	strarg_t const URI = HTTPConnectionGetRequestURI(conn);
-
-	if(getFile(repo, conn, method, URI)) return;
-	if(postFile(repo, conn, method, URI)) return;
-	if(query(repo, conn, method, URI)) return;
-
-	// TODO: Validate URI (no `..` segments, etc.) and append `index.html` if necessary.
-	// Also, don't use a hardcoded path...
-	str_t *path = NULL;
-	(void)BTErrno(asprintf(&path, "/home/ben/Code/EarthFS-C/build/www/%s", URI));
-	HTTPConnectionSendFile(conn, path, NULL, -1); // TODO: Determine file type.
-	FREE(&path);
+bool_t EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+	if(getFile(repo, conn, method, URI)) return true;
+	if(postFile(repo, conn, method, URI)) return true;
+	if(query(repo, conn, method, URI)) return true;
+	return false;
 }
 

@@ -206,6 +206,12 @@ void HTTPConnectionWrite(HTTPConnectionRef const conn, byte_t const *const buf, 
 	(void)BTUVErr(uv_write(&req, (uv_stream_t *)conn->stream, &obj, 1, async_write_cb));
 	co_switch(yield);
 }
+void HTTPConnectionWritev(HTTPConnectionRef const conn, uv_buf_t const *const parts, unsigned int const count) {
+	if(!conn) return;
+	uv_write_t req = { .data = co_active() };
+	(void)BTUVErr(uv_write(&req, (uv_stream_t *)conn->stream, parts, count, async_write_cb));
+	co_switch(yield);
+}
 void HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, strarg_t const message) {
 	if(!conn) return;
 	// TODO: TCP_CORK?
@@ -223,9 +229,7 @@ void HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const fiel
 		uv_buf_init((char *)value, strlen(value)),
 		uv_buf_init("\r\n", 2),
 	};
-	uv_write_t req = { .data = co_active() };
-	(void)BTUVErr(uv_write(&req, (uv_stream_t *)conn->stream, parts, numberof(parts), async_write_cb));
-	co_switch(yield);
+	HTTPConnectionWritev(conn, parts, numberof(parts));
 }
 void HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, size_t const len) {
 	if(!conn) return;
@@ -242,7 +246,9 @@ void HTTPConnectionBeginBody(HTTPConnectionRef const conn) {
 }
 void HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file) {
 	// TODO: How do we use uv_fs_sendfile to a TCP stream? Is it impossible?
-	uv_fs_t req = { .data = co_active() };
+	cothread_t const thread = co_active();
+	uv_fs_t req = { .data = thread };
+	uv_write_t wreq = { .data = thread };
 	byte_t *const buf = malloc(BUFFER_SIZE);
 	int64_t pos = 0;
 	for(;;) {
@@ -253,11 +259,17 @@ void HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file) {
 		if(req.result <= 0) break; // TODO: EAGAIN, etc?
 		pos += req.result;
 		uv_buf_t const write = uv_buf_init((char *)buf, req.result);
-		uv_write_t wreq = { .data = co_active() };
 		uv_write(&wreq, (uv_stream_t *)conn->stream, &write, 1, async_write_cb);
 		co_switch(yield);
 	}
 	free(buf);
+}
+void HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, size_t const len) {
+	if(!conn) return;
+	str_t *str;
+	int const slen = asprintf(&str, "%lx\r\n", (unsigned long)len);
+	if(slen > 0) HTTPConnectionWrite(conn, str, slen);
+	FREE(&str);
 }
 void HTTPConnectionEnd(HTTPConnectionRef const conn) {
 	if(!conn) return;
