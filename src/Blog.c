@@ -9,7 +9,7 @@
 typedef struct {
 	str_t *path;
 	str_t *type;
-	int64_t size;
+	uint64_t size;
 } EFSFileInfo;
 
 URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilterRef const filter, count_t const max) {
@@ -28,7 +28,7 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 	sqlite3_bind_int64(select, 2, max);
 	URIListRef const URIs = URIListCreate();
 	while(SQLITE_ROW == sqlite3_step(select)) {
-		strarg_t const URI = sqlite3_column_text(select, 0);
+		strarg_t const URI = (strarg_t)sqlite3_column_text(select, 0);
 		URIListAddURI(URIs, URI, strlen(URI));
 	}
 	sqlite3_finalize(select);
@@ -52,8 +52,8 @@ err_t EFSSessionGetFileInfoForURI(EFSSessionRef const session, EFSFileInfo *cons
 		EFSRepoDBClose(repo, db);
 		return -1;
 	}
-	info->path = EFSRepoCopyInternalPath(repo, sqlite3_column_text(select, 0));
-	info->type = strdup(sqlite3_column_text(select, 1));
+	info->path = EFSRepoCopyInternalPath(repo, (strarg_t)sqlite3_column_text(select, 0));
+	info->type = strdup((strarg_t)sqlite3_column_text(select, 1));
 	info->size = sqlite3_column_int64(select, 2);
 	sqlite3_finalize(select);
 	EFSRepoDBClose(repo, db);
@@ -97,6 +97,85 @@ static str_t *htmlenc(strarg_t const str) {
 	return enc;
 }
 
+static err_t sendPreview(HTTPConnectionRef const conn, strarg_t const previewPath) {
+	uv_fs_t req = { .data = co_active() };
+	uv_fs_open(loop, &req, previewPath, O_RDONLY, 0400, async_fs_cb);
+	co_switch(yield);
+	uv_fs_req_cleanup(&req);
+	if(req.result < 0) return -1;
+	uv_file const file = req.result;
+	uv_fs_fstat(loop, &req, file, async_fs_cb);
+	co_switch(yield);
+	uint64_t const size = req.statbuf.st_size;
+	uv_fs_req_cleanup(&req);
+	if(req.result > 0) {
+		HTTPConnectionWriteChunkLength(conn, size);
+		HTTPConnectionWriteFile(conn, file);
+		HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
+	}
+	uv_fs_close(loop, &req, file, async_fs_cb);
+	co_switch(yield);
+	uv_fs_req_cleanup(&req);
+	return req.result > 0 ? 0 : -1;
+}
+static err_t sendNewPreview(HTTPConnectionRef const conn, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
+	str_t *tmpPath = NULL; // TODO: EFSRepoCopyTempPath()
+	if(!tmpPath) return -1;
+
+	// TODO: mkdirp tmpdir
+
+	uv_fs_t req = { .data = co_active() };
+	uv_fs_open(loop, &req, tmpPath, O_CREAT | O_EXCL | O_WRONLY, 0400, async_fs_cb);
+	co_switch(yield);
+	uv_fs_req_cleanup(&req);
+	uv_file const tmp = req.result;
+	if(tmp < 0) return -1;
+
+	// TODO: Generate preview, send it and save it.
+	fprintf(stderr, "Generation of preview at %s not implemented\n", previewPath);
+
+	uv_fs_close(loop, &req, tmp, async_fs_cb);
+	co_switch(yield);
+	uv_fs_req_cleanup(&req);
+
+	// TODO: mkdir preview dir
+	uv_fs_link(loop, &req, tmpPath, previewPath, async_fs_cb);
+	co_switch(yield);
+	uv_fs_req_cleanup(&req);
+
+	uv_fs_unlink(loop, &req, tmpPath, async_fs_cb);
+	co_switch(yield);
+	uv_fs_req_cleanup(&req);
+
+	return -1; // TODO
+}
+static err_t sendPlaceholder(HTTPConnectionRef const conn, strarg_t const URI, EFSFileInfo const *const info) {
+	str_t *URI_HTMLSafe = htmlenc(URI);
+	str_t *URI_URISafe = strdup("hash://asdf/asdf"); // TODO: URI enc
+	str_t *type_HTMLSafe = htmlenc(info->type);
+	unsigned long long const size_ull = info->size;
+
+	str_t *str;
+	int const len = asprintf(&str,
+		"<div class=\"entry\">\n"
+		"\t" "<div class=\"title\">\n"
+		"\t" "\t" "<a href=\"?q=%2$s\">%1$s</a>\n"
+		"\t" "</div>"
+		"\t" "<div class=\"content\">\n"
+		"\t" "\t" "(no preview for file of type %3$s)\n"
+		"\t" "</div>\n"
+		"</div>", URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
+	if(len >= 0) {
+		HTTPConnectionWriteChunkLength(conn, len);
+		HTTPConnectionWrite(conn, (byte_t const *)str, len);
+		HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
+		FREE(&str);
+	}
+	FREE(&URI_HTMLSafe);
+	FREE(&URI_URISafe);
+	FREE(&type_HTMLSafe);
+	return len >= 0 ? 0 : -1;
+}
 
 static bool_t getPage(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_GET != method) return false;
@@ -127,105 +206,39 @@ static bool_t getPage(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 		"<meta charset=\"utf-8\">\n"
 		"<title>EarthFS Blog Test</title>\n";
 	HTTPConnectionWriteChunkLength(conn, sizeof(header)-1);
-	HTTPConnectionWrite(conn, header, sizeof(header)-1);
-	HTTPConnectionWrite(conn, "\r\n", 2);
+	HTTPConnectionWrite(conn, (byte_t const *)header, sizeof(header)-1);
+	HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
 
-	uv_fs_t req = { .data = co_active() };
 	for(index_t i = 0; i < URIListGetCount(URIs); ++i) {
 		strarg_t const URI = URIListGetURI(URIs, i);
 		str_t const prefix[] = "hash://sha256/";
 		strarg_t const hash = URI+sizeof(prefix)-1;
 		str_t *previewPath = BlogCopyPreviewPath(repo, hash);
 
-		uv_fs_open(loop, &req, previewPath, O_RDONLY, 0400, async_fs_cb);
-		co_switch(yield);
-		uv_fs_req_cleanup(&req);
-		if(req.result >= 0) {
-			FREE(&previewPath);
-			uv_file const file = req.result;
-			uv_fs_fstat(loop, &req, file, async_fs_cb);
-			co_switch(yield);
-			uint64_t const size = req.statbuf.st_size;
-			uv_fs_req_cleanup(&req);
-			if(req.result >= 0) {
-				HTTPConnectionWriteChunkLength(conn, size);
-				HTTPConnectionWriteFile(conn, file);
-				HTTPConnectionWrite(conn, "\r\n", 2);
-			}
-			uv_fs_close(loop, &req, file, async_fs_cb);
-			co_switch(yield);
-			uv_fs_req_cleanup(&req);
-			continue;
-		}
-
-		str_t *tmpPath = NULL;
-		if(tmpPath) {
-			// TODO: mkdirp tmpdir
-			uv_fs_open(loop, &req, tmpPath, O_CREAT | O_EXCL | O_WRONLY, 0400, async_fs_cb);
-			co_switch(yield);
-			uv_fs_req_cleanup(&req);
-		} else {
-			req.result = -1;
-		}
-		if(req.result >= 0) {
-			uv_file const tmp = req.result;
+		if(sendPreview(conn, previewPath) < 0) {
 			EFSFileInfo info;
 			if(EFSSessionGetFileInfoForURI(session, &info, URI) < 0) {
 				FREE(&previewPath);
 				continue;
 			}
 
-			// TODO: Generate preview, send it and save it.
-			fprintf(stderr, "Generation of preview at %s not implemented\n", previewPath);
+			if(sendNewPreview(conn, URI, &info, previewPath) < 0) {
+
+				sendPlaceholder(conn, URI, &info);
+
+			}
 
 			FREE(&info.path);
 			FREE(&info.type);
-
-			uv_fs_close(loop, &req, tmp, async_fs_cb);
-			co_switch(yield);
-			uv_fs_req_cleanup(&req);
-
-			// TODO: mkdir preview dir
-			uv_fs_link(loop, &req, tmpPath, previewPath, async_fs_cb);
-			co_switch(yield);
-			uv_fs_req_cleanup(&req);
-
-			uv_fs_unlink(loop, &req, tmpPath, async_fs_cb);
-			co_switch(yield);
-			uv_fs_req_cleanup(&req);
-
-			FREE(&tmpPath);
-			FREE(&previewPath);
-			continue;
 		}
 
-		str_t *URI_HTMLSafe = htmlenc(URI);
-		str_t *URI_URISafe = strdup("hash://asdf/asdf");
-		// TODO: Provide an encodeURIComponent version too.
-
-		str_t *str;
-		int const len = asprintf(&str,
-			"<div class=\"entry\">\n"
-			"\t" "<div class=\"title\">\n"
-			"\t" "\t" "<a href=\"?q=%2$s\">%1$s</a>\n"
-			"\t" "</div>"
-			"\t" "<div class=\"content\">\n"
-			"\t" "\t" "(no preview)\n"
-			"\t" "</div>\n"
-			"</div>", URI_HTMLSafe, URI_URISafe);
-		if(len < 0) continue;
-		HTTPConnectionWriteChunkLength(conn, len);
-		HTTPConnectionWrite(conn, str, len);
-		HTTPConnectionWrite(conn, "\r\n", 2);
-		FREE(&str);
-		FREE(&URI_HTMLSafe);
-		FREE(&URI_URISafe);
+		FREE(&previewPath);
 	}
 
 	// TODO: Page trailer
 
 	HTTPConnectionWriteChunkLength(conn, 0);
-	HTTPConnectionWrite(conn, "\r\n", 2);
+	HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
 	HTTPConnectionEnd(conn);
 
 	URIListFree(URIs);

@@ -289,7 +289,7 @@ err_t HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, uint64_t cons
 	str_t *str;
 	int const slen = asprintf(&str, "%llx\r\n", (unsigned long long)length);
 	if(slen < 0) return -1;
-	ssize_t const wlen = HTTPConnectionWrite(conn, str, slen);
+	ssize_t const wlen = HTTPConnectionWrite(conn, (byte_t const *)str, slen);
 	FREE(&str);
 	return wlen < 0 ? -1 : 0;
 }
