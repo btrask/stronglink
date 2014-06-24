@@ -135,34 +135,14 @@ static bool_t getPage(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 		strarg_t const URI = URIListGetURI(URIs, i);
 		str_t const prefix[] = "hash://sha256/";
 		strarg_t const hash = URI+sizeof(prefix)-1;
-
 		str_t *previewPath = BlogCopyPreviewPath(repo, hash);
-		// TODO: mkdirp
-		uv_fs_open(loop, &req, previewPath, O_CREAT | O_EXCL | O_WRONLY, 0400, async_fs_cb);
-		co_switch(yield);
-		uv_fs_req_cleanup(&req);
-		if(req.result >= 0) {
-			uv_file const file = req.result;
-			EFSFileInfo info;
-			if(EFSSessionGetFileInfoForURI(session, &info, URI) < 0) {
-				FREE(&previewPath);
-				continue;
-			}
-			// TODO: Generate preview, send it and save it.
-			fprintf(stderr, "Generation of preview at %s not implemented\n", previewPath);
-			FREE(&info.path);
-			FREE(&info.type);
-			FREE(&previewPath);
-			continue;
-		}
 
 		uv_fs_open(loop, &req, previewPath, O_RDONLY, 0400, async_fs_cb);
 		co_switch(yield);
 		uv_fs_req_cleanup(&req);
-		FREE(&previewPath);
 		if(req.result >= 0) {
+			FREE(&previewPath);
 			uv_file const file = req.result;
-			// TODO: What happens if another connection is still writing the file?
 			uv_fs_fstat(loop, &req, file, async_fs_cb);
 			co_switch(yield);
 			uint64_t const size = req.statbuf.st_size;
@@ -178,23 +158,68 @@ static bool_t getPage(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 			continue;
 		}
 
-		str_t *safeURI = htmlenc(URI);
-		size_t const safeURILen = strlen(safeURI);
-		// TODO: We're working on our amazing format string function to make this a reality.
-		str_t const empty[] =
+		str_t *tmpPath = NULL;
+		if(tmpPath) {
+			// TODO: mkdirp tmpdir
+			uv_fs_open(loop, &req, tmpPath, O_CREAT | O_EXCL | O_WRONLY, 0400, async_fs_cb);
+			co_switch(yield);
+			uv_fs_req_cleanup(&req);
+		} else {
+			req.result = -1;
+		}
+		if(req.result >= 0) {
+			uv_file const tmp = req.result;
+			EFSFileInfo info;
+			if(EFSSessionGetFileInfoForURI(session, &info, URI) < 0) {
+				FREE(&previewPath);
+				continue;
+			}
+
+			// TODO: Generate preview, send it and save it.
+			fprintf(stderr, "Generation of preview at %s not implemented\n", previewPath);
+
+			FREE(&info.path);
+			FREE(&info.type);
+
+			uv_fs_close(loop, &req, tmp, async_fs_cb);
+			co_switch(yield);
+			uv_fs_req_cleanup(&req);
+
+			// TODO: mkdir preview dir
+			uv_fs_link(loop, &req, tmpPath, previewPath, async_fs_cb);
+			co_switch(yield);
+			uv_fs_req_cleanup(&req);
+
+			uv_fs_unlink(loop, &req, tmpPath, async_fs_cb);
+			co_switch(yield);
+			uv_fs_req_cleanup(&req);
+
+			FREE(&tmpPath);
+			FREE(&previewPath);
+			continue;
+		}
+
+		str_t *URI_HTMLSafe = htmlenc(URI);
+		str_t *URI_URISafe = strdup("hash://asdf/asdf");
+		// TODO: Provide an encodeURIComponent version too.
+
+		str_t *str;
+		int const len = asprintf(&str,
 			"<div class=\"entry\">\n"
 			"\t" "<div class=\"title\">\n"
-			"\t" "\t" "<a href=\"?q=%s\">%s</a>\n"
+			"\t" "\t" "<a href=\"?q=%2$s\">%1$s</a>\n"
 			"\t" "</div>"
 			"\t" "<div class=\"content\">\n"
 			"\t" "\t" "(no preview)\n"
 			"\t" "</div>\n"
-			"</div>";
-		size_t const emptylen = sizeof(empty)-1;
-		HTTPConnectionWriteChunkLength(conn, emptylen);
-		HTTPConnectionWrite(conn, empty, emptylen);
+			"</div>", URI_HTMLSafe, URI_URISafe);
+		if(len < 0) continue;
+		HTTPConnectionWriteChunkLength(conn, len);
+		HTTPConnectionWrite(conn, str, len);
 		HTTPConnectionWrite(conn, "\r\n", 2);
-		FREE(&safeURI);
+		FREE(&str);
+		FREE(&URI_HTMLSafe);
+		FREE(&URI_URISafe);
 	}
 
 	// TODO: Page trailer
