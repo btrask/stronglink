@@ -198,6 +198,7 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 
 	// TODO: Handle `text/uri-list` versus `text/efs-meta+uri-list`.
 	// A plain URI list is like a directory, it isn't meta at all.
+	// TODO: Normalize URIs before adding (at least lowercase scheme and authority).
 	count_t const metaURICount = URIListGetCount(sub->metaURIs);
 	sqlite3_stmt *const insertLink = QUERY(db,
 		"INSERT OR IGNORE INTO \"links\"\n"

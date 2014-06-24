@@ -18,6 +18,7 @@ strarg_t EFSRepoGetPath(EFSRepoRef const repo);
 strarg_t EFSRepoGetDataPath(EFSRepoRef const repo);
 str_t *EFSRepoCopyInternalPath(EFSRepoRef const repo, strarg_t const internalHash);
 strarg_t EFSRepoGetTempPath(EFSRepoRef const repo);
+strarg_t EFSRepoGetCachePath(EFSRepoRef const repo);
 sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo);
 void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 *const db);
 

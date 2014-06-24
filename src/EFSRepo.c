@@ -5,6 +5,7 @@ struct EFSRepo {
 	str_t *path;
 	str_t *dataPath;
 	str_t *tempPath;
+	str_t *cachePath;
 	str_t *DBPath;
 };
 
@@ -14,12 +15,17 @@ EFSRepoRef EFSRepoCreate(strarg_t const path) {
 	repo->path = strdup(path);
 	(void)BTErrno(asprintf(&repo->dataPath, "%s/data", path));
 	(void)BTErrno(asprintf(&repo->tempPath, "%s/tmp", path));
+	(void)BTErrno(asprintf(&repo->cachePath, "%s/cache", path));
 	(void)BTErrno(asprintf(&repo->DBPath, "%s/efs.db", path));
 	return repo;
 }
 void EFSRepoFree(EFSRepoRef const repo) {
 	if(!repo) return;
 	FREE(&repo->path);
+	FREE(&repo->dataPath);
+	FREE(&repo->tempPath);
+	FREE(&repo->cachePath);
+	FREE(&repo->DBPath);
 	free(repo);
 }
 strarg_t EFSRepoGetPath(EFSRepoRef const repo) {
@@ -39,6 +45,10 @@ str_t *EFSRepoCopyInternalPath(EFSRepoRef const repo, strarg_t const internalHas
 strarg_t EFSRepoGetTempPath(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->tempPath;
+}
+strarg_t EFSRepoGetCachePath(EFSRepoRef const repo) {
+	if(!repo) return NULL;
+	return repo->cachePath;
 }
 sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo) {
 	if(!repo) return NULL;
