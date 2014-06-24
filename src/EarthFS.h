@@ -12,13 +12,13 @@ typedef struct EFSHasher* EFSHasherRef;
 typedef struct EFSFilter* EFSFilterRef;
 typedef struct EFSJSONFilterBuilder* EFSJSONFilterBuilderRef;
 
-EFSRepoRef EFSRepoCreate(strarg_t const path);
+EFSRepoRef EFSRepoCreate(strarg_t const dir);
 void EFSRepoFree(EFSRepoRef const repo);
-strarg_t EFSRepoGetPath(EFSRepoRef const repo);
-strarg_t EFSRepoGetDataPath(EFSRepoRef const repo);
+strarg_t EFSRepoGetDir(EFSRepoRef const repo);
+strarg_t EFSRepoGetDataDir(EFSRepoRef const repo);
 str_t *EFSRepoCopyInternalPath(EFSRepoRef const repo, strarg_t const internalHash);
-strarg_t EFSRepoGetTempPath(EFSRepoRef const repo);
-strarg_t EFSRepoGetCachePath(EFSRepoRef const repo);
+strarg_t EFSRepoGetTempDir(EFSRepoRef const repo);
+strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo);
 sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo);
 void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 *const db);
 

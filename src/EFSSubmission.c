@@ -26,7 +26,7 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 	sub->repo = repo;
 	sub->type = strdup(type);
 
-	str_t *tmpdir = strdup(EFSRepoGetTempPath(repo));
+	str_t *tmpdir = strdup(EFSRepoGetTempDir(repo));
 	if(mkdirp(tmpdir, -1, 0700) < 0) {
 		fprintf(stderr, "Error: couldn't create temp dir %s\n", tmpdir);
 		FREE(&tmpdir);

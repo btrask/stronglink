@@ -71,7 +71,7 @@ EFSSessionRef auth(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMeth
 
 static str_t *BlogCopyPreviewPath(EFSRepoRef const repo, strarg_t const hash) {
 	str_t *path;
-	if(asprintf(&path, "%s/blog/%.2s/%s", EFSRepoGetCachePath(repo), hash, hash) < 0) return NULL;
+	if(asprintf(&path, "%s/blog/%.2s/%s", EFSRepoGetCacheDir(repo), hash, hash) < 0) return NULL;
 	return path;
 }
 // TODO: Use a real library or put this somewhere.
