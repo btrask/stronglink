@@ -67,12 +67,12 @@ int HTTPServerListen(HTTPServerRef const server, uint16_t const port, strarg_t c
 	// INADDR_ANY, INADDR_LOOPBACK
 	server->socket = malloc(sizeof(uv_tcp_t));
 	if(!server->socket) return -1;
-	if(BTUVErr(uv_tcp_init(loop, server->socket))) return -1;
+	if(uv_tcp_init(loop, server->socket) < 0) return -1;
 	server->socket->data = server;
 	struct sockaddr_in addr;
-	if(BTUVErr(uv_ip4_addr(address, port, &addr))) return -1;
-	if(BTUVErr(uv_tcp_bind(server->socket, (struct sockaddr *)&addr, 0))) return -1;
-	if(BTUVErr(uv_listen((uv_stream_t *)server->socket, 511, connection_cb))) return -1;
+	if(uv_ip4_addr(address, port, &addr) < 0) return -1;
+	if(uv_tcp_bind(server->socket, (struct sockaddr *)&addr, 0) < 0) return -1;
+	if(uv_listen((uv_stream_t *)server->socket, 511, connection_cb) < 0) return -1;
 	return 0;
 }
 static void socket_close_cb(uv_handle_t *const handle) {
@@ -199,82 +199,105 @@ ssize_t HTTPConnectionGetBuffer(HTTPConnectionRef const conn, byte_t const **con
 	return used;
 }
 
-void HTTPConnectionWrite(HTTPConnectionRef const conn, byte_t const *const buf, size_t const len) {
-	if(!conn) return;
+ssize_t HTTPConnectionWrite(HTTPConnectionRef const conn, byte_t const *const buf, size_t const len) {
+	if(!conn) return 0;
 	uv_buf_t obj = uv_buf_init((char *)buf, len);
-	uv_write_t req = { .data = co_active() };
-	(void)BTUVErr(uv_write(&req, (uv_stream_t *)conn->stream, &obj, 1, async_write_cb));
+	async_state state = { .thread = co_active() };
+	uv_write_t req = { .data = &state };
+	uv_write(&req, (uv_stream_t *)conn->stream, &obj, 1, async_write_cb);
 	co_switch(yield);
+	return state.status;
 }
-void HTTPConnectionWritev(HTTPConnectionRef const conn, uv_buf_t const *const parts, unsigned int const count) {
-	if(!conn) return;
-	uv_write_t req = { .data = co_active() };
-	(void)BTUVErr(uv_write(&req, (uv_stream_t *)conn->stream, parts, count, async_write_cb));
+ssize_t HTTPConnectionWritev(HTTPConnectionRef const conn, uv_buf_t const *const parts, unsigned int const count) {
+	if(!conn) return 0;
+	async_state state = { .thread = co_active() };
+	uv_write_t req = { .data = &state };
+	uv_write(&req, (uv_stream_t *)conn->stream, parts, count, async_write_cb);
 	co_switch(yield);
+	return state.status;
 }
-void HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, strarg_t const message) {
-	if(!conn) return;
+ssize_t HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, strarg_t const message) {
+	if(!conn) return 0;
 	// TODO: TCP_CORK?
 	// TODO: Suppply our own message for known status codes.
 	str_t *str;
-	int const slen = BTErrno(asprintf(&str, "HTTP/1.1 %d %s\r\n", status, message));
-	if(-1 != slen) HTTPConnectionWrite(conn, (byte_t *)str, slen);
+	int const slen = asprintf(&str, "HTTP/1.1 %d %s\r\n", status, message);
+	if(slen < 0) return -1;
+	ssize_t const wlen = HTTPConnectionWrite(conn, (byte_t *)str, slen);
 	FREE(&str);
+	return wlen < 0 ? -1 : 0;
 }
-void HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value) {
-	if(!conn) return;
+err_t HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value) {
+	if(!conn) return 0;
 	uv_buf_t parts[] = {
 		uv_buf_init((char *)field, strlen(field)),
 		uv_buf_init(": ", 2),
 		uv_buf_init((char *)value, strlen(value)),
 		uv_buf_init("\r\n", 2),
 	};
-	HTTPConnectionWritev(conn, parts, numberof(parts));
+	ssize_t const wlen = HTTPConnectionWritev(conn, parts, numberof(parts));
+	return wlen < 0 ? -1 : 0;
 }
-void HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, size_t const len) {
-	if(!conn) return;
+err_t HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, uint64_t const length) {
+	if(!conn) return 0;
 	str_t *str = NULL;
-	int const slen = BTErrno(asprintf(&str, "Content-Length: %llu\r\n", (unsigned long long)len));
-	if(-1 != slen) HTTPConnectionWrite(conn, (byte_t *)str, slen);
+	int const slen = asprintf(&str, "Content-Length: %llu\r\n", (unsigned long long)length);
+	if(slen < 0) return -1;
+	ssize_t const wlen = HTTPConnectionWrite(conn, (byte_t *)str, slen);
 	FREE(&str);
+	return wlen < 0 ? -1 : 0;
 }
-void HTTPConnectionBeginBody(HTTPConnectionRef const conn) {
-	if(!conn) return;
-	HTTPConnectionWriteHeader(conn, "Connection", "keep-alive"); // TODO: Make sure we're doing this right.
-	HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2); // TODO: Safe for HEAD requests?
+err_t HTTPConnectionBeginBody(HTTPConnectionRef const conn) {
+	if(!conn) return 0;
+	if(HTTPConnectionWriteHeader(conn, "Connection", "keep-alive") < 0) return -1; // TODO: Make sure we're doing this right.
+	if(HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2) < 0) return -1; // TODO: Safe for HEAD requests?
 	// TODO: TCP_CORK?
+	return 0;
 }
-void HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file) {
+err_t HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file) {
 	// TODO: How do we use uv_fs_sendfile to a TCP stream? Is it impossible?
 	cothread_t const thread = co_active();
 	uv_fs_t req = { .data = thread };
-	uv_write_t wreq = { .data = thread };
-	byte_t *const buf = malloc(BUFFER_SIZE);
+	async_state state = { .thread = thread };
+	uv_write_t wreq = { .data = &state };
+	byte_t *buf = malloc(BUFFER_SIZE);
 	int64_t pos = 0;
 	for(;;) {
 		uv_buf_t const read = uv_buf_init((char *)buf, BUFFER_SIZE);
 		uv_fs_read(loop, &req, file, &read, 1, pos, async_fs_cb);
 		co_switch(yield);
 		uv_fs_req_cleanup(&req);
-		if(req.result <= 0) break; // TODO: EAGAIN, etc?
+		if(0 == req.result) break;
+		if(req.result < 0) { // TODO: EAGAIN, etc?
+			FREE(&buf);
+			return req.result;
+		}
 		pos += req.result;
 		uv_buf_t const write = uv_buf_init((char *)buf, req.result);
 		uv_write(&wreq, (uv_stream_t *)conn->stream, &write, 1, async_write_cb);
 		co_switch(yield);
+		if(state.status < 0) {
+			FREE(&buf);
+			return state.status;
+		}
 	}
-	free(buf);
+	FREE(&buf);
+	return 0;
 }
-void HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, size_t const len) {
-	if(!conn) return;
+err_t HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, uint64_t const length) {
+	if(!conn) return 0;
 	str_t *str;
-	int const slen = asprintf(&str, "%lx\r\n", (unsigned long)len);
-	if(slen > 0) HTTPConnectionWrite(conn, str, slen);
+	int const slen = asprintf(&str, "%llx\r\n", (unsigned long long)length);
+	if(slen < 0) return -1;
+	ssize_t const wlen = HTTPConnectionWrite(conn, str, slen);
 	FREE(&str);
+	return wlen < 0 ? -1 : 0;
 }
-void HTTPConnectionEnd(HTTPConnectionRef const conn) {
-	if(!conn) return;
-	HTTPConnectionWrite(conn, (byte_t *)"", 0);
+err_t HTTPConnectionEnd(HTTPConnectionRef const conn) {
+	if(!conn) return 0;
+	if(HTTPConnectionWrite(conn, (byte_t *)"", 0) < 0) return -1;
 	// TODO: Figure out keep-alive. If the client doesn't support it, we should close the connection here.
+	return 0;
 }
 
 void HTTPConnectionSendMessage(HTTPConnectionRef const conn, uint16_t const status, strarg_t const msg) {
@@ -430,8 +453,12 @@ static void handleStream(void) {
 	uv_stream_t *const socket = fiber_args.socket;
 	HTTPServerRef const server = socket->data;
 	uv_tcp_t stream;
-	(void)BTUVErr(uv_tcp_init(loop, &stream));
-	if(BTUVErr(uv_accept(socket, (uv_stream_t *)&stream))) {
+	if(uv_tcp_init(loop, &stream) < 0) {
+		fprintf(stderr, "Stream init failed %p\n", co_active());
+		co_terminate();
+		return;
+	}
+	if(uv_accept(socket, (uv_stream_t *)&stream) < 0) {
 		fprintf(stderr, "Accept failed %p\n", co_active());
 		co_terminate();
 		return;

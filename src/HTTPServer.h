@@ -45,17 +45,18 @@ ssize_t HTTPConnectionRead(HTTPConnectionRef const conn, byte_t *const buf, size
 ssize_t HTTPConnectionGetBuffer(HTTPConnectionRef const conn, byte_t const **const buf); // Zero-copy version.
 
 // Connection writing
-void HTTPConnectionWrite(HTTPConnectionRef const conn, byte_t const *const buf, size_t const len);
-void HTTPConnectionWritev(HTTPConnectionRef const conn, uv_buf_t const *const parts, unsigned int const count);
-void HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, strarg_t const message);
-void HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value);
-void HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, size_t const len);
-void HTTPConnectionBeginBody(HTTPConnectionRef const conn);
-void HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file);
-void HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, size_t const len);
-void HTTPConnectionEnd(HTTPConnectionRef const conn);
+ssize_t HTTPConnectionWrite(HTTPConnectionRef const conn, byte_t const *const buf, size_t const len);
+ssize_t HTTPConnectionWritev(HTTPConnectionRef const conn, uv_buf_t const *const parts, unsigned int const count);
+err_t HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, strarg_t const message);
+err_t HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value);
+err_t HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, uint64_t const length);
+err_t HTTPConnectionBeginBody(HTTPConnectionRef const conn);
+err_t HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file);
+err_t HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, uint64_t const length);
+err_t HTTPConnectionEnd(HTTPConnectionRef const conn);
 
 // Convenience
+// TODO: These should return err_t too.
 void HTTPConnectionSendMessage(HTTPConnectionRef const conn, uint16_t const status, strarg_t const msg);
 void HTTPConnectionSendStatus(HTTPConnectionRef const conn, uint16_t const status);
 void HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path, strarg_t const type, int64_t size);

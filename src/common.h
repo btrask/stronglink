@@ -62,13 +62,6 @@ typedef int err_t;
 	} \
 	__x; \
 })
-#define BTUVErr(x) ({ \
-	int const __x = (x); \
-	if(0 != __x) { \
-		fprintf(stderr, "%s:%d: %d == %s (%s)\n", __PRETTY_FUNCTION__, __LINE__, __x, #x, uv_strerror(__x)); \
-	} \
-	__x; \
-})
 
 #define FREE(ptrptr) ({ \
 	__typeof__(ptrptr) const __x = (ptrptr); \
