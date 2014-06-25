@@ -188,7 +188,7 @@ static void sendPreview(EFSRepoRef const repo, HTTPConnectionRef const conn, str
 		str_t *msg;
 		int const mlen = asprintf(&msg,
 			"%1$.0s" "%2$.0s" "%3$.0s" // TODO: HACK
-			"(no preview for file of type %3$s)",
+			"<div class=\"light\">(no preview for file of type %3$s)</div>",
 			URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
 		if(mlen > 0) {
 			HTTPConnectionWriteChunkLength(conn, mlen);
@@ -280,7 +280,18 @@ static bool_t getPage(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 
 bool_t BlogDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(getPage(repo, conn, method, URI)) return true;
-	// TODO: Other resources, 404 page.
-	return false;
+
+
+	// TODO: Ignore query parameters, check for `..` (security critical).
+	str_t *path;
+	int const plen = asprintf(&path, "%s/blog-static/%s", EFSRepoGetDir(repo), URI);
+	if(plen < 0) {
+		HTTPConnectionSendStatus(conn, 500);
+		return true;
+	}
+
+	HTTPConnectionSendFile(conn, path, NULL, -1); // TODO: Determine file type.
+	FREE(&path);
+	return true;
 }
 
