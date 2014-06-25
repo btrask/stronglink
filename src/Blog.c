@@ -180,7 +180,7 @@ static err_t sendNewPreview(EFSRepoRef const repo, HTTPConnectionRef const conn,
 	async_state state = { .thread = thread };
 	uv_process_t proc = { .data = &state };
 	str_t *args[] = {
-		"/usr/bin/pandoc",
+		"pandoc",
 		"-f", "markdown",
 		"-t", "html",
 		"--strict",
