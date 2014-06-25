@@ -24,7 +24,7 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 		"SELECT ('hash://' || ? || '/' || f.\"internalHash\")\n"
 		"FROM \"files\" AS f\n"
 		"INNER JOIN \"results\" AS r ON (r.\"fileID\" = f.\"fileID\")\n"
-		"ORDER BY r.\"sort\" ASC LIMIT ?");
+		"ORDER BY r.\"sort\" DESC LIMIT ?");
 	sqlite3_bind_text(select, 1, "sha256", -1, SQLITE_STATIC);
 	sqlite3_bind_int64(select, 2, max);
 	URIListRef const URIs = URIListCreate();
@@ -106,6 +106,19 @@ static err_t sendPreview(EFSRepoRef const repo, HTTPConnectionRef const conn, st
 	if(req.result < 0) return -1;
 	uv_file const file = req.result;
 
+	uv_fs_fstat(loop, &req, file, async_fs_cb);
+	co_switch(yield);
+	if(req.result < 0) {
+		uv_fs_req_cleanup(&req);
+
+		uv_fs_close(loop, &req, file, async_fs_cb);
+		co_switch(yield);
+		uv_fs_req_cleanup(&req);
+		return -1;
+	}
+	uint64_t const size = req.statbuf.st_size;
+	uv_fs_req_cleanup(&req);
+
 	// TODO: Don't copy and paste
 	// TODO: Real template system
 	str_t *URI_HTMLSafe = htmlenc(URI);
@@ -119,26 +132,32 @@ static err_t sendPreview(EFSRepoRef const repo, HTTPConnectionRef const conn, st
 		"\t" "<div class=\"title\">\n"
 		"\t" "\t" "<a href=\"?q=%2$s\">%1$s</a>\n"
 		"\t" "</div>"
-		"\t" "<div class=\"content\">\n",
+		"\t" "<div class=\"content\">",
 		URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
+	if(blen < 0) before = NULL;
 	str_t *after;
 	int const alen = asprintf(&after,
-		"\n"
-		"\t" "</div>\n"
+			"</div>\n"
 		"</div>",
 		URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
-	HTTPConnectionWriteChunkLength(conn, blen+info->size+alen);
-	HTTPConnectionWrite(conn, (byte_t const *)before, blen);
-	HTTPConnectionWriteFile(conn, file);
-	HTTPConnectionWrite(conn, (byte_t const *)after, alen);
-	HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
+	if(alen < 0) after = NULL;
+
+	bool_t sent = false;
+	if(blen >= 0 && alen >= 0) {
+		HTTPConnectionWriteChunkLength(conn, blen+size+alen);
+		HTTPConnectionWrite(conn, (byte_t const *)before, blen);
+		HTTPConnectionWriteFile(conn, file);
+		HTTPConnectionWrite(conn, (byte_t const *)after, alen);
+		HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
+		sent = true;
+	}
 	FREE(&before);
 	FREE(&after);
 
 	uv_fs_close(loop, &req, file, async_fs_cb);
 	co_switch(yield);
 	uv_fs_req_cleanup(&req);
-	return 0;
+	return sent ? 0 : -1;
 }
 static err_t sendNewPreview(EFSRepoRef const repo, HTTPConnectionRef const conn, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
 
