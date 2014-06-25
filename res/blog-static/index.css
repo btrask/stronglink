@@ -8,10 +8,8 @@
 	box-sizing: border-box;
 	-webkit-tap-highlight-color: rgba(0, 0, 0, 0);
 }
-.center { text-align: center; }
 .outline { outline: 1px solid red; } /* DEBUG */
-.inlineBlock { display: inline-block; }
-.border { border: 0 solid #999; }
+.clear { clear: both; }
 .light { color: #555; }
 
 a:link {
@@ -24,12 +22,26 @@ a:hover {
 body {
 	background: #eee;
 }
+body > * {
+	margin: 14px;
+}
+body, input {
+	font-family: Helvetica, sans-serif;
+	font-size: 16px;
+	line-height: 1.5em;
+}
+input {
+	padding: 2px 4px;
+}
+
+.search {
+	float: right;
+}
 
 .entry {
 	overflow: hidden;
 	text-overflow: ellipsis;
 
-	margin: 14px;
 	border-radius: 3px;
 	border: 1px solid white;
 	background: #fff;
@@ -43,9 +55,6 @@ body {
 .content {
 	padding-left: 1em;
 	padding-right: 1em;
-	font-family: "Helvetica Neue", Helvetica, sans-serif;
-	font-size: 16px;
-	line-height: 1.5em;
 }
 .content blockquote,
 .content ul,
