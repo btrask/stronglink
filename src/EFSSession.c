@@ -21,6 +21,13 @@ static int passcmp(strarg_t const a, strarg_t const b) {
 
 EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const username, strarg_t const password, strarg_t const cookie, EFSMode const mode) {
 	if(!repo) return NULL;
+	if(!password) return NULL;
+	/* TODO: More complex logic needed.
+		1. Use cookie if no user/pass provided
+		2. Use user/pass if no cookie provided
+		3. Use cookie if username matches cookie user ID
+		4. Use username if does not match, use user/pass
+	*/
 
 	sqlite3 *const db = EFSRepoDBConnect(repo);
 	if(!db) return NULL;
