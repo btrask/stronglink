@@ -120,10 +120,8 @@ static err_t genPreview(EFSRepoRef const repo, HTTPConnectionRef const conn, str
 	async_state state = { .thread = thread };
 	uv_process_t proc = { .data = &state };
 	str_t *args[] = {
-		"pandoc",
-		"-f", "markdown",
-		"-t", "html",
-		"--strict",
+		"markdown",
+		"-G",
 		"-o", tmpPath,
 		info->path,
 		NULL
