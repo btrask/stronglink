@@ -293,6 +293,35 @@ err_t HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, uint64_t cons
 	FREE(&str);
 	return wlen < 0 ? -1 : 0;
 }
+err_t HTTPConnectionWriteChunkFile(HTTPConnectionRef const conn, strarg_t const path) {
+	uv_fs_t req = { .data = co_active() };
+	uv_fs_open(loop, &req, path, O_RDONLY, 0000, async_fs_cb);
+	co_switch(yield);
+	uv_fs_req_cleanup(&req);
+	if(req.result < 0) {
+		return -1;
+	}
+	uv_file const file = req.result;
+	uv_fs_fstat(loop, &req, file, async_fs_cb);
+	co_switch(yield);
+	uv_fs_req_cleanup(&req);
+	if(req.result < 0) {
+		uv_fs_close(loop, &req, file, async_fs_cb);
+		co_switch(yield);
+		uv_fs_req_cleanup(&req);
+		return -1;
+	}
+	uint64_t const size = req.statbuf.st_size;
+
+	HTTPConnectionWriteChunkLength(conn, size);
+	HTTPConnectionWriteFile(conn, file);
+	HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
+
+	uv_fs_close(loop, &req, file, async_fs_cb);
+	co_switch(yield);
+	uv_fs_req_cleanup(&req);
+	return 0;
+}
 err_t HTTPConnectionEnd(HTTPConnectionRef const conn) {
 	if(!conn) return 0;
 	if(HTTPConnectionWrite(conn, (byte_t *)"", 0) < 0) return -1;

@@ -53,6 +53,7 @@ err_t HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, uint64_t co
 err_t HTTPConnectionBeginBody(HTTPConnectionRef const conn);
 err_t HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file);
 err_t HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, uint64_t const length);
+err_t HTTPConnectionWriteChunkFile(HTTPConnectionRef const conn, strarg_t const path);
 err_t HTTPConnectionEnd(HTTPConnectionRef const conn);
 
 // Convenience

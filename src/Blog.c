@@ -98,68 +98,8 @@ static str_t *htmlenc(strarg_t const str) {
 	return enc;
 }
 
-static err_t sendPreview(EFSRepoRef const repo, HTTPConnectionRef const conn, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
-	uv_fs_t req = { .data = co_active() };
-	uv_fs_open(loop, &req, previewPath, O_RDONLY, 0400, async_fs_cb);
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
-	if(req.result < 0) return -1;
-	uv_file const file = req.result;
 
-	uv_fs_fstat(loop, &req, file, async_fs_cb);
-	co_switch(yield);
-	if(req.result < 0) {
-		uv_fs_req_cleanup(&req);
-
-		uv_fs_close(loop, &req, file, async_fs_cb);
-		co_switch(yield);
-		uv_fs_req_cleanup(&req);
-		return -1;
-	}
-	uint64_t const size = req.statbuf.st_size;
-	uv_fs_req_cleanup(&req);
-
-	// TODO: Don't copy and paste
-	// TODO: Real template system
-	str_t *URI_HTMLSafe = htmlenc(URI);
-	str_t *URI_URISafe = strdup("hash://asdf/asdf"); // TODO: URI enc
-	str_t *type_HTMLSafe = htmlenc(info->type);
-	unsigned long long const size_ull = info->size;
-
-	str_t *before;
-	int const blen = asprintf(&before,
-		"<div class=\"entry\">\n"
-		"\t" "<div class=\"title\">\n"
-		"\t" "\t" "<a href=\"?q=%2$s\">%1$s</a>\n"
-		"\t" "</div>\n"
-		"\t" "<div class=\"content\">",
-		URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
-	if(blen < 0) before = NULL;
-	str_t *after;
-	int const alen = asprintf(&after,
-			"</div>\n"
-		"</div>\n",
-		URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
-	if(alen < 0) after = NULL;
-
-	bool_t sent = false;
-	if(blen >= 0 && alen >= 0) {
-		HTTPConnectionWriteChunkLength(conn, blen+size+alen);
-		HTTPConnectionWrite(conn, (byte_t const *)before, blen);
-		HTTPConnectionWriteFile(conn, file);
-		HTTPConnectionWrite(conn, (byte_t const *)after, alen);
-		HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
-		sent = true;
-	}
-	FREE(&before);
-	FREE(&after);
-
-	uv_fs_close(loop, &req, file, async_fs_cb);
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
-	return sent ? 0 : -1;
-}
-static err_t sendNewPreview(EFSRepoRef const repo, HTTPConnectionRef const conn, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
+static err_t genPreview(EFSRepoRef const repo, HTTPConnectionRef const conn, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
 
 	if(0 != strcasecmp("text/markdown; charset=utf-8", info->type)) return -1; // TODO: Other types, plugins, w/e.
 
@@ -216,34 +156,63 @@ static err_t sendNewPreview(EFSRepoRef const repo, HTTPConnectionRef const conn,
 	uv_fs_req_cleanup(&req);
 
 	FREE(&tmpPath);
-	return sendPreview(repo, conn, URI, info, previewPath);
+	return 0;
 }
-static err_t sendPlaceholder(EFSRepoRef const repo, HTTPConnectionRef const conn, strarg_t const URI, EFSFileInfo const *const info) {
+static void sendPreview(EFSRepoRef const repo, HTTPConnectionRef const conn, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
+	// TODO: Real template system
 	str_t *URI_HTMLSafe = htmlenc(URI);
 	str_t *URI_URISafe = strdup("hash://asdf/asdf"); // TODO: URI enc
 	str_t *type_HTMLSafe = htmlenc(info->type);
 	unsigned long long const size_ull = info->size;
 
-	str_t *str;
-	int const len = asprintf(&str,
+	str_t *before;
+	int const blen = asprintf(&before,
 		"<div class=\"entry\">\n"
 		"\t" "<div class=\"title\">\n"
 		"\t" "\t" "<a href=\"?q=%2$s\">%1$s</a>\n"
 		"\t" "</div>\n"
-		"\t" "<div class=\"content\">\n"
-		"\t" "\t" "(no preview for file of type %3$s)\n"
-		"\t" "</div>\n"
-		"</div>\n", URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
-	if(len >= 0) {
-		HTTPConnectionWriteChunkLength(conn, len);
-		HTTPConnectionWrite(conn, (byte_t const *)str, len);
+		"\t" "<div class=\"content\">",
+		URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
+	if(blen > 0) {
+		HTTPConnectionWriteChunkLength(conn, blen);
+		HTTPConnectionWrite(conn, (byte_t const *)before, blen);
 		HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
-		FREE(&str);
 	}
+	if(blen >= 0) FREE(&before);
+
+	if(
+		HTTPConnectionWriteChunkFile(conn, previewPath) < 0 &&
+		genPreview(repo, conn, URI, info, previewPath) < 0 ||
+		HTTPConnectionWriteChunkFile(conn, previewPath) < 0
+	) {
+		str_t *msg;
+		int const mlen = asprintf(&msg,
+			"%1$.0s" "%2$.0s" "%3$.0s" // TODO: HACK
+			"(no preview for file of type %3$s)",
+			URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
+		if(mlen > 0) {
+			HTTPConnectionWriteChunkLength(conn, mlen);
+			HTTPConnectionWrite(conn, (byte_t const *)msg, mlen);
+			HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
+		}
+		if(mlen >= 0) FREE(&msg);
+	}
+
+	str_t *after;
+	int const alen = asprintf(&after,
+			"</div>\n"
+		"</div>\n",
+		URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
+	if(alen > 0) {
+		HTTPConnectionWriteChunkLength(conn, alen);
+		HTTPConnectionWrite(conn, (byte_t const *)after, alen);
+		HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
+	}
+	if(alen >= 0) FREE(&after);
+
 	FREE(&URI_HTMLSafe);
 	FREE(&URI_URISafe);
 	FREE(&type_HTMLSafe);
-	return len >= 0 ? 0 : -1;
 }
 
 static bool_t getPage(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
@@ -268,44 +237,38 @@ static bool_t getPage(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
 	HTTPConnectionBeginBody(conn);
 
-	// TODO: Load the header from a configurable file
-	// Include a search field and stuff
-	str_t const header[] =
-		"<!doctype html>\n"
-		"<meta charset=\"utf-8\">\n"
-		"<title>EarthFS Blog Test</title>\n";
-	HTTPConnectionWriteChunkLength(conn, sizeof(header)-1);
-	HTTPConnectionWrite(conn, (byte_t const *)header, sizeof(header)-1);
-	HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
+	str_t *hpath;
+	int const hpathlen = asprintf(&hpath, "%s/blog-static/header.html", EFSRepoGetDir(repo));
+	if(hpathlen >= 0) {
+		HTTPConnectionWriteChunkFile(conn, hpath);
+		FREE(&hpath);
+	}
 
 	for(index_t i = 0; i < URIListGetCount(URIs); ++i) {
 		strarg_t const URI = URIListGetURI(URIs, i);
 		str_t const prefix[] = "hash://sha256/";
 		strarg_t const hash = URI+sizeof(prefix)-1;
 		str_t *previewPath = BlogCopyPreviewPath(repo, hash);
-
+		if(!previewPath) {
+			continue;
+		}
 		EFSFileInfo info;
 		if(EFSSessionGetFileInfoForURI(session, &info, URI) < 0) {
 			FREE(&previewPath);
 			continue;
 		}
-
-		if(sendPreview(repo, conn, URI, &info, previewPath) < 0) {
-
-			if(sendNewPreview(repo, conn, URI, &info, previewPath) < 0) {
-
-				sendPlaceholder(repo, conn, URI, &info);
-
-			}
-
-		}
-
+		sendPreview(repo, conn, URI, &info, previewPath);
 		FREE(&info.path);
 		FREE(&info.type);
 		FREE(&previewPath);
 	}
 
-	// TODO: Page trailer
+	str_t *fpath;
+	int const fpathlen = asprintf(&fpath, "%s/blog-static/footer.html", EFSRepoGetDir(repo));
+	if(fpathlen >= 0) {
+		HTTPConnectionWriteChunkFile(conn, fpath);
+		FREE(&fpath);
+	}
 
 	HTTPConnectionWriteChunkLength(conn, 0);
 	HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
