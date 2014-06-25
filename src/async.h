@@ -1,3 +1,6 @@
+#ifndef ASYNC_H
+#define ASYNC_H
+
 #include <stdlib.h>
 #include <uv.h>
 #include "../deps/libco/libco.h"
@@ -25,9 +28,15 @@ static void async_write_cb(uv_write_t *const req, int const status) {
 	state->status = status;
 	co_switch(state->thread);
 }
+static void async_exit_cb(uv_process_t *const proc, int64_t const status, int const signal) {
+	async_state *const state = proc->data;
+	state->status = status;
+	co_switch(state->thread);
+}
 
 void async_init(void);
 void async_wakeup(cothread_t const thread);
 
 void co_terminate(void);
 
+#endif

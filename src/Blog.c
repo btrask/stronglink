@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include "common.h"
 #include "async.h"
+#include "fs.h"
 #include "EarthFS.h"
 #include "HTTPServer.h"
 #include "QueryString.h"
@@ -97,48 +98,96 @@ static str_t *htmlenc(strarg_t const str) {
 	return enc;
 }
 
-static err_t sendPreview(HTTPConnectionRef const conn, strarg_t const previewPath) {
+static err_t sendPreview(EFSRepoRef const repo, HTTPConnectionRef const conn, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
 	uv_fs_t req = { .data = co_active() };
 	uv_fs_open(loop, &req, previewPath, O_RDONLY, 0400, async_fs_cb);
 	co_switch(yield);
 	uv_fs_req_cleanup(&req);
 	if(req.result < 0) return -1;
 	uv_file const file = req.result;
-	uv_fs_fstat(loop, &req, file, async_fs_cb);
-	co_switch(yield);
-	uint64_t const size = req.statbuf.st_size;
-	uv_fs_req_cleanup(&req);
-	if(req.result > 0) {
-		HTTPConnectionWriteChunkLength(conn, size);
-		HTTPConnectionWriteFile(conn, file);
-		HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
-	}
+
+	// TODO: Don't copy and paste
+	// TODO: Real template system
+	str_t *URI_HTMLSafe = htmlenc(URI);
+	str_t *URI_URISafe = strdup("hash://asdf/asdf"); // TODO: URI enc
+	str_t *type_HTMLSafe = htmlenc(info->type);
+	unsigned long long const size_ull = info->size;
+
+	str_t *before;
+	int const blen = asprintf(&before,
+		"<div class=\"entry\">\n"
+		"\t" "<div class=\"title\">\n"
+		"\t" "\t" "<a href=\"?q=%2$s\">%1$s</a>\n"
+		"\t" "</div>"
+		"\t" "<div class=\"content\">\n",
+		URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
+	str_t *after;
+	int const alen = asprintf(&after,
+		"\n"
+		"\t" "</div>\n"
+		"</div>",
+		URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
+	HTTPConnectionWriteChunkLength(conn, blen+info->size+alen);
+	HTTPConnectionWrite(conn, (byte_t const *)before, blen);
+	HTTPConnectionWriteFile(conn, file);
+	HTTPConnectionWrite(conn, (byte_t const *)after, alen);
+	HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
+	FREE(&before);
+	FREE(&after);
+
 	uv_fs_close(loop, &req, file, async_fs_cb);
 	co_switch(yield);
 	uv_fs_req_cleanup(&req);
-	return req.result > 0 ? 0 : -1;
+	return 0;
 }
-static err_t sendNewPreview(HTTPConnectionRef const conn, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
-	str_t *tmpPath = NULL; // TODO: EFSRepoCopyTempPath()
-	if(!tmpPath) return -1;
+static err_t sendNewPreview(EFSRepoRef const repo, HTTPConnectionRef const conn, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
 
-	// TODO: mkdirp tmpdir
+	if(0 != strcasecmp("text/markdown; charset=utf-8", info->type)) return -1; // TODO: Other types, plugins, w/e.
 
-	uv_fs_t req = { .data = co_active() };
-	uv_fs_open(loop, &req, tmpPath, O_CREAT | O_EXCL | O_WRONLY, 0400, async_fs_cb);
+	str_t *tmpPath = EFSRepoCopyTempPath(repo);
+	if(!tmpPath) {
+		fprintf(stderr, "No temp path\n");
+		return -1;
+	}
+
+	ssize_t const dirlen = dirname(tmpPath, strlen(tmpPath));
+	if(dirlen < 0 || mkdirp(tmpPath, dirlen, 0700) < 0) {
+		fprintf(stderr, "Couldn't make temp dir %s\n", tmpPath);
+		FREE(&tmpPath);
+		return -1;
+	}
+
+	cothread_t const thread = co_active();
+	async_state state = { .thread = thread };
+	uv_process_t proc = { .data = &state };
+	str_t *args[] = {
+		"/usr/bin/pandoc",
+		"-f", "markdown",
+		"-t", "html",
+		"--strict",
+		"-o", tmpPath,
+		info->path,
+		NULL
+	};
+	uv_process_options_t const opts = {
+		.file = args[0],
+		.args = args,
+		.exit_cb = async_exit_cb,
+	};
+	uv_spawn(loop, &proc, &opts);
 	co_switch(yield);
-	uv_fs_req_cleanup(&req);
-	uv_file const tmp = req.result;
-	if(tmp < 0) return -1;
 
-	// TODO: Generate preview, send it and save it.
-	fprintf(stderr, "Generation of preview at %s not implemented\n", previewPath);
+	str_t *previewDir = strdup(previewPath);
+	ssize_t const pdirlen = dirname(previewDir, strlen(previewDir));
+	if(pdirlen < 0 || mkdirp(previewDir, pdirlen, 0700) < 0) {
+		fprintf(stderr, "Couldn't create preview dir %s\n", previewDir);
+		FREE(&previewDir);
+		FREE(&tmpPath);
+		return -1;
+	}
+	FREE(&previewDir);
 
-	uv_fs_close(loop, &req, tmp, async_fs_cb);
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
-
-	// TODO: mkdir preview dir
+	uv_fs_t req = { .data = thread };
 	uv_fs_link(loop, &req, tmpPath, previewPath, async_fs_cb);
 	co_switch(yield);
 	uv_fs_req_cleanup(&req);
@@ -147,9 +196,10 @@ static err_t sendNewPreview(HTTPConnectionRef const conn, strarg_t const URI, EF
 	co_switch(yield);
 	uv_fs_req_cleanup(&req);
 
-	return -1; // TODO
+	FREE(&tmpPath);
+	return sendPreview(repo, conn, URI, info, previewPath);
 }
-static err_t sendPlaceholder(HTTPConnectionRef const conn, strarg_t const URI, EFSFileInfo const *const info) {
+static err_t sendPlaceholder(EFSRepoRef const repo, HTTPConnectionRef const conn, strarg_t const URI, EFSFileInfo const *const info) {
 	str_t *URI_HTMLSafe = htmlenc(URI);
 	str_t *URI_URISafe = strdup("hash://asdf/asdf"); // TODO: URI enc
 	str_t *type_HTMLSafe = htmlenc(info->type);
@@ -215,23 +265,24 @@ static bool_t getPage(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 		strarg_t const hash = URI+sizeof(prefix)-1;
 		str_t *previewPath = BlogCopyPreviewPath(repo, hash);
 
-		if(sendPreview(conn, previewPath) < 0) {
-			EFSFileInfo info;
-			if(EFSSessionGetFileInfoForURI(session, &info, URI) < 0) {
-				FREE(&previewPath);
-				continue;
-			}
-
-			if(sendNewPreview(conn, URI, &info, previewPath) < 0) {
-
-				sendPlaceholder(conn, URI, &info);
-
-			}
-
-			FREE(&info.path);
-			FREE(&info.type);
+		EFSFileInfo info;
+		if(EFSSessionGetFileInfoForURI(session, &info, URI) < 0) {
+			FREE(&previewPath);
+			continue;
 		}
 
+		if(sendPreview(repo, conn, URI, &info, previewPath) < 0) {
+
+			if(sendNewPreview(repo, conn, URI, &info, previewPath) < 0) {
+
+				sendPlaceholder(repo, conn, URI, &info);
+
+			}
+
+		}
+
+		FREE(&info.path);
+		FREE(&info.type);
 		FREE(&previewPath);
 	}
 

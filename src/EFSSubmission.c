@@ -1,13 +1,10 @@
 #define _GNU_SOURCE
 #include <fcntl.h>
 #include "async.h"
+#include "fs.h"
 #include "EarthFS.h"
 
 #define INDEX_MAX (1024 * 100)
-
-// TODO: Find a home for these.
-static ssize_t dirname(strarg_t const path, size_t const len);
-static err_t mkdirp(str_t *const path, size_t const len, int const mode);
 
 struct EFSSubmission {
 	EFSRepoRef repo;
@@ -26,16 +23,18 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 	sub->repo = repo;
 	sub->type = strdup(type);
 
-	str_t *tmpdir = strdup(EFSRepoGetTempDir(repo));
-	if(mkdirp(tmpdir, -1, 0700) < 0) {
-		fprintf(stderr, "Error: couldn't create temp dir %s\n", tmpdir);
-		FREE(&tmpdir);
+	sub->path = EFSRepoCopyTempPath(repo);
+	ssize_t const dirlen = dirname(sub->path, strlen(sub->path));
+	if(dirlen < 0) {
 		EFSSubmissionFree(sub);
 		return NULL;
 	}
-	str_t const x[] = "efs-tmp"; // TODO: Generate random filename.
-	(void)BTErrno(asprintf(&sub->path, "%s/%s", tmpdir, x));
-	FREE(&tmpdir);
+	if(mkdirp(sub->path, dirlen, 0700) < 0) {
+		fprintf(stderr, "Error: couldn't create temp dir %s\n", sub->path);
+		EFSSubmissionFree(sub);
+		return NULL;
+	}
+
 	uv_fs_t req = { .data = co_active() };
 	uv_fs_open(loop, &req, sub->path, O_CREAT | O_EXCL | O_TRUNC | O_WRONLY, 0400, async_fs_cb);
 	co_switch(yield);
@@ -235,49 +234,6 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	EXEC(QUERY(db, "COMMIT"));
 	EFSRepoDBClose(repo, db);
 
-	return 0;
-}
-
-/* Example paths:
-- /asdf -> /
-- / - > (error)
-- "" -> (error)
-- /asdf/ -> /
-- /asdf/asdf -> /asdf
-- asdf/asdf -> asdf
-Doesn't handle "./" or "/./"
-TODO: Unit tests
-TODO: Windows pathnames
-*/
-static ssize_t dirname(strarg_t const path, size_t const len) {
-	if(!len) return -1;
-	index_t i = len;
-	if(0 == i--) return -1; // Ignore trailing slash.
-	for(; i >= 0; --i) if('/' == path[i]) return i;
-	return -1;
-}
-static err_t mkdirp(str_t *const path, size_t const len, int const mode) {
-	if(0 == len) return 0;
-	if(1 == len) {
-		if('/' == path[0]) return 0;
-		if('.' == path[0]) return 0;
-	}
-	uv_fs_t req = { .data = co_active() };
-	uv_fs_mkdir(loop, &req, path, mode, async_fs_cb);
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
-	if(req.result >= 0) return 0;
-	if(-EEXIST == req.result) return 0;
-	if(-ENOENT != req.result) return -1;
-	ssize_t const dlen = dirname(path, len);
-	if(dlen < 0) return -1;
-	path[dlen] = '\0';
-	if(mkdirp(path, dlen, mode) < 0) return -1;
-	path[dlen] = '/';
-	uv_fs_mkdir(loop, &req, path, mode, async_fs_cb);
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
-	if(req.result < 0) return -1;
 	return 0;
 }
 

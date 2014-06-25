@@ -46,6 +46,12 @@ strarg_t EFSRepoGetTempDir(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->tempDir;
 }
+str_t *EFSRepoCopyTempPath(EFSRepoRef const repo) {
+	if(!repo) return NULL;
+	str_t *str;
+	if(asprintf(&str, "%s/efs-tmp", repo->tempDir) < 0) return NULL; // TODO: Real random filename.
+	return str;
+}
 strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->cacheDir;
