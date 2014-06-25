@@ -180,8 +180,8 @@ static void sendPreview(EFSRepoRef const repo, HTTPConnectionRef const conn, str
 
 	if(
 		HTTPConnectionWriteChunkFile(conn, previewPath) < 0 &&
-		genPreview(repo, conn, URI, info, previewPath) < 0 ||
-		HTTPConnectionWriteChunkFile(conn, previewPath) < 0
+		(genPreview(repo, conn, URI, info, previewPath) < 0 ||
+		HTTPConnectionWriteChunkFile(conn, previewPath) < 0)
 	) {
 		str_t *msg;
 		int const mlen = asprintf(&msg,
