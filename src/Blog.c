@@ -131,14 +131,14 @@ static err_t sendPreview(EFSRepoRef const repo, HTTPConnectionRef const conn, st
 		"<div class=\"entry\">\n"
 		"\t" "<div class=\"title\">\n"
 		"\t" "\t" "<a href=\"?q=%2$s\">%1$s</a>\n"
-		"\t" "</div>"
+		"\t" "</div>\n"
 		"\t" "<div class=\"content\">",
 		URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
 	if(blen < 0) before = NULL;
 	str_t *after;
 	int const alen = asprintf(&after,
 			"</div>\n"
-		"</div>",
+		"</div>\n",
 		URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
 	if(alen < 0) after = NULL;
 
@@ -229,11 +229,11 @@ static err_t sendPlaceholder(EFSRepoRef const repo, HTTPConnectionRef const conn
 		"<div class=\"entry\">\n"
 		"\t" "<div class=\"title\">\n"
 		"\t" "\t" "<a href=\"?q=%2$s\">%1$s</a>\n"
-		"\t" "</div>"
+		"\t" "</div>\n"
 		"\t" "<div class=\"content\">\n"
 		"\t" "\t" "(no preview for file of type %3$s)\n"
 		"\t" "</div>\n"
-		"</div>", URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
+		"</div>\n", URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
 	if(len >= 0) {
 		HTTPConnectionWriteChunkLength(conn, len);
 		HTTPConnectionWrite(conn, (byte_t const *)str, len);
