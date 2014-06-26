@@ -103,19 +103,19 @@ err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfil
 void EFSFilterCreateTempTables(sqlite3 *const db) {
 	EXEC(QUERY(db,
 		"CREATE TEMPORARY TABLE \"results\" (\n"
-		"\t" "\"resultID\" INTEGER PRIMARY KEY NOT NULL,\n"
-		"\t" "\"fileID\" INTEGER NOT NULL,\n"
-		"\t" "\"sort\" INTEGER NOT NULL,\n"
-		"\t" "\"depth\" INTEGER NOT NULL\n"
+		"	\"resultID\" INTEGER PRIMARY KEY NOT NULL,\n"
+		"	\"fileID\" INTEGER NOT NULL,\n"
+		"	\"sort\" INTEGER NOT NULL,\n"
+		"	\"depth\" INTEGER NOT NULL\n"
 		")"));
 	EXEC(QUERY(db,
 		"CREATE INDEX \"resultsDepthIndex\"\n"
 		"ON \"results\" (\"depth\" ASC)"));
 	EXEC(QUERY(db,
 		"CREATE TEMPORARY TABLE \"depths\" (\n"
-		"\t" "\"depthID\" INTEGER PRIMARY KEY NOT NULL,\n"
-		"\t" "\"subdepth\" INTEGER NOT NULL,\n"
-		"\t" "\"depth\" INTEGER NOT NULL\n"
+		"	\"depthID\" INTEGER PRIMARY KEY NOT NULL,\n"
+		"	\"subdepth\" INTEGER NOT NULL,\n"
+		"	\"depth\" INTEGER NOT NULL\n"
 		")"));
 	EXEC(QUERY(db,
 		"CREATE INDEX \"depthDepthsIndex\"\n"
@@ -127,7 +127,7 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 		case EFSNoFilter: {
 			sqlite3_stmt *const op = QUERY(db,
 				"INSERT INTO \"results\"\n"
-				"\t" "(\"fileID\", \"sort\", \"depth\")\n"
+				"	(\"fileID\", \"sort\", \"depth\")\n"
 				"SELECT \"fileID\", \"fileID\", ?\n"
 				"FROM \"files\" WHERE 1");
 			sqlite3_bind_int64(op, 1, depth);
@@ -136,7 +136,7 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 		} case EFSFileTypeFilter: {
 			sqlite3_stmt *const op = QUERY(db,
 				"INSERT INTO \"results\"\n"
-				"\t" "(\"fileID\", \"sort\", \"depth\")\n"
+				"	(\"fileID\", \"sort\", \"depth\")\n"
 				"SELECT \"fileID\", \"fileID\", ?\n"
 				"FROM \"files\" WHERE \"type\" = ?");
 			sqlite3_bind_int64(op, 1, depth);
@@ -146,11 +146,11 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 		} case EFSFullTextFilter: {
 			sqlite3_stmt *const op = QUERY(db,
 				"INSERT INTO \"results\"\n"
-				"\t" "(\"fileID\", \"sort\", \"depth\")\n"
+				"	(\"fileID\", \"sort\", \"depth\")\n"
 				"SELECT f.\"fileID\", MIN(f.\"metaFileID\"), ?\n"
 				"FROM \"fileContent\" AS f\n"
 				"LEFT JOIN \"fulltext\" AS t\n"
-				"\t" "ON (f.\"ftID\" = t.\"rowid\")\n"
+				"	ON (f.\"ftID\" = t.\"rowid\")\n"
 				"WHERE t.\"text\" MATCH ?\n"
 				"GROUP BY f.\"fileID\"");
 			sqlite3_bind_int64(op, 1, depth);
@@ -160,13 +160,13 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 		} case EFSBacklinkFilesFilter: {
 			sqlite3_stmt *const op = QUERY(db,
 				"INSERT INTO \"results\"\n"
-				"\t" "(\"fileID\", \"sort\", \"depth\")\n"
+				"	(\"fileID\", \"sort\", \"depth\")\n"
 				"SELECT f.\"fileID\", MIN(l.\"metaFileID\"), ?\n"
 				"FROM \"fileURIs\" AS f\n"
 				"LEFT JOIN \"links\" AS l\n"
-				"\t" "ON (f.\"URIID\" = l.\"sourceURIID\")\n"
+				"	ON (f.\"URIID\" = l.\"sourceURIID\")\n"
 				"LEFT JOIN \"URIs\" AS u\n"
-				"\t" "ON (l.\"targetURIID\" = u.\"URIID\")\n"
+				"	ON (l.\"targetURIID\" = u.\"URIID\")\n"
 				"WHERE u.\"URI\" = ?\n"
 				"GROUP BY f.\"fileID\"");
 			sqlite3_bind_int64(op, 1, depth);
@@ -176,13 +176,13 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 		} case EFSFileLinksFilter: {
 			sqlite3_stmt *const op = QUERY(db,
 				"INSERT INTO \"results\"\n"
-				"\t" "(\"fileID\", \"sort\", \"depth\")\n"
+				"	(\"fileID\", \"sort\", \"depth\")\n"
 				"SELECT f.\"fileID\", MIN(l.\"metaFileID\"), ?\n"
 				"FROM \"fileURIs\" AS f\n"
 				"LEFT JOIN \"links\" AS l\n"
-				"\t" "ON (f.\"URIID\" = l.\"targetURIID\")\n"
+				"	ON (f.\"URIID\" = l.\"targetURIID\")\n"
 				"LEFT JOIN \"URIs\" AS u\n"
-				"\t" "ON (l.\"sourceURIID\" = u.\"URIID\")\n"
+				"	ON (l.\"sourceURIID\" = u.\"URIID\")\n"
 				"WHERE u.\"URI\" = ?\n"
 				"GROUP BY f.\"fileID\"");
 			sqlite3_bind_int64(op, 1, depth);
@@ -192,7 +192,7 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 /*		} case EFSPermissionFilter: {
 			QUERY(db,
 				"INSERT INTO \"results\"\n"
-				"\t" "(\"fileID\", \"sort\", \"depth\")\n"
+				"	(\"fileID\", \"sort\", \"depth\")\n"
 				"SELECT \"fileID\"\n"
 				"FROM \"filePermissions\"\n"
 				"WHERE \"userID\" = ?");
@@ -216,12 +216,12 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 
 			sqlite3_stmt *const op = QUERY(db,
 				"INSERT INTO \"results\"\n"
-				"\t" "(\"fileID\", \"sort\", \"depth\")\n"
+				"	(\"fileID\", \"sort\", \"depth\")\n"
 				"SELECT \"fileID\", MIN(\"sort\"), ?\n"
 				"FROM \"results\"\n"
 				"WHERE \"depth\" IN (\n"
-				"\t" "SELECT \"subdepth\" FROM \"depths\"\n"
-				"\t" "WHERE \"depth\" = ?)\n"
+				"	SELECT \"subdepth\" FROM \"depths\"\n"
+				"	WHERE \"depth\" = ?)\n"
 				"GROUP BY \"fileID\"\n"
 				"HAVING COUNT(\"fileID\") >= ?");
 			sqlite3_bind_int64(op, 1, depth);

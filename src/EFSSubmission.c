@@ -184,7 +184,7 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	// TODO: Add permissions for other specified users too.
 	sqlite3_stmt *const insertFilePermission = QUERY(db,
 		"INSERT OR IGNORE INTO \"filePermissions\"\n"
-		"\t" " (\"fileID\", \"userID\", \"grantorID\")\n"
+		"	(\"fileID\", \"userID\", \"grantorID\")\n"
 		" VALUES (?, ?, ?)");
 	sqlite3_bind_int64(insertFilePermission, 1, fileID);
 	sqlite3_bind_int64(insertFilePermission, 2, userID);
