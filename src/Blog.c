@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include <yajl/yajl_tree.h>
 #include "common.h"
 #include "async.h"
 #include "fs.h"
@@ -13,6 +14,7 @@ EFSSessionRef auth(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMeth
 
 // TODO: Use a real library or put this somewhere.
 static str_t *htmlenc(strarg_t const str) {
+	if(!str) return NULL;
 	size_t total = 0;
 	for(off_t i = 0; str[i]; ++i) switch(str[i]) {
 		case '<': total += 4; break;
@@ -40,12 +42,11 @@ static str_t *BlogCopyPreviewPath(EFSRepoRef const repo, strarg_t const hash) {
 	return path;
 }
 
-
-static err_t genPreview(EFSRepoRef const repo, HTTPConnectionRef const conn, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
+static err_t genMarkdownPreview(HTTPConnectionRef const conn, EFSSessionRef const session, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
 
 	if(0 != strcasecmp("text/markdown; charset=utf-8", info->type)) return -1; // TODO: Other types, plugins, w/e.
 
-	str_t *tmpPath = EFSRepoCopyTempPath(repo);
+	str_t *tmpPath = EFSRepoCopyTempPath(EFSSessionGetRepo(session));
 	if(!tmpPath) {
 		fprintf(stderr, "No temp path\n");
 		return -1;
@@ -98,7 +99,127 @@ static err_t genPreview(EFSRepoRef const repo, HTTPConnectionRef const conn, str
 	FREE(&tmpPath);
 	return 0;
 }
-static void sendPreview(EFSRepoRef const repo, HTTPConnectionRef const conn, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
+static err_t genPreview(HTTPConnectionRef const conn, EFSSessionRef const session, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
+	if(genMarkdownPreview(conn, session, URI, info, previewPath) >= 0) return 0;
+
+	EFSFilterRef const backlinks = EFSFilterCreate(EFSBacklinkFilesFilter);
+	EFSFilterAddStringArg(backlinks, URI, -1);
+	EFSFilterRef const metafiles = EFSFilterCreate(EFSFileTypeFilter);
+	EFSFilterAddStringArg(metafiles, "text/efs-meta+json; charset=utf-8", -1);
+	EFSFilterRef const filter = EFSFilterCreate(EFSIntersectionFilter);
+	EFSFilterAddFilterArg(filter, backlinks);
+	EFSFilterAddFilterArg(filter, metafiles);
+
+	URIListRef const metaURIs = EFSSessionCreateFilteredURIList(session, filter, 10);
+	count_t const metaURIsCount = URIListGetCount(metaURIs);
+
+	str_t *URI_HTMLSafe = htmlenc(URI);
+	str_t *title_HTMLSafe = NULL;
+	str_t *sourceURI_HTMLSafe = NULL;
+	str_t *description_HTMLSafe = NULL;
+	str_t *thumbnailURI_HTMLSafe = NULL;
+	str_t *faviconURI_HTMLSafe = NULL;
+
+	for(index_t i = 0; i < metaURIsCount; ++i) {
+		strarg_t const metaURI = URIListGetURI(metaURIs, 0);
+		EFSFileInfo metaInfo;
+		if(EFSSessionGetFileInfoForURI(session, &metaInfo, metaURI) < 0) continue;
+
+		// TODO: Streaming, error checking.
+		uv_fs_t req = { .data = co_active() };
+		uv_fs_open(loop, &req, metaInfo.path, O_RDONLY, 0000, async_fs_cb);
+		co_switch(yield);
+		uv_fs_req_cleanup(&req);
+		uv_file const file = req.result;
+
+		FREE(&metaInfo.path);
+		FREE(&metaInfo.type);
+
+		byte_t *buf = malloc(1024 * 8 + 1);
+		uv_buf_t bufInfo = uv_buf_init(buf, 1024 * 8);
+		uv_fs_read(loop, &req, file, &bufInfo, 1, 0, async_fs_cb);
+		co_switch(yield);
+		uv_fs_req_cleanup(&req);
+		size_t const len = req.result;
+
+		uv_fs_close(loop, &req, file, async_fs_cb);
+		co_switch(yield);
+		uv_fs_req_cleanup(&req);
+
+		buf[len] = '\0';
+		yajl_val const obj = yajl_tree_parse(buf, NULL, 0);
+
+		FREE(&buf);
+
+		strarg_t yajl_title[] = { "title", NULL };
+		if(!title_HTMLSafe) title_HTMLSafe = htmlenc(YAJL_GET_STRING(yajl_tree_get(obj, yajl_title, yajl_t_string)));
+		strarg_t yajl_sourceURI[] = { "sourceURI", NULL };
+		if(!sourceURI_HTMLSafe) sourceURI_HTMLSafe = htmlenc(YAJL_GET_STRING(yajl_tree_get(obj, yajl_sourceURI, yajl_t_string)));
+
+
+
+		break;
+	}
+
+	str_t *preview;
+	int const plen = asprintf(&preview,
+		"<div class=\"preview\">\n"
+		"	<a href=\"%1$s\"><img class=\"thumbnail\" href=\"%5$s\"></a>\n"
+		"	<div class=\"details\">\n"
+		"		<div class=\"title field\">\n"
+		"			<a href=\"%1$s\">%2$s</a>\n"
+		"		</div>\n"
+		"		<div class=\"uri field nowrap\">\n"
+		"			<a href=\"%4$s\">\n"
+		"				<img class=\"favicon\" href=\"%6$s\">\n"
+		"				%4$s\n"
+		"			</a>\n"
+		"		</div>\n"
+		"		<div class=\"field nowrap\">%3$s</div>\n"
+		"	</div>\n"
+		"	<div class=\"clear\"></div>\n"
+		"</div>",
+		URI_HTMLSafe, title_HTMLSafe, description_HTMLSafe, sourceURI_HTMLSafe, thumbnailURI_HTMLSafe, faviconURI_HTMLSafe);
+
+	FREE(&URI_HTMLSafe);
+	FREE(&title_HTMLSafe);
+	FREE(&description_HTMLSafe);
+	FREE(&sourceURI_HTMLSafe);
+	FREE(&thumbnailURI_HTMLSafe);
+	FREE(&faviconURI_HTMLSafe);
+
+
+	if(plen > 0) {
+		// TODO: Use temp path for atomicity.
+		// TODO: Error handling
+
+		ssize_t const dirlen = dirname(previewPath, strlen(previewPath));
+		mkdirp((char *)previewPath, dirlen, 0700); // HAX
+
+		uv_fs_t req = { .data = co_active() };
+		uv_fs_open(loop, &req, previewPath, O_CREAT | O_EXCL | O_TRUNC | O_WRONLY, 0400, async_fs_cb);
+		co_switch(yield);
+		uv_fs_req_cleanup(&req);
+		uv_file const file = req.result;
+
+		uv_buf_t info = uv_buf_init(preview, plen);
+		uv_fs_write(loop, &req, file, &info, 1, 0, async_fs_cb);
+		co_switch(yield);
+		uv_fs_req_cleanup(&req);
+
+		uv_fs_close(loop, &req, file, async_fs_cb);
+		co_switch(yield);
+		uv_fs_req_cleanup(&req);
+
+	}
+	if(plen >= 0) FREE(&preview);
+
+
+	URIListFree(metaURIs);
+	EFSFilterFree(filter);
+	return 0;
+}
+static void sendPreview(HTTPConnectionRef const conn, EFSSessionRef const session, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
 	// TODO: Real template system
 	str_t *URI_HTMLSafe = htmlenc(URI);
 	str_t *URI_URISafe = strdup("hash://asdf/asdf"); // TODO: URI enc
@@ -108,10 +229,10 @@ static void sendPreview(EFSRepoRef const repo, HTTPConnectionRef const conn, str
 	str_t *before;
 	int const blen = asprintf(&before,
 		"<div class=\"entry\">\n"
-		"\t" "<div class=\"title\">\n"
-		"\t" "\t" "<a href=\"?q=%2$s\">%1$s</a>\n"
-		"\t" "</div>\n"
-		"\t" "<div class=\"content\">",
+		"	<div class=\"title\">\n"
+		"		<a href=\"?q=%2$s\">%1$s</a>\n"
+		"	</div>\n"
+		"	<div class=\"content\">",
 		URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
 	if(blen > 0) {
 		HTTPConnectionWriteChunkLength(conn, blen);
@@ -122,13 +243,13 @@ static void sendPreview(EFSRepoRef const repo, HTTPConnectionRef const conn, str
 
 	if(
 		HTTPConnectionWriteChunkFile(conn, previewPath) < 0 &&
-		(genPreview(repo, conn, URI, info, previewPath) < 0 ||
+		(genPreview(conn, session, URI, info, previewPath) < 0 ||
 		HTTPConnectionWriteChunkFile(conn, previewPath) < 0)
 	) {
 		str_t *msg;
 		int const mlen = asprintf(&msg,
 			"%1$.0s" "%2$.0s" "%3$.0s" // TODO: HACK
-			"<div class=\"light\">(no preview for file of type %3$s)</div>",
+			"<p class=\"light\">(no preview for file of type %3$s)</p>",
 			URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
 		if(mlen > 0) {
 			HTTPConnectionWriteChunkLength(conn, mlen);
@@ -197,7 +318,7 @@ static bool_t getPage(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 			FREE(&previewPath);
 			continue;
 		}
-		sendPreview(repo, conn, URI, &info, previewPath);
+		sendPreview(conn, session, URI, &info, previewPath);
 		FREE(&info.path);
 		FREE(&info.type);
 		FREE(&previewPath);

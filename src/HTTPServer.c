@@ -313,9 +313,11 @@ err_t HTTPConnectionWriteChunkFile(HTTPConnectionRef const conn, strarg_t const 
 	}
 	uint64_t const size = req.statbuf.st_size;
 
-	HTTPConnectionWriteChunkLength(conn, size);
-	HTTPConnectionWriteFile(conn, file);
-	HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
+	if(size) {
+		HTTPConnectionWriteChunkLength(conn, size);
+		HTTPConnectionWriteFile(conn, file);
+		HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
+	}
 
 	uv_fs_close(loop, &req, file, async_fs_cb);
 	co_switch(yield);
