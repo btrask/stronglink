@@ -1,7 +1,6 @@
 #ifndef ASYNC_H
 #define ASYNC_H
 
-#include <stdlib.h>
 #include <uv.h>
 #include "../deps/libco/libco.h"
 

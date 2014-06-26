@@ -6,75 +6,11 @@
 #include "HTTPServer.h"
 #include "QueryString.h"
 
-// TODO: We should have a real public API, and this should be part of it.
-typedef struct {
-	str_t *path;
-	str_t *type;
-	uint64_t size;
-} EFSFileInfo;
-
-URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilterRef const filter, count_t const max) {
-	if(!session) return NULL;
-	// TODO: Check session mode.
-	EFSRepoRef const repo = EFSSessionGetRepo(session);
-	sqlite3 *const db = EFSRepoDBConnect(repo);
-	EFSFilterCreateTempTables(db);
-	EFSFilterExec(filter, db, 0);
-	sqlite3_stmt *const select = QUERY(db,
-		"SELECT ('hash://' || ? || '/' || f.\"internalHash\")\n"
-		"FROM \"files\" AS f\n"
-		"INNER JOIN \"results\" AS r ON (r.\"fileID\" = f.\"fileID\")\n"
-		"ORDER BY r.\"sort\" DESC LIMIT ?");
-	sqlite3_bind_text(select, 1, "sha256", -1, SQLITE_STATIC);
-	sqlite3_bind_int64(select, 2, max);
-	URIListRef const URIs = URIListCreate();
-	while(SQLITE_ROW == sqlite3_step(select)) {
-		strarg_t const URI = (strarg_t)sqlite3_column_text(select, 0);
-		URIListAddURI(URIs, URI, strlen(URI));
-	}
-	sqlite3_finalize(select);
-	EFSRepoDBClose(repo, db);
-	return URIs;
-}
-err_t EFSSessionGetFileInfoForURI(EFSSessionRef const session, EFSFileInfo *const info, strarg_t const URI) {
-	if(!session) return -1;
-	// TODO: Check session mode.
-	EFSRepoRef const repo = EFSSessionGetRepo(session);
-	sqlite3 *const db = EFSRepoDBConnect(repo);
-	sqlite3_stmt *const select = QUERY(db,
-		"SELECT f.\"internalHash\", f.\"type\", f.\"size\"\n"
-		"FROM \"files\" AS f\n"
-		"LEFT JOIN \"fileURIs\" AS f2 ON (f2.\"fileID\" = f.\"fileID\")\n"
-		"LEFT JOIN \"URIs\" AS u ON (u.\"URIID\" = f2.\"URIID\")\n"
-		"WHERE u.\"URI\" = ? LIMIT 1");
-	sqlite3_bind_text(select, 1, URI, -1, SQLITE_STATIC);
-	if(SQLITE_ROW != sqlite3_step(select)) {
-		sqlite3_finalize(select);
-		EFSRepoDBClose(repo, db);
-		return -1;
-	}
-	info->path = EFSRepoCopyInternalPath(repo, (strarg_t)sqlite3_column_text(select, 0));
-	info->type = strdup((strarg_t)sqlite3_column_text(select, 1));
-	info->size = sqlite3_column_int64(select, 2);
-	sqlite3_finalize(select);
-	EFSRepoDBClose(repo, db);
-	return 0;
-}
-
-
-EFSSessionRef auth(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const qs); // Hack.
-
-
-// Real blog-specific code starts here...
-
-
 #define RESULTS_MAX 50
 
-static str_t *BlogCopyPreviewPath(EFSRepoRef const repo, strarg_t const hash) {
-	str_t *path;
-	if(asprintf(&path, "%s/blog/%.2s/%s", EFSRepoGetCacheDir(repo), hash, hash) < 0) return NULL;
-	return path;
-}
+// TODO: Real public API.
+EFSSessionRef auth(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const qs);
+
 // TODO: Use a real library or put this somewhere.
 static str_t *htmlenc(strarg_t const str) {
 	size_t total = 0;
@@ -96,6 +32,12 @@ static str_t *htmlenc(strarg_t const str) {
 	}
 	enc[total] = '\0';
 	return enc;
+}
+
+static str_t *BlogCopyPreviewPath(EFSRepoRef const repo, strarg_t const hash) {
+	str_t *path;
+	if(asprintf(&path, "%s/blog/%.2s/%s", EFSRepoGetCacheDir(repo), hash, hash) < 0) return NULL;
+	return path;
 }
 
 

@@ -29,10 +29,18 @@ typedef enum {
 	EFS_RDWR = EFS_RDONLY | EFS_WRONLY,
 } EFSMode;
 
+typedef struct {
+	str_t *path;
+	str_t *type;
+	uint64_t size;
+} EFSFileInfo;
+
 EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const user, strarg_t const pass, strarg_t const cookie, EFSMode const mode);
 void EFSSessionFree(EFSSessionRef const session);
 EFSRepoRef const EFSSessionGetRepo(EFSSessionRef const session);
 int64_t EFSSessionGetUserID(EFSSessionRef const session);
+URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilterRef const filter, count_t const max); // TODO: Public API?
+err_t EFSSessionGetFileInfoForURI(EFSSessionRef const session, EFSFileInfo *const info, strarg_t const URI);
 
 EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context);
 void EFSSubmissionFree(EFSSubmissionRef const sub);
