@@ -333,11 +333,12 @@ void HTTPConnectionSendMessage(HTTPConnectionRef const conn, uint16_t const stat
 	size_t const len = strlen(msg);
 	HTTPConnectionWriteResponse(conn, status, msg);
 	HTTPConnectionWriteHeader(conn, "Content-Type", "text/plain; charset=utf-8");
-	HTTPConnectionWriteContentLength(conn, len);
+	HTTPConnectionWriteContentLength(conn, len+1);
 	HTTPConnectionBeginBody(conn);
 	// TODO: Check how HEAD responses should look.
 	if(HTTP_HEAD != HTTPConnectionGetRequestMethod(conn)) {
 		HTTPConnectionWrite(conn, (byte_t const *)msg, len);
+		HTTPConnectionWrite(conn, (byte_t const *)"\n", 1);
 	}
 	HTTPConnectionEnd(conn);
 //	if(status >= 400) fprintf(stderr, "%s: %d %s\n", HTTPConnectionGetRequestURI(conn), (int)status, msg);
