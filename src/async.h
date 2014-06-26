@@ -38,4 +38,7 @@ void async_wakeup(cothread_t const thread);
 
 void co_terminate(void);
 
+uv_file async_fs_open(char const *const path, int const flags, int const mode);
+int async_fs_close(uv_file const file);
+
 #endif
