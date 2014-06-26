@@ -10,8 +10,8 @@ struct EFSSession {
 	EFSMode mode;
 };
 
-static int passcmp(strarg_t const a, strarg_t const b) {
-	volatile int r = 0;
+static int passcmp(volatile strarg_t const a, volatile strarg_t const b) {
+	int r = 0;
 	for(off_t i = 0; ; ++i) {
 		if(a[i] != b[i]) r = -1;
 		if(!a[i] || !b[i]) break;
