@@ -22,10 +22,11 @@ HEADERS := \
 
 OBJECTS := \
 	build/main.o \
-	build/EFSHasher.o \
 	build/EFSRepo.o \
 	build/EFSSession.o \
 	build/EFSSubmission.o \
+	build/EFSHasher.o \
+	build/EFSMetaFile.o \
 	build/EFSFilter.o \
 	build/EFSJSONFilterBuilder.o \
 	build/EFSServer.o \

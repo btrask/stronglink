@@ -13,7 +13,7 @@ struct EFSSubmission {
 	int64_t size;
 	URIListRef URIs;
 	str_t *internalHash;
-	URIListRef metaURIs; // 0 is source, rest are targets.
+	EFSMetaFileRef meta;
 };
 
 EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context) {
@@ -47,7 +47,7 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 	uv_file const tmp = req.result;
 
 	EFSHasherRef const hasher = EFSHasherCreate(sub->type);
-	URIListParserRef const metaURIsParser = URIListParserCreate(sub->type);
+	sub->meta = EFSMetaFileCreate(sub->type);
 
 	for(;;) {
 		byte_t const *buf = NULL;
@@ -71,8 +71,7 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 
 		size_t const indexable = MIN(rlen, SUB_ZERO(INDEX_MAX, sub->size));
 		EFSHasherWrite(hasher, buf, rlen);
-		URIListParserWrite(metaURIsParser, buf, indexable);
-		// TODO: Full-text indexing.
+		EFSMetaFileWrite(sub->meta, buf, rlen);
 
 		sub->size += rlen;
 	}
@@ -84,11 +83,10 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 
 	sub->URIs = EFSHasherEnd(hasher);
 	sub->internalHash = strdup(EFSHasherGetInternalHash(hasher));
-	sub->metaURIs = URIListParserEnd(metaURIsParser, sub->size > INDEX_MAX);
+	EFSMetaFileEnd(sub->meta);
 
 bail:
 	EFSHasherFree(hasher);
-	URIListParserFree(metaURIsParser);
 
 	uv_fs_close(loop, &req, tmp, async_fs_cb);
 	co_switch(yield);
@@ -108,6 +106,7 @@ void EFSSubmissionFree(EFSSubmissionRef const sub) {
 	FREE(&sub->type);
 	URIListFree(sub->URIs); sub->URIs = NULL;
 	FREE(&sub->internalHash);
+	EFSMetaFileFree(sub->meta); sub->meta = NULL;
 	free(sub);
 }
 strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub) {
@@ -172,13 +171,11 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	for(index_t i = 0; i < URIListGetCount(sub->URIs); ++i) {
 		strarg_t const URI = URIListGetURI(sub->URIs, i);
 		sqlite3_bind_text(insertURI, 1, URI, -1, SQLITE_STATIC);
-		sqlite3_step(insertURI);
-		sqlite3_reset(insertURI);
+		sqlite3_step(insertURI); sqlite3_reset(insertURI);
 
 		sqlite3_bind_int64(insertFileURI, 1, fileID);
 		sqlite3_bind_text(insertFileURI, 2, URI, -1, SQLITE_STATIC);
-		sqlite3_step(insertFileURI);
-		sqlite3_reset(insertFileURI);
+		sqlite3_step(insertFileURI); sqlite3_reset(insertFileURI);
 	}
 	sqlite3_finalize(insertURI);
 	sqlite3_finalize(insertFileURI);
@@ -194,42 +191,12 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	sqlite3_bind_int64(insertFilePermission, 3, userID);
 	EXEC(insertFilePermission);
 
-
-	// TODO: Handle `text/uri-list` versus `text/efs-meta+uri-list`.
-	// A plain URI list is like a directory, it isn't meta at all.
-	// TODO: Normalize URIs before adding (at least lowercase scheme and authority).
-	count_t const metaURICount = URIListGetCount(sub->metaURIs);
-	sqlite3_stmt *const insertLink = QUERY(db,
-		"INSERT OR IGNORE INTO \"links\"\n"
-		"\t" "(\"sourceURIID\", \"targetURIID\", \"metaFileID\")\n"
-		"SELECT s.\"URIID\", t.\"URIID\", ?\n"
-		"FROM \"URIs\" AS s\n"
-		"INNER JOIN \"URIs\" AS t\n"
-		"WHERE s.\"URI\" = ? AND t.\"URI\" = ?");
-	sqlite3_bind_int64(insertLink, 1, fileID);
-	if(metaURICount >= 1) {
-		sqlite3_bind_text(insertLink, 2, URIListGetURI(sub->URIs, 0), -1, SQLITE_STATIC);
-		sqlite3_bind_text(insertLink, 3, URIListGetURI(sub->metaURIs, 0), -1, SQLITE_STATIC);
-		sqlite3_step(insertLink);
-		sqlite3_reset(insertLink);
+	strarg_t const preferredURI = URIListGetURI(sub->URIs, 0);
+	if(EFSMetaFileStore(sub->meta, fileID, preferredURI, db) < 0) {
+		EXEC(QUERY(db, "ROLLBACK"));
+		EFSRepoDBClose(repo, db);
+		return -1;
 	}
-	if(metaURICount >= 2) {
-		sqlite3_bind_text(insertLink, 2, URIListGetURI(sub->metaURIs, 0), -1, SQLITE_STATIC);
-		for(index_t i = 1; i < metaURICount; ++i) {
-			sqlite3_bind_text(insertLink, 3, URIListGetURI(sub->metaURIs, i), -1, SQLITE_STATIC);
-			sqlite3_step(insertLink);
-			sqlite3_reset(insertLink);
-		}
-	}
-	sqlite3_finalize(insertLink);
-
-
-// TODO: Full-text indexing...
-// Type: `text/efs-meta+plain` ?
-//
-//"INSERT INTO \"fulltext\" (\"text\") VALUES (?)"
-//"INSERT INTO \"fileContent\" (\"ftID\", \"fileID\") VALUES (?, ?)"
-
 
 	EXEC(QUERY(db, "COMMIT"));
 	EFSRepoDBClose(repo, db);

@@ -9,6 +9,7 @@ typedef struct EFSRepo* EFSRepoRef;
 typedef struct EFSSession* EFSSessionRef;
 typedef struct EFSSubmission* EFSSubmissionRef;
 typedef struct EFSHasher* EFSHasherRef;
+typedef struct EFSMetaFile* EFSMetaFileRef;
 typedef struct EFSFilter* EFSFilterRef;
 typedef struct EFSJSONFilterBuilder* EFSJSONFilterBuilderRef;
 
@@ -52,6 +53,12 @@ void EFSHasherFree(EFSHasherRef const hasher);
 void EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, ssize_t const len);
 URIListRef EFSHasherEnd(EFSHasherRef const hasher);
 strarg_t EFSHasherGetInternalHash(EFSHasherRef const hasher);
+
+EFSMetaFileRef EFSMetaFileCreate(strarg_t const type);
+void EFSMetaFileFree(EFSMetaFileRef const meta);
+err_t EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len);
+err_t EFSMetaFileEnd(EFSMetaFileRef const meta);
+err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t const URI, sqlite3 *const db);
 
 typedef enum {
 	EFSFilterInvalid,
