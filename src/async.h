@@ -4,6 +4,8 @@
 #include <uv.h>
 #include "../deps/libco/libco.h"
 
+#define STACK_SIZE (1024 * 50 * sizeof(void *) / 4)
+
 extern uv_loop_t *loop;
 extern cothread_t yield;
 
@@ -38,7 +40,13 @@ void async_wakeup(cothread_t const thread);
 
 void co_terminate(void);
 
-uv_file async_fs_open(char const *const path, int const flags, int const mode);
-int async_fs_close(uv_file const file);
+uv_file async_fs_open(const char* path, int flags, int mode);
+ssize_t async_fs_close(uv_file file);
+ssize_t async_fs_read(uv_file file, const uv_buf_t bufs[], unsigned int nbufs, int64_t offset);
+ssize_t async_fs_write(uv_file file, const uv_buf_t bufs[], unsigned int nbufs, int64_t offset);
+ssize_t async_fs_unlink(const char* path);
+ssize_t async_fs_link(const char* path, const char* new_path);
+
+ssize_t async_fs_fstat(uv_file file, uv_stat_t *stats);
 
 #endif

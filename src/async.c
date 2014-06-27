@@ -1,4 +1,6 @@
+#include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 #include "stdio.h"
 #include "async.h"
 
@@ -17,7 +19,8 @@ static void reaper(void) {
 void async_init(void) {
 	loop = uv_default_loop();
 	yield = co_active();
-	reap = co_create(1024 * sizeof(void *) / 4, reaper);
+	reap = co_create(1024 * 4 * sizeof(void *) / 4, reaper);
+	assert(reap && "async_init() thread creation failed");
 }
 void co_terminate(void) {
 	zombie = co_active();
@@ -37,19 +40,40 @@ void async_wakeup(cothread_t const thread) {
 	uv_close((uv_handle_t *)timer, wakeup_cb);
 }
 
-uv_file async_fs_open(char const *const path, int const flags, int const mode) {
-	uv_fs_t req = { .data = co_active() };
-	int const err = uv_fs_open(loop, &req, path, flags, mode, async_fs_cb);
-	if(err < 0) return err;
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
+#define ASYNC_FS_WRAP(name, args...) \
+	cothread_t const thread = co_active(); \
+	uv_fs_t req = { .data = thread }; \
+	int const err = uv_fs_##name(loop, &req, ##args, async_fs_cb); \
+	if(err < 0) return err; \
+	co_switch(yield); \
+	uv_fs_req_cleanup(&req); \
 	return req.result;
+
+uv_file async_fs_open(const char* path, int flags, int mode) {
+	ASYNC_FS_WRAP(open, path, flags, mode)
 }
-int async_fs_close(uv_file const file) {
+ssize_t async_fs_close(uv_file file) {
+	ASYNC_FS_WRAP(close, file)
+}
+ssize_t async_fs_read(uv_file file, const uv_buf_t bufs[], unsigned int nbufs, int64_t offset) {
+	ASYNC_FS_WRAP(read, file, bufs, nbufs, offset)
+}
+ssize_t async_fs_write(uv_file file, const uv_buf_t bufs[], unsigned int nbufs, int64_t offset) {
+	ASYNC_FS_WRAP(write, file, bufs, nbufs, offset)
+}
+ssize_t async_fs_unlink(const char* path) {
+	ASYNC_FS_WRAP(unlink, path)
+}
+ssize_t async_fs_link(const char* path, const char* new_path) {
+	ASYNC_FS_WRAP(link, path, new_path)
+}
+
+ssize_t async_fs_fstat(uv_file file, uv_stat_t *stats) {
 	uv_fs_t req = { .data = co_active() };
-	int const err = uv_fs_close(loop, &req, file, async_fs_cb);
+	int const err = uv_fs_fstat(loop, &req, file, async_fs_cb);
 	if(err < 0) return err;
 	co_switch(yield);
+	memcpy(stats, &req.statbuf, sizeof(uv_stat_t));
 	uv_fs_req_cleanup(&req);
 	return req.result;
 }

@@ -11,13 +11,14 @@ Doesn't handle "./" or "/./"
 TODO: Unit tests
 TODO: Windows pathnames
 */
-ssize_t dirname(strarg_t const path, size_t const len) {
+static ssize_t dirlen(strarg_t const path, size_t const len) {
 	if(!len) return -1;
 	index_t i = len;
 	if(0 == i--) return -1; // Ignore trailing slash.
 	for(; i >= 0; --i) if('/' == path[i]) return i;
 	return -1;
 }
+
 err_t mkdirp(str_t *const path, size_t const len, int const mode) {
 	if(0 == len) return 0;
 	if(1 == len) {
@@ -34,7 +35,7 @@ err_t mkdirp(str_t *const path, size_t const len, int const mode) {
 	if(req.result >= 0) return 0;
 	if(-EEXIST == req.result) return 0;
 	if(-ENOENT != req.result) return -1;
-	ssize_t const dlen = dirname(path, len);
+	ssize_t const dlen = dirlen(path, len);
 	if(dlen < 0) return -1;
 	if(mkdirp(path, dlen, mode) < 0) return -1;
 	path[len] = '\0';
@@ -44,5 +45,13 @@ err_t mkdirp(str_t *const path, size_t const len, int const mode) {
 	path[len] = old;
 	if(req.result < 0) return -1;
 	return 0;
+}
+err_t mkdirpname(strarg_t const path, int const mode) {
+	ssize_t dlen = dirlen(path, strlen(path));
+	if(dlen < 0) return dlen;
+	str_t *mutable = strndup(path, dlen);
+	err_t const err = mkdirp(mutable, dlen, mode);
+	FREE(&mutable);
+	return err;
 }
 

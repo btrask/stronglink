@@ -33,6 +33,7 @@ OBJECTS := \
 	build/HTTPServer.o \
 	build/MultipartForm.o \
 	build/QueryString.o \
+	build/Template.o \
 	build/URIList.o \
 	build/async.o \
 	build/fs.o \

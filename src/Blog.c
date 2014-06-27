@@ -1,60 +1,48 @@
 #define _GNU_SOURCE
 #include <yajl/yajl_tree.h>
+#include <limits.h>
 #include "common.h"
 #include "async.h"
 #include "fs.h"
 #include "EarthFS.h"
 #include "HTTPServer.h"
 #include "QueryString.h"
+#include "Template.h"
 
 #define RESULTS_MAX 50
+#define BUFFER_SIZE (1024 * 8)
+
+typedef struct Blog* BlogRef;
+
+struct Blog {
+	EFSRepoRef repo;
+	str_t *dir;
+	str_t *cacheDir;
+	TemplateRef header;
+	TemplateRef footer;
+	TemplateRef entry_start;
+	TemplateRef entry_end;
+	TemplateRef preview;
+	TemplateRef empty;
+};
 
 // TODO: Real public API.
 EFSSessionRef auth(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const qs);
 
-// TODO: Use a real library or put this somewhere.
-static str_t *htmlenc(strarg_t const str) {
-	if(!str) return NULL;
-	size_t total = 0;
-	for(off_t i = 0; str[i]; ++i) switch(str[i]) {
-		case '<': total += 4; break;
-		case '>': total += 4; break;
-		case '&': total += 5; break;
-		case '"': total += 6; break;
-		default: total += 1; break;
-	}
-	str_t *enc = malloc(total+1);
-	if(!enc) return NULL;
-	for(off_t i = 0, j = 0; str[i]; ++i) switch(str[i]) {
-		case '<': memcpy(enc+j, "&lt;", 4); j += 4; break;
-		case '>': memcpy(enc+j, "&gt;", 4); j += 4; break;
-		case '&': memcpy(enc+j, "&amp;", 5); j += 5; break;
-		case '"': memcpy(enc+j, "&quot;", 6); j += 6; break;
-		default: enc[j++] = str[i]; break;
-	}
-	enc[total] = '\0';
-	return enc;
-}
-
-static str_t *BlogCopyPreviewPath(EFSRepoRef const repo, strarg_t const hash) {
+static str_t *BlogCopyPreviewPath(BlogRef const blog, strarg_t const hash) {
 	str_t *path;
-	if(asprintf(&path, "%s/blog/%.2s/%s", EFSRepoGetCacheDir(repo), hash, hash) < 0) return NULL;
+	if(asprintf(&path, "%s/%.2s/%s", blog->cacheDir, hash, hash) < 0) return NULL;
 	return path;
 }
 
-static err_t genMarkdownPreview(HTTPConnectionRef const conn, EFSSessionRef const session, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
+static err_t genMarkdownPreview(BlogRef const blog, HTTPConnectionRef const conn, EFSSessionRef const session, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
 
 	if(0 != strcasecmp("text/markdown; charset=utf-8", info->type)) return -1; // TODO: Other types, plugins, w/e.
 
-	str_t *tmpPath = EFSRepoCopyTempPath(EFSSessionGetRepo(session));
-	if(!tmpPath) {
-		fprintf(stderr, "No temp path\n");
-		return -1;
-	}
+	if(mkdirpname(previewPath, 0700) < 0) return -1;
 
-	ssize_t const dirlen = dirname(tmpPath, strlen(tmpPath));
-	if(dirlen < 0 || mkdirp(tmpPath, dirlen, 0700) < 0) {
-		fprintf(stderr, "Couldn't make temp dir %s\n", tmpPath);
+	str_t *tmpPath = EFSRepoCopyTempPath(EFSSessionGetRepo(session));
+	if(mkdirpname(tmpPath, 0700) < 0) {
 		FREE(&tmpPath);
 		return -1;
 	}
@@ -77,30 +65,23 @@ static err_t genMarkdownPreview(HTTPConnectionRef const conn, EFSSessionRef cons
 	uv_spawn(loop, &proc, &opts);
 	co_switch(yield);
 
-	str_t *previewDir = strdup(previewPath);
-	ssize_t const pdirlen = dirname(previewDir, strlen(previewDir));
-	if(pdirlen < 0 || mkdirp(previewDir, pdirlen, 0700) < 0) {
-		fprintf(stderr, "Couldn't create preview dir %s\n", previewDir);
-		FREE(&previewDir);
+	if(state.status < 0) {
 		FREE(&tmpPath);
 		return -1;
 	}
-	FREE(&previewDir);
 
-	uv_fs_t req = { .data = thread };
-	uv_fs_link(loop, &req, tmpPath, previewPath, async_fs_cb);
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
+	err_t const err = async_fs_link(tmpPath, previewPath);
 
-	uv_fs_unlink(loop, &req, tmpPath, async_fs_cb);
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
-
+	async_fs_unlink(tmpPath);
 	FREE(&tmpPath);
+
+	if(err < 0) return -1;
 	return 0;
 }
-static err_t genPreview(HTTPConnectionRef const conn, EFSSessionRef const session, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
-	if(genMarkdownPreview(conn, session, URI, info, previewPath) >= 0) return 0;
+static err_t genPreview(BlogRef const blog, HTTPConnectionRef const conn, EFSSessionRef const session, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
+	if(genMarkdownPreview(blog, conn, session, URI, info, previewPath) >= 0) return 0;
+
+	if(mkdirpname(previewPath, 0700) < 0) return -1;
 
 	EFSFilterRef const backlinks = EFSFilterCreate(EFSBacklinkFilesFilter);
 	EFSFilterAddStringArg(backlinks, URI, -1);
@@ -126,30 +107,29 @@ static err_t genPreview(HTTPConnectionRef const conn, EFSSessionRef const sessio
 		if(EFSSessionGetFileInfoForURI(session, &metaInfo, metaURI) < 0) continue;
 
 		// TODO: Streaming, error checking.
-		uv_fs_t req = { .data = co_active() };
-		uv_fs_open(loop, &req, metaInfo.path, O_RDONLY, 0000, async_fs_cb);
-		co_switch(yield);
-		uv_fs_req_cleanup(&req);
-		uv_file const file = req.result;
+
+		uv_file file = async_fs_open(metaInfo.path, O_RDONLY, 0000);
 
 		FREE(&metaInfo.path);
 		FREE(&metaInfo.type);
 
-		byte_t *buf = malloc(1024 * 8 + 1);
-		uv_buf_t bufInfo = uv_buf_init(buf, 1024 * 8);
-		uv_fs_read(loop, &req, file, &bufInfo, 1, 0, async_fs_cb);
-		co_switch(yield);
-		uv_fs_req_cleanup(&req);
-		size_t const len = req.result;
+		if(file < 0) continue;
 
-		uv_fs_close(loop, &req, file, async_fs_cb);
-		co_switch(yield);
-		uv_fs_req_cleanup(&req);
+		str_t *str = malloc(BUFFER_SIZE + 1);
+		uv_buf_t bufInfo = uv_buf_init(str, BUFFER_SIZE);
+		int const len = async_fs_read(file, &bufInfo, 1, 0);
 
-		buf[len] = '\0';
-		yajl_val const obj = yajl_tree_parse(buf, NULL, 0);
+		async_fs_close(file); file = -1;
 
-		FREE(&buf);
+		if(len < 0) {
+			FREE(&str);
+			continue;
+		}
+
+		str[len] = '\0';
+		yajl_val const obj = yajl_tree_parse(str, NULL, 0);
+
+		FREE(&str);
 
 		strarg_t yajl_title[] = { "title", NULL };
 		if(!title_HTMLSafe) title_HTMLSafe = htmlenc(YAJL_GET_STRING(yajl_tree_get(obj, yajl_title, yajl_t_string)));
@@ -161,25 +141,29 @@ static err_t genPreview(HTTPConnectionRef const conn, EFSSessionRef const sessio
 		break;
 	}
 
-	str_t *preview;
-	int const plen = asprintf(&preview,
-		"<div class=\"preview\">\n"
-		"	<a href=\"%1$s\"><img class=\"thumbnail\" href=\"%5$s\"></a>\n"
-		"	<div class=\"details\">\n"
-		"		<div class=\"title field\">\n"
-		"			<a href=\"%1$s\">%2$s</a>\n"
-		"		</div>\n"
-		"		<div class=\"uri field nowrap\">\n"
-		"			<a href=\"%4$s\">\n"
-		"				<img class=\"favicon\" href=\"%6$s\">\n"
-		"				%4$s\n"
-		"			</a>\n"
-		"		</div>\n"
-		"		<div class=\"field nowrap\">%3$s</div>\n"
-		"	</div>\n"
-		"	<div class=\"clear\"></div>\n"
-		"</div>",
-		URI_HTMLSafe, title_HTMLSafe, description_HTMLSafe, sourceURI_HTMLSafe, thumbnailURI_HTMLSafe, faviconURI_HTMLSafe);
+	str_t *tmpPath = EFSRepoCopyTempPath(blog->repo);
+	mkdirpname(tmpPath, 0700);
+
+	uv_file file = async_fs_open(tmpPath, O_CREAT | O_EXCL | O_WRONLY, 0400);
+	err_t err = file;
+
+	TemplateArg const args[] = {
+		{"URI", URI_HTMLSafe, -1},
+		{"title", title_HTMLSafe, -1},
+		{"description", description_HTMLSafe, -1},
+		{"sourceURI", sourceURI_HTMLSafe, -1},
+		{"thumbnailURI", thumbnailURI_HTMLSafe, -1},
+		{"faviconURI", faviconURI_HTMLSafe, -1},
+	};
+	err = err < 0 ? err : TemplateWriteFile(blog->preview, args, numberof(args), file);
+
+	async_fs_close(file); file = -1;
+
+	err = err < 0 ? err : async_fs_link(tmpPath, previewPath);
+
+	async_fs_unlink(tmpPath);
+
+	FREE(&tmpPath);
 
 	FREE(&URI_HTMLSafe);
 	FREE(&title_HTMLSafe);
@@ -188,100 +172,48 @@ static err_t genPreview(HTTPConnectionRef const conn, EFSSessionRef const sessio
 	FREE(&thumbnailURI_HTMLSafe);
 	FREE(&faviconURI_HTMLSafe);
 
-
-	if(plen > 0) {
-		// TODO: Use temp path for atomicity.
-		// TODO: Error handling
-
-		ssize_t const dirlen = dirname(previewPath, strlen(previewPath));
-		mkdirp((char *)previewPath, dirlen, 0700); // HAX
-
-		uv_fs_t req = { .data = co_active() };
-		uv_fs_open(loop, &req, previewPath, O_CREAT | O_EXCL | O_TRUNC | O_WRONLY, 0400, async_fs_cb);
-		co_switch(yield);
-		uv_fs_req_cleanup(&req);
-		uv_file const file = req.result;
-
-		uv_buf_t info = uv_buf_init(preview, plen);
-		uv_fs_write(loop, &req, file, &info, 1, 0, async_fs_cb);
-		co_switch(yield);
-		uv_fs_req_cleanup(&req);
-
-		uv_fs_close(loop, &req, file, async_fs_cb);
-		co_switch(yield);
-		uv_fs_req_cleanup(&req);
-
-	}
-	if(plen >= 0) FREE(&preview);
-
-
 	URIListFree(metaURIs);
 	EFSFilterFree(filter);
+
+	if(err < 0) return -1;
 	return 0;
 }
-static void sendPreview(HTTPConnectionRef const conn, EFSSessionRef const session, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
-	// TODO: Real template system
+static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, EFSSessionRef const session, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
 	str_t *URI_HTMLSafe = htmlenc(URI);
-	str_t *URI_URISafe = strdup("hash://asdf/asdf"); // TODO: URI enc
+	str_t *URIEncoded_HTMLSafe = htmlenc(URI); // TODO: URI enc
 	str_t *type_HTMLSafe = htmlenc(info->type);
-	unsigned long long const size_ull = info->size;
+	str_t size_string[20]; // TODO: How big does this need to be?
+	snprintf(size_string, 20, "%lu", (unsigned long)info->size);
+	TemplateArg const args[] = {
+		{"URI", URI_HTMLSafe, -1},
+		{"URIEncoded", URIEncoded_HTMLSafe, -1},
+		{"type", type_HTMLSafe, -1},
+		{"size", size_string, -1},
+	};
 
-	str_t *before;
-	int const blen = asprintf(&before,
-		"<div class=\"entry\">\n"
-		"	<div class=\"title\">\n"
-		"		<a href=\"?q=%2$s\">%1$s</a>\n"
-		"	</div>\n"
-		"	<div class=\"content\">",
-		URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
-	if(blen > 0) {
-		HTTPConnectionWriteChunkLength(conn, blen);
-		HTTPConnectionWrite(conn, (byte_t const *)before, blen);
-		HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
-	}
-	if(blen >= 0) FREE(&before);
+	TemplateWriteHTTPChunk(blog->entry_start, args, numberof(args), conn);
 
 	if(
 		HTTPConnectionWriteChunkFile(conn, previewPath) < 0 &&
-		(genPreview(conn, session, URI, info, previewPath) < 0 ||
+		(genPreview(blog, conn, session, URI, info, previewPath) < 0 ||
 		HTTPConnectionWriteChunkFile(conn, previewPath) < 0)
 	) {
-		str_t *msg;
-		int const mlen = asprintf(&msg,
-			"%1$.0s" "%2$.0s" "%3$.0s" // TODO: HACK
-			"<p class=\"light\">(no preview for file of type %3$s)</p>",
-			URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
-		if(mlen > 0) {
-			HTTPConnectionWriteChunkLength(conn, mlen);
-			HTTPConnectionWrite(conn, (byte_t const *)msg, mlen);
-			HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
-		}
-		if(mlen >= 0) FREE(&msg);
+		TemplateWriteHTTPChunk(blog->empty, args, numberof(args), conn);
 	}
 
-	str_t *after;
-	int const alen = asprintf(&after,
-			"</div>\n"
-		"</div>\n",
-		URI_HTMLSafe, URI_URISafe, type_HTMLSafe, size_ull);
-	if(alen > 0) {
-		HTTPConnectionWriteChunkLength(conn, alen);
-		HTTPConnectionWrite(conn, (byte_t const *)after, alen);
-		HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
-	}
-	if(alen >= 0) FREE(&after);
+	TemplateWriteHTTPChunk(blog->entry_end, args, numberof(args), conn);
 
 	FREE(&URI_HTMLSafe);
-	FREE(&URI_URISafe);
+	FREE(&URIEncoded_HTMLSafe);
 	FREE(&type_HTMLSafe);
 }
 
-static bool_t getPage(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool_t getPage(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_GET != method) return false;
 	size_t pathlen = prefix("/", URI);
 	if(!pathlen) return false;
 	if(!pathterm(URI, (size_t)pathlen)) return false;
-	EFSSessionRef const session = auth(repo, conn, method, URI+pathlen);
+	EFSSessionRef const session = auth(blog->repo, conn, method, URI+pathlen);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);
 		return true;
@@ -298,18 +230,14 @@ static bool_t getPage(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
 	HTTPConnectionBeginBody(conn);
 
-	str_t *hpath;
-	int const hpathlen = asprintf(&hpath, "%s/blog-static/header.html", EFSRepoGetDir(repo));
-	if(hpathlen >= 0) {
-		HTTPConnectionWriteChunkFile(conn, hpath);
-		FREE(&hpath);
-	}
+	// TODO: Template args like repo name.
+	TemplateWriteHTTPChunk(blog->header, NULL, 0, conn);
 
 	for(index_t i = 0; i < URIListGetCount(URIs); ++i) {
 		strarg_t const URI = URIListGetURI(URIs, i);
 		str_t const prefix[] = "hash://sha256/";
 		strarg_t const hash = URI+sizeof(prefix)-1;
-		str_t *previewPath = BlogCopyPreviewPath(repo, hash);
+		str_t *previewPath = BlogCopyPreviewPath(blog, hash);
 		if(!previewPath) {
 			continue;
 		}
@@ -318,18 +246,13 @@ static bool_t getPage(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 			FREE(&previewPath);
 			continue;
 		}
-		sendPreview(conn, session, URI, &info, previewPath);
+		sendPreview(blog, conn, session, URI, &info, previewPath);
 		FREE(&info.path);
 		FREE(&info.type);
 		FREE(&previewPath);
 	}
 
-	str_t *fpath;
-	int const fpathlen = asprintf(&fpath, "%s/blog-static/footer.html", EFSRepoGetDir(repo));
-	if(fpathlen >= 0) {
-		HTTPConnectionWriteChunkFile(conn, fpath);
-		FREE(&fpath);
-	}
+	TemplateWriteHTTPChunk(blog->footer, NULL, 0, conn);
 
 	HTTPConnectionWriteChunkLength(conn, 0);
 	HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
@@ -339,13 +262,51 @@ static bool_t getPage(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 	return true;
 }
 
-bool_t BlogDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
-	if(getPage(repo, conn, method, URI)) return true;
+
+BlogRef BlogCreate(EFSRepoRef const repo) {
+	BTAssert(repo, "Blog requires valid repo");
+
+	BlogRef const blog = calloc(1, sizeof(struct Blog));
+	blog->repo = repo;
+	asprintf(&blog->dir, "%s/blog-static", EFSRepoGetDir(repo));
+	asprintf(&blog->cacheDir, "%s/blog", EFSRepoGetCacheDir(repo));
+
+	str_t *path = malloc(PATH_MAX);
+	snprintf(path, PATH_MAX, "%s/header.html", blog->dir);
+	blog->header = TemplateCreateFromPath(path);
+	snprintf(path, PATH_MAX, "%s/footer.html", blog->dir);
+	blog->footer = TemplateCreateFromPath(path);
+	snprintf(path, PATH_MAX, "%s/entry-start.html", blog->dir);
+	blog->entry_start = TemplateCreateFromPath(path);
+	snprintf(path, PATH_MAX, "%s/entry-end.html", blog->dir);
+	blog->entry_end = TemplateCreateFromPath(path);
+	snprintf(path, PATH_MAX, "%s/preview.html", blog->dir);
+	blog->preview = TemplateCreateFromPath(path);
+	snprintf(path, PATH_MAX, "%s/empty.html", blog->dir);
+	blog->empty = TemplateCreateFromPath(path);
+	FREE(&path);
+
+	return blog;
+}
+void BlogFree(BlogRef const blog) {
+	if(!blog) return;
+	FREE(&blog->dir);
+	FREE(&blog->cacheDir);
+	TemplateFree(blog->header); blog->header = NULL;
+	TemplateFree(blog->footer); blog->footer = NULL;
+	TemplateFree(blog->entry_start); blog->entry_start = NULL;
+	TemplateFree(blog->entry_end); blog->entry_end = NULL;
+	TemplateFree(blog->preview); blog->preview = NULL;
+	TemplateFree(blog->empty); blog->empty = NULL;
+	free(blog);
+}
+bool_t BlogDispatch(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+	if(getPage(blog, conn, method, URI)) return true;
 
 
 	// TODO: Ignore query parameters, check for `..` (security critical).
 	str_t *path;
-	int const plen = asprintf(&path, "%s/blog-static/%s", EFSRepoGetDir(repo), URI);
+	int const plen = asprintf(&path, "%s%s", blog->dir, URI);
 	if(plen < 0) {
 		HTTPConnectionSendStatus(conn, 500);
 		return true;

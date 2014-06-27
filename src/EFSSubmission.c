@@ -24,12 +24,7 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 	sub->type = strdup(type);
 
 	sub->path = EFSRepoCopyTempPath(repo);
-	ssize_t const dirlen = dirname(sub->path, strlen(sub->path));
-	if(dirlen < 0) {
-		EFSSubmissionFree(sub);
-		return NULL;
-	}
-	if(mkdirp(sub->path, dirlen, 0700) < 0) {
+	if(mkdirpname(sub->path, 0700) < 0) {
 		fprintf(stderr, "Error: couldn't create temp dir %s\n", sub->path);
 		EFSSubmissionFree(sub);
 		return NULL;
@@ -123,14 +118,11 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	EFSRepoRef const repo = sub->repo;
 
 	str_t *internalPath = EFSRepoCopyInternalPath(repo, sub->internalHash);
-	ssize_t const dlen = dirname(internalPath, strlen(internalPath));
-	internalPath[dlen] = '\0';
-	if(mkdirp(internalPath, dlen, 0700) < 0) {
+	if(mkdirpname(internalPath, 0700) < 0) {
 		fprintf(stderr, "Couldn't mkdir -p %s\n", internalPath);
 		FREE(&internalPath);
 		return -1;
 	}
-	internalPath[dlen] = '/';
 
 	uv_fs_t req = { .data = co_active() };
 	uv_fs_link(loop, &req, sub->path, internalPath, async_fs_cb);

@@ -64,7 +64,6 @@ void test_mutex(void) {
 	co_terminate();
 }
 
-#define STACK_SIZE (1024 * 100 * sizeof(void *) / 4)
 int main() {
 	async_init();
 	sqlite_async_register();

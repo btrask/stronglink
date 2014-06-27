@@ -208,7 +208,7 @@ ssize_t HTTPConnectionWrite(HTTPConnectionRef const conn, byte_t const *const bu
 	co_switch(yield);
 	return state.status;
 }
-ssize_t HTTPConnectionWritev(HTTPConnectionRef const conn, uv_buf_t const *const parts, unsigned int const count) {
+ssize_t HTTPConnectionWritev(HTTPConnectionRef const conn, uv_buf_t const parts[], unsigned int const count) {
 	if(!conn) return 0;
 	async_state state = { .thread = co_active() };
 	uv_write_t req = { .data = &state };
@@ -292,6 +292,20 @@ err_t HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, uint64_t cons
 	ssize_t const wlen = HTTPConnectionWrite(conn, (byte_t const *)str, slen);
 	FREE(&str);
 	return wlen < 0 ? -1 : 0;
+}
+ssize_t HTTPConnectionWriteChunkv(HTTPConnectionRef const conn, uv_buf_t const parts[], unsigned int const count) {
+	if(!conn) return 0;
+	uint64_t total = 0;
+	for(index_t i = 0; i < count; ++i) total += parts[i].len;
+	HTTPConnectionWriteChunkLength(conn, total);
+	async_state state = { .thread = co_active() };
+	uv_write_t req = { .data = &state };
+	uv_write(&req, (uv_stream_t *)conn->stream, parts, count, async_write_cb);
+	co_switch(yield);
+	// TODO: We have to ensure that uv_write() really wrote everything or else we're messing up the chunked encoding. Returning partial writes doesn't cut it.
+	HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
+	return total;//state.status;
+	// TODO: Hack? The status is always zero for me even when it wrote, so is uv_write() guaranteed to write everything?
 }
 err_t HTTPConnectionWriteChunkFile(HTTPConnectionRef const conn, strarg_t const path) {
 	uv_fs_t req = { .data = co_active() };
@@ -528,7 +542,7 @@ static void handleStream(void) {
 }
 static void connection_cb(uv_stream_t *const socket, int const status) {
 	fiber_args.socket = socket;
-	cothread_t const thread = co_create(1024 * 50 * sizeof(void *) / 4, handleStream);
+	cothread_t const thread = co_create(STACK_SIZE, handleStream);
 //	fprintf(stderr, "Opening thread %p\n", thread);
 	co_switch(thread);
 }
