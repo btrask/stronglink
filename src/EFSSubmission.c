@@ -72,6 +72,7 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 	}
 
 	if(!sub->size) {
+		fprintf(stderr, "Empty submission\n");
 		EFSSubmissionFree(sub); sub = NULL;
 		goto bail;
 	}

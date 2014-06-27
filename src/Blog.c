@@ -17,6 +17,8 @@ typedef struct Blog* BlogRef;
 struct Blog {
 	EFSRepoRef repo;
 	str_t *dir;
+	str_t *staticDir;
+	str_t *templateDir;
 	str_t *cacheDir;
 	TemplateRef header;
 	TemplateRef footer;
@@ -24,6 +26,7 @@ struct Blog {
 	TemplateRef entry_end;
 	TemplateRef preview;
 	TemplateRef empty;
+	TemplateRef submit;
 };
 
 // TODO: Real public API.
@@ -254,6 +257,26 @@ static bool_t getPage(BlogRef const blog, HTTPConnectionRef const conn, HTTPMeth
 	URIListFree(URIs);
 	return true;
 }
+static bool_t getSubmit(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+	if(HTTP_GET != method) return false;
+	size_t pathlen = prefix("/submit", URI);
+	if(!pathlen) return false;
+	if(!pathterm(URI, (size_t)pathlen)) return false;
+	EFSSessionRef const session = auth(blog->repo, conn, method, URI+pathlen);
+	if(!session) {
+		HTTPConnectionSendStatus(conn, 403);
+		return true;
+	}
+	HTTPConnectionWriteResponse(conn, 200, "OK");
+	HTTPConnectionWriteHeader(conn, "Content-Type", "text/html; charset=utf-8");
+	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
+	HTTPConnectionBeginBody(conn);
+	TemplateWriteHTTPChunk(blog->submit, NULL, 0, conn);
+	HTTPConnectionWriteChunkLength(conn, 0);
+	HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
+	HTTPConnectionEnd(conn);
+	return true;
+}
 
 
 BlogRef BlogCreate(EFSRepoRef const repo) {
@@ -261,22 +284,26 @@ BlogRef BlogCreate(EFSRepoRef const repo) {
 
 	BlogRef const blog = calloc(1, sizeof(struct Blog));
 	blog->repo = repo;
-	asprintf(&blog->dir, "%s/blog-static", EFSRepoGetDir(repo));
+	asprintf(&blog->dir, "%s/blog", EFSRepoGetDir(repo));
+	asprintf(&blog->staticDir, "%s/static", blog->dir);
+	asprintf(&blog->templateDir, "%s/template", blog->dir);
 	asprintf(&blog->cacheDir, "%s/blog", EFSRepoGetCacheDir(repo));
 
 	str_t *path = malloc(PATH_MAX);
-	snprintf(path, PATH_MAX, "%s/header.html", blog->dir);
+	snprintf(path, PATH_MAX, "%s/header.html", blog->templateDir);
 	blog->header = TemplateCreateFromPath(path);
-	snprintf(path, PATH_MAX, "%s/footer.html", blog->dir);
+	snprintf(path, PATH_MAX, "%s/footer.html", blog->templateDir);
 	blog->footer = TemplateCreateFromPath(path);
-	snprintf(path, PATH_MAX, "%s/entry-start.html", blog->dir);
+	snprintf(path, PATH_MAX, "%s/entry-start.html", blog->templateDir);
 	blog->entry_start = TemplateCreateFromPath(path);
-	snprintf(path, PATH_MAX, "%s/entry-end.html", blog->dir);
+	snprintf(path, PATH_MAX, "%s/entry-end.html", blog->templateDir);
 	blog->entry_end = TemplateCreateFromPath(path);
-	snprintf(path, PATH_MAX, "%s/preview.html", blog->dir);
+	snprintf(path, PATH_MAX, "%s/preview.html", blog->templateDir);
 	blog->preview = TemplateCreateFromPath(path);
-	snprintf(path, PATH_MAX, "%s/empty.html", blog->dir);
+	snprintf(path, PATH_MAX, "%s/empty.html", blog->templateDir);
 	blog->empty = TemplateCreateFromPath(path);
+	snprintf(path, PATH_MAX, "%s/submit.html", blog->templateDir);
+	blog->submit = TemplateCreateFromPath(path);
 	FREE(&path);
 
 	return blog;
@@ -284,6 +311,8 @@ BlogRef BlogCreate(EFSRepoRef const repo) {
 void BlogFree(BlogRef const blog) {
 	if(!blog) return;
 	FREE(&blog->dir);
+	FREE(&blog->staticDir);
+	FREE(&blog->templateDir);
 	FREE(&blog->cacheDir);
 	TemplateFree(blog->header); blog->header = NULL;
 	TemplateFree(blog->footer); blog->footer = NULL;
@@ -291,15 +320,17 @@ void BlogFree(BlogRef const blog) {
 	TemplateFree(blog->entry_end); blog->entry_end = NULL;
 	TemplateFree(blog->preview); blog->preview = NULL;
 	TemplateFree(blog->empty); blog->empty = NULL;
+	TemplateFree(blog->submit); blog->submit = NULL;
 	free(blog);
 }
 bool_t BlogDispatch(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(getPage(blog, conn, method, URI)) return true;
+	if(getSubmit(blog, conn, method, URI)) return true;
 
 
 	// TODO: Ignore query parameters, check for `..` (security critical).
 	str_t *path;
-	int const plen = asprintf(&path, "%s%s", blog->dir, URI);
+	int const plen = asprintf(&path, "%s%s", blog->staticDir, URI);
 	if(plen < 0) {
 		HTTPConnectionSendStatus(conn, 500);
 		return true;

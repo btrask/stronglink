@@ -159,7 +159,8 @@ static bool_t postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTP
 		return true;
 	}
 
-	HTTPConnectionWriteResponse(conn, 201, "Created");
+	HTTPConnectionWriteResponse(conn, 303, "See Other"); // TODO: Is this right?
+	HTTPConnectionWriteHeader(conn, "Location", "/");
 	HTTPConnectionWriteHeader(conn, "X-Location", EFSSubmissionGetPrimaryURI(sub));
 	HTTPConnectionWriteContentLength(conn, 0);
 	HTTPConnectionBeginBody(conn);
