@@ -41,7 +41,8 @@ void EFSSessionFree(EFSSessionRef const session);
 EFSRepoRef const EFSSessionGetRepo(EFSSessionRef const session);
 int64_t EFSSessionGetUserID(EFSSessionRef const session);
 URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilterRef const filter, count_t const max); // TODO: Public API?
-err_t EFSSessionGetFileInfoForURI(EFSSessionRef const session, EFSFileInfo *const info, strarg_t const URI);
+EFSFileInfo *EFSSessionCopyFileInfo(EFSSessionRef const session, strarg_t const URI);
+void EFSFileInfoFree(EFSFileInfo *const info);
 
 EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context);
 void EFSSubmissionFree(EFSSubmissionRef const sub);

@@ -35,15 +35,25 @@ static str_t *BlogCopyPreviewPath(BlogRef const blog, strarg_t const hash) {
 	return path;
 }
 
-static err_t genMarkdownPreview(BlogRef const blog, HTTPConnectionRef const conn, EFSSessionRef const session, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
+static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {
 
-	if(0 != strcasecmp("text/markdown; charset=utf-8", info->type)) return -1; // TODO: Other types, plugins, w/e.
+	EFSFileInfo *info = EFSSessionCopyFileInfo(session, URI);
+	if(!info) return -1;
 
-	if(mkdirpname(previewPath, 0700) < 0) return -1;
+	if(0 != strcasecmp("text/markdown; charset=utf-8", info->type)) {
+		EFSFileInfoFree(info); info = NULL;
+		return -1; // TODO: Other types, plugins, w/e.
+	}
+
+	if(mkdirpname(previewPath, 0700) < 0) {
+		EFSFileInfoFree(info); info = NULL;
+		return -1;
+	}
 
 	str_t *tmpPath = EFSRepoCopyTempPath(EFSSessionGetRepo(session));
 	if(mkdirpname(tmpPath, 0700) < 0) {
 		FREE(&tmpPath);
+		EFSFileInfoFree(info); info = NULL;
 		return -1;
 	}
 
@@ -67,6 +77,7 @@ static err_t genMarkdownPreview(BlogRef const blog, HTTPConnectionRef const conn
 
 	if(state.status < 0) {
 		FREE(&tmpPath);
+		EFSFileInfoFree(info); info = NULL;
 		return -1;
 	}
 
@@ -74,12 +85,13 @@ static err_t genMarkdownPreview(BlogRef const blog, HTTPConnectionRef const conn
 
 	async_fs_unlink(tmpPath);
 	FREE(&tmpPath);
+	EFSFileInfoFree(info); info = NULL;
 
 	if(err < 0) return -1;
 	return 0;
 }
-static err_t genPreview(BlogRef const blog, HTTPConnectionRef const conn, EFSSessionRef const session, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
-	if(genMarkdownPreview(blog, conn, session, URI, info, previewPath) >= 0) return 0;
+static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {
+	if(genMarkdownPreview(blog, session, URI, previewPath) >= 0) return 0;
 
 	if(mkdirpname(previewPath, 0700) < 0) return -1;
 
@@ -102,17 +114,13 @@ static err_t genPreview(BlogRef const blog, HTTPConnectionRef const conn, EFSSes
 	str_t *faviconURI_HTMLSafe = NULL;
 
 	for(index_t i = 0; i < metaURIsCount; ++i) {
+		// TODO: Streaming.
+
 		strarg_t const metaURI = URIListGetURI(metaURIs, 0);
-		EFSFileInfo metaInfo;
-		if(EFSSessionGetFileInfoForURI(session, &metaInfo, metaURI) < 0) continue;
-
-		// TODO: Streaming, error checking.
-
-		uv_file file = async_fs_open(metaInfo.path, O_RDONLY, 0000);
-
-		FREE(&metaInfo.path);
-		FREE(&metaInfo.type);
-
+		EFSFileInfo *metaInfo = EFSSessionCopyFileInfo(session, metaURI);
+		if(!metaInfo) continue;
+		uv_file file = async_fs_open(metaInfo->path, O_RDONLY, 0000);
+		EFSFileInfoFree(metaInfo); metaInfo = NULL;
 		if(file < 0) continue;
 
 		str_t *str = malloc(BUFFER_SIZE + 1);
@@ -136,7 +144,7 @@ static err_t genPreview(BlogRef const blog, HTTPConnectionRef const conn, EFSSes
 		strarg_t yajl_sourceURI[] = { "sourceURI", NULL };
 		if(!sourceURI_HTMLSafe) sourceURI_HTMLSafe = htmlenc(YAJL_GET_STRING(yajl_tree_get(obj, yajl_sourceURI, yajl_t_string)));
 
-
+		yajl_tree_free(obj);
 
 		break;
 	}
@@ -178,24 +186,19 @@ static err_t genPreview(BlogRef const blog, HTTPConnectionRef const conn, EFSSes
 	if(err < 0) return -1;
 	return 0;
 }
-static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, EFSSessionRef const session, strarg_t const URI, EFSFileInfo const *const info, strarg_t const previewPath) {
+static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {
 	str_t *URI_HTMLSafe = htmlenc(URI);
 	str_t *URIEncoded_HTMLSafe = htmlenc(URI); // TODO: URI enc
-	str_t *type_HTMLSafe = htmlenc(info->type);
-	str_t size_string[20]; // TODO: How big does this need to be?
-	snprintf(size_string, 20, "%lu", (unsigned long)info->size);
 	TemplateArg const args[] = {
 		{"URI", URI_HTMLSafe, -1},
 		{"URIEncoded", URIEncoded_HTMLSafe, -1},
-		{"type", type_HTMLSafe, -1},
-		{"size", size_string, -1},
 	};
 
 	TemplateWriteHTTPChunk(blog->entry_start, args, numberof(args), conn);
 
 	if(
 		HTTPConnectionWriteChunkFile(conn, previewPath) < 0 &&
-		(genPreview(blog, conn, session, URI, info, previewPath) < 0 ||
+		(genPreview(blog, session, URI, previewPath) < 0 ||
 		HTTPConnectionWriteChunkFile(conn, previewPath) < 0)
 	) {
 		TemplateWriteHTTPChunk(blog->empty, args, numberof(args), conn);
@@ -205,7 +208,6 @@ static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, EFSSes
 
 	FREE(&URI_HTMLSafe);
 	FREE(&URIEncoded_HTMLSafe);
-	FREE(&type_HTMLSafe);
 }
 
 static bool_t getPage(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
@@ -238,17 +240,8 @@ static bool_t getPage(BlogRef const blog, HTTPConnectionRef const conn, HTTPMeth
 		str_t const prefix[] = "hash://sha256/";
 		strarg_t const hash = URI+sizeof(prefix)-1;
 		str_t *previewPath = BlogCopyPreviewPath(blog, hash);
-		if(!previewPath) {
-			continue;
-		}
-		EFSFileInfo info;
-		if(EFSSessionGetFileInfoForURI(session, &info, URI) < 0) {
-			FREE(&previewPath);
-			continue;
-		}
-		sendPreview(blog, conn, session, URI, &info, previewPath);
-		FREE(&info.path);
-		FREE(&info.type);
+		if(!previewPath) continue;
+		sendPreview(blog, conn, session, URI, previewPath);
 		FREE(&previewPath);
 	}
 

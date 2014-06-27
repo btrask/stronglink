@@ -110,8 +110,8 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 	EFSRepoDBClose(repo, db);
 	return URIs;
 }
-err_t EFSSessionGetFileInfoForURI(EFSSessionRef const session, EFSFileInfo *const info, strarg_t const URI) {
-	if(!session) return -1;
+EFSFileInfo *EFSSessionCopyFileInfo(EFSSessionRef const session, strarg_t const URI) {
+	if(!session) return NULL;
 	// TODO: Check session mode.
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	sqlite3 *const db = EFSRepoDBConnect(repo);
@@ -125,13 +125,20 @@ err_t EFSSessionGetFileInfoForURI(EFSSessionRef const session, EFSFileInfo *cons
 	if(SQLITE_ROW != sqlite3_step(select)) {
 		sqlite3_finalize(select);
 		EFSRepoDBClose(repo, db);
-		return -1;
+		return NULL;
 	}
+	EFSFileInfo *const info = calloc(1, sizeof(EFSFileInfo));
 	info->path = EFSRepoCopyInternalPath(repo, (strarg_t)sqlite3_column_text(select, 0));
 	info->type = strdup((strarg_t)sqlite3_column_text(select, 1));
 	info->size = sqlite3_column_int64(select, 2);
 	sqlite3_finalize(select);
 	EFSRepoDBClose(repo, db);
-	return 0;
+	return info;
+}
+void EFSFileInfoFree(EFSFileInfo *const info) {
+	if(!info) return;
+	FREE(&info->path);
+	FREE(&info->type);
+	free(info);
 }
 
