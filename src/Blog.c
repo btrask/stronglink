@@ -110,6 +110,7 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 	count_t const metaURIsCount = URIListGetCount(metaURIs);
 
 	str_t *URI_HTMLSafe = htmlenc(URI);
+	str_t *URIEncoded_HTMLSafe = htmlenc(URI); // TODO
 	str_t *title_HTMLSafe = NULL;
 	str_t *sourceURI_HTMLSafe = NULL;
 	str_t *description_HTMLSafe = NULL;
@@ -160,13 +161,16 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 
 	TemplateArg const args[] = {
 		{"URI", URI_HTMLSafe, -1},
+		{"URIEncoded", URIEncoded_HTMLSafe, -1},
 		{"title", title_HTMLSafe, -1},
 		{"description", description_HTMLSafe, -1},
 		{"sourceURI", sourceURI_HTMLSafe, -1},
 		{"thumbnailURI", thumbnailURI_HTMLSafe, -1},
 		{"faviconURI", faviconURI_HTMLSafe, -1},
 	};
-	err = err < 0 ? err : TemplateWriteFile(blog->preview, args, numberof(args), file);
+	bool_t const hasUsefulInfo = title_HTMLSafe || thumbnailURI_HTMLSafe;
+	TemplateRef const template = hasUsefulInfo ? blog->preview : blog->empty;
+	err = err < 0 ? err : TemplateWriteFile(template, args, numberof(args), file);
 
 	async_fs_close(file); file = -1;
 
@@ -177,6 +181,7 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 	FREE(&tmpPath);
 
 	FREE(&URI_HTMLSafe);
+	FREE(&URIEncoded_HTMLSafe);
 	FREE(&title_HTMLSafe);
 	FREE(&description_HTMLSafe);
 	FREE(&sourceURI_HTMLSafe);
