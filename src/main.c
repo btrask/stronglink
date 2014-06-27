@@ -33,9 +33,9 @@ static void init(void) {
 }
 static void term(void) {
 	HTTPServerClose(server);
-	HTTPServerFree(server);
-	BlogFree(blog);
-	EFSRepoFree(repo);
+	HTTPServerFree(server); server = NULL;
+	BlogFree(blog); blog = NULL;
+	EFSRepoFree(repo); repo = NULL;
 	co_terminate();
 }
 int main(int const argc, char const *const *const argv) {
