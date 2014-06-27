@@ -162,15 +162,13 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 	TemplateArg const args[] = {
 		{"URI", URI_HTMLSafe, -1},
 		{"URIEncoded", URIEncoded_HTMLSafe, -1},
-		{"title", title_HTMLSafe, -1},
-		{"description", description_HTMLSafe, -1},
+		{"title", title_HTMLSafe ?: "(no title)", -1},
+		{"description", description_HTMLSafe ?: "(no description)", -1},
 		{"sourceURI", sourceURI_HTMLSafe, -1},
-		{"thumbnailURI", thumbnailURI_HTMLSafe, -1},
+		{"thumbnailURI", thumbnailURI_HTMLSafe ?: "/file.png", -1},
 		{"faviconURI", faviconURI_HTMLSafe, -1},
 	};
-	bool_t const hasUsefulInfo = title_HTMLSafe || thumbnailURI_HTMLSafe;
-	TemplateRef const template = hasUsefulInfo ? blog->preview : blog->empty;
-	err = err < 0 ? err : TemplateWriteFile(template, args, numberof(args), file);
+	err = err < 0 ? err : TemplateWriteFile(blog->preview, args, numberof(args), file);
 
 	async_fs_close(file); file = -1;
 
