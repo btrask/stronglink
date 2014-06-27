@@ -46,7 +46,9 @@ int main(int const argc, char const *const *const argv) {
 	// Even our init code wants to use async I/O.
 	co_switch(co_create(STACK_SIZE, init));
 	uv_run(loop, UV_RUN_DEFAULT);
+
 	co_switch(co_create(STACK_SIZE, term));
+	uv_run(loop, UV_RUN_DEFAULT); // Allows term() to execute.
 
 	return EXIT_SUCCESS;
 }
