@@ -186,6 +186,7 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 
 	strarg_t const preferredURI = URIListGetURI(sub->URIs, 0);
 	if(EFSMetaFileStore(sub->meta, fileID, preferredURI, db) < 0) {
+		fprintf(stderr, "EFSMetaFileStore error\n");
 		EXEC(QUERY(db, "ROLLBACK"));
 		EFSRepoDBClose(repo, db);
 		return -1;

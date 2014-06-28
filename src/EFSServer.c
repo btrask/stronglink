@@ -153,14 +153,16 @@ static bool_t postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTP
 
 	EFSSubmissionRef const sub = EFSRepoCreateSubmission(repo, type, read, context);
 	if(EFSSessionAddSubmission(session, sub) < 0) {
+		fprintf(stderr, "Submission error for file type %s\n", type);
+		HTTPConnectionSendStatus(conn, 500);
 		EFSSubmissionFree(sub);
 		EFSSessionFree(session);
-		HTTPConnectionSendStatus(conn, 500);
 		return true;
 	}
 
-	HTTPConnectionWriteResponse(conn, 303, "See Other"); // TODO: Is this right?
-	HTTPConnectionWriteHeader(conn, "Location", "/");
+	HTTPConnectionWriteResponse(conn, 201, "Created"); // TODO: Is this right?
+	// TODO: Some of our API clients follow redirects automatically, so it's a bad idea to do it here, but our blog submission form needs a redirect.
+//	HTTPConnectionWriteHeader(conn, "Location", "/");
 	HTTPConnectionWriteHeader(conn, "X-Location", EFSSubmissionGetPrimaryURI(sub));
 	HTTPConnectionWriteContentLength(conn, 0);
 	HTTPConnectionBeginBody(conn);
