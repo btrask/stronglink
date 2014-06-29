@@ -1,8 +1,6 @@
 #include <assert.h>
-#include <stdlib.h>
 #include <string.h>
 #include <openssl/rand.h>
-#include "stdio.h"
 #include "async.h"
 
 uv_loop_t *loop = NULL;
