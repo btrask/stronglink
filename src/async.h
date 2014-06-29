@@ -49,4 +49,6 @@ ssize_t async_fs_link(const char* path, const char* new_path);
 
 ssize_t async_fs_fstat(uv_file file, uv_stat_t *stats);
 
+int async_random(unsigned char *const buf, size_t const len);
+
 #endif

@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <openssl/rand.h>
 #include "stdio.h"
 #include "async.h"
 
@@ -73,8 +74,38 @@ ssize_t async_fs_fstat(uv_file file, uv_stat_t *stats) {
 	int const err = uv_fs_fstat(loop, &req, file, async_fs_cb);
 	if(err < 0) return err;
 	co_switch(yield);
-	memcpy(stats, &req.statbuf, sizeof(uv_stat_t));
+	if(req.result >= 0) memcpy(stats, &req.statbuf, sizeof(uv_stat_t));
 	uv_fs_req_cleanup(&req);
 	return req.result;
+}
+
+struct random_state {
+	cothread_t thread;
+	unsigned char *buf;
+	size_t len;
+	int status;
+};
+static void random_cb(uv_work_t *const req) {
+	struct random_state *const state = req->data;
+	if(RAND_bytes(state->buf, state->len) <= 0) state->status = -1;
+	// Apparently zero is an error too.
+}
+static void after_random_cb(uv_work_t *const req, int const status) {
+	struct random_state *const state = req->data;
+	if(status < 0) state->status = status;
+	co_switch(state->thread);
+}
+int async_random(unsigned char *const buf, size_t const len) {
+	struct random_state state = {
+		.thread = co_active(),
+		.buf = buf,
+		.len = len,
+		.status = 0,
+	};
+	uv_work_t req = { .data = &state };
+	int const err = uv_queue_work(loop, &req, random_cb, after_random_cb);
+	if(err < 0) return err;
+	co_switch(yield);
+	return state.status;
 }
 
