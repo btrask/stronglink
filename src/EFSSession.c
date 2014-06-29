@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "../deps/crypt_blowfish-1.0.4/ow-crypt.h"
 #include "../deps/sqlite/sqlite3.h"
 #include "EarthFS.h"
@@ -17,46 +18,45 @@ static int passcmp(volatile strarg_t const a, volatile strarg_t const b) {
 	}
 	return r;
 }
-static str_t *createCookie(sqlite3 *const db, int64_t const userID) {
-	sqlite3_stmt *const insert = QUERY(db,
-		"INSERT INTO \"sessions\" (\"sessionKey\", \"userID\")\n"
-		"SELECT lower(hex(randomblob(16))), ?");
-	sqlite3_bind_int64(insert, 1, userID);
-	int status;
-	while(SQLITE_CONSTRAINT_UNIQUE == (status = sqlite3_step(insert)));
-	sqlite3_finalize(insert);
-	if(SQLITE_DONE != status) return NULL;
-	sqlite3_stmt *const select = QUERY(db,
-		"SELECT \"sessionKey\" FROM \"sessions\"\n"
-		"WHERE \"sessionID\" = last_insert_rowid()");
-	str_t *cookie = NULL;
-	if(SQLITE_ROW == sqlite3_step(select)) cookie = strdup(sqlite3_column_text(select, 0));
-	sqlite3_finalize(select);
-	return cookie;
+static bool_t checkpass(strarg_t const pass, strarg_t const hash) {
+	int size = 0;
+	void *data = NULL;
+	strarg_t attempt = crypt_ra(pass, hash, &data, &size);
+	bool_t const success = (attempt && 0 == passcmp(attempt, hash));
+	FREE(&data); attempt = NULL;
+	return success;
 }
 
 EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const username, strarg_t const password, strarg_t const cookie, EFSMode const mode) {
 	if(!repo) return NULL;
 	if(!username && !cookie) return NULL;
 
-	// TODO: Cookies are "password-equivalent," but we don't hash them for performance. That means that if our database is leaked and we don't know about it in order to clear the sessions table promptly, attackers can log in as any user. Perhaps a better tradeoff would be to hash session keys, but cache them in memory for a period of time so that repeated requests are still fast.
+	long long sessionID = -1;
+	str_t *sessionKey = NULL;
+	if(cookie) {
+		sessionKey = malloc(strlen(cookie));
+		sscanf(cookie, "%lld:%s", &sessionID, sessionKey);
+		if(sessionID <= 0) return NULL;
+		if('\0' == sessionKey[0]) return NULL;
+	}
 
 	sqlite3 *db = EFSRepoDBConnect(repo);
-	if(!db) return NULL;
+	if(!db) {
+		FREE(&sessionKey);
+		return NULL;
+	}
 
 	sqlite3_stmt *select = QUERY(db,
-		"SELECT u.\"userID\", u.\"passhash\", s.\"sessionKey\""
+		"SELECT u.\"userID\", u.\"passhash\", s.\"sessionHash\"\n"
 		"FROM \"users\" AS u\n"
 		"LEFT JOIN \"sessions\" AS s ON (s.\"userID\" = u.\"userID\")\n"
 		"WHERE (u.\"username\" = ?1 OR ?1 IS NULL)\n"
-		"AND (s.\"sessionKey\" = ?2 OR ?2 IS NULL) LIMIT 1");
-
-	// TODO: It turns out that looking up session keys like this is a terrible idea. We're so careful we wrote our own `passcmp`, but what do you think the database is going to do? We need to treat session ID like the username, and session key like the password (including hashing).
-
+		"AND (s.\"sessionID\" = ?2 OR ?2 = -1) LIMIT 1");
 	sqlite3_bind_text(select, 1, username, -1, SQLITE_TRANSIENT);
-	sqlite3_bind_text(select, 2, cookie, -1, SQLITE_TRANSIENT);
+	sqlite3_bind_int64(select, 2, sessionID);
 	if(SQLITE_ROW != sqlite3_step(select)) {
 		fprintf(stderr, "Unrecognized user: %s, cookie: %s\n", username, cookie);
+		FREE(&sessionKey);
 		sqlite3_finalize(select); select = NULL;
 		EFSRepoDBClose(repo, db); db = NULL;
 		return NULL;
@@ -64,37 +64,35 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const usernam
 
 	int64_t const userID = sqlite3_column_int64(select, 0);
 	if(userID <= 0) {
+		FREE(&sessionKey);
 		sqlite3_finalize(select); select = NULL;
 		EFSRepoDBClose(repo, db); db = NULL;
 		return NULL;
 	}
 
-	if(!cookie) {
-		strarg_t passhash = (strarg_t)sqlite3_column_text(select, 1);
-		int size = 0;
-		void *data = NULL;
-		strarg_t attempt = crypt_ra(password, passhash, &data, &size);
-		bool_t const success = (attempt && 0 == passcmp(attempt, passhash));
-		FREE(&data); attempt = NULL;
-		if(!success) {
-			fprintf(stderr, "Incorrect username or password\n");
-			sqlite3_finalize(select); select = NULL;
-			EFSRepoDBClose(repo, db); db = NULL;
-			return NULL;
-		}
+	// TODO: Save session keys in memory for at least say 30 seconds for performance. Don't do any caching for passwords, not worth it.
+
+	strarg_t passhash = (strarg_t)sqlite3_column_text(select, 1);
+	strarg_t sessionHash = (strarg_t)sqlite3_column_text(select, 2);
+	bool_t const success = sessionKey ?
+		checkpass(sessionKey, sessionHash) :
+		checkpass(password, passhash);
+	FREE(&sessionKey);
+	if(!success) {
+		sqlite3_finalize(select); select = NULL;
+		EFSRepoDBClose(repo, db); db = NULL;
+		return NULL;
 	}
 	sqlite3_finalize(select); select = NULL;
 
 	EFSSessionRef const session = calloc(1, sizeof(struct EFSSession));
-	str_t *const ourCookie = cookie ? strdup(cookie) : createCookie(db, userID);
-	if(!session || !ourCookie) {
+	if(!session) {
 		EFSRepoDBClose(repo, db); db = NULL;
 		return NULL;
 	}
 
 	session->repo = repo;
 	session->userID = userID;
-	session->cookie = ourCookie;
 	session->mode = mode; // TODO: Validate
 
 	EFSRepoDBClose(repo, db); db = NULL;
@@ -104,7 +102,6 @@ void EFSSessionFree(EFSSessionRef const session) {
 	if(!session) return;
 	session->repo = NULL;
 	session->userID = -1;
-	FREE(&session->cookie);
 	session->mode = 0;
 	free(session);
 }
@@ -174,5 +171,37 @@ void EFSFileInfoFree(EFSFileInfo *const info) {
 	FREE(&info->path);
 	FREE(&info->type);
 	free(info);
+}
+
+str_t *EFSSessionCreateCookie(EFSSessionRef const session) {
+	if(!session) return NULL;
+	if(session->userID <= 0) return NULL;
+	str_t *sessionKey = strdup("not-very-random"); // TODO: Generate
+	if(!sessionKey) return NULL;
+	int size = 0;
+	void *data = NULL;
+	strarg_t sessionHash = crypt_ra(sessionKey, "$2a$08", &data, &size);
+	if(!sessionHash) {
+		FREE(&data);
+		FREE(&sessionKey);
+		return NULL;
+	}
+	sqlite3 *db = EFSRepoDBConnect(session->repo);
+	sqlite3_stmt *insert = QUERY(db,
+		"INSERT INTO \"sessions\" (\"sessionHash\", \"userID\")\n"
+		"SELECT ?, ?");
+	sqlite3_bind_text(insert, 1, sessionHash, -1, SQLITE_STATIC);
+	sqlite3_bind_int64(insert, 2, session->userID);
+	int const status = sqlite3_step(insert);
+	FREE(&data); sessionHash = NULL;
+	sqlite3_finalize(insert); insert = NULL;
+	str_t *cookie = NULL;
+	if(SQLITE_DONE == status) {
+		long long const sessionID = sqlite3_last_insert_rowid(db);
+		if(asprintf(&cookie, "%lld:%s", sessionID, sessionKey) < 0) cookie = NULL;
+	}
+	EFSRepoDBClose(session->repo, db); db = NULL;
+	FREE(&sessionKey);
+	return cookie;
 }
 

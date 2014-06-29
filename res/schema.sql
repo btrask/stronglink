@@ -12,11 +12,10 @@ CREATE UNIQUE INDEX "usersIndex" ON "users" ("username" ASC);
 
 CREATE TABLE "sessions" (
     "sessionID" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-    "sessionKey" TEXT NOT NULL,
+    "sessionHash" TEXT NOT NULL,
     "userID" INTEGER NOT NULL,
     "sessionTime" INTEGER NOT NULL DEFAULT (strftime('%s'))
 );
-CREATE UNIQUE INDEX "sessionsIndex" ON "sessions" ("sessionKey" ASC);
 
 CREATE TABLE "files" (
     "fileID" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
