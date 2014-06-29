@@ -134,7 +134,7 @@ static int async_fullPathname(sqlite3_vfs *const vfs, char const *const path, in
 }
 static int async_randomness(sqlite3_vfs *const vfs, int const size, char *const buf) {
 	DEBUG_LOG();
-	// TODO
+	if(async_random(buf, size) < 0) return SQLITE_ERROR;
 	return SQLITE_OK;
 }
 static int async_sleep(sqlite3_vfs *const vfs, int const microseconds) {
