@@ -16,6 +16,7 @@ CREATE TABLE "sessions" (
     "userID" INTEGER NOT NULL,
     "sessionTime" INTEGER NOT NULL DEFAULT (strftime('%s'))
 );
+CREATE INDEX "sessionsIndex" ON "sessions" ("userID" ASC);
 
 CREATE TABLE "files" (
     "fileID" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,

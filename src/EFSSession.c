@@ -1,14 +1,17 @@
 #define _GNU_SOURCE
 #include "../deps/crypt_blowfish-1.0.4/ow-crypt.h"
 #include "../deps/sqlite/sqlite3.h"
+#include "async.h"
 #include "EarthFS.h"
 
-struct EFSSession {
-	EFSRepoRef repo;
-	int64_t userID;
-	str_t *cookie;
-	EFSMode mode;
+#define COOKIE_CACHE_SIZE 1000
+
+struct cached_cookie {
+	int64_t sessionID;
+	str_t *sessionKey;
+	uint64_t atime; // TODO: Prune old entries.
 };
+static struct cached_cookie cookie_cache[COOKIE_CACHE_SIZE] = {};
 
 static int passcmp(volatile strarg_t const a, volatile strarg_t const b) {
 	int r = 0;
@@ -26,6 +29,27 @@ static bool_t checkpass(strarg_t const pass, strarg_t const hash) {
 	FREE(&data); attempt = NULL;
 	return success;
 }
+static bool_t cookie_cache_lookup(int64_t const sessionID, strarg_t const sessionKey) {
+	if(sessionID <= 0 || !sessionKey) return false;
+	index_t const x = sessionID+sessionKey[0] % COOKIE_CACHE_SIZE;
+	if(cookie_cache[x].sessionID != sessionID) return false;
+	if(!cookie_cache[x].sessionKey) return false;
+	return passcmp(sessionKey, cookie_cache[x].sessionKey);
+}
+static void cookie_cache_store(int64_t const sessionID, strarg_t const sessionKey) {
+	if(sessionID <= 0 || !sessionKey) return;
+	index_t const x = sessionID+sessionKey[0] % COOKIE_CACHE_SIZE;
+	FREE(&cookie_cache[x].sessionKey);
+	cookie_cache[x].sessionID = sessionID;
+	cookie_cache[x].sessionKey = strdup(sessionKey);
+	cookie_cache[x].atime = uv_now(loop);
+}
+
+struct EFSSession {
+	EFSRepoRef repo;
+	int64_t userID;
+	EFSMode mode;
+};
 
 EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const username, strarg_t const password, strarg_t const cookie, EFSMode const mode) {
 	if(!repo) return NULL;
@@ -34,7 +58,7 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const usernam
 	long long sessionID = -1;
 	str_t *sessionKey = NULL;
 	if(cookie) {
-		sessionKey = malloc(strlen(cookie));
+		sessionKey = calloc(strlen(cookie)+1, 1);
 		sscanf(cookie, "%lld:%s", &sessionID, sessionKey);
 		if(sessionID <= 0) return NULL;
 		if('\0' == sessionKey[0]) return NULL;
@@ -70,13 +94,18 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const usernam
 		return NULL;
 	}
 
-	// TODO: Save session keys in memory for at least say 30 seconds for performance. Don't do any caching for passwords, not worth it.
-
 	strarg_t passhash = (strarg_t)sqlite3_column_text(select, 1);
 	strarg_t sessionHash = (strarg_t)sqlite3_column_text(select, 2);
-	bool_t const success = sessionKey ?
-		checkpass(sessionKey, sessionHash) :
-		checkpass(password, passhash);
+	bool_t success = false;
+	if(sessionKey) {
+		if(cookie_cache_lookup(sessionID, sessionKey)) success = true;
+		else if(checkpass(sessionKey, sessionHash)) {
+			cookie_cache_store(sessionID, sessionKey);
+			success = true;
+		}
+	} else {
+		success = checkpass(password, passhash);
+	}
 	FREE(&sessionKey);
 	if(!success) {
 		sqlite3_finalize(select); select = NULL;
@@ -86,14 +115,11 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const usernam
 	sqlite3_finalize(select); select = NULL;
 
 	EFSSessionRef const session = calloc(1, sizeof(struct EFSSession));
-	if(!session) {
-		EFSRepoDBClose(repo, db); db = NULL;
-		return NULL;
+	if(session) {
+		session->repo = repo;
+		session->userID = userID;
+		session->mode = mode; // TODO: Validate
 	}
-
-	session->repo = repo;
-	session->userID = userID;
-	session->mode = mode; // TODO: Validate
 
 	EFSRepoDBClose(repo, db); db = NULL;
 	return session;
@@ -112,10 +138,6 @@ EFSRepoRef const EFSSessionGetRepo(EFSSessionRef const session) {
 int64_t EFSSessionGetUserID(EFSSessionRef const session) {
 	if(!session) return -1;
 	return session->userID;
-}
-strarg_t EFSSessionGetCookie(EFSSessionRef const session) {
-	if(!session) return NULL;
-	return session->cookie;
 }
 
 URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilterRef const filter, count_t const max) { // TODO: Sort order, pagination.
