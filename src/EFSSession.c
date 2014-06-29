@@ -50,6 +50,9 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const usernam
 		"LEFT JOIN \"sessions\" AS s ON (s.\"userID\" = u.\"userID\")\n"
 		"WHERE (u.\"username\" = ?1 OR ?1 IS NULL)\n"
 		"AND (s.\"sessionKey\" = ?2 OR ?2 IS NULL) LIMIT 1");
+
+	// TODO: It turns out that looking up session keys like this is a terrible idea. We're so careful we wrote our own `passcmp`, but what do you think the database is going to do? We need to treat session ID like the username, and session key like the password (including hashing).
+
 	sqlite3_bind_text(select, 1, username, -1, SQLITE_TRANSIENT);
 	sqlite3_bind_text(select, 2, cookie, -1, SQLITE_TRANSIENT);
 	if(SQLITE_ROW != sqlite3_step(select)) {
