@@ -70,6 +70,8 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const usernam
 		return NULL;
 	}
 
+	// TODO: What happens if the cookie and the username don't agree? The username should win.
+
 	sqlite3_stmt *select = QUERY(db,
 		"SELECT u.\"userID\", u.\"passhash\", s.\"sessionHash\"\n"
 		"FROM \"users\" AS u\n"
@@ -97,13 +99,13 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const usernam
 	strarg_t passhash = (strarg_t)sqlite3_column_text(select, 1);
 	strarg_t sessionHash = (strarg_t)sqlite3_column_text(select, 2);
 	bool_t success = false;
-	if(sessionKey) {
+	if(sessionKey && sessionHash) {
 		if(cookie_cache_lookup(sessionID, sessionKey)) success = true;
 		else if(checkpass(sessionKey, sessionHash)) {
 			cookie_cache_store(sessionID, sessionKey);
 			success = true;
 		}
-	} else {
+	} else if(password && passhash) {
 		success = checkpass(password, passhash);
 	}
 	FREE(&sessionKey);
