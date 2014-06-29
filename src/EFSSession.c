@@ -1,6 +1,4 @@
-#include <uv.h>
 #include "../deps/crypt_blowfish-1.0.4/ow-crypt.h"
-#include "../deps/libco/libco.h"
 #include "../deps/sqlite/sqlite3.h"
 #include "EarthFS.h"
 
