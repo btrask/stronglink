@@ -3,7 +3,6 @@
 #include <limits.h>
 #include "common.h"
 #include "async.h"
-#include "fs.h"
 #include "EarthFS.h"
 #include "Template.h"
 #include "http/HTTPServer.h"
@@ -48,13 +47,13 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 		return -1; // TODO: Other types, plugins, w/e.
 	}
 
-	if(mkdirpname(previewPath, 0700) < 0) {
+	if(async_mkdirp_dirname(previewPath, 0700) < 0) {
 		EFSFileInfoFree(info); info = NULL;
 		return -1;
 	}
 
 	str_t *tmpPath = EFSRepoCopyTempPath(EFSSessionGetRepo(session));
-	if(mkdirpname(tmpPath, 0700) < 0) {
+	if(async_mkdirp_dirname(tmpPath, 0700) < 0) {
 		FREE(&tmpPath);
 		EFSFileInfoFree(info); info = NULL;
 		return -1;
@@ -96,7 +95,7 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {
 	if(genMarkdownPreview(blog, session, URI, previewPath) >= 0) return 0;
 
-	if(mkdirpname(previewPath, 0700) < 0) return -1;
+	if(async_mkdirp_dirname(previewPath, 0700) < 0) return -1;
 
 	EFSFilterRef const backlinks = EFSFilterCreate(EFSBacklinkFilesFilter);
 	EFSFilterAddStringArg(backlinks, URI, -1);
@@ -154,7 +153,7 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 	}
 
 	str_t *tmpPath = EFSRepoCopyTempPath(blog->repo);
-	mkdirpname(tmpPath, 0700);
+	async_mkdirp_dirname(tmpPath, 0700);
 
 	uv_file file = async_fs_open(tmpPath, O_CREAT | O_EXCL | O_WRONLY, 0400);
 	err_t err = file;

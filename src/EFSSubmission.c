@@ -1,7 +1,6 @@
 #define _GNU_SOURCE
 #include <fcntl.h>
 #include "async.h"
-#include "fs.h"
 #include "EarthFS.h"
 
 #define INDEX_MAX (1024 * 100)
@@ -24,7 +23,7 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 	sub->type = strdup(type);
 
 	sub->path = EFSRepoCopyTempPath(repo);
-	if(mkdirpname(sub->path, 0700) < 0) {
+	if(async_mkdirp_dirname(sub->path, 0700) < 0) {
 		fprintf(stderr, "Error: couldn't create temp dir %s\n", sub->path);
 		EFSSubmissionFree(sub);
 		return NULL;
@@ -119,7 +118,7 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	EFSRepoRef const repo = sub->repo;
 
 	str_t *internalPath = EFSRepoCopyInternalPath(repo, sub->internalHash);
-	if(mkdirpname(internalPath, 0700) < 0) {
+	if(async_mkdirp_dirname(internalPath, 0700) < 0) {
 		fprintf(stderr, "Couldn't mkdir -p %s\n", internalPath);
 		FREE(&internalPath);
 		return -1;
