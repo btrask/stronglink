@@ -371,108 +371,56 @@ static sqlite3_io_methods const io_methods = {
 	/* Additional methods may be added in future releases */
 };
 
-typedef struct {
-	int dbgtype;
-	index_t current;
-	count_t count;
-	count_t size;
-	count_t recursion;
-	cothread_t *queue;
-} async_mutex;
-
 #define GLOBAL_MUTEX_COUNT 10
-static async_mutex **global_mutexes;
+static async_mutex_t **global_mutexes;
 
-static async_mutex *async_mutexAlloc(int const type) {
+static async_mutex_t *async_mutex_create_sqlite(int const type) {
 	if(type > SQLITE_MUTEX_RECURSIVE) {
 		assertf(type < GLOBAL_MUTEX_COUNT, "Unknown static mutex %d", type);
 		return global_mutexes[type - SQLITE_MUTEX_RECURSIVE - 1];
 	}
-	async_mutex *const m = calloc(1, sizeof(async_mutex));
-	m->dbgtype = type;
-	m->current = 0;
-	m->count = 0;
-	m->size = 10;
-	m->recursion = 0;
-	m->queue = calloc(m->size, sizeof(cothread_t));
-	return m;
+	return async_mutex_create();
 }
-static void async_mutexFree(async_mutex *const m) {
-	assertf(!m->count, "Mutex freed while held %p", m);
-	free(m);
-}
-static void async_mutexEnter(async_mutex *const m) {
-	cothread_t const active = co_active();
-	if(m->count && active == m->queue[m->current]) {
-		++m->recursion;
-		return;
-	}
-	if(++m->count > m->size) {
-		assertf(0, "Mutex queue growth not yet implemented");
-		// TODO: Grow.
-	}
-	m->queue[(m->current + m->count - 1) % m->size] = active;
-	if(m->count > 1) co_switch(yield);
-	assertf(active == m->queue[m->current], "Wrong thread acquired lock");
-	assertf(0 == m->recursion, "Acquired lock in invalid state");
-	m->recursion = 1;
-}
-static int async_mutexTry(async_mutex *const m) {
-	DEBUG_LOG();
-	if(m->count && co_active() != m->queue[m->current]) return SQLITE_BUSY;
-	async_mutexEnter(m);
+static int async_mutex_trylock_sqlite(async_mutex_t *const mutex) {
+	if(async_mutex_trylock(mutex) < 0) return SQLITE_BUSY;
 	return SQLITE_OK;
 }
-static void async_mutexLeave(async_mutex *const m) {
-	cothread_t const active = co_active();
-	assertf(m->count, "Leaving empty mutex %p", m);
-	assertf(active == m->queue[m->current], "Leaving someone else's mutex %p", m);
-	if(--m->recursion) return;
-	m->current = (m->current + 1) % m->size;
-	if(!--m->count) return;
-	cothread_t const next = m->queue[m->current];
-	async_wakeup(next);
+static int async_mutex_held(async_mutex_t *const mutex) {
+	if(!mutex) return 1;
+	return async_mutex_check(mutex);
 }
-static int async_mutexHeld(async_mutex *const m) {
-//	DEBUG_LOG();
-	if(!m) return 1;
-	return m->count && co_active() == m->queue[m->current];
-}
-static int async_mutexNotheld(async_mutex *const m) {
-//	DEBUG_LOG();
-	if(!m) return 1;
-	return !m->count || co_active() != m->queue[m->current];
+static int async_mutex_notheld(async_mutex_t *const mutex) {
+	if(!mutex) return 1;
+	return !async_mutex_check(mutex);
 }
 
-static int async_mutexInit(void) {
-	DEBUG_LOG();
+static int async_mutex_init(void) {
 	if(global_mutexes) return SQLITE_OK;
-	global_mutexes = calloc(GLOBAL_MUTEX_COUNT, sizeof(async_mutex *));
+	global_mutexes = calloc(GLOBAL_MUTEX_COUNT, sizeof(async_mutex_t *));
 	for(index_t i = 0; i < GLOBAL_MUTEX_COUNT; ++i) {
-		global_mutexes[i] = async_mutexAlloc(SQLITE_MUTEX_RECURSIVE);
+		global_mutexes[i] = async_mutex_create_sqlite(SQLITE_MUTEX_RECURSIVE);
 	}
 	return SQLITE_OK;
 }
-static int async_mutexEnd(void) {
-	DEBUG_LOG();
+static int async_mutex_end(void) {
 	if(!global_mutexes) return SQLITE_OK;
 	for(index_t i = 0; i < GLOBAL_MUTEX_COUNT; ++i) {
-		async_mutexFree(global_mutexes[i]);
+		async_mutex_free(global_mutexes[i]);
 	}
 	FREE(&global_mutexes);
 	return SQLITE_OK;
 }
 
 static sqlite3_mutex_methods const async_mutex_methods = {
-	.xMutexInit = (int (*)(void))async_mutexInit,
-	.xMutexEnd = (int (*)(void))async_mutexEnd,
-	.xMutexAlloc = (sqlite3_mutex *(*)(int))async_mutexAlloc,
-	.xMutexFree = (void (*)(sqlite3_mutex *))async_mutexFree,
-	.xMutexEnter = (void (*)(sqlite3_mutex *))async_mutexEnter,
-	.xMutexTry = (int (*)(sqlite3_mutex *))async_mutexTry,
-	.xMutexLeave = (void (*)(sqlite3_mutex *))async_mutexLeave,
-	.xMutexHeld = (int (*)(sqlite3_mutex *))async_mutexHeld,
-	.xMutexNotheld = (int (*)(sqlite3_mutex *))async_mutexNotheld,
+	.xMutexInit = (int (*)(void))async_mutex_init,
+	.xMutexEnd = (int (*)(void))async_mutex_end,
+	.xMutexAlloc = (sqlite3_mutex *(*)(int))async_mutex_create_sqlite,
+	.xMutexFree = (void (*)(sqlite3_mutex *))async_mutex_free,
+	.xMutexEnter = (void (*)(sqlite3_mutex *))async_mutex_lock,
+	.xMutexTry = (int (*)(sqlite3_mutex *))async_mutex_trylock_sqlite,
+	.xMutexLeave = (void (*)(sqlite3_mutex *))async_mutex_unlock,
+	.xMutexHeld = (int (*)(sqlite3_mutex *))async_mutex_held,
+	.xMutexNotheld = (int (*)(sqlite3_mutex *))async_mutex_notheld,
 };
 
 void sqlite_async_register(void) {

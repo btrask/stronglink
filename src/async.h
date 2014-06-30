@@ -51,6 +51,15 @@ ssize_t async_fs_fstat(uv_file file, uv_stat_t *stats);
 
 int async_random(unsigned char *const buf, size_t const len);
 
+typedef struct async_mutex_s async_mutex_t;
+
+async_mutex_t *async_mutex_create(void);
+void async_mutex_free(async_mutex_t *const mutex);
+void async_mutex_lock(async_mutex_t *const mutex);
+int async_mutex_trylock(async_mutex_t *const mutex);
+void async_mutex_unlock(async_mutex_t *const mutex);
+int async_mutex_check(async_mutex_t *const mutex);
+
 typedef struct async_rwlock_s async_rwlock_t;
 
 async_rwlock_t *async_rwlock_create(void);
