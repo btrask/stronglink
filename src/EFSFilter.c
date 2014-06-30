@@ -102,100 +102,100 @@ err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfil
 
 void EFSFilterCreateTempTables(sqlite3 *const db) {
 	EXEC(QUERY(db,
-		"CREATE TEMPORARY TABLE \"results\" (\n"
-		"	\"resultID\" INTEGER PRIMARY KEY NOT NULL,\n"
-		"	\"fileID\" INTEGER NOT NULL,\n"
-		"	\"sort\" INTEGER NOT NULL,\n"
-		"	\"depth\" INTEGER NOT NULL\n"
+		"CREATE TEMPORARY TABLE results (\n"
+		"	result_id INTEGER PRIMARY KEY NOT NULL,\n"
+		"	file_id INTEGER NOT NULL,\n"
+		"	sort INTEGER NOT NULL,\n"
+		"	depth INTEGER NOT NULL\n"
 		")"));
 	EXEC(QUERY(db,
-		"CREATE INDEX \"resultsDepthIndex\"\n"
-		"ON \"results\" (\"depth\" ASC)"));
+		"CREATE INDEX results_depth_index\n"
+		"ON results (depth ASC)"));
 	EXEC(QUERY(db,
-		"CREATE TEMPORARY TABLE \"depths\" (\n"
-		"	\"depthID\" INTEGER PRIMARY KEY NOT NULL,\n"
-		"	\"subdepth\" INTEGER NOT NULL,\n"
-		"	\"depth\" INTEGER NOT NULL\n"
+		"CREATE TEMPORARY TABLE depths (\n"
+		"	depth_id INTEGER PRIMARY KEY NOT NULL,\n"
+		"	subdepth INTEGER NOT NULL,\n"
+		"	depth INTEGER NOT NULL\n"
 		")"));
 	EXEC(QUERY(db,
-		"CREATE INDEX \"depthDepthsIndex\"\n"
-		"ON \"depths\" (\"depth\" ASC)"));
+		"CREATE INDEX depth_depths_index\n"
+		"ON depths (depth ASC)"));
 }
 void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const depth) {
 	if(!filter) return;
 	switch(filter->type) {
 		case EFSNoFilter: {
 			sqlite3_stmt *const op = QUERY(db,
-				"INSERT INTO \"results\"\n"
-				"	(\"fileID\", \"sort\", \"depth\")\n"
-				"SELECT \"fileID\", \"fileID\", ?\n"
-				"FROM \"files\" WHERE 1");
+				"INSERT INTO results\n"
+				"	(file_id, sort, depth)\n"
+				"SELECT file_id, file_id, ?\n"
+				"FROM files WHERE 1");
 			sqlite3_bind_int64(op, 1, depth);
 			EXEC(op);
 			break;
 		} case EFSFileTypeFilter: {
 			sqlite3_stmt *const op = QUERY(db,
-				"INSERT INTO \"results\"\n"
-				"	(\"fileID\", \"sort\", \"depth\")\n"
-				"SELECT \"fileID\", \"fileID\", ?\n"
-				"FROM \"files\" WHERE \"type\" = ?");
+				"INSERT INTO results\n"
+				"	(file_id, sort, depth)\n"
+				"SELECT file_id, file_id, ?\n"
+				"FROM files WHERE file_type = ?");
 			sqlite3_bind_int64(op, 1, depth);
 			sqlite3_bind_text(op, 2, filter->data.string, -1, SQLITE_STATIC);
 			EXEC(op);
 			break;
 		} case EFSFullTextFilter: {
 			sqlite3_stmt *const op = QUERY(db,
-				"INSERT INTO \"results\"\n"
-				"	(\"fileID\", \"sort\", \"depth\")\n"
-				"SELECT f.\"fileID\", MIN(f.\"metaFileID\"), ?\n"
-				"FROM \"fileContent\" AS f\n"
-				"LEFT JOIN \"fulltext\" AS t\n"
-				"	ON (f.\"ftID\" = t.\"rowid\")\n"
-				"WHERE t.\"text\" MATCH ?\n"
-				"GROUP BY f.\"fileID\"");
+				"INSERT INTO results\n"
+				"	(file_id, sort, depth)\n"
+				"SELECT f.file_id, MIN(f.meta_file_id), ?\n"
+				"FROM file_content AS f\n"
+				"LEFT JOIN fulltext AS t\n"
+				"	ON (f.fulltext_rowid = t.rowid)\n"
+				"WHERE t.description MATCH ?\n"
+				"GROUP BY f.file_id");
 			sqlite3_bind_int64(op, 1, depth);
 			sqlite3_bind_text(op, 2, filter->data.string, -1, SQLITE_STATIC);
 			EXEC(op);
 			break;
 		} case EFSBacklinkFilesFilter: {
 			sqlite3_stmt *const op = QUERY(db,
-				"INSERT INTO \"results\"\n"
-				"	(\"fileID\", \"sort\", \"depth\")\n"
-				"SELECT f.\"fileID\", MIN(l.\"metaFileID\"), ?\n"
-				"FROM \"fileURIs\" AS f\n"
-				"LEFT JOIN \"links\" AS l\n"
-				"	ON (f.\"URIID\" = l.\"sourceURIID\")\n"
-				"LEFT JOIN \"URIs\" AS u\n"
-				"	ON (l.\"targetURIID\" = u.\"URIID\")\n"
-				"WHERE u.\"URI\" = ?\n"
-				"GROUP BY f.\"fileID\"");
+				"INSERT INTO results\n"
+				"	(file_id, sort, depth)\n"
+				"SELECT f.file_id, MIN(l.meta_file_id), ?\n"
+				"FROM file_uris AS f\n"
+				"LEFT JOIN links AS l\n"
+				"	ON (f.uri_id = l.source_uri_id)\n"
+				"LEFT JOIN uris AS u\n"
+				"	ON (l.target_uri_id = u.uri_id)\n"
+				"WHERE u.uri = ?\n"
+				"GROUP BY f.file_id");
 			sqlite3_bind_int64(op, 1, depth);
 			sqlite3_bind_text(op, 2, filter->data.string, -1, SQLITE_STATIC);
 			EXEC(op);
 			break;
 		} case EFSFileLinksFilter: {
 			sqlite3_stmt *const op = QUERY(db,
-				"INSERT INTO \"results\"\n"
-				"	(\"fileID\", \"sort\", \"depth\")\n"
-				"SELECT f.\"fileID\", MIN(l.\"metaFileID\"), ?\n"
-				"FROM \"fileURIs\" AS f\n"
-				"LEFT JOIN \"links\" AS l\n"
-				"	ON (f.\"URIID\" = l.\"targetURIID\")\n"
-				"LEFT JOIN \"URIs\" AS u\n"
-				"	ON (l.\"sourceURIID\" = u.\"URIID\")\n"
-				"WHERE u.\"URI\" = ?\n"
-				"GROUP BY f.\"fileID\"");
+				"INSERT INTO results\n"
+				"	(file_id, sort, depth)\n"
+				"SELECT f.file_id, MIN(l.meta_file_id), ?\n"
+				"FROM file_uris AS f\n"
+				"LEFT JOIN links AS l\n"
+				"	ON (f.uri_id = l.target_uri_id)\n"
+				"LEFT JOIN uris AS u\n"
+				"	ON (l.source_uri_id = u.uri_id)\n"
+				"WHERE u.uri = ?\n"
+				"GROUP BY f.file_id");
 			sqlite3_bind_int64(op, 1, depth);
 			sqlite3_bind_text(op, 2, filter->data.string, -1, SQLITE_STATIC);
 			EXEC(op);
 			break;
 /*		} case EFSPermissionFilter: {
 			QUERY(db,
-				"INSERT INTO \"results\"\n"
-				"	(\"fileID\", \"sort\", \"depth\")\n"
-				"SELECT \"fileID\"\n"
-				"FROM \"filePermissions\"\n"
-				"WHERE \"userID\" = ?");
+				"INSERT INTO results\n"
+				"	(file_id, sort, depth)\n"
+				"SELECT file_id\n"
+				"FROM file_ermissions\n"
+				"WHERE user_id = ?");
 			break;*/
 		} case EFSIntersectionFilter: {
 			// continue;
@@ -203,7 +203,7 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 			EFSFilterList const *const list = filter->data.filters;
 			if(!list || !list->count) break;
 			sqlite3_stmt *const insertDepth = QUERY(db,
-				"INSERT INTO \"depths\" (\"subdepth\", \"depth\")\n"
+				"INSERT INTO depths (subdepth, depth)\n"
 				"VALUES (?, ?)");
 			for(index_t i = 0; i < list->count; ++i) {
 				EFSFilterExec(list->items[i], db, depth+i+1);
@@ -215,15 +215,15 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 			sqlite3_finalize(insertDepth);
 
 			sqlite3_stmt *const op = QUERY(db,
-				"INSERT INTO \"results\"\n"
-				"	(\"fileID\", \"sort\", \"depth\")\n"
-				"SELECT \"fileID\", MIN(\"sort\"), ?\n"
-				"FROM \"results\"\n"
-				"WHERE \"depth\" IN (\n"
-				"	SELECT \"subdepth\" FROM \"depths\"\n"
-				"	WHERE \"depth\" = ?)\n"
-				"GROUP BY \"fileID\"\n"
-				"HAVING COUNT(\"fileID\") >= ?");
+				"INSERT INTO results\n"
+				"	(file_id, sort, depth)\n"
+				"SELECT file_id, MIN(sort), ?\n"
+				"FROM results\n"
+				"WHERE depth IN (\n"
+				"	SELECT subdepth FROM depths\n"
+				"	WHERE depth = ?)\n"
+				"GROUP BY file_id\n"
+				"HAVING COUNT(file_id) >= ?");
 			sqlite3_bind_int64(op, 1, depth);
 			sqlite3_bind_int64(op, 2, depth);
 			int64_t const threshold =
@@ -232,12 +232,12 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 			EXEC(op);
 
 			sqlite3_stmt *const clearDepths = QUERY(db,
-				"DELETE FROM \"depths\" WHERE \"depth\" = ?");
+				"DELETE FROM depths WHERE depth = ?");
 			sqlite3_bind_int64(clearDepths, 1, depth);
 			EXEC(clearDepths);
 
 			sqlite3_stmt *const clearStack = QUERY(db,
-				"DELETE FROM \"results\" WHERE depth > ?");
+				"DELETE FROM results WHERE depth > ?");
 			sqlite3_bind_int64(clearStack, 1, depth);
 			EXEC(clearStack);
 			break;

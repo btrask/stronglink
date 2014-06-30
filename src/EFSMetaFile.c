@@ -98,14 +98,14 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 	}
 
 	sqlite3_stmt *const insertURI = QUERY(db,
-		"INSERT OR IGNORE INTO \"URIs\" (\"URI\") VALUES (?)");
+		"INSERT OR IGNORE INTO uris (uri) VALUES (?)");
 	sqlite3_stmt *const insertLink = QUERY(db,
-		"INSERT OR IGNORE INTO \"links\"\n"
-		"	(\"sourceURIID\", \"targetURIID\", \"metaFileID\")\n"
-		"SELECT s.\"URIID\", t.\"URIID\", ?\n"
-		"FROM \"URIs\" AS s\n"
-		"INNER JOIN \"URIs\" AS t\n"
-		"WHERE s.\"URI\" = ? AND t.\"URI\" = ?");
+		"INSERT OR IGNORE INTO links\n"
+		"	(source_uri_id, target_uri_id, meta_file_id)\n"
+		"SELECT s.uri_id, t.uri_id, ?\n"
+		"FROM uris AS s\n"
+		"INNER JOIN uris AS t\n"
+		"WHERE s.uri = ? AND t.uri = ?");
 	sqlite3_bind_int64(insertLink, 1, fileID);
 
 	sqlite3_bind_text(insertURI, 1, meta->URI, -1, SQLITE_STATIC);

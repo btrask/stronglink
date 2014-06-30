@@ -81,12 +81,12 @@ static bool_t getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 
 	sqlite3 *const db = EFSRepoDBConnect(repo);
 	sqlite3_stmt *const select = QUERY(db,
-		"SELECT f.\"internalHash\", f.\"type\", f.\"size\"\n"
-		"FROM \"files\" AS f\n"
-		"LEFT JOIN \"fileURIs\" AS f2 ON (f2.\"fileID\" = f.\"fileID\")\n"
-		"LEFT JOIN \"URIs\" AS u ON (u.\"URIID\" = f2.\"URIID\")\n"
-		"WHERE u.\"URI\" = ('hash://' || ? || '/' || ?)\n"
-		"ORDER BY f.\"fileID\" ASC LIMIT 1");
+		"SELECT f.internal_hash, f.file_type, f.file_size\n"
+		"FROM files AS f\n"
+		"LEFT JOIN file_uris AS f2 ON (f2.file_id = f.file_id)\n"
+		"LEFT JOIN uris AS u ON (u.uri_id = f2.uri_id)\n"
+		"WHERE u.uri = ('hash://' || ? || '/' || ?)\n"
+		"ORDER BY f.file_id ASC LIMIT 1");
 	sqlite3_bind_text(select, 1, algo, -1, SQLITE_STATIC); // TODO: Lowercase.
 	sqlite3_bind_text(select, 2, hash, -1, SQLITE_STATIC);
 	int const status = sqlite3_step(select);
@@ -213,10 +213,10 @@ static bool_t query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 	EFSFilterCreateTempTables(db);
 	EFSFilterExec(filter, db, 0);
 	sqlite3_stmt *const select = QUERY(db,
-		"SELECT f.\"internalHash\"\n"
-		"FROM \"files\" AS f\n"
-		"LEFT JOIN \"results\" AS r ON (f.\"fileID\" = r.\"fileID\")\n"
-		"ORDER BY r.\"sort\" DESC LIMIT 50");
+		"SELECT f.internal_hash\n"
+		"FROM files AS f\n"
+		"LEFT JOIN results AS r ON (f.file_id = r.file_id)\n"
+		"ORDER BY r.sort DESC LIMIT 50");
 
 	HTTPConnectionWriteResponse(conn, 200, "OK");
 	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");

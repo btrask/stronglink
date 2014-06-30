@@ -145,21 +145,29 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 
 	EXEC(QUERY(db, "BEGIN TRANSACTION"));
 
-	sqlite3_stmt *const insertFile = QUERY(db,
-		"INSERT OR IGNORE INTO \"files\" (\"internalHash\", \"type\", \"size\")\n"
-		" VALUES (?, ?, ?)");
+	sqlite3_stmt *insertFile = QUERY(db,
+		"INSERT OR IGNORE INTO files (internal_hash, file_type, file_size)\n"
+		"VALUES (?, ?, ?)");
 	sqlite3_bind_text(insertFile, 1, sub->internalHash, -1, SQLITE_STATIC);
 	sqlite3_bind_text(insertFile, 2, sub->type, -1, SQLITE_STATIC);
 	sqlite3_bind_int64(insertFile, 3, sub->size);
-	EXEC(insertFile);
-	int64_t const fileID = sqlite3_last_insert_rowid(db);
+	EXEC(insertFile); insertFile = NULL;
 
+	// We can't use last_insert_rowid() if the file already existed.
+	sqlite3_stmt *selectFile = QUERY(db,
+		"SELECT file_id FROM files\n"
+		"WHERE internal_hash = ? AND file_type = ?");
+	sqlite3_bind_text(selectFile, 1, sub->internalHash, -1, SQLITE_STATIC);
+	sqlite3_bind_text(selectFile, 2, sub->type, -1, SQLITE_STATIC);
+	sqlite3_step(selectFile);
+	int64_t const fileID = sqlite3_column_int64(selectFile, 0);
+	sqlite3_finalize(selectFile); selectFile = NULL;
 
-	sqlite3_stmt *const insertURI = QUERY(db,
-		"INSERT OR IGNORE INTO \"URIs\" (\"URI\") VALUES (?)");
-	sqlite3_stmt *const insertFileURI = QUERY(db,
-		"INSERT OR IGNORE INTO \"fileURIs\" (\"fileID\", \"URIID\")\n"
-		" SELECT ?, \"URIID\" FROM \"URIs\" WHERE \"URI\" = ? LIMIT 1");
+	sqlite3_stmt *insertURI = QUERY(db,
+		"INSERT OR IGNORE INTO uris (uri) VALUES (?)");
+	sqlite3_stmt *insertFileURI = QUERY(db,
+		"INSERT OR IGNORE INTO file_uris (file_id, uri_id)\n"
+		"SELECT ?, uri_id FROM uris WHERE uri = ? LIMIT 1");
 	for(index_t i = 0; i < URIListGetCount(sub->URIs); ++i) {
 		strarg_t const URI = URIListGetURI(sub->URIs, i);
 		sqlite3_bind_text(insertURI, 1, URI, -1, SQLITE_STATIC);
@@ -169,19 +177,19 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 		sqlite3_bind_text(insertFileURI, 2, URI, -1, SQLITE_STATIC);
 		sqlite3_step(insertFileURI); sqlite3_reset(insertFileURI);
 	}
-	sqlite3_finalize(insertURI);
-	sqlite3_finalize(insertFileURI);
+	sqlite3_finalize(insertURI); insertURI = NULL;
+	sqlite3_finalize(insertFileURI); insertFileURI = NULL;
 
 
 	// TODO: Add permissions for other specified users too.
-	sqlite3_stmt *const insertFilePermission = QUERY(db,
-		"INSERT OR IGNORE INTO \"filePermissions\"\n"
-		"	(\"fileID\", \"userID\", \"grantorID\")\n"
-		" VALUES (?, ?, ?)");
+	sqlite3_stmt *insertFilePermission = QUERY(db,
+		"INSERT OR IGNORE INTO file_permissions\n"
+		"	(file_id, user_id, meta_file_id)\n"
+		"VALUES (?, ?, ?)");
 	sqlite3_bind_int64(insertFilePermission, 1, fileID);
 	sqlite3_bind_int64(insertFilePermission, 2, userID);
-	sqlite3_bind_int64(insertFilePermission, 3, userID);
-	EXEC(insertFilePermission);
+	sqlite3_bind_int64(insertFilePermission, 3, fileID);
+	EXEC(insertFilePermission); insertFilePermission = NULL;
 
 	strarg_t const preferredURI = URIListGetURI(sub->URIs, 0);
 	if(EFSMetaFileStore(sub->meta, fileID, preferredURI, db) < 0) {

@@ -73,11 +73,11 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const usernam
 	// TODO: What happens if the cookie and the username don't agree? The username should win.
 
 	sqlite3_stmt *select = QUERY(db,
-		"SELECT u.\"userID\", u.\"passhash\", s.\"sessionHash\"\n"
-		"FROM \"users\" AS u\n"
-		"LEFT JOIN \"sessions\" AS s ON (s.\"userID\" = u.\"userID\")\n"
-		"WHERE (u.\"username\" = ?1 OR ?1 IS NULL)\n"
-		"AND (s.\"sessionID\" = ?2 OR ?2 = -1) LIMIT 1");
+		"SELECT u.user_id, u.password_hash, s.session_hash\n"
+		"FROM users AS u\n"
+		"LEFT JOIN sessions AS s ON (s.user_id = u.user_id)\n"
+		"WHERE (u.username = ?1 OR ?1 IS NULL)\n"
+		"AND (s.session_id = ?2 OR ?2 = -1) LIMIT 1");
 	sqlite3_bind_text(select, 1, username, -1, SQLITE_TRANSIENT);
 	sqlite3_bind_int64(select, 2, sessionID);
 	if(SQLITE_ROW != sqlite3_step(select)) {
@@ -150,10 +150,10 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 	EFSFilterCreateTempTables(db);
 	EFSFilterExec(filter, db, 0);
 	sqlite3_stmt *const select = QUERY(db,
-		"SELECT ('hash://' || ? || '/' || f.\"internalHash\")\n"
-		"FROM \"files\" AS f\n"
-		"INNER JOIN \"results\" AS r ON (r.\"fileID\" = f.\"fileID\")\n"
-		"ORDER BY r.\"sort\" DESC LIMIT ?");
+		"SELECT ('hash://' || ? || '/' || f.internal_hash)\n"
+		"FROM files AS f\n"
+		"INNER JOIN results AS r ON (r.file_id = f.file_id)\n"
+		"ORDER BY r.sort DESC LIMIT ?");
 	sqlite3_bind_text(select, 1, "sha256", -1, SQLITE_STATIC);
 	sqlite3_bind_int64(select, 2, max);
 	URIListRef const URIs = URIListCreate();
@@ -171,11 +171,11 @@ EFSFileInfo *EFSSessionCopyFileInfo(EFSSessionRef const session, strarg_t const 
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	sqlite3 *const db = EFSRepoDBConnect(repo);
 	sqlite3_stmt *const select = QUERY(db,
-		"SELECT f.\"internalHash\", f.\"type\", f.\"size\"\n"
-		"FROM \"files\" AS f\n"
-		"LEFT JOIN \"fileURIs\" AS f2 ON (f2.\"fileID\" = f.\"fileID\")\n"
-		"LEFT JOIN \"URIs\" AS u ON (u.\"URIID\" = f2.\"URIID\")\n"
-		"WHERE u.\"URI\" = ? LIMIT 1");
+		"SELECT f.internal_hash, f.file_type, f.file_size\n"
+		"FROM files AS f\n"
+		"LEFT JOIN file_uris AS f2 ON (f2.file_id = f.file_id)\n"
+		"LEFT JOIN uris AS u ON (u.uri_id = f2.uri_id)\n"
+		"WHERE u.uri = ? LIMIT 1");
 	sqlite3_bind_text(select, 1, URI, -1, SQLITE_STATIC);
 	if(SQLITE_ROW != sqlite3_step(select)) {
 		sqlite3_finalize(select);
@@ -212,7 +212,7 @@ str_t *EFSSessionCreateCookie(EFSSessionRef const session) {
 	}
 	sqlite3 *db = EFSRepoDBConnect(session->repo);
 	sqlite3_stmt *insert = QUERY(db,
-		"INSERT INTO \"sessions\" (\"sessionHash\", \"userID\")\n"
+		"INSERT INTO sessions (session_hash, user_id)\n"
 		"SELECT ?, ?");
 	sqlite3_bind_text(insert, 1, sessionHash, -1, SQLITE_STATIC);
 	sqlite3_bind_int64(insert, 2, session->userID);
