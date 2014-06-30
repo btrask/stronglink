@@ -37,6 +37,7 @@ OBJECTS := \
 	build/Template.o \
 	build/URIList.o \
 	build/async.o \
+	build/async_rwlock.o \
 	build/fs.o \
 	build/http/Headers.o \
 	build/http/HTTPConnection.o \

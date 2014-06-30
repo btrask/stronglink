@@ -51,4 +51,17 @@ ssize_t async_fs_fstat(uv_file file, uv_stat_t *stats);
 
 int async_random(unsigned char *const buf, size_t const len);
 
+typedef struct async_rwlock_s async_rwlock_t;
+
+async_rwlock_t *async_rwlock_create(void);
+void async_rwlock_free(async_rwlock_t *const lock);
+void async_rwlock_rdlock(async_rwlock_t *const lock);
+int async_rwlock_tryrdlock(async_rwlock_t *const lock);
+void async_rwlock_rdunlock(async_rwlock_t *const lock);
+void async_rwlock_wrlock(async_rwlock_t *const lock);
+int async_rwlock_trywrlock(async_rwlock_t *const lock);
+void async_rwlock_wrunlock(async_rwlock_t *const lock);
+int async_rwlock_rdcheck(async_rwlock_t *const lock);
+int async_rwlock_wrcheck(async_rwlock_t *const lock);
+
 #endif
