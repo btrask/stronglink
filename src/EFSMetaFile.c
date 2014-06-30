@@ -45,7 +45,9 @@ EFSMetaFileRef EFSMetaFileCreate(strarg_t const type) {
 }
 void EFSMetaFileFree(EFSMetaFileRef const meta) {
 	if(!meta) return;
-	yajl_free(meta->parser); meta->parser = NULL;
+	if(meta->parser) {
+		yajl_free(meta->parser); meta->parser = NULL;
+	}
 	FREE(&meta->URI);
 	FREE(&meta->title);
 	FREE(&meta->desc);
