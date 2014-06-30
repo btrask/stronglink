@@ -1,6 +1,6 @@
 #include "async.h"
 #include "EarthFS.h"
-#include "HTTPServer.h"
+#include "http/HTTPServer.h"
 
 void sqlite_async_register(void);
 

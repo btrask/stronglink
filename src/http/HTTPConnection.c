@@ -1,5 +1,5 @@
 #define _GNU_SOURCE
-#include "async.h"
+#include "../async.h"
 #include "HTTPConnection.h"
 
 #define WRITE_BUFFER_SIZE (1024 * 8)

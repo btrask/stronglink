@@ -1,7 +1,7 @@
 #ifndef HTTPSERVER_H
 #define HTTPSERVER_H
 
-#include "common.h"
+#include "../common.h"
 #include "HTTPConnection.h"
 
 typedef struct HTTPServer* HTTPServerRef;

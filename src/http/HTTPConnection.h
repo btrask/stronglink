@@ -2,8 +2,8 @@
 #define HTTPCONNECTION_H
 
 #include <uv.h>
-#include "../deps/http_parser/http_parser.h"
-#include "common.h"
+#include "../../deps/http_parser/http_parser.h"
+#include "../common.h"
 
 typedef enum http_method HTTPMethod;
 

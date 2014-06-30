@@ -1,5 +1,5 @@
 #include "async.h"
-#include "HTTPServer.h"
+#include "http/HTTPServer.h"
 
 typedef struct Template* TemplateRef;
 

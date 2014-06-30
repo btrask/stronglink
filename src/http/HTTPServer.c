@@ -1,6 +1,6 @@
 #define _GNU_SOURCE
 #include <uv.h>
-#include "async.h"
+#include "../async.h"
 #include "HTTPServer.h"
 
 #define READ_BUFFER_SIZE (1024 * 8)

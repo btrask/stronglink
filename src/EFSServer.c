@@ -1,9 +1,9 @@
 #define _GNU_SOURCE
 #include "common.h"
 #include "EarthFS.h"
-#include "HTTPServer.h"
-#include "MultipartForm.h"
-#include "QueryString.h"
+#include "http/HTTPServer.h"
+#include "http/MultipartForm.h"
+#include "http/QueryString.h"
 
 typedef struct {
 	strarg_t content_type;

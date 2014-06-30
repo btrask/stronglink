@@ -1,4 +1,4 @@
-#include "common.h"
+#include "../common.h"
 
 size_t QSReadField(strarg_t const qs);
 size_t QSReadValue(strarg_t const qs);

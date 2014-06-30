@@ -5,9 +5,9 @@
 #include "async.h"
 #include "fs.h"
 #include "EarthFS.h"
-#include "HTTPServer.h"
-#include "QueryString.h"
 #include "Template.h"
+#include "http/HTTPServer.h"
+#include "http/QueryString.h"
 
 #define RESULTS_MAX 50
 #define BUFFER_SIZE (1024 * 8)

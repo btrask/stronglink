@@ -10,11 +10,12 @@ HEADERS := \
 	src/async.h \
 	src/fs.h \
 	src/EarthFS.h \
-	src/HTTPConnection.h \
-	src/HTTPServer.h \
-	src/MultipartForm.h \
-	src/QueryString.h \
 	src/URIList.h \
+	src/Template.h \
+	src/http/HTTPConnection.h \
+	src/http/HTTPServer.h \
+	src/http/MultipartForm.h \
+	src/http/QueryString.h \
 	deps/crypt_blowfish-1.0.4/ow-crypt.h \
 	deps/http_parser/http_parser.h \
 	deps/libco/libco.h \
@@ -31,14 +32,14 @@ OBJECTS := \
 	build/EFSFilter.o \
 	build/EFSJSONFilterBuilder.o \
 	build/EFSServer.o \
-	build/HTTPConnection.o \
-	build/HTTPServer.o \
-	build/MultipartForm.o \
-	build/QueryString.o \
 	build/Template.o \
 	build/URIList.o \
 	build/async.o \
 	build/fs.o \
+	build/http/HTTPConnection.o \
+	build/http/HTTPServer.o \
+	build/http/MultipartForm.o \
+	build/http/QueryString.o \
 	build/sqlite_async.o \
 	build/crypt/crypt_blowfish.o \
 	build/crypt/crypt_gensalt.o \
