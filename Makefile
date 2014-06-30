@@ -39,13 +39,13 @@ OBJECTS := \
 	build/async.o \
 	build/async_mutex.o \
 	build/async_rwlock.o \
+	build/async_sqlite.o \
 	build/fs.o \
 	build/http/Headers.o \
 	build/http/HTTPConnection.o \
 	build/http/HTTPServer.o \
 	build/http/MultipartForm.o \
 	build/http/QueryString.o \
-	build/sqlite_async.o \
 	build/crypt/crypt_blowfish.o \
 	build/crypt/crypt_gensalt.o \
 	build/crypt/wrapper.o \

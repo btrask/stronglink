@@ -2,8 +2,6 @@
 #include "EarthFS.h"
 #include "http/HTTPServer.h"
 
-void sqlite_async_register(void);
-
 extern HeaderFieldList const EFSHeaderFieldList;
 bool_t EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI);
 
@@ -41,7 +39,7 @@ static void term(void) {
 int main(int const argc, char const *const *const argv) {
 	signal(SIGPIPE, SIG_IGN);
 	async_init();
-	sqlite_async_register();
+	async_sqlite_register();
 
 	// Even our init code wants to use async I/O.
 	co_switch(co_create(STACK_SIZE, init));

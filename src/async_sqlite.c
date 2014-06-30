@@ -1,6 +1,9 @@
+#include <assert.h>
+#include <stdio.h> /* TODO: Use async_fs instead */
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include "../deps/sqlite/sqlite3.h"
-#include "common.h"
 #include "async.h"
 
 #define DEBUG_LOG() //fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
@@ -13,8 +16,8 @@
 #elif FILE_LOCK_MODE==1
 #define QUEUE_MAX 10
 static cothread_t queue[QUEUE_MAX];
-static index_t queue_start = 0;
-static count_t queue_length = 0;
+static unsigned queue_start = 0;
+static unsigned queue_length = 0;
 #elif FILE_LOCK_MODE==2
 static sqlite3_mutex *lock;
 #else
@@ -31,7 +34,7 @@ typedef struct {
 static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_file *const file, int const sqflags, int *const outFlags) {
 	DEBUG_LOG();
 	int uvflags = 0;
-	bool_t const usetmp = !inpath;
+	int const usetmp = !inpath;
 	if(sqflags & SQLITE_OPEN_EXCLUSIVE || usetmp) uvflags |= O_EXCL;
 	if(sqflags & SQLITE_OPEN_CREATE || usetmp) uvflags |= O_CREAT;
 	if(sqflags & SQLITE_OPEN_READWRITE) uvflags |= O_RDWR;
@@ -77,9 +80,9 @@ static int async_delete(sqlite3_vfs *const vfs, char const *const path, int cons
 	if(ENOENT == unlinkresult) return SQLITE_OK;
 	if(unlinkresult < 0) return SQLITE_IOERR_DELETE;
 	if(syncDir) {
-		str_t dirname[MAXPATHNAME+1];
+		char dirname[MAXPATHNAME+1];
 		sqlite3_snprintf(MAXPATHNAME+1, dirname, "%s", path);
-		index_t i = strlen(dirname);
+		unsigned i = strlen(dirname);
 		for(; i > 1 && '/' != dirname[i]; ++i);
 		dirname[i] = '\0';
 
@@ -376,7 +379,7 @@ static async_mutex_t **global_mutexes;
 
 static async_mutex_t *async_mutex_create_sqlite(int const type) {
 	if(type > SQLITE_MUTEX_RECURSIVE) {
-		assertf(type < GLOBAL_MUTEX_COUNT, "Unknown static mutex %d", type);
+		assert(type < GLOBAL_MUTEX_COUNT && "Unknown static mutex");
 		return global_mutexes[type - SQLITE_MUTEX_RECURSIVE - 1];
 	}
 	return async_mutex_create();
@@ -397,17 +400,17 @@ static int async_mutex_notheld(async_mutex_t *const mutex) {
 static int async_mutex_init(void) {
 	if(global_mutexes) return SQLITE_OK;
 	global_mutexes = calloc(GLOBAL_MUTEX_COUNT, sizeof(async_mutex_t *));
-	for(index_t i = 0; i < GLOBAL_MUTEX_COUNT; ++i) {
+	for(unsigned i = 0; i < GLOBAL_MUTEX_COUNT; ++i) {
 		global_mutexes[i] = async_mutex_create_sqlite(SQLITE_MUTEX_RECURSIVE);
 	}
 	return SQLITE_OK;
 }
 static int async_mutex_end(void) {
 	if(!global_mutexes) return SQLITE_OK;
-	for(index_t i = 0; i < GLOBAL_MUTEX_COUNT; ++i) {
+	for(unsigned i = 0; i < GLOBAL_MUTEX_COUNT; ++i) {
 		async_mutex_free(global_mutexes[i]);
 	}
-	FREE(&global_mutexes);
+	free(global_mutexes); global_mutexes = NULL;
 	return SQLITE_OK;
 }
 
@@ -423,16 +426,16 @@ static sqlite3_mutex_methods const async_mutex_methods = {
 	.xMutexNotheld = (int (*)(sqlite3_mutex *))async_mutex_notheld,
 };
 
-void sqlite_async_register(void) {
+void async_sqlite_register(void) {
 	int err = sqlite3_config(SQLITE_CONFIG_MUTEX, &async_mutex_methods);
-	assertf(SQLITE_OK == err, "SQLite custom mutexes couldn't be set");
+	assert(SQLITE_OK == err && "SQLite custom mutexes couldn't be set");
 #if FILE_LOCK_MODE==0
 #elif FILE_LOCK_MODE==1
 #elif FILE_LOCK_MODE==2
 	lock = sqlite3_mutex_alloc(SQLITE_MUTEX_RECURSIVE);
-	assertf(lock, "File lock creation failed");
+	assert(lock && "File lock creation failed");
 #endif
 	err = sqlite3_vfs_register(&async_vfs, 1);
-	assertf(SQLITE_OK == err, "SQLite custom VFS couldn't be registered");
+	assert(SQLITE_OK == err && "SQLite custom VFS couldn't be registered");
 }
 
