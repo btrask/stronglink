@@ -29,15 +29,15 @@ void EFSJSONFilterBuilderFree(EFSJSONFilterBuilderRef const builder) {
 }
 void EFSJSONFilterBuilderParse(EFSJSONFilterBuilderRef const builder, strarg_t const json, size_t const len) {
 	if(!builder) return;
-	BTAssert(builder->parser, "Builder in invalid state");
+	assertf(builder->parser, "Builder in invalid state");
 	(void)yajl_parse(builder->parser, (unsigned char const *)json, len);
 }
 EFSFilterRef EFSJSONFilterBuilderDone(EFSJSONFilterBuilderRef const builder) {
 	if(!builder) return NULL;
-	BTAssert(builder->parser, "Builder in invalid state");
+	assertf(builder->parser, "Builder in invalid state");
 	yajl_status const err = yajl_complete_parse(builder->parser);
 	yajl_free(builder->parser); builder->parser = NULL;
-	BTAssert(-1 == builder->depth, "Builder ended at invalid depth %d", builder->depth);
+	assertf(-1 == builder->depth, "Builder ended at invalid depth %d", builder->depth);
 	EFSFilterRef const filter = builder->stack[0];
 	builder->stack[0] = NULL;
 	return yajl_status_ok == err ? filter : NULL;
@@ -77,12 +77,12 @@ static int yajl_string(EFSJSONFilterBuilderRef const builder, strarg_t const  st
 static int yajl_start_array(EFSJSONFilterBuilderRef const builder) {
 	if(builder->depth >= 0 && !builder->stack[builder->depth]) return false; // Filter where type string was expected.
 	++builder->depth;
-	BTAssert(!builder->stack[builder->depth], "Can't re-open last filter");
+	assertf(!builder->stack[builder->depth], "Can't re-open last filter");
 	if(builder->depth > DEPTH_MAX) return false;
 	return true;
 }
 static int yajl_end_array(EFSJSONFilterBuilderRef const builder) {
-	BTAssert(builder->depth >= 0, "Parser ended too many arrays");
+	assertf(builder->depth >= 0, "Parser ended too many arrays");
 	EFSFilterRef const filter = builder->stack[builder->depth];
 	if(!filter) return false; // Empty array.
 	// TODO: Validate args.

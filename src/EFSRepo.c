@@ -10,13 +10,19 @@ struct EFSRepo {
 };
 
 EFSRepoRef EFSRepoCreate(strarg_t const dir) {
-	BTAssert(dir, "EFSRepo dir required");
+	assertf(dir, "EFSRepo dir required");
 	EFSRepoRef const repo = calloc(1, sizeof(struct EFSRepo));
 	repo->dir = strdup(dir);
-	(void)BTErrno(asprintf(&repo->dataDir, "%s/data", dir));
-	(void)BTErrno(asprintf(&repo->tempDir, "%s/tmp", dir));
-	(void)BTErrno(asprintf(&repo->cacheDir, "%s/cache", dir));
-	(void)BTErrno(asprintf(&repo->DBPath, "%s/efs.db", dir));
+	// TODO: If asprintf() fails, the string pointer is undefined.
+	if(
+		asprintf(&repo->dataDir, "%s/data", dir) < 0 ||
+		asprintf(&repo->tempDir, "%s/tmp", dir) < 0 ||
+		asprintf(&repo->cacheDir, "%s/cache", dir) < 0 ||
+		asprintf(&repo->DBPath, "%s/efs.db", dir) < 0
+	) {
+		EFSRepoFree(repo);
+		return NULL;
+	}
 	return repo;
 }
 void EFSRepoFree(EFSRepoRef const repo) {
@@ -60,17 +66,17 @@ sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	// TODO: Connection pooling.
 	sqlite3 *db = NULL;
-	(void)BTSQLiteErr(sqlite3_open_v2(
+	if(SQLITE_OK != sqlite3_open_v2(
 		repo->DBPath,
 		&db,
 		SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX,
 		NULL
-	));
-//	BTSQLiteErr(sqlite3_busy_timeout(db, 5));
+	)) return NULL;
+//	sqlite3_busy_timeout(db, 5);
 	return db;
 }
 void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 *const db) {
 	if(!repo) return;
-	(void)sqlite3_close(db);
+	sqlite3_close(db);
 }
 

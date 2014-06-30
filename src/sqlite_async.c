@@ -385,7 +385,7 @@ static async_mutex **global_mutexes;
 
 static async_mutex *async_mutexAlloc(int const type) {
 	if(type > SQLITE_MUTEX_RECURSIVE) {
-		BTAssert(type < GLOBAL_MUTEX_COUNT, "Unknown static mutex %d", type);
+		assertf(type < GLOBAL_MUTEX_COUNT, "Unknown static mutex %d", type);
 		return global_mutexes[type - SQLITE_MUTEX_RECURSIVE - 1];
 	}
 	async_mutex *const m = calloc(1, sizeof(async_mutex));
@@ -398,7 +398,7 @@ static async_mutex *async_mutexAlloc(int const type) {
 	return m;
 }
 static void async_mutexFree(async_mutex *const m) {
-	BTAssert(!m->count, "Mutex freed while held %p", m);
+	assertf(!m->count, "Mutex freed while held %p", m);
 	free(m);
 }
 static void async_mutexEnter(async_mutex *const m) {
@@ -408,13 +408,13 @@ static void async_mutexEnter(async_mutex *const m) {
 		return;
 	}
 	if(++m->count > m->size) {
-		BTAssert(0, "Mutex queue growth not yet implemented");
+		assertf(0, "Mutex queue growth not yet implemented");
 		// TODO: Grow.
 	}
 	m->queue[(m->current + m->count - 1) % m->size] = active;
 	if(m->count > 1) co_switch(yield);
-	BTAssert(active == m->queue[m->current], "Wrong thread acquired lock");
-	BTAssert(0 == m->recursion, "Acquired lock in invalid state");
+	assertf(active == m->queue[m->current], "Wrong thread acquired lock");
+	assertf(0 == m->recursion, "Acquired lock in invalid state");
 	m->recursion = 1;
 }
 static int async_mutexTry(async_mutex *const m) {
@@ -425,8 +425,8 @@ static int async_mutexTry(async_mutex *const m) {
 }
 static void async_mutexLeave(async_mutex *const m) {
 	cothread_t const active = co_active();
-	BTAssert(m->count, "Leaving empty mutex %p", m);
-	BTAssert(active == m->queue[m->current], "Leaving someone else's mutex %p", m);
+	assertf(m->count, "Leaving empty mutex %p", m);
+	assertf(active == m->queue[m->current], "Leaving someone else's mutex %p", m);
 	if(--m->recursion) return;
 	m->current = (m->current + 1) % m->size;
 	if(!--m->count) return;
@@ -476,12 +476,15 @@ static sqlite3_mutex_methods const async_mutex_methods = {
 };
 
 void sqlite_async_register(void) {
-	BTSQLiteErr(sqlite3_config(SQLITE_CONFIG_MUTEX, &async_mutex_methods));
+	int err = sqlite3_config(SQLITE_CONFIG_MUTEX, &async_mutex_methods);
+	assertf(SQLITE_OK == err, "SQLite custom mutexes couldn't be set");
 #if FILE_LOCK_MODE==0
 #elif FILE_LOCK_MODE==1
 #elif FILE_LOCK_MODE==2
 	lock = sqlite3_mutex_alloc(SQLITE_MUTEX_RECURSIVE);
+	assertf(lock, "File lock creation failed");
 #endif
-	BTSQLiteErr(sqlite3_vfs_register(&async_vfs, 1));
+	err = sqlite3_vfs_register(&async_vfs, 1);
+	assertf(SQLITE_OK == err, "SQLite custom VFS couldn't be registered");
 }
 

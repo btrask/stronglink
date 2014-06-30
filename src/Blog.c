@@ -283,7 +283,7 @@ static bool_t getSubmit(BlogRef const blog, HTTPConnectionRef const conn, HTTPMe
 
 
 BlogRef BlogCreate(EFSRepoRef const repo) {
-	BTAssert(repo, "Blog requires valid repo");
+	assertf(repo, "Blog requires valid repo");
 
 	BlogRef const blog = calloc(1, sizeof(struct Blog));
 	blog->repo = repo;

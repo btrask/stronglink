@@ -52,7 +52,7 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 
 EFSHasherRef EFSHasherCreate(strarg_t const type);
 void EFSHasherFree(EFSHasherRef const hasher);
-void EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, ssize_t const len);
+err_t EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, size_t const len);
 URIListRef EFSHasherEnd(EFSHasherRef const hasher);
 strarg_t EFSHasherGetInternalHash(EFSHasherRef const hasher);
 

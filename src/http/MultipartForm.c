@@ -87,7 +87,7 @@ ssize_t FormPartGetBuffer(FormPartRef const part, byte_t const **const buf) {
 
 static err_t readOnce(FormPartRef const part) {
 	MultipartFormRef const form = part->form;
-	BTAssert(!part->chunkLength, "Reading when we already have a chunk");
+	assertf(!part->chunkLength, "Reading when we already have a chunk");
 	if(form->eof) return -1;
 	if(part->eof) return -1;
 	if(!form->len) {
@@ -122,15 +122,15 @@ static int on_header_value(multipart_parser *const parser, strarg_t const at, si
 static int on_part_data(multipart_parser *const parser, char const *const at, size_t const len) {
 	if(!len) return 0;
 	FormPartRef const part = multipart_parser_get_data(parser);
-	BTAssert(!part->chunkLength, "Form part already has chunk");
-	BTAssert(!part->eof, "Form part already ended");
+	assertf(!part->chunkLength, "Form part already has chunk");
+	assertf(!part->eof, "Form part already ended");
 	part->chunk = (byte_t const *)at;
 	part->chunkLength = len;
 	return -1; // Always stop after one chunk.
 }
 static int on_part_data_end(multipart_parser *const parser) {
 	FormPartRef const part = multipart_parser_get_data(parser);
-	BTAssert(!part->eof, "Form part duplicate end of file");
+	assertf(!part->eof, "Form part duplicate end of file");
 	part->eof = 1;
 	return -1; // Always stop after the end of a part.
 }

@@ -123,7 +123,7 @@ err_t TemplateWriteHTTPChunk(TemplateRef const t, TemplateArg const args[], coun
 	return TemplateWrite(t, args, argc, (int (*)())HTTPConnectionWriteChunkv, conn);
 }
 err_t TemplateWriteFile(TemplateRef const t, TemplateArg const args[], count_t const argc, uv_file const file) {
-	BTAssert(sizeof(void *) >= sizeof(file), "Can't cast uv_file (%d) to void * (%d)", sizeof(file), sizeof(void *));
+	assertf(sizeof(void *) >= sizeof(file), "Can't cast uv_file (%d) to void * (%d)", sizeof(file), sizeof(void *));
 	return TemplateWrite(t, args, argc, (int (*)())async_fs_write, (void *)file);
 }
 

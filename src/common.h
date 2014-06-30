@@ -38,29 +38,13 @@ typedef int err_t;
 	__a > __b ? __a - __b : 0; \
 })
 
-#define BTAssert(x, fmt, ...) ({ \
+#define assertf(x, fmt, ...) ({ \
 	if(0 == (x)) { \
-		fprintf(stderr, "%s:%d: assertion '%s' failed\n", __PRETTY_FUNCTION__, __LINE__, #x); \
+		fprintf(stderr, "%s:%d %s: assertion '%s' failed\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, #x); \
 		fprintf(stderr, fmt, ##__VA_ARGS__); \
 		fprintf(stderr, "\n"); \
 		abort(); \
 	} \
-})
-#define BTErrno(x) ({ \
-	int const __x = (x); \
-	if(-1 == __x) { \
-		str_t msg[255+1] = {}; \
-		(void)strerror_r(errno, msg, 255); \
-		fprintf(stderr, "%s:%d: %d == %s (%s)\n", __PRETTY_FUNCTION__, __LINE__, __x, #x, msg); \
-	} \
-	__x; \
-})
-#define BTSQLiteErr(x) ({ \
-	int const __x = (x); \
-	if(SQLITE_OK != __x && SQLITE_ROW != __x && SQLITE_DONE != __x) { \
-		fprintf(stderr, "%s:%d: %d == %s (%s)\n", __PRETTY_FUNCTION__, __LINE__, __x, #x, sqlite3_errstr(__x)); \
-	} \
-	__x; \
 })
 
 #define FREE(ptrptr) ({ \
@@ -69,16 +53,18 @@ typedef int err_t;
 	*__x = NULL; \
 })
 
+// TODO: Log the query string if prepare fails.
 #define QUERY(db, str) ({ \
 	sqlite3_stmt *__stmt = NULL; \
-	str_t const __str[] = (str);\
-	(void)BTSQLiteErr(sqlite3_prepare_v2((db), __str, sizeof(__str), &__stmt, NULL)); \
+	str_t const __str[] = (str); \
+	sqlite3_prepare_v2((db), __str, sizeof(__str), &__stmt, NULL); \
 	__stmt; \
 })
 #define EXEC(stmt) ({ \
 	sqlite3_stmt *const __stmt = (stmt); \
-	(void)BTSQLiteErr(sqlite3_step(__stmt)); \
+	int const status = sqlite3_step(__stmt); \
 	(void)sqlite3_finalize(__stmt); \
+	status; \
 })
 
 // Compares nul-terminated string `a` with substring of `blen` at `b`.

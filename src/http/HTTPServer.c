@@ -15,7 +15,7 @@ struct HTTPServer {
 static void connection_cb(uv_stream_t *const socket, int const status);
 
 HTTPServerRef HTTPServerCreate(HTTPListener const listener, void *const context, HeaderFieldList const *const fields) {
-	BTAssert(listener, "HTTPServer listener required");
+	assertf(listener, "HTTPServer listener required");
 	HTTPServerRef const server = calloc(1, sizeof(struct HTTPServer));
 	server->listener = listener;
 	server->context = context;
@@ -31,7 +31,7 @@ void HTTPServerFree(HTTPServerRef const server) {
 
 int HTTPServerListen(HTTPServerRef const server, uint16_t const port, strarg_t const address) {
 	if(!server) return 0;
-	BTAssert(!server->socket, "HTTPServer already listening");
+	assertf(!server->socket, "HTTPServer already listening");
 	// INADDR_ANY, INADDR_LOOPBACK
 	server->socket = malloc(sizeof(uv_tcp_t));
 	if(!server->socket) return -1;

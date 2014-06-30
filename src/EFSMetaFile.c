@@ -191,13 +191,13 @@ static int yajl_map_key(EFSMetaFileRef const meta, strarg_t const key, size_t co
 		case s_skip: break;
 		case s_top:
 			meta->state = s_skip;
-			BTAssert(0 == meta->skip, "Invalid skip depth");
+			assertf(0 == meta->skip, "Invalid skip depth");
 			if(substr("metaURI", key, len)) meta->state = s_meta_uri;
 			if(substr("links", key, len)) meta->state = s_link_start;
 			if(substr("description", key, len)) meta->state = s_desc;
 			if(substr("title", key, len)) meta->state = s_title;
 			break;
-		default: BTAssert(0, "Unexpected map key in state %d", meta->state);
+		default: assertf(0, "Unexpected map key in state %d", meta->state);
 	}
 	return true;
 }
@@ -205,7 +205,7 @@ static int yajl_end_map(EFSMetaFileRef const meta) {
 	switch(meta->state) {
 		case s_skip: if(!--meta->skip) meta->state = s_top; break;
 		case s_top: meta->state = s_end; break;
-		default: BTAssert(0, "Unexpected map end in state %d", meta->state);
+		default: assertf(0, "Unexpected map end in state %d", meta->state);
 	}
 	return true;
 }
@@ -222,7 +222,7 @@ static int yajl_end_array(EFSMetaFileRef const meta) {
 		case s_skip: if(!--meta->skip) meta->state = s_top; break;
 		case s_link_start:
 		case s_link: meta->state = s_top; break;
-		default: BTAssert(0, "Unexpected array end in state %d", meta->state);
+		default: assertf(0, "Unexpected array end in state %d", meta->state);
 	}
 	return true;
 }

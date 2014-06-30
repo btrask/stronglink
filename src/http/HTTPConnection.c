@@ -29,8 +29,8 @@ static err_t readOnce(HTTPConnectionRef const conn);
 static err_t readHeaders(HTTPConnectionRef const conn);
 
 HTTPConnectionRef HTTPConnectionCreateIncoming(uv_tcp_t *const stream, http_parser *const parser, HeaderFieldList const *const fields, byte_t *const buf, size_t const len) {
-	BTAssert(stream, "HTTPConnection stream required");
-	BTAssert(parser, "HTTPConnection parser required");
+	assertf(stream, "HTTPConnection stream required");
+	assertf(parser, "HTTPConnection parser required");
 	HTTPConnectionRef const conn = calloc(1, sizeof(struct HTTPConnection));
 	if(!conn) return NULL;
 	conn->stream = stream;
@@ -45,7 +45,7 @@ HTTPConnectionRef HTTPConnectionCreateIncoming(uv_tcp_t *const stream, http_pars
 		HTTPConnectionFree(conn);
 		return NULL;
 	}
-	BTAssert(conn->requestURI[0], "No URI in request");
+	assertf(conn->requestURI[0], "No URI in request");
 	return conn;
 }
 void HTTPConnectionFree(HTTPConnectionRef const conn) {
@@ -99,7 +99,7 @@ void HTTPConnectionDrain(HTTPConnectionRef const conn) {
 		conn->chunk = NULL;
 		conn->chunkLength = 0;
 	} while(readOnce(conn) >= 0);
-	BTAssert(conn->messageEOF, "Connection drain didn't reach EOF");
+	assertf(conn->messageEOF, "Connection drain didn't reach EOF");
 }
 
 ssize_t HTTPConnectionWrite(HTTPConnectionRef const conn, byte_t const *const buf, size_t const len) {
@@ -323,9 +323,9 @@ static int on_headers_complete(http_parser *const parser) {
 }
 static int on_body(http_parser *const parser, char const *const at, size_t const len) {
 	HTTPConnectionRef const conn = parser->data;
-	BTAssert(conn->requestURI[0], "Body chunk received out of order");
-	BTAssert(!conn->chunkLength, "Chunk already waiting");
-	BTAssert(!conn->messageEOF, "Message already complete");
+	assertf(conn->requestURI[0], "Body chunk received out of order");
+	assertf(!conn->chunkLength, "Chunk already waiting");
+	assertf(!conn->messageEOF, "Message already complete");
 	conn->chunk = (byte_t const *)at;
 	conn->chunkLength = len;
 	return 0;

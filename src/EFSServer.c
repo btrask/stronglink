@@ -25,7 +25,7 @@ static EFSMode method2mode(HTTPMethod const method) {
 		case HTTP_PUT:
 			return EFS_RDWR;
 		default:
-			BTAssert(0, "Unknown method %d", (int)method);
+			assertf(0, "Unknown method %d", (int)method);
 	}
 }
 

@@ -59,7 +59,7 @@ void EFSFilterFree(EFSFilterRef const filter) {
 			FREE(&filter->data.filters);
 			break;
 		} default:
-			BTAssert(0, "Invalid filter type %d", (int)filter->type);
+			assertf(0, "Invalid filter type %d", (int)filter->type);
 	}
 	free(filter);
 }
@@ -242,7 +242,7 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 			EXEC(clearStack);
 			break;
 		} default: {
-			BTAssert(0, "Unrecognized filter type %d\n", (int)filter->type);
+			assertf(0, "Unrecognized filter type %d\n", (int)filter->type);
 		}
 	}
 }
