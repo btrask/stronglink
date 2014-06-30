@@ -12,6 +12,7 @@ HEADERS := \
 	src/EarthFS.h \
 	src/URIList.h \
 	src/Template.h \
+	src/http/Headers.h \
 	src/http/HTTPConnection.h \
 	src/http/HTTPServer.h \
 	src/http/MultipartForm.h \
@@ -36,6 +37,7 @@ OBJECTS := \
 	build/URIList.o \
 	build/async.o \
 	build/fs.o \
+	build/http/Headers.o \
 	build/http/HTTPConnection.o \
 	build/http/HTTPServer.o \
 	build/http/MultipartForm.o \
