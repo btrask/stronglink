@@ -57,20 +57,43 @@ err_t EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_
 	if(!meta) return 0;
 	meta->size += len;
 	if(meta->size > META_MAX) return -1;
+	if(!meta->parser) return -1;
 	yajl_status const status = yajl_parse(meta->parser, buf, len);
+	if(yajl_status_ok != status) {
+		str_t *msg = (str_t *)yajl_get_error(meta->parser, true, buf, len);
+		fprintf(stderr, "%s", msg);
+		yajl_free_error(meta->parser, msg); msg = NULL;
+		yajl_free(meta->parser); meta->parser = NULL;
+	}
 	return yajl_status_ok == status ? 0 : -1;
 }
 err_t EFSMetaFileEnd(EFSMetaFileRef const meta) {
 	if(!meta) return 0;
 	if(meta->size > META_MAX) return -1;
+	if(!meta->parser) return -1;
 	yajl_status const status = yajl_complete_parse(meta->parser);
+	if(yajl_status_ok != status) {
+		str_t *msg = (str_t *)yajl_get_error(meta->parser, true, NULL, 0);
+		fprintf(stderr, "%s", msg);
+		yajl_free_error(meta->parser, msg); msg = NULL;
+	}
 	return yajl_status_ok == status ? 0 : -1;
 }
 err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t const URI, sqlite3 *const db) {
 	if(!meta) return 0;
-	if(meta->size > META_MAX) return -1;
-	if(s_end != meta->state) return -1;
-	if(!meta->URI) return -1;
+	if(!meta->parser) return -1;
+	if(meta->size > META_MAX) {
+		fprintf(stderr, "Meta-file too large (%llu)\n", (unsigned long long)meta->size);
+		return -1;
+	}
+	if(s_end != meta->state) {
+		fprintf(stderr, "Meta-file parse incomplete (state: %d)\n", meta->state);
+		return -1;
+	}
+	if(!meta->URI) {
+		fprintf(stderr, "Meta-file missing URI\n");
+		return -1;
+	}
 
 	sqlite3_stmt *const insertURI = QUERY(db,
 		"INSERT OR IGNORE INTO \"URIs\" (\"URI\") VALUES (?)");
