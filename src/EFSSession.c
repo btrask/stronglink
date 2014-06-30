@@ -133,7 +133,7 @@ void EFSSessionFree(EFSSessionRef const session) {
 	session->mode = 0;
 	free(session);
 }
-EFSRepoRef const EFSSessionGetRepo(EFSSessionRef const session) {
+EFSRepoRef EFSSessionGetRepo(EFSSessionRef const session) {
 	if(!session) return NULL;
 	return session->repo;
 }

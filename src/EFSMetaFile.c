@@ -62,7 +62,7 @@ err_t EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_
 	if(!meta->parser) return -1;
 	yajl_status const status = yajl_parse(meta->parser, buf, len);
 	if(yajl_status_ok != status) {
-		str_t *msg = (str_t *)yajl_get_error(meta->parser, true, buf, len);
+		unsigned char *msg = yajl_get_error(meta->parser, true, buf, len);
 		fprintf(stderr, "%s", msg);
 		yajl_free_error(meta->parser, msg); msg = NULL;
 		yajl_free(meta->parser); meta->parser = NULL;
@@ -75,7 +75,7 @@ err_t EFSMetaFileEnd(EFSMetaFileRef const meta) {
 	if(!meta->parser) return -1;
 	yajl_status const status = yajl_complete_parse(meta->parser);
 	if(yajl_status_ok != status) {
-		str_t *msg = (str_t *)yajl_get_error(meta->parser, true, NULL, 0);
+		unsigned char *msg = yajl_get_error(meta->parser, true, NULL, 0);
 		fprintf(stderr, "%s", msg);
 		yajl_free_error(meta->parser, msg); msg = NULL;
 	}

@@ -67,7 +67,7 @@ URIListRef EFSHasherEnd(EFSHasherRef const hasher) {
 
 	URIListRef const URIs = URIListCreate();
 	str_t *URI;
-	size_t len;
+	int len;
 
 	// Make sure the preferred URI (e.g. the one used for internalHash) is first.
 	// TODO: Get rid of asprintf()

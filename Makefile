@@ -97,7 +97,7 @@ build/sqlite3.o: deps/sqlite/sqlite3.c deps/sqlite/sqlite3.h
 
 build/%.o: src/%.c $(HEADERS)
 	@-mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS) -Werror
+	$(CC) -c -o $@ $< $(CFLAGS) -Werror -Wall -Wno-unused-function -Wno-unused-variable -Wno-unused-parameter
 
 test: build/test/sqlite_async
 	./build/test/sqlite_async
