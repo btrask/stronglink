@@ -10,6 +10,7 @@ HEADERS := \
 	src/async.h \
 	src/fs.h \
 	src/EarthFS.h \
+	src/HTTPConnection.h \
 	src/HTTPServer.h \
 	src/MultipartForm.h \
 	src/QueryString.h \
@@ -30,6 +31,7 @@ OBJECTS := \
 	build/EFSFilter.o \
 	build/EFSJSONFilterBuilder.o \
 	build/EFSServer.o \
+	build/HTTPConnection.o \
 	build/HTTPServer.o \
 	build/MultipartForm.o \
 	build/QueryString.o \
