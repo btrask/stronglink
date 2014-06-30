@@ -12,6 +12,7 @@ HEADERS := \
 	src/EarthFS.h \
 	src/URIList.h \
 	src/Template.h \
+	src/http/status.h \
 	src/http/Headers.h \
 	src/http/HTTPConnection.h \
 	src/http/HTTPServer.h \
