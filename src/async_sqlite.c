@@ -6,8 +6,6 @@
 #include "../deps/sqlite/sqlite3.h"
 #include "async.h"
 
-#define DEBUG_LOG() //fprintf(stderr, "%s:%d %s\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
-
 #define MAXPATHNAME 512
 
 #define FILE_LOCK_MODE 2
@@ -32,7 +30,6 @@ typedef struct {
 } async_file;
 
 static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_file *const file, int const sqflags, int *const outFlags) {
-	DEBUG_LOG();
 	int uvflags = 0;
 	int const usetmp = !inpath;
 	if(sqflags & SQLITE_OPEN_EXCLUSIVE || usetmp) uvflags |= O_EXCL;
@@ -71,7 +68,6 @@ static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_fi
 	return SQLITE_OK;
 }
 static int async_delete(sqlite3_vfs *const vfs, char const *const path, int const syncDir) {
-	DEBUG_LOG();
 	uv_fs_t req = { .data = co_active() };
 	uv_fs_unlink(loop, &req, path, async_fs_cb);
 	co_switch(yield);
@@ -106,7 +102,6 @@ static int async_delete(sqlite3_vfs *const vfs, char const *const path, int cons
 	return SQLITE_OK;
 }
 static int async_access(sqlite3_vfs *const vfs, char const *const path, int const flags, int *const outRes) {
-	DEBUG_LOG();
 	uv_fs_t req = { .data = co_active() };
 	uv_fs_stat(loop, &req, path, async_fs_cb);
 	co_switch(yield);
@@ -125,7 +120,6 @@ static int async_access(sqlite3_vfs *const vfs, char const *const path, int cons
 	return SQLITE_OK;
 }
 static int async_fullPathname(sqlite3_vfs *const vfs, char const *const path, int const size, char *const outPath) {
-	DEBUG_LOG();
 	char dir[MAXPATHNAME+1];
 	size_t len = sizeof(dir);
 	if('/' == path[0]) dir[0] = '\0';
@@ -136,12 +130,10 @@ static int async_fullPathname(sqlite3_vfs *const vfs, char const *const path, in
 	return SQLITE_OK;
 }
 static int async_randomness(sqlite3_vfs *const vfs, int const size, char *const buf) {
-	DEBUG_LOG();
 	if(async_random(buf, size) < 0) return SQLITE_ERROR;
 	return SQLITE_OK;
 }
 static int async_sleep(sqlite3_vfs *const vfs, int const microseconds) {
-	DEBUG_LOG();
 	uv_timer_t timer = { .data = co_active() };
 	uv_timer_init(loop, &timer);
 	uv_timer_start(&timer, async_timer_cb, microseconds / 1000, 0);
@@ -151,7 +143,6 @@ static int async_sleep(sqlite3_vfs *const vfs, int const microseconds) {
 	return microseconds;
 }
 static int async_currentTime(sqlite3_vfs *const vfs, double *const outTime) {
-	DEBUG_LOG();
 /* TODO
 ** This implementation is not very good. The current time is rounded to
 ** an integer number of seconds. Also, assuming time_t is a signed 32-bit 
@@ -163,7 +154,6 @@ static int async_currentTime(sqlite3_vfs *const vfs, double *const outTime) {
 	return SQLITE_OK;
 }
 static int async_getLastError(sqlite3_vfs *const vfs, int const size, char *const msg) {
-	DEBUG_LOG();
 	sqlite3_snprintf(size, msg, "testing");
 	return SQLITE_OK;
 }
@@ -208,7 +198,6 @@ static sqlite3_vfs async_vfs = {
 };
 
 static int async_close(async_file *const file) {
-	DEBUG_LOG();
 	uv_fs_t req = { .data = co_active() };
 	uv_fs_close(loop, &req, file->file, async_fs_cb);
 	co_switch(yield);
@@ -218,7 +207,6 @@ static int async_close(async_file *const file) {
 	return SQLITE_OK;
 }
 static int async_read(async_file *const file, void *const buf, int const len, sqlite3_int64 const offset) {
-	DEBUG_LOG();
 	uv_buf_t info = uv_buf_init((char *)buf, len);
 	uv_fs_t req = { .data = co_active() };
 	uv_fs_read(loop, &req, file->file, &info, 1, offset, async_fs_cb);
@@ -233,7 +221,6 @@ static int async_read(async_file *const file, void *const buf, int const len, sq
 	return SQLITE_OK;
 }
 static int async_write(async_file *const file, void const *const buf, int const len, sqlite3_int64 const offset) {
-	DEBUG_LOG();
 	uv_buf_t info = uv_buf_init((char *)buf, len);
 	uv_fs_t req = { .data = co_active() };
 	uv_fs_write(loop, &req, file->file, &info, 1, offset, async_fs_cb);
@@ -244,7 +231,6 @@ static int async_write(async_file *const file, void const *const buf, int const 
 	return SQLITE_OK;
 }
 static int async_truncate(async_file *const file, sqlite3_int64 const size) {
-	DEBUG_LOG();
 	uv_fs_t req = { .data = co_active() };
 	uv_fs_ftruncate(loop, &req, file->file, size, async_fs_cb);
 	co_switch(yield);
@@ -254,7 +240,6 @@ static int async_truncate(async_file *const file, sqlite3_int64 const size) {
 	return SQLITE_OK;
 }
 static int async_sync(async_file *const file, int const flags) {
-	DEBUG_LOG();
 	uv_fs_t req = { .data = co_active() };
 	if(flags & SQLITE_SYNC_DATAONLY) {
 		uv_fs_fdatasync(loop, &req, file->file, async_fs_cb);
@@ -268,7 +253,6 @@ static int async_sync(async_file *const file, int const flags) {
 	return SQLITE_OK;
 }
 static int async_fileSize(async_file *const file, sqlite3_int64 *const outSize) {
-	DEBUG_LOG();
 	uv_fs_t req = { .data = co_active() };
 	uv_fs_fstat(loop, &req, file->file, async_fs_cb);
 	co_switch(yield);
@@ -279,7 +263,6 @@ static int async_fileSize(async_file *const file, sqlite3_int64 *const outSize) 
 	return SQLITE_OK;
 }
 static int async_lock(async_file *const file, int const level) {
-	DEBUG_LOG();
 #if FILE_LOCK_MODE==0
 	return SQLITE_OK;
 #elif FILE_LOCK_MODE==1
@@ -301,7 +284,6 @@ static int async_lock(async_file *const file, int const level) {
 #endif
 }
 static int async_unlock(async_file *const file, int const level) {
-	DEBUG_LOG();
 #if FILE_LOCK_MODE==0
 	return SQLITE_OK;
 #elif FILE_LOCK_MODE==1
@@ -324,7 +306,6 @@ static int async_unlock(async_file *const file, int const level) {
 #endif
 }
 static int async_checkReservedLock(async_file *const file, int *const outRes) {
-	DEBUG_LOG();
 #if FILE_LOCK_MODE==0
 	*outRes = 0;
 #elif FILE_LOCK_MODE==1
@@ -335,15 +316,12 @@ static int async_checkReservedLock(async_file *const file, int *const outRes) {
 	return SQLITE_OK;
 }
 static int async_fileControl(async_file *const file, int op, void *pArg) {
-	DEBUG_LOG();
 	return SQLITE_OK;
 }
 static int async_sectorSize(async_file *const file) {
-	DEBUG_LOG();
 	return 0;
 }
 static int async_deviceCharacteristics(async_file *const file) {
-	DEBUG_LOG();
 	return 0;
 }
 
