@@ -228,8 +228,8 @@ static bool_t getPage(BlogRef const blog, HTTPConnectionRef const conn, HTTPMeth
 	}
 
 	// TODO: Parse querystring `q` parameter
-	// TODO: Filter OUT previews. Make sure all of the files are real "user files."
-	EFSFilterRef const filter = EFSFilterCreate(EFSNoFilter);
+	EFSFilterRef const filter = EFSFilterCreate(EFSBacklinkFilesFilter);
+	EFSFilterAddStringArg(filter, "efs://user", -1);
 
 	URIListRef const URIs = EFSSessionCreateFilteredURIList(session, filter, RESULTS_MAX); // TODO: We should be able to specify a specific algorithm here.
 

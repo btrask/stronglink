@@ -63,7 +63,7 @@ void EFSFilterFree(EFSFilterRef const filter) {
 	}
 	free(filter);
 }
-err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, size_t const len) {
+err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len) {
 	if(!filter) return 0;
 	switch(filter->type) {
 		case EFSFileTypeFilter:
@@ -74,7 +74,7 @@ err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, size_
 		default: return -1;
 	}
 	if(filter->data.string) return -1;
-	filter->data.string = strndup(str, len);
+	filter->data.string = strndup(str, len < 0 ? SIZE_MAX : len);
 	return 0;
 }
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter) {

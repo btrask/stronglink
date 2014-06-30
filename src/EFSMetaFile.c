@@ -12,7 +12,6 @@ typedef enum {
 		s_desc,
 		s_link_start,
 			s_link,
-		s_visible,
 	s_end,
 } meta_state;
 
@@ -25,7 +24,6 @@ struct EFSMetaFile {
 	str_t *title;
 	str_t *desc;
 	URIListRef links;
-	bool_t visible;
 };
 
 static yajl_callbacks const callbacks;
@@ -43,7 +41,6 @@ EFSMetaFileRef EFSMetaFileCreate(strarg_t const type) {
 	meta->title = NULL;
 	meta->desc = NULL;
 	meta->links = URIListCreate();
-	meta->visible = false;
 	return meta;
 }
 void EFSMetaFileFree(EFSMetaFileRef const meta) {
@@ -106,7 +103,7 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 	sqlite3_finalize(insertURI);
 	sqlite3_finalize(insertLink);
 
-	// TODO: title, description, visibility
+	// TODO: title, description
 
 	return 0;
 }
@@ -114,39 +111,35 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 
 static int yajl_null(EFSMetaFileRef const meta) {
 	switch(meta->state) {
-		case s_skip: break;
+		case s_skip: if(!meta->skip) meta->state = s_top; break;
 		default: return false;
 	}
 	return true;
 }
 static int yajl_boolean(EFSMetaFileRef const meta, int const flag) {
 	switch(meta->state) {
-		case s_skip: break;
-		case s_visible:
-			meta->visible = flag;
-			meta->state = s_top;
-			break;
+		case s_skip: if(!meta->skip) meta->state = s_top; break;
 		default: return false;
 	}
 	return true;
 }
 static int yajl_number(EFSMetaFileRef const meta, strarg_t const str, size_t const len) {
 	switch(meta->state) {
-		case s_skip: break;
+		case s_skip: if(!meta->skip) meta->state = s_top; break;
 		default: return false;
 	}
 	return true;
 }
 static int yajl_string(EFSMetaFileRef const meta, strarg_t const str, size_t const len) {
 	switch(meta->state) {
-		case s_skip: break;
+		case s_skip: if(!meta->skip) meta->state = s_top; break;
 		case s_meta_uri:
 			meta->URI = strndup(str, len);
 			meta->state = s_top;
 			break;
 		case s_link:
 			URIListAddURI(meta->links, str, len);
-			meta->state = s_top;
+			meta->state = s_link;
 			break;
 		case s_title:
 			meta->title = strndup(str, len);
@@ -170,18 +163,14 @@ static int yajl_start_map(EFSMetaFileRef const meta) {
 }
 static int yajl_map_key(EFSMetaFileRef const meta, strarg_t const key, size_t const len) {
 	switch(meta->state) {
-		case s_skip:
-			BTAssert(meta->skip >= 0, "Invalid skip count");
-			if(meta->skip) break;
-			meta->state = s_top;
-			/* fallthrough */
+		case s_skip: break;
 		case s_top:
 			meta->state = s_skip;
+			BTAssert(0 == meta->skip, "Invalid skip depth");
 			if(substr("metaURI", key, len)) meta->state = s_meta_uri;
 			if(substr("links", key, len)) meta->state = s_link_start;
 			if(substr("description", key, len)) meta->state = s_desc;
 			if(substr("title", key, len)) meta->state = s_title;
-			if(substr("visible", key, len)) meta->state = s_visible;
 			break;
 		default: BTAssert(0, "Unexpected map key in state %d", meta->state);
 	}
@@ -189,7 +178,7 @@ static int yajl_map_key(EFSMetaFileRef const meta, strarg_t const key, size_t co
 }
 static int yajl_end_map(EFSMetaFileRef const meta) {
 	switch(meta->state) {
-		case s_skip: --meta->skip; break;
+		case s_skip: if(!--meta->skip) meta->state = s_top; break;
 		case s_top: meta->state = s_end; break;
 		default: BTAssert(0, "Unexpected map end in state %d", meta->state);
 	}
@@ -205,7 +194,7 @@ static int yajl_start_array(EFSMetaFileRef const meta) {
 }
 static int yajl_end_array(EFSMetaFileRef const meta) {
 	switch(meta->state) {
-		case s_skip: --meta->skip; break;
+		case s_skip: if(!--meta->skip) meta->state = s_top; break;
 		case s_link_start:
 		case s_link: meta->state = s_top; break;
 		default: BTAssert(0, "Unexpected array end in state %d", meta->state);

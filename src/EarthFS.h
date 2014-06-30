@@ -77,7 +77,7 @@ typedef enum {
 EFSFilterRef EFSFilterCreate(EFSFilterType const type);
 EFSFilterRef EFSPermissionFilterCreate(int64_t const userID);
 void EFSFilterFree(EFSFilterRef const filter);
-err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, size_t const len);
+err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len);
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
 sqlite3_stmt *EFSFilterCreateQuery(EFSFilterRef const filter);
 void EFSFilterCreateTempTables(sqlite3 *const db); // "results"
