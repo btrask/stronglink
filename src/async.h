@@ -77,6 +77,8 @@ int async_rwlock_trywrlock(async_rwlock_t *const lock);
 void async_rwlock_wrunlock(async_rwlock_t *const lock);
 int async_rwlock_rdcheck(async_rwlock_t *const lock);
 int async_rwlock_wrcheck(async_rwlock_t *const lock);
+int async_rwlock_upgrade(async_rwlock_t *const lock);
+int async_rwlock_downgrade(async_rwlock_t *const lock);
 
 // async_sqlite.c
 void async_sqlite_register(void);

@@ -41,6 +41,8 @@ static int has_active_readers(async_rwlock_t *const lock) {
 static int lock_next(async_rwlock_t *const lock, unsigned const unused_reader) {
 	assert(unused_reader < READERS_MAX && "Invalid unused reader");
 	active_thread *const state = &lock->rdactive[unused_reader];
+	assert(!state->thread && "Reader in use");
+	assert(!state->depth && "Reader inconsistent");
 	if(lock->wrcount) {
 		if(has_active_readers(lock)) return 0;
 		lock->wractive.thread = lock->wrqueue[lock->wrcur];
@@ -177,5 +179,26 @@ int async_rwlock_wrcheck(async_rwlock_t *const lock) {
 	assert(lock && "Lock object required");
 	cothread_t const thread = co_active();
 	return thread == lock->wractive.thread;
+}
+
+int async_rwlock_upgrade(async_rwlock_t *const lock) {
+	return -1; // TODO
+}
+int async_rwlock_downgrade(async_rwlock_t *const lock) {
+	assert(lock && "Lock object required");
+	cothread_t const thread = co_active();
+	active_thread *const wrstate = &lock->wractive;
+	assert(thread == wrstate->thread && "Writer unlocked without being active");
+	assert(wrstate->depth && "Active writer not holding lock");
+	if(--wrstate->depth) return -1;
+	wrstate->thread = NULL;
+	unsigned i = unused_reader_index(lock);
+	assert(0 == i && "Downgraded write lock should have no active readers");
+	active_thread *const rdstate = &lock->rdactive[i++];
+	rdstate->thread = thread;
+	rdstate->depth = 1;
+
+	for(; i < READERS_MAX; ++i) if(!lock_next(lock, i)) break;
+	return 0;
 }
 

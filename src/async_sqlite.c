@@ -18,6 +18,8 @@ static unsigned queue_start = 0;
 static unsigned queue_length = 0;
 #elif FILE_LOCK_MODE==2
 static sqlite3_mutex *lock;
+#elif FILE_LOCK_MODE==3
+static async_rwlock_t *lock;
 #else
 #error "Invalid file lock mode"
 #endif
@@ -281,6 +283,26 @@ static int async_lock(async_file *const file, int const level) {
 	sqlite3_mutex_enter(lock);
 	return SQLITE_OK;
 //	return sqlite3_mutex_try(lock);
+#elif FILE_LOCK_MODE==3
+	switch(level) {
+		case SQLITE_LOCK_NONE:
+			return SQLITE_OK;
+		case SQLITE_LOCK_SHARED:
+			if(async_rwlock_wrcheck(lock)) return SQLITE_OK;
+			if(async_rwlock_rdcheck(lock)) return SQLITE_OK;
+			async_rwlock_rdlock(lock);
+			return SQLITE_OK;
+		case SQLITE_LOCK_RESERVED:
+		case SQLITE_LOCK_PENDING:
+		case SQLITE_LOCK_EXCLUSIVE:
+			if(async_rwlock_wrcheck(lock)) return SQLITE_OK;
+			if(async_rwlock_rdcheck(lock)) {
+				if(async_rwlock_upgrade(lock) < 0) return SQLITE_BUSY;
+				return SQLITE_OK;
+			}
+			async_rwlock_wrlock(lock);
+			return SQLITE_OK;
+	}
 #endif
 }
 static int async_unlock(async_file *const file, int const level) {
@@ -303,6 +325,26 @@ static int async_unlock(async_file *const file, int const level) {
 	if(sqlite3_mutex_notheld(lock)) return SQLITE_OK;
 	sqlite3_mutex_leave(lock);
 	return SQLITE_OK;
+#elif FILE_LOCK_MODE==3
+	switch(level) {
+		case SQLITE_LOCK_EXCLUSIVE:
+		case SQLITE_LOCK_PENDING:
+		case SQLITE_LOCK_RESERVED:
+			return SQLITE_OK;
+		case SQLITE_LOCK_SHARED:
+			if(async_rwlock_wrcheck(lock)) {
+				if(async_rwlock_downgrade(lock) < 0) {
+					assert(0 && "Non-recursive lock downgrade should always succeed");
+					return SQLITE_BUSY;
+				}
+				return SQLITE_OK;
+			}
+			return SQLITE_OK;
+		case SQLITE_LOCK_NONE:
+			if(async_rwlock_wrcheck(lock)) async_rwlock_wrunlock(lock);
+			else if(async_rwlock_rdcheck(lock)) async_rwlock_rdunlock(lock);
+			return SQLITE_OK;
+	}
 #endif
 }
 static int async_checkReservedLock(async_file *const file, int *const outRes) {
@@ -312,6 +354,8 @@ static int async_checkReservedLock(async_file *const file, int *const outRes) {
 	*outRes = queue_length && co_active() == queue[queue_start];
 #elif FILE_LOCK_MODE==2
 	*outRes = sqlite3_mutex_held(lock);
+#elif FILE_LOCK_MODE==3
+	*outRes = async_rwlock_wrcheck(lock) >= 0;
 #endif
 	return SQLITE_OK;
 }
@@ -411,6 +455,9 @@ void async_sqlite_register(void) {
 #elif FILE_LOCK_MODE==1
 #elif FILE_LOCK_MODE==2
 	lock = sqlite3_mutex_alloc(SQLITE_MUTEX_RECURSIVE);
+	assert(lock && "File lock creation failed");
+#elif FILE_LOCK_MODE==3
+	lock = async_rwlock_create();
 	assert(lock && "File lock creation failed");
 #endif
 	err = sqlite3_vfs_register(&async_vfs, 1);
