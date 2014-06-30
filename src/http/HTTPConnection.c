@@ -27,7 +27,6 @@ typedef struct HTTPConnection {
 
 static err_t readOnce(HTTPConnectionRef const conn);
 static err_t readHeaders(HTTPConnectionRef const conn);
-static strarg_t statusstr(uint16_t const status);
 
 HTTPConnectionRef HTTPConnectionCreateIncoming(uv_tcp_t *const stream, http_parser *const parser, HeaderFieldList const *const fields, byte_t *const buf, size_t const len) {
 	BTAssert(stream, "HTTPConnection stream required");
