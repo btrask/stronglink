@@ -215,7 +215,7 @@ static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, EFSSes
 	FREE(&URIEncoded_HTMLSafe);
 }
 
-static bool_t getPage(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool_t getResultsPage(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_GET != method) return false;
 	size_t pathlen = prefix("/", URI);
 	if(!pathlen) return false;
@@ -259,7 +259,7 @@ static bool_t getPage(BlogRef const blog, HTTPConnectionRef const conn, HTTPMeth
 	URIListFree(URIs);
 	return true;
 }
-static bool_t getSubmit(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool_t getSubmissionForm(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_GET != method) return false;
 	size_t pathlen = prefix("/submit", URI);
 	if(!pathlen) return false;
@@ -326,8 +326,8 @@ void BlogFree(BlogRef const blog) {
 	free(blog);
 }
 bool_t BlogDispatch(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
-	if(getPage(blog, conn, method, URI)) return true;
-	if(getSubmit(blog, conn, method, URI)) return true;
+	if(getResultsPage(blog, conn, method, URI)) return true;
+	if(getSubmissionForm(blog, conn, method, URI)) return true;
 
 
 	// TODO: Ignore query parameters, check for `..` (security critical).
