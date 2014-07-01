@@ -190,7 +190,8 @@ int async_rwlock_downgrade(async_rwlock_t *const lock) {
 	active_thread *const wrstate = &lock->wractive;
 	assert(thread == wrstate->thread && "Writer unlocked without being active");
 	assert(wrstate->depth && "Active writer not holding lock");
-	if(--wrstate->depth) return -1;
+	if(wrstate->depth > 1) return -1; // Recursive lock can't be downgraded.
+	wrstate->depth--;
 	wrstate->thread = NULL;
 	unsigned i = unused_reader_index(lock);
 	assert(0 == i && "Downgraded write lock should have no active readers");
