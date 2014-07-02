@@ -83,7 +83,7 @@ void *HTTPConnectionGetHeaders(HTTPConnectionRef const conn, HeaderFieldList con
 	}
 	for(;;) {
 		if(readOnce(conn) < 0) return NULL;
-		if(conn->next.len) break;
+		if(HPE_PAUSED == HTTP_PARSER_ERRNO(conn->parser)) break;
 		if(conn->messageEOF) break;
 		if(conn->streamEOF) return NULL;
 	}
