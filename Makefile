@@ -1,7 +1,7 @@
 ROOT_DIR := .
 
 CC := gcc
-CFLAGS := -std=gnu99 -g -O0 -Wno-format-extra-args -DSQLITE_DEBUG
+CFLAGS := -std=gnu99 -g -O0 -Wno-format-extra-args -DSQLITE_DEBUG -DHTTP_PARSER_DEBUG
 
 # TODO: Isn't there a way to have it find everything automatically?
 

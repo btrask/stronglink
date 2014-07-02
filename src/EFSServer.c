@@ -11,7 +11,7 @@ typedef struct {
 static HeaderField const EFSHeaderFields[] = {
 	{"content-type", 100},
 };
-HeaderFieldList const EFSHeaderFieldList = {
+static HeaderFieldList const EFSHeaderFieldList = {
 	.count = numberof(EFSHeaderFields),
 	.items = EFSHeaderFields,
 };
@@ -132,7 +132,7 @@ static bool_t postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTP
 	ssize_t (*read)();
 	void *context;
 
-	EFSHeaders *const h1 = HTTPConnectionGetHeaders(conn);
+	EFSHeaders *const h1 = HTTPConnectionGetHeaders(conn, &EFSHeaderFieldList);
 	MultipartFormRef const form = MultipartFormCreate(conn, h1->content_type, &EFSHeaderFieldList); // TODO: We shouldn't be reusing EFSHeaderFieldList for two purposes, but it's so simple that it works for now.
 	if(form) {
 		FormPartRef const part = MultipartFormGetPart(form);

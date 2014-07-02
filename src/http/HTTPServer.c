@@ -8,18 +8,16 @@
 struct HTTPServer {
 	HTTPListener listener;
 	void *context;
-	HeaderFieldList const *fields;
 	uv_tcp_t *socket;
 };
 
 static void connection_cb(uv_stream_t *const socket, int const status);
 
-HTTPServerRef HTTPServerCreate(HTTPListener const listener, void *const context, HeaderFieldList const *const fields) {
+HTTPServerRef HTTPServerCreate(HTTPListener const listener, void *const context) {
 	assertf(listener, "HTTPServer listener required");
 	HTTPServerRef const server = calloc(1, sizeof(struct HTTPServer));
 	server->listener = listener;
 	server->context = context;
-	server->fields = fields;
 	server->socket = NULL;
 	return server;
 }
@@ -56,10 +54,6 @@ void HTTPServerClose(HTTPServerRef const server) {
 	while(!safe) uv_run(loop, UV_RUN_ONCE);
 	FREE(&server->socket);
 }
-HeaderFieldList const *HTTPServerGetHeaderFields(HTTPServerRef const server) {
-	if(!server) return NULL;
-	return server->fields;
-}
 
 static uv_stream_t *connection_socket;
 static void connection(void) {
@@ -74,11 +68,12 @@ static void connection(void) {
 	http_parser_init(&parser, HTTP_REQUEST);
 	byte_t *buf = malloc(READ_BUFFER_SIZE);
 	for(;;) {
-		HTTPConnectionRef const conn = HTTPConnectionCreateIncoming(&stream, &parser, server->fields, buf, READ_BUFFER_SIZE);
+		HTTPConnectionRef const conn = HTTPConnectionCreateIncoming(&stream, &parser, buf, READ_BUFFER_SIZE);
 		if(!conn) break;
 		server->listener(server->context, conn);
 		HTTPConnectionDrain(conn);
 		HTTPConnectionFree(conn);
+		if(HPE_OK != HTTP_PARSER_ERRNO(&parser)) break;
 	}
 	FREE(&buf);
 

@@ -12,13 +12,17 @@ typedef struct HTTPConnection {
 	http_parser *parser;
 	byte_t *buf;
 	size_t len;
+	off_t pos;
+	size_t remaining;
 	bool_t streamEOF; // Unless you are deciding whether to start a new message, you should pretty much always use messageEOF instead. Perhaps we could get rid of this by using on_message_begin instead.
 
 	// Incoming
 	str_t *requestURI;
 	HeadersRef headers;
-	byte_t const *chunk;
-	size_t chunkLength;
+	struct {
+		char const *at;
+		size_t len;
+	} next;
 	bool_t messageEOF;
 
 	// Outgoing
@@ -26,9 +30,8 @@ typedef struct HTTPConnection {
 } HTTPConnection;
 
 static err_t readOnce(HTTPConnectionRef const conn);
-static err_t readHeaders(HTTPConnectionRef const conn);
 
-HTTPConnectionRef HTTPConnectionCreateIncoming(uv_tcp_t *const stream, http_parser *const parser, HeaderFieldList const *const fields, byte_t *const buf, size_t const len) {
+HTTPConnectionRef HTTPConnectionCreateIncoming(uv_tcp_t *const stream, http_parser *const parser, byte_t *const buf, size_t const len) {
 	assertf(stream, "HTTPConnection stream required");
 	assertf(parser, "HTTPConnection parser required");
 	HTTPConnectionRef const conn = calloc(1, sizeof(struct HTTPConnection));
@@ -40,10 +43,12 @@ HTTPConnectionRef HTTPConnectionCreateIncoming(uv_tcp_t *const stream, http_pars
 	conn->len = len;
 	conn->requestURI = malloc(URI_MAX+1);
 	conn->requestURI[0] = '\0';
-	conn->headers = HeadersCreate(fields);
-	if(readHeaders(conn) < 0) {
-		HTTPConnectionFree(conn);
-		return NULL;
+	for(;;) {
+		if(readOnce(conn) < 0) {
+			HTTPConnectionFree(conn);
+			return NULL;
+		}
+		if(HPE_PAUSED == HTTP_PARSER_ERRNO(conn->parser)) break;
 	}
 	assertf(conn->requestURI[0], "No URI in request");
 	return conn;
@@ -66,38 +71,49 @@ strarg_t HTTPConnectionGetRequestURI(HTTPConnectionRef const conn) {
 	if(!conn) return NULL;
 	return conn->requestURI;
 }
-void *HTTPConnectionGetHeaders(HTTPConnectionRef const conn) {
+void *HTTPConnectionGetHeaders(HTTPConnectionRef const conn, HeaderFieldList const *const fields) {
 	if(!conn) return NULL;
+	assertf(!conn->headers, "Connection headers already read");
+	conn->headers = HeadersCreate(fields);
+	if(!conn->headers) return NULL;
+	for(;;) {
+		if(readOnce(conn) < 0) return NULL;
+		if(conn->next.len) break;
+		if(conn->messageEOF) break;
+		if(conn->streamEOF) return NULL;
+	}
 	return HeadersGetData(conn->headers);
 }
 ssize_t HTTPConnectionRead(HTTPConnectionRef const conn, byte_t *const buf, size_t const len) {
 	if(!conn) return -1;
-	if(!conn->chunkLength) return conn->messageEOF ? 0 : -1;
-	size_t const used = MIN(len, conn->chunkLength);
-	memcpy(buf, conn->chunk, used);
-	conn->chunk += used;
-	conn->chunkLength -= used;
+	if(!conn->headers) HTTPConnectionGetHeaders(conn, NULL);
+	if(!conn->next.len) return conn->messageEOF ? 0 : -1;
+	size_t const used = MIN(len, conn->next.len);
+	memcpy(buf, conn->next.at, used);
+	conn->next.at += used;
+	conn->next.len -= used;
 	if(!conn->messageEOF && -1 == readOnce(conn)) return -1;
 	return used;
 }
 ssize_t HTTPConnectionGetBuffer(HTTPConnectionRef const conn, byte_t const **const buf) {
 	if(!conn) return -1;
-	if(!conn->chunkLength) {
+	if(!conn->headers) HTTPConnectionGetHeaders(conn, NULL);
+	if(!conn->next.len) {
 		if(conn->messageEOF) return 0;
 		if(readOnce(conn) < 0) return -1;
 	}
-	size_t const used = conn->chunkLength;
-	*buf = conn->chunk;
-	conn->chunk = NULL;
-	conn->chunkLength = 0;
+	size_t const used = conn->next.len;
+	*buf = (byte_t const *)conn->next.at;
+	conn->next.at = NULL;
+	conn->next.len = 0;
 	return used;
 }
 void HTTPConnectionDrain(HTTPConnectionRef const conn) {
 	if(!conn) return;
 	if(conn->messageEOF) return;
 	do {
-		conn->chunk = NULL;
-		conn->chunkLength = 0;
+		conn->next.at = NULL;
+		conn->next.len = 0;
 	} while(readOnce(conn) >= 0);
 	assertf(conn->messageEOF, "Connection drain didn't reach EOF");
 }
@@ -308,7 +324,19 @@ static int on_url(http_parser *const parser, char const *const at, size_t const 
 }
 static int on_header_field(http_parser *const parser, char const *const at, size_t const len) {
 	HTTPConnectionRef const conn = parser->data;
-	HeadersAppendFieldChunk(conn->headers, at, len);
+	if(conn->headers) {
+		if(conn->next.at) {
+			HeadersAppendFieldChunk(conn->headers, conn->next.at, conn->next.len);
+			conn->next.at = NULL;
+			conn->next.len = 0;
+		}
+		HeadersAppendFieldChunk(conn->headers, at, len);
+	} else {
+		assertf(!conn->next.len, "Chunk already waiting");
+		conn->next.at = at;
+		conn->next.len = len;
+		http_parser_pause(parser, 1);
+	}
 	return 0;
 }
 static int on_header_value(http_parser *const parser, char const *const at, size_t const len) {
@@ -319,15 +347,17 @@ static int on_header_value(http_parser *const parser, char const *const at, size
 static int on_headers_complete(http_parser *const parser) {
 	HTTPConnectionRef const conn = parser->data;
 	HeadersEnd(conn->headers);
+	http_parser_pause(parser, 1);
 	return 0;
 }
 static int on_body(http_parser *const parser, char const *const at, size_t const len) {
 	HTTPConnectionRef const conn = parser->data;
 	assertf(conn->requestURI[0], "Body chunk received out of order");
-	assertf(!conn->chunkLength, "Chunk already waiting");
+	assertf(!conn->next.len, "Chunk already waiting");
 	assertf(!conn->messageEOF, "Message already complete");
-	conn->chunk = (byte_t const *)at;
-	conn->chunkLength = len;
+	conn->next.at = at;
+	conn->next.len = len;
+	http_parser_pause(parser, 1);
 	return 0;
 }
 static int on_message_complete(http_parser *const parser) {
@@ -361,31 +391,37 @@ static void read_cb(uv_stream_t *const stream, ssize_t const nread, const uv_buf
 }
 static ssize_t readOnce(HTTPConnectionRef const conn) {
 	if(conn->messageEOF) return -1;
-	struct conn_state state = {
-		.thread = co_active(),
-		.conn = conn,
-	};
-	conn->stream->data = &state;
-	for(;;) {
-		uv_read_start((uv_stream_t *)conn->stream, alloc_cb, read_cb);
-		co_switch(yield);
-		uv_read_stop((uv_stream_t *)conn->stream);
-		if(state.nread) break;
+	if(!conn->remaining) {
+		struct conn_state state = {
+			.thread = co_active(),
+			.conn = conn,
+		};
+		conn->stream->data = &state;
+		for(;;) {
+			uv_read_start((uv_stream_t *)conn->stream, alloc_cb, read_cb);
+			co_switch(yield);
+			uv_read_stop((uv_stream_t *)conn->stream);
+			if(UV_EOF == state.nread) {
+				conn->streamEOF = true;
+				state.nread = 0;
+			}
+			if(state.nread < 0) return -1;
+			break;
+		}
+		conn->pos = 0;
+		conn->remaining = state.nread;
 	}
-	if(UV_EOF == state.nread) {
-		conn->streamEOF = true;
-		state.nread = 0;
+	http_parser_pause(conn->parser, 0);
+	size_t const plen = http_parser_execute(conn->parser, &settings, (char const *)conn->buf + conn->pos, conn->remaining);
+	if(plen != conn->remaining && HPE_PAUSED != HTTP_PARSER_ERRNO(conn->parser)) {
+		fprintf(stderr, "HTTP parse error %s (%d)\n",
+			http_errno_name(HTTP_PARSER_ERRNO(conn->parser)),
+			HTTP_PARSER_ERRNO_LINE(conn->parser));
+		conn->messageEOF = 1; // Make sure we don't read anymore. HTTPConnectionDrain() expects this too.
+		return -1;
 	}
-	if(state.nread < 0) return -1;
-	size_t const plen = http_parser_execute(conn->parser, &settings, (char const *)conn->buf, state.nread);
-	if(plen != state.nread) return -1;
-	return plen;
-}
-static err_t readHeaders(HTTPConnectionRef const conn) {
-	for(;;) {
-		if(readOnce(conn) < 0) return -1;
-		if(conn->chunkLength || conn->messageEOF) return 0;
-		if(conn->streamEOF) return -1;
-	}
+	conn->pos += plen;
+	conn->remaining -= plen;
+	return 0;
 }
 

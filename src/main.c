@@ -2,7 +2,6 @@
 #include "EarthFS.h"
 #include "http/HTTPServer.h"
 
-extern HeaderFieldList const EFSHeaderFieldList;
 bool_t EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI);
 
 typedef struct Blog* BlogRef;
@@ -25,7 +24,7 @@ static void listener(void *ctx, HTTPConnectionRef const conn) {
 static void init(void) {
 	repo = EFSRepoCreate("/home/ben/Documents/testrepo");
 	blog = BlogCreate(repo);
-	server = HTTPServerCreate((HTTPListener)listener, blog, &EFSHeaderFieldList);
+	server = HTTPServerCreate((HTTPListener)listener, blog);
 	HTTPServerListen(server, 8000, "127.0.0.1");
 	co_terminate();
 }
