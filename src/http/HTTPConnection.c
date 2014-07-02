@@ -76,6 +76,11 @@ void *HTTPConnectionGetHeaders(HTTPConnectionRef const conn, HeaderFieldList con
 	assertf(!conn->headers, "Connection headers already read");
 	conn->headers = HeadersCreate(fields);
 	if(!conn->headers) return NULL;
+	if(conn->next.len) {
+		HeadersAppendFieldChunk(conn->headers, conn->next.at, conn->next.len);
+		conn->next.at = NULL;
+		conn->next.len = 0;
+	}
 	for(;;) {
 		if(readOnce(conn) < 0) return NULL;
 		if(conn->next.len) break;
@@ -390,6 +395,7 @@ static void read_cb(uv_stream_t *const stream, ssize_t const nread, const uv_buf
 	co_switch(state->thread);
 }
 static ssize_t readOnce(HTTPConnectionRef const conn) {
+	assertf(!conn->next.len, "Existing unused chunk");
 	if(conn->messageEOF) return -1;
 	if(!conn->remaining) {
 		struct conn_state state = {
