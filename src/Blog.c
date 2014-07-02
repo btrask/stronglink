@@ -64,6 +64,7 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 	uv_process_t proc = { .data = &state };
 	str_t *args[] = {
 		"markdown",
+		"-f", "autolink",
 		"-G",
 		"-o", tmpPath,
 		info->path,
