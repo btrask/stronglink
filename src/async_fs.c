@@ -4,6 +4,8 @@
 #include <string.h>
 #include "async.h"
 
+#define ENTROPY_BYTES 8
+
 #define ASYNC_FS_WRAP(name, args...) \
 	cothread_t const thread = co_active(); \
 	uv_fs_t req = { .data = thread }; \
@@ -116,9 +118,9 @@ static char *tohex(char const *const buf, size_t const len) {
 char *async_tempnam(char const *dir, char const *prefix) {
 	if(!dir) dir = "/tmp"; // TODO: Use ENV
 	if(!prefix) prefix = "";
-	char rand[8];
-	if(async_random((unsigned char *)rand, 8) < 0) return NULL;
-	char *hex = tohex(rand, 8);
+	char rand[ENTROPY_BYTES];
+	if(async_random((unsigned char *)rand, ENTROPY_BYTES) < 0) return NULL;
+	char *hex = tohex(rand, ENTROPY_BYTES);
 	char *path;
 	if(asprintf(&path, "%s/%s-%s", dir, prefix, hex) < 0) path = NULL;
 	free(hex); hex = NULL;
