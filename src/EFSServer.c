@@ -73,6 +73,12 @@ static bool_t getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 	asprintf(&fileURI, "hash://%s/%s", algo, hash); // TODO: decode, normalize, error checking.
 	EFSFileInfo *info = EFSSessionCopyFileInfo(session, fileURI);
 	FREE(&fileURI);
+	if(!info) {
+		fprintf(stderr, "Couldn't find hash://%s/%s\n", algo, hash);
+		HTTPConnectionSendStatus(conn, 404);
+		EFSSessionFree(session);
+		return true;
+	}
 
 	// TODO: Do we need to send other headers?
 	HTTPConnectionSendFile(conn, info->path, info->type, info->size);
