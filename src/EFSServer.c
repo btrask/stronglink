@@ -79,40 +79,15 @@ static bool_t getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 		return true;
 	}
 
-	sqlite3 *const db = EFSRepoDBConnect(repo);
-	sqlite3_stmt *const select = QUERY(db,
-		"SELECT f.internal_hash, f.file_type, f.file_size\n"
-		"FROM files AS f\n"
-		"LEFT JOIN file_uris AS f2 ON (f2.file_id = f.file_id)\n"
-		"LEFT JOIN uris AS u ON (u.uri_id = f2.uri_id)\n"
-		"WHERE u.uri = ('hash://' || ? || '/' || ?)\n"
-		"ORDER BY f.file_id ASC LIMIT 1");
-	sqlite3_bind_text(select, 1, algo, -1, SQLITE_STATIC); // TODO: Lowercase.
-	sqlite3_bind_text(select, 2, hash, -1, SQLITE_STATIC);
-	int const status = sqlite3_step(select);
-	if(SQLITE_ROW != status) {
-		sqlite3_finalize(select);
-		EFSRepoDBClose(repo, db);
-		HTTPConnectionSendStatus(conn, 404);
-		EFSSessionFree(session);
-		return true;
-	}
-
-	str_t *internalHash = strdup((char const *)sqlite3_column_text(select, 0));
-	str_t *type = strdup((char const *)sqlite3_column_text(select, 1));
-	int64_t const size = sqlite3_column_int64(select, 2);
-
-	sqlite3_finalize(select);
-	EFSRepoDBClose(repo, db);
-
-	str_t *path = EFSRepoCopyInternalPath(repo, internalHash);
+	str_t *fileURI;
+	asprintf(&fileURI, "hash://%s/%s", algo, hash); // TODO: decode, normalize, error checking.
+	EFSFileInfo *info = EFSSessionCopyFileInfo(session, fileURI);
+	FREE(&fileURI);
 
 	// TODO: Do we need to send other headers?
-	HTTPConnectionSendFile(conn, path, type, size);
+	HTTPConnectionSendFile(conn, info->path, info->type, info->size);
 
-	FREE(&path);
-	FREE(&internalHash);
-	FREE(&type);
+	EFSFileInfoFree(info); info = NULL;
 	EFSSessionFree(session);
 	return true;
 }
