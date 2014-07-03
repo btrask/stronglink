@@ -14,7 +14,6 @@ typedef struct HTTPConnection {
 	size_t len;
 	off_t pos;
 	size_t remaining;
-	bool_t streamEOF; // Unless you are deciding whether to start a new message, you should pretty much always use messageEOF instead. Perhaps we could get rid of this by using on_message_begin instead.
 
 	// Incoming
 	str_t *requestURI;
@@ -23,7 +22,7 @@ typedef struct HTTPConnection {
 		char const *at;
 		size_t len;
 	} next;
-	bool_t messageEOF;
+	bool_t eof;
 
 	// Outgoing
 	// nothing yet...
@@ -49,7 +48,7 @@ HTTPConnectionRef HTTPConnectionCreateIncoming(uv_tcp_t *const stream, http_pars
 			return NULL;
 		}
 		if(HPE_PAUSED == HTTP_PARSER_ERRNO(conn->parser)) break;
-		if(conn->messageEOF || conn->streamEOF) {
+		if(conn->eof) {
 			HTTPConnectionFree(conn);
 			return NULL;
 		}
@@ -79,7 +78,6 @@ void *HTTPConnectionGetHeaders(HTTPConnectionRef const conn, HeaderField const f
 	if(!conn) return NULL;
 	assertf(!conn->headers, "Connection headers already read");
 	conn->headers = HeadersCreate(fields, count);
-	if(!conn->headers) return NULL;
 	if(conn->next.len) {
 		HeadersAppendFieldChunk(conn->headers, conn->next.at, conn->next.len);
 		conn->next.at = NULL;
@@ -88,26 +86,26 @@ void *HTTPConnectionGetHeaders(HTTPConnectionRef const conn, HeaderField const f
 	for(;;) {
 		if(readOnce(conn) < 0) return NULL;
 		if(HPE_PAUSED == HTTP_PARSER_ERRNO(conn->parser)) break;
-		if(conn->messageEOF || conn->streamEOF) return NULL;
+		if(conn->eof) return NULL;
 	}
 	return HeadersGetData(conn->headers);
 }
 ssize_t HTTPConnectionRead(HTTPConnectionRef const conn, byte_t *const buf, size_t const len) {
 	if(!conn) return -1;
 	if(!conn->headers) HTTPConnectionGetHeaders(conn, NULL, 0);
-	if(!conn->next.len) return conn->messageEOF ? 0 : -1;
+	if(!conn->next.len) return conn->eof ? 0 : -1;
 	size_t const used = MIN(len, conn->next.len);
 	memcpy(buf, conn->next.at, used);
 	conn->next.at += used;
 	conn->next.len -= used;
-	if(!conn->messageEOF && -1 == readOnce(conn)) return -1;
+	if(!conn->eof && -1 == readOnce(conn)) return -1;
 	return used;
 }
 ssize_t HTTPConnectionGetBuffer(HTTPConnectionRef const conn, byte_t const **const buf) {
 	if(!conn) return -1;
 	if(!conn->headers) HTTPConnectionGetHeaders(conn, NULL, 0);
 	if(!conn->next.len) {
-		if(conn->messageEOF) return 0;
+		if(conn->eof) return 0;
 		if(readOnce(conn) < 0) return -1;
 	}
 	size_t const used = conn->next.len;
@@ -118,12 +116,12 @@ ssize_t HTTPConnectionGetBuffer(HTTPConnectionRef const conn, byte_t const **con
 }
 void HTTPConnectionDrain(HTTPConnectionRef const conn) {
 	if(!conn) return;
-	if(conn->messageEOF) return;
+	if(conn->eof) return;
 	do {
 		conn->next.at = NULL;
 		conn->next.len = 0;
 	} while(readOnce(conn) >= 0);
-	assertf(conn->messageEOF, "Connection drain didn't reach EOF");
+	assertf(conn->eof, "Connection drain didn't reach EOF");
 }
 
 ssize_t HTTPConnectionWrite(HTTPConnectionRef const conn, byte_t const *const buf, size_t const len) {
@@ -372,7 +370,7 @@ static int on_body(http_parser *const parser, char const *const at, size_t const
 	HTTPConnectionRef const conn = parser->data;
 	assertf(conn->requestURI[0], "Body chunk received out of order");
 	assertf(!conn->next.len, "Chunk already waiting");
-	assertf(!conn->messageEOF, "Message already complete");
+	assertf(!conn->eof, "Message already complete");
 	conn->next.at = at;
 	conn->next.len = len;
 	http_parser_pause(parser, 1);
@@ -380,7 +378,7 @@ static int on_body(http_parser *const parser, char const *const at, size_t const
 }
 static int on_message_complete(http_parser *const parser) {
 	HTTPConnectionRef const conn = parser->data;
-	conn->messageEOF = true;
+	conn->eof = true;
 	return 0;
 }
 static http_parser_settings const settings = {
@@ -409,7 +407,7 @@ static void read_cb(uv_stream_t *const stream, ssize_t const nread, const uv_buf
 }
 static ssize_t readOnce(HTTPConnectionRef const conn) {
 	assertf(!conn->next.len, "Existing unused chunk");
-	if(conn->messageEOF) return -1;
+	if(conn->eof) return -1;
 	if(!conn->remaining) {
 		struct conn_state state = {
 			.thread = co_active(),
@@ -420,13 +418,13 @@ static ssize_t readOnce(HTTPConnectionRef const conn) {
 			uv_read_start((uv_stream_t *)conn->stream, alloc_cb, read_cb);
 			co_switch(yield);
 			uv_read_stop((uv_stream_t *)conn->stream);
-			if(UV_EOF == state.nread) {
-				conn->streamEOF = true;
-				state.nread = 0;
-			}
-			if(state.nread < 0) return -1;
-			break;
+			if(state.nread) break;
 		}
+		if(UV_EOF == state.nread) {
+			conn->eof = true;
+			state.nread = 0;
+		}
+		if(state.nread < 0) return -1;
 		conn->pos = 0;
 		conn->remaining = state.nread;
 	}
@@ -436,7 +434,7 @@ static ssize_t readOnce(HTTPConnectionRef const conn) {
 		fprintf(stderr, "HTTP parse error %s (%d)\n",
 			http_errno_name(HTTP_PARSER_ERRNO(conn->parser)),
 			HTTP_PARSER_ERRNO_LINE(conn->parser));
-		conn->messageEOF = 1; // Make sure we don't read anymore. HTTPConnectionDrain() expects this too.
+		conn->eof = true; // Make sure we don't read anymore. HTTPConnectionDrain() expects this too.
 		return -1;
 	}
 	conn->pos += plen;

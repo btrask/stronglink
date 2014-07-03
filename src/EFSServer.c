@@ -99,8 +99,7 @@ static bool_t postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTP
 	ssize_t (*read)();
 	void *context;
 
-	EFSHTTPHeaders *const h1 = HTTPConnectionGetHeaders(conn, EFSHTTPFields, numberof(EFSHTTPFields));
-	MultipartFormRef const form = MultipartFormCreate(conn, h1->content_type, EFSFormFields, numberof(EFSFormFields));
+	MultipartFormRef const form = MultipartFormCreate(conn, headers->content_type, EFSFormFields, numberof(EFSFormFields));
 	if(form) {
 		FormPartRef const part = MultipartFormGetPart(form);
 		if(!part) {
