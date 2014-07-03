@@ -2,7 +2,7 @@
 #include <openssl/sha.h> // TODO: Switch to LibreSSL.
 #include "EarthFS.h"
 
-static str_t *tohex(byte_t const *const buf, ssize_t const len) {
+static str_t *tohex(byte_t const *const buf, size_t const len) {
 	str_t const map[] = "0123456789abcdef";
 	str_t *const hex = calloc(len*2+1, 1);
 	for(off_t i = 0; i < len; ++i) {

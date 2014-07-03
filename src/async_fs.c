@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+#include <stdio.h> /* For debugging */
 #include <stdlib.h>
 #include <string.h>
 #include "async.h"
@@ -99,5 +101,27 @@ int async_mkdirp_dirname(char const *const path, int const mode) {
 	int const err = async_mkdirp_fast(mutable, dlen, mode);
 	free(mutable); mutable = NULL;
 	return err;
+}
+
+// TODO: Put this somewhere.
+static char *tohex(char const *const buf, size_t const len) {
+	char const map[] = "0123456789abcdef";
+	char *const hex = calloc(len*2+1, 1);
+	for(off_t i = 0; i < len; ++i) {
+		hex[i*2+0] = map[0xf & (buf[i] >> 4)];
+		hex[i*2+1] = map[0xf & (buf[i] >> 0)];
+	}
+	return hex;
+}
+char *async_tempnam(char const *dir, char const *prefix) {
+	if(!dir) dir = "/tmp"; // TODO: Use ENV
+	if(!prefix) prefix = "";
+	char rand[8];
+	if(async_random((unsigned char *)rand, 8) < 0) return NULL;
+	char *hex = tohex(rand, 8);
+	char *path;
+	if(asprintf(&path, "%s/%s-%s", dir, prefix, hex) < 0) path = NULL;
+	free(hex); hex = NULL;
+	return path;
 }
 

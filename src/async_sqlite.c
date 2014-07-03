@@ -42,7 +42,7 @@ static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_fi
 
 	uv_fs_t req = { .data = co_active() };
 	for(;;) {
-		char *const tmp = usetmp ? tempnam(NULL, "async") : NULL; // TODO: Blocking, unportable, etc.
+		char *const tmp = usetmp ? async_tempnam(NULL, "async-sqlite") : NULL;
 		char const *const path = usetmp ? tmp : inpath;
 		uv_fs_open(loop, &req, path, uvflags, 0600, async_fs_cb);
 		co_switch(yield);

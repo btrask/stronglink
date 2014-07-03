@@ -56,6 +56,8 @@ int async_mkdirp_fast(char *const path, size_t const len, int const mode);
 int async_mkdirp(char const *const path, int const mode);
 int async_mkdirp_dirname(char const *const path, int const mode);
 
+char *async_tempnam(char const *dir, char const *prefix);
+
 // async_mutex.c
 typedef struct async_mutex_s async_mutex_t;
 async_mutex_t *async_mutex_create(void);

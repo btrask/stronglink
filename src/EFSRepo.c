@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include "async.h"
 #include "EarthFS.h"
 
 struct EFSRepo {
@@ -54,9 +55,7 @@ strarg_t EFSRepoGetTempDir(EFSRepoRef const repo) {
 }
 str_t *EFSRepoCopyTempPath(EFSRepoRef const repo) {
 	if(!repo) return NULL;
-	str_t *str;
-	if(asprintf(&str, "%s/efs-tmp", repo->tempDir) < 0) return NULL; // TODO: Real random filename.
-	return str;
+	return async_tempnam(repo->tempDir, "efs");
 }
 strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo) {
 	if(!repo) return NULL;
