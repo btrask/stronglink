@@ -8,6 +8,7 @@ CFLAGS := -std=gnu99 -g -O0 -Wno-format-extra-args -DSQLITE_DEBUG -DHTTP_PARSER_
 HEADERS := \
 	src/common.h \
 	src/async.h \
+	src/bcrypt.h \
 	src/EarthFS.h \
 	src/URIList.h \
 	src/Template.h \
@@ -40,6 +41,7 @@ OBJECTS := \
 	build/async_mutex.o \
 	build/async_rwlock.o \
 	build/async_sqlite.o \
+	build/bcrypt.o \
 	build/http/Headers.o \
 	build/http/HTTPConnection.o \
 	build/http/HTTPServer.o \

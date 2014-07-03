@@ -19,7 +19,7 @@ static void listener(void *ctx, HTTPConnectionRef const conn) {
 	strarg_t const URI = HTTPConnectionGetRequestURI(conn);
 	if(EFSServerDispatch(repo, conn, method, URI)) return;
 	if(BlogDispatch(blog, conn, method, URI)) return;
-	HTTPConnectionSendStatus(conn, 404);
+	HTTPConnectionSendStatus(conn, 400);
 }
 static void init(void) {
 	repo = EFSRepoCreate("/home/ben/Documents/testrepo");

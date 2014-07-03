@@ -11,6 +11,13 @@
 #define RESULTS_MAX 50
 #define BUFFER_SIZE (1024 * 8)
 
+typedef struct {
+	strarg_t cookie;
+} BlogHTTPHeaders;
+static HeaderField const BlogHTTPFields[] = {
+	{"cookie", 100},
+};
+
 typedef struct Blog* BlogRef;
 
 struct Blog {
@@ -29,7 +36,7 @@ struct Blog {
 };
 
 // TODO: Real public API.
-EFSSessionRef auth(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const qs);
+bool_t URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs);
 
 static str_t *BlogCopyPreviewPath(BlogRef const blog, strarg_t const hash) {
 	str_t *path;
@@ -218,10 +225,10 @@ static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, EFSSes
 
 static bool_t getResultsPage(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_GET != method) return false;
-	size_t pathlen = prefix("/", URI);
-	if(!pathlen) return false;
-	if(!pathterm(URI, (size_t)pathlen)) return false;
-	EFSSessionRef const session = auth(blog->repo, conn, method, URI+pathlen);
+	if(!URIPath(URI, "/", NULL)) return false;
+
+	BlogHTTPHeaders const *const headers = HTTPConnectionGetHeaders(conn, BlogHTTPFields, numberof(BlogHTTPFields));
+	EFSSessionRef const session = EFSRepoCreateSession(blog->repo, headers->cookie);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);
 		return true;
@@ -262,14 +269,15 @@ static bool_t getResultsPage(BlogRef const blog, HTTPConnectionRef const conn, H
 }
 static bool_t getSubmissionForm(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_GET != method) return false;
-	size_t pathlen = prefix("/submit", URI);
-	if(!pathlen) return false;
-	if(!pathterm(URI, (size_t)pathlen)) return false;
-	EFSSessionRef const session = auth(blog->repo, conn, method, URI+pathlen);
+	if(!URIPath(URI, "/submit", NULL)) return false;
+
+	BlogHTTPHeaders const *const headers = HTTPConnectionGetHeaders(conn, BlogHTTPFields, numberof(BlogHTTPFields));
+	EFSSessionRef const session = EFSRepoCreateSession(blog->repo, headers->cookie);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);
 		return true;
 	}
+
 	HTTPConnectionWriteResponse(conn, 200, "OK");
 	HTTPConnectionWriteHeader(conn, "Content-Type", "text/html; charset=utf-8");
 	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
@@ -330,6 +338,7 @@ bool_t BlogDispatch(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod
 	if(getResultsPage(blog, conn, method, URI)) return true;
 	if(getSubmissionForm(blog, conn, method, URI)) return true;
 
+	if(HTTP_GET != method && HTTP_HEAD != method) return false;
 
 	// TODO: Ignore query parameters, check for `..` (security critical).
 	str_t *path;

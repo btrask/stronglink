@@ -24,7 +24,7 @@ static multipart_parser_settings const callbacks;
 
 static err_t readOnce(FormPartRef const part);
 
-MultipartFormRef MultipartFormCreate(HTTPConnectionRef const conn, strarg_t const type, HeaderFieldList const *const fields) {
+MultipartFormRef MultipartFormCreate(HTTPConnectionRef const conn, strarg_t const type, HeaderField const *const fields, count_t const count) {
 	if(!conn) return NULL;
 	if(!type) return NULL;
 	// TODO: More robust content-type parsing.
@@ -37,7 +37,7 @@ MultipartFormRef MultipartFormCreate(HTTPConnectionRef const conn, strarg_t cons
 	form->parser = multipart_parser_init(boundary, &callbacks);
 	FormPartRef const part = &form->part;
 	part->form = form;
-	part->headers = HeadersCreate(fields);
+	part->headers = HeadersCreate(fields, count);
 	part->eof = 1;
 	multipart_parser_set_data(form->parser, part);
 	FREE(&boundary);

@@ -6,64 +6,52 @@
 #include "http/QueryString.h"
 
 typedef struct {
+	strarg_t cookie;
 	strarg_t content_type;
-} EFSHeaders;
-static HeaderField const EFSHeaderFields[] = {
+} EFSHTTPHeaders;
+static HeaderField const EFSHTTPFields[] = {
+	{"cookie", 100},
 	{"content-type", 100},
 };
-static HeaderFieldList const EFSHeaderFieldList = {
-	.count = numberof(EFSHeaderFields),
-	.items = EFSHeaderFields,
+typedef struct {
+	strarg_t content_type;
+} EFSFormHeaders;
+static HeaderField const EFSFormFields[] = {
+	{"content-type", 100},
 };
 
-static EFSMode method2mode(HTTPMethod const method) {
-	switch(method) {
-		case HTTP_GET:
-		case HTTP_HEAD:
-			return EFS_RDONLY;
-		case HTTP_POST:
-		case HTTP_PUT:
-			return EFS_RDWR;
-		default:
-			assertf(0, "Unknown method %d", (int)method);
-	}
-}
-
-
-// TODO: This should be static, but for now we're accessing it from Blog.c.
-EFSSessionRef auth(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const qs) {
-	str_t *user = NULL;
-	str_t *pass = NULL;
-
-	strarg_t pos = qs;
-	for(;;) {
-		size_t flen, vlen;
-		if(!QSRead(pos, &flen, &vlen)) break;
-
-		if(substr("u", pos+1, flen-1) && !user) {
-			user = strndup(pos+flen+1, vlen-1);
-		}
-		if(substr("p", pos+1, flen-1) && !pass) {
-			pass = strndup(pos+flen+1, vlen-1);
-		}
-
-		pos += flen + vlen;
-	}
-
-	// TODO: Cookie
-
-	EFSMode const mode = method2mode(method);
-
-	EFSSessionRef const session = EFSRepoCreateSession(repo, user, pass, NULL, mode);
-	FREE(&user);
-	FREE(&pass);
-	return session;
+// TODO: Put this somewhere.
+bool_t URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs) {
+	size_t pathlen = prefix(path, URI);
+	if(!pathlen) return false;
+	if('/' == URI[pathlen]) ++pathlen;
+	if(!pathterm(URI, pathlen)) return false;
+	if(qs) *qs = URI + pathlen;
+	return true;
 }
 
 
 // TODO: These methods ought to be built on a public C API because the C API needs to support the same features as the HTTP interface.
 
+static bool_t postAuth(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+//	if(HTTP_POST != method) return false;
+	if(!URIPath(URI, "/efs/auth", NULL)) return false;
 
+	str_t *cookie = EFSRepoCreateCookie(repo, "ben", "testing"); // TODO
+	if(!cookie) {
+		HTTPConnectionSendStatus(conn, 403);
+		return true;
+	}
+
+	HTTPConnectionWriteResponse(conn, 200, "OK");
+	HTTPConnectionWriteSetCookie(conn, "s", cookie, "/", 60 * 60 * 24 * 365);
+	HTTPConnectionWriteContentLength(conn, 0);
+	HTTPConnectionBeginBody(conn);
+	HTTPConnectionEnd(conn);
+
+	FREE(&cookie);
+	return true;
+}
 static bool_t getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_GET != method && HTTP_HEAD != method) return false;
 	str_t algo[32] = {};
@@ -73,7 +61,9 @@ static bool_t getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 	if(!pathlen) return false;
 	if('/' == URI[pathlen]) ++pathlen;
 	if(!pathterm(URI, pathlen)) return false;
-	EFSSessionRef const session = auth(repo, conn, method, URI+pathlen);
+
+	EFSHTTPHeaders const *const headers = HTTPConnectionGetHeaders(conn, EFSHTTPFields, numberof(EFSHTTPFields));
+	EFSSessionRef const session = EFSRepoCreateSession(repo, headers->cookie);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);
 		return true;
@@ -97,7 +87,9 @@ static bool_t postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTP
 	if(!pathlen) return false;
 	if('/' == URI[pathlen]) ++pathlen;
 	if(!pathterm(URI, (size_t)pathlen)) return false;
-	EFSSessionRef const session = auth(repo, conn, method, URI+pathlen);
+
+	EFSHTTPHeaders const *const headers = HTTPConnectionGetHeaders(conn, EFSHTTPFields, numberof(EFSHTTPFields));
+	EFSSessionRef const session = EFSRepoCreateSession(repo, headers->cookie);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);
 		return true;
@@ -107,8 +99,8 @@ static bool_t postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTP
 	ssize_t (*read)();
 	void *context;
 
-	EFSHeaders *const h1 = HTTPConnectionGetHeaders(conn, &EFSHeaderFieldList);
-	MultipartFormRef const form = MultipartFormCreate(conn, h1->content_type, &EFSHeaderFieldList); // TODO: We shouldn't be reusing EFSHeaderFieldList for two purposes, but it's so simple that it works for now.
+	EFSHTTPHeaders *const h1 = HTTPConnectionGetHeaders(conn, EFSHTTPFields, numberof(EFSHTTPFields));
+	MultipartFormRef const form = MultipartFormCreate(conn, h1->content_type, EFSFormFields, numberof(EFSFormFields));
 	if(form) {
 		FormPartRef const part = MultipartFormGetPart(form);
 		if(!part) {
@@ -116,12 +108,12 @@ static bool_t postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTP
 			EFSSessionFree(session);
 			return true;
 		}
-		EFSHeaders *const h2 = FormPartGetHeaders(part);
-		type = h2->content_type;
+		EFSFormHeaders const *const formHeaders = FormPartGetHeaders(part);
+		type = formHeaders->content_type;
 		read = FormPartGetBuffer;
 		context = part;
 	} else {
-		type = h1->content_type;
+		type = headers->content_type;
 		read = HTTPConnectionGetBuffer;
 		context = conn;
 	}
@@ -151,11 +143,10 @@ static bool_t postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTP
 }
 static bool_t query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_POST != method && HTTP_GET != method) return false;
-	size_t pathlen = prefix("/efs/query", URI);
-	if(!pathlen) return false;
-	if('/' == URI[pathlen]) ++pathlen;
-	if(!pathterm(URI, (size_t)pathlen)) return false;
-	EFSSessionRef const session = auth(repo, conn, HTTP_GET, URI+pathlen);
+	if(!URIPath(URI, "/efs/query", NULL)) return false;
+
+	EFSHTTPHeaders const *const headers = HTTPConnectionGetHeaders(conn, EFSHTTPFields, numberof(EFSHTTPFields));
+	EFSSessionRef const session = EFSRepoCreateSession(repo, headers->cookie);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);
 		return true;
@@ -230,6 +221,7 @@ static bool_t query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 
 
 bool_t EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+	if(postAuth(repo, conn, method, URI)) return true;
 	if(getFile(repo, conn, method, URI)) return true;
 	if(postFile(repo, conn, method, URI)) return true;
 	if(query(repo, conn, method, URI)) return true;

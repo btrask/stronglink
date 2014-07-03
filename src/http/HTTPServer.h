@@ -13,6 +13,5 @@ HTTPServerRef HTTPServerCreate(HTTPListener const listener, void *const context)
 void HTTPServerFree(HTTPServerRef const server);
 int HTTPServerListen(HTTPServerRef const server, uint16_t const port, strarg_t const address);
 void HTTPServerClose(HTTPServerRef const server);
-HeaderFieldList const *HTTPServerGetHeaderFields(HTTPServerRef const server);
 
 #endif

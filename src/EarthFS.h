@@ -24,26 +24,20 @@ strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo);
 sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo);
 void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 *const db);
 
-typedef enum {
-	EFS_RDONLY = 1 << 0,
-	EFS_WRONLY = 1 << 1,
-	EFS_RDWR = EFS_RDONLY | EFS_WRONLY,
-} EFSMode;
-
 typedef struct {
 	str_t *path;
 	str_t *type;
 	uint64_t size;
 } EFSFileInfo;
 
-EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const user, strarg_t const pass, strarg_t const cookie, EFSMode const mode);
+str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strarg_t const password);
+EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie);
 void EFSSessionFree(EFSSessionRef const session);
 EFSRepoRef EFSSessionGetRepo(EFSSessionRef const session);
 int64_t EFSSessionGetUserID(EFSSessionRef const session);
 URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilterRef const filter, count_t const max); // TODO: Public API?
 EFSFileInfo *EFSSessionCopyFileInfo(EFSSessionRef const session, strarg_t const URI);
 void EFSFileInfoFree(EFSFileInfo *const info);
-str_t *EFSSessionCreateCookie(EFSSessionRef const session);
 
 EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context);
 void EFSSubmissionFree(EFSSubmissionRef const sub);

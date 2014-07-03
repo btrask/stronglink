@@ -16,7 +16,7 @@ void HTTPConnectionFree(HTTPConnectionRef const conn);
 // Connection reading
 HTTPMethod HTTPConnectionGetRequestMethod(HTTPConnectionRef const conn);
 strarg_t HTTPConnectionGetRequestURI(HTTPConnectionRef const conn);
-void *HTTPConnectionGetHeaders(HTTPConnectionRef const conn, HeaderFieldList const *const fields);
+void *HTTPConnectionGetHeaders(HTTPConnectionRef const conn, HeaderField const fields[], count_t const count);
 ssize_t HTTPConnectionRead(HTTPConnectionRef const conn, byte_t *const buf, size_t const len);
 ssize_t HTTPConnectionGetBuffer(HTTPConnectionRef const conn, byte_t const **const buf); // Zero-copy version.
 void HTTPConnectionDrain(HTTPConnectionRef const conn);
@@ -27,6 +27,7 @@ ssize_t HTTPConnectionWritev(HTTPConnectionRef const conn, uv_buf_t const parts[
 err_t HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, strarg_t const message);
 err_t HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value);
 err_t HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, uint64_t const length);
+err_t HTTPConnectionWriteSetCookie(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value, strarg_t const path, uint64_t const maxage);
 err_t HTTPConnectionBeginBody(HTTPConnectionRef const conn);
 err_t HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file);
 err_t HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, uint64_t const length);

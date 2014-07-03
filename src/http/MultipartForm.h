@@ -3,7 +3,7 @@
 typedef struct MultipartForm* MultipartFormRef;
 typedef struct FormPart* FormPartRef;
 
-MultipartFormRef MultipartFormCreate(HTTPConnectionRef const conn, strarg_t const type, HeaderFieldList const *const fields);
+MultipartFormRef MultipartFormCreate(HTTPConnectionRef const conn, strarg_t const type, HeaderField const *const fields, count_t const count);
 void MultipartFormFree(MultipartFormRef const form);
 FormPartRef MultipartFormGetPart(MultipartFormRef const form);
 void *FormPartGetHeaders(FormPartRef const part);

@@ -7,14 +7,10 @@ typedef struct {
 	strarg_t const name;
 	size_t const size;
 } HeaderField;
-typedef struct {
-	count_t const count;
-	HeaderField const *const items;
-} HeaderFieldList;
 
 typedef struct Headers* HeadersRef;
 
-HeadersRef HeadersCreate(HeaderFieldList const *const fields);
+HeadersRef HeadersCreate(HeaderField const fields[], count_t const count);
 void HeadersFree(HeadersRef const headers);
 err_t HeadersAppendFieldChunk(HeadersRef const headers, strarg_t const chunk, size_t const len);
 err_t HeadersAppendValueChunk(HeadersRef const headers, strarg_t const chunk, size_t const len);

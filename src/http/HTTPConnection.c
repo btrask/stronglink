@@ -71,10 +71,10 @@ strarg_t HTTPConnectionGetRequestURI(HTTPConnectionRef const conn) {
 	if(!conn) return NULL;
 	return conn->requestURI;
 }
-void *HTTPConnectionGetHeaders(HTTPConnectionRef const conn, HeaderFieldList const *const fields) {
+void *HTTPConnectionGetHeaders(HTTPConnectionRef const conn, HeaderField const fields[], count_t const count) {
 	if(!conn) return NULL;
 	assertf(!conn->headers, "Connection headers already read");
-	conn->headers = HeadersCreate(fields);
+	conn->headers = HeadersCreate(fields, count);
 	if(!conn->headers) return NULL;
 	if(conn->next.len) {
 		HeadersAppendFieldChunk(conn->headers, conn->next.at, conn->next.len);
@@ -91,7 +91,7 @@ void *HTTPConnectionGetHeaders(HTTPConnectionRef const conn, HeaderFieldList con
 }
 ssize_t HTTPConnectionRead(HTTPConnectionRef const conn, byte_t *const buf, size_t const len) {
 	if(!conn) return -1;
-	if(!conn->headers) HTTPConnectionGetHeaders(conn, NULL);
+	if(!conn->headers) HTTPConnectionGetHeaders(conn, NULL, 0);
 	if(!conn->next.len) return conn->messageEOF ? 0 : -1;
 	size_t const used = MIN(len, conn->next.len);
 	memcpy(buf, conn->next.at, used);
@@ -102,7 +102,7 @@ ssize_t HTTPConnectionRead(HTTPConnectionRef const conn, byte_t *const buf, size
 }
 ssize_t HTTPConnectionGetBuffer(HTTPConnectionRef const conn, byte_t const **const buf) {
 	if(!conn) return -1;
-	if(!conn->headers) HTTPConnectionGetHeaders(conn, NULL);
+	if(!conn->headers) HTTPConnectionGetHeaders(conn, NULL, 0);
 	if(!conn->next.len) {
 		if(conn->messageEOF) return 0;
 		if(readOnce(conn) < 0) return -1;
@@ -164,8 +164,18 @@ err_t HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const fie
 }
 err_t HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, uint64_t const length) {
 	if(!conn) return 0;
-	str_t *str = NULL;
+	str_t *str;
 	int const slen = asprintf(&str, "Content-Length: %llu\r\n", (unsigned long long)length);
+	if(slen < 0) return -1;
+	ssize_t const wlen = HTTPConnectionWrite(conn, (byte_t *)str, slen);
+	FREE(&str);
+	return wlen < 0 ? -1 : 0;
+}
+err_t HTTPConnectionWriteSetCookie(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value, strarg_t const path, uint64_t const maxage) {
+	if(!conn) return 0;
+	str_t *str;
+	unsigned long long const x = maxage;
+	int const slen = asprintf(&str, "Set-Cookie: %s=%s; Path=%s; MaxAge=%llu; HttpOnly\r\n", field, value, path, x);
 	if(slen < 0) return -1;
 	ssize_t const wlen = HTTPConnectionWrite(conn, (byte_t *)str, slen);
 	FREE(&str);
