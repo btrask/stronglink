@@ -117,7 +117,7 @@ static char *tohex(char const *const buf, size_t const len) {
 }
 char *async_tempnam(char const *dir, char const *prefix) {
 	if(!dir) dir = "/tmp"; // TODO: Use ENV
-	if(!prefix) prefix = "";
+	if(!prefix) prefix = "async";
 	char rand[ENTROPY_BYTES];
 	if(async_random((unsigned char *)rand, ENTROPY_BYTES) < 0) return NULL;
 	char *hex = tohex(rand, ENTROPY_BYTES);
