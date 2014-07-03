@@ -49,6 +49,10 @@ HTTPConnectionRef HTTPConnectionCreateIncoming(uv_tcp_t *const stream, http_pars
 			return NULL;
 		}
 		if(HPE_PAUSED == HTTP_PARSER_ERRNO(conn->parser)) break;
+		if(conn->messageEOF || conn->streamEOF) {
+			HTTPConnectionFree(conn);
+			return NULL;
+		}
 	}
 	assertf(conn->requestURI[0], "No URI in request");
 	return conn;
@@ -84,8 +88,7 @@ void *HTTPConnectionGetHeaders(HTTPConnectionRef const conn, HeaderField const f
 	for(;;) {
 		if(readOnce(conn) < 0) return NULL;
 		if(HPE_PAUSED == HTTP_PARSER_ERRNO(conn->parser)) break;
-		if(conn->messageEOF) break;
-		if(conn->streamEOF) return NULL;
+		if(conn->messageEOF || conn->streamEOF) return NULL;
 	}
 	return HeadersGetData(conn->headers);
 }
@@ -175,7 +178,7 @@ err_t HTTPConnectionWriteSetCookie(HTTPConnectionRef const conn, strarg_t const 
 	if(!conn) return 0;
 	str_t *str;
 	unsigned long long const x = maxage;
-	int const slen = asprintf(&str, "Set-Cookie: %s=%s; Path=%s; MaxAge=%llu; HttpOnly\r\n", field, value, path, x);
+	int const slen = asprintf(&str, "Set-Cookie: %s=%s; Path=%s; Max-Age=%llu; HttpOnly\r\n", field, value, path, x);
 	if(slen < 0) return -1;
 	ssize_t const wlen = HTTPConnectionWrite(conn, (byte_t *)str, slen);
 	FREE(&str);
