@@ -46,7 +46,7 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 		"SELECT user_id, password_hash\n"
 		"FROM users WHERE username = ?");
 	sqlite3_bind_text(select, 1, username, -1, SQLITE_STATIC);
-	if(SQLITE_ROW != sqlite3_step(select)) {
+	if(SQLITE_ROW != STEP(select)) {
 		sqlite3_finalize(select);
 		EFSRepoDBClose(repo, db);
 		return NULL;
@@ -79,7 +79,7 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 		"SELECT ?, ?");
 	sqlite3_bind_text(insert, 1, sessionHash, -1, SQLITE_STATIC);
 	sqlite3_bind_int64(insert, 2, userID);
-	int const status = sqlite3_step(insert);
+	int const status = STEP(insert);
 	FREE(&sessionHash);
 	sqlite3_finalize(insert); insert = NULL;
 	str_t *cookie = NULL;
@@ -115,7 +115,7 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 		"SELECT user_id, session_hash\n"
 		"FROM sessions WHERE session_id = ?");
 	sqlite3_bind_int64(select, 1, sessionID);
-	if(SQLITE_ROW != sqlite3_step(select)) {
+	if(SQLITE_ROW != STEP(select)) {
 		FREE(&sessionKey);
 		sqlite3_finalize(select); select = NULL;
 		EFSRepoDBClose(repo, db); db = NULL;
@@ -180,7 +180,7 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 	sqlite3_bind_text(select, 1, "sha256", -1, SQLITE_STATIC);
 	sqlite3_bind_int64(select, 2, max);
 	URIListRef const URIs = URIListCreate();
-	while(SQLITE_ROW == sqlite3_step(select)) {
+	while(SQLITE_ROW == STEP(select)) {
 		strarg_t const URI = (strarg_t)sqlite3_column_text(select, 0);
 		URIListAddURI(URIs, URI, strlen(URI));
 	}
@@ -200,7 +200,7 @@ EFSFileInfo *EFSSessionCopyFileInfo(EFSSessionRef const session, strarg_t const 
 		"LEFT JOIN uris AS u ON (u.uri_id = f2.uri_id)\n"
 		"WHERE u.uri = ? LIMIT 1");
 	sqlite3_bind_text(select, 1, URI, -1, SQLITE_STATIC);
-	if(SQLITE_ROW != sqlite3_step(select)) {
+	if(SQLITE_ROW != STEP(select)) {
 		sqlite3_finalize(select);
 		EFSRepoDBClose(repo, db);
 		return NULL;

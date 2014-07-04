@@ -8,7 +8,7 @@
 
 #define MAXPATHNAME 512
 
-#define FILE_LOCK_MODE 2
+#define FILE_LOCK_MODE 3
 
 #if FILE_LOCK_MODE==0
 #elif FILE_LOCK_MODE==1
@@ -302,6 +302,9 @@ static int async_lock(async_file *const file, int const level) {
 			}
 			async_rwlock_wrlock(lock);
 			return SQLITE_OK;
+		default:
+			assert(0 && "Unknown lock mode");
+			return 0;
 	}
 #endif
 }
@@ -341,9 +344,18 @@ static int async_unlock(async_file *const file, int const level) {
 			}
 			return SQLITE_OK;
 		case SQLITE_LOCK_NONE:
-			if(async_rwlock_wrcheck(lock)) async_rwlock_wrunlock(lock);
-			else if(async_rwlock_rdcheck(lock)) async_rwlock_rdunlock(lock);
+			if(async_rwlock_wrcheck(lock)) {
+				async_rwlock_wrunlock(lock);
+				return SQLITE_OK;
+			}
+			if(async_rwlock_rdcheck(lock)) {
+				async_rwlock_rdunlock(lock);
+				return SQLITE_OK;
+			}
 			return SQLITE_OK;
+		default:
+			assert(0 && "Unknown lock mode");
+			return 0;
 	}
 #endif
 }

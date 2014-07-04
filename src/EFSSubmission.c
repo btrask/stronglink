@@ -159,7 +159,7 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 		"WHERE internal_hash = ? AND file_type = ?");
 	sqlite3_bind_text(selectFile, 1, sub->internalHash, -1, SQLITE_STATIC);
 	sqlite3_bind_text(selectFile, 2, sub->type, -1, SQLITE_STATIC);
-	sqlite3_step(selectFile);
+	STEP(selectFile);
 	int64_t const fileID = sqlite3_column_int64(selectFile, 0);
 	sqlite3_finalize(selectFile); selectFile = NULL;
 
@@ -171,11 +171,11 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 	for(index_t i = 0; i < URIListGetCount(sub->URIs); ++i) {
 		strarg_t const URI = URIListGetURI(sub->URIs, i);
 		sqlite3_bind_text(insertURI, 1, URI, -1, SQLITE_STATIC);
-		sqlite3_step(insertURI); sqlite3_reset(insertURI);
+		STEP(insertURI); sqlite3_reset(insertURI);
 
 		sqlite3_bind_int64(insertFileURI, 1, fileID);
 		sqlite3_bind_text(insertFileURI, 2, URI, -1, SQLITE_STATIC);
-		sqlite3_step(insertFileURI); sqlite3_reset(insertFileURI);
+		STEP(insertFileURI); sqlite3_reset(insertFileURI);
 	}
 	sqlite3_finalize(insertURI); insertURI = NULL;
 	sqlite3_finalize(insertFileURI); insertFileURI = NULL;

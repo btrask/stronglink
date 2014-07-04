@@ -61,6 +61,9 @@ strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->cacheDir;
 }
+static int handler(void *ctx, int count) {
+	return 1;
+}
 sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	// TODO: Connection pooling.
@@ -72,6 +75,8 @@ sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo) {
 		NULL
 	)) return NULL;
 //	sqlite3_busy_timeout(db, 5);
+	// TODO: Doesn't work?
+	sqlite3_busy_handler(db, handler, NULL);
 	return db;
 }
 void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 *const db) {
