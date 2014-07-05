@@ -149,7 +149,9 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 		}
 
 		str[len] = '\0';
-		yajl_val const obj = yajl_tree_parse(str, NULL, 0);
+		str_t err[200];
+		yajl_val const obj = yajl_tree_parse(str, err, sizeof(err));
+		if(!emptystr(err)) fprintf(stderr, "parse error %s:\n%s\n", metaURI, err);
 
 		FREE(&str);
 
