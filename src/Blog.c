@@ -38,6 +38,9 @@ struct Blog {
 // TODO: Real public API.
 bool_t URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs);
 
+static bool_t emptystr(strarg_t const str) {
+	return !str || '\0' == str[0];
+}
 static str_t *BlogCopyPreviewPath(BlogRef const blog, strarg_t const hash) {
 	str_t *path;
 	if(asprintf(&path, "%s/%.2s/%s", blog->cacheDir, hash, hash) < 0) return NULL;
@@ -167,6 +170,12 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 
 	uv_file file = async_fs_open(tmpPath, O_CREAT | O_EXCL | O_WRONLY, 0400);
 	err_t err = file;
+
+	if(emptystr(title_HTMLSafe)) FREE(&title_HTMLSafe);
+	if(emptystr(description_HTMLSafe)) FREE(&description_HTMLSafe);
+	if(emptystr(sourceURI_HTMLSafe)) FREE(&sourceURI_HTMLSafe);
+	if(emptystr(thumbnailURI_HTMLSafe)) FREE(&thumbnailURI_HTMLSafe);
+	if(emptystr(faviconURI_HTMLSafe)) FREE(&faviconURI_HTMLSafe);
 
 	TemplateArg const args[] = {
 		{"URI", URI_HTMLSafe, -1},
