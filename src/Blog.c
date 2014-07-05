@@ -154,10 +154,12 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 		if(!title_HTMLSafe) title_HTMLSafe = htmlenc(YAJL_GET_STRING(yajl_tree_get(obj, yajl_title, yajl_t_string)));
 		strarg_t yajl_sourceURI[] = { "sourceURI", NULL };
 		if(!sourceURI_HTMLSafe) sourceURI_HTMLSafe = htmlenc(YAJL_GET_STRING(yajl_tree_get(obj, yajl_sourceURI, yajl_t_string)));
+		strarg_t yajl_description[] = { "description", NULL };
+		if(!description_HTMLSafe) description_HTMLSafe = htmlenc(YAJL_GET_STRING(yajl_tree_get(obj, yajl_description, yajl_t_string)));
 
 		yajl_tree_free(obj);
 
-		break;
+//		break;
 	}
 
 	str_t *tmpPath = EFSRepoCopyTempPath(blog->repo);
