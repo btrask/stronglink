@@ -69,3 +69,24 @@ int async_random(unsigned char *const buf, size_t const len) {
 	return state.status;
 }
 
+typedef struct {
+	cothread_t thread;
+	int status;
+	struct addrinfo *res;
+} getaddrinfo_state;
+static void getaddrinfo_cb(uv_getaddrinfo_t *const req, int const status, struct addrinfo *const res) {
+	getaddrinfo_state *const state = req->data;
+	state->status = status;
+	state->res = res;
+	co_switch(state->thread);
+}
+int async_getaddrinfo(char const *const node, char const *const service, struct addrinfo const *const hints, struct addrinfo **const res) {
+	getaddrinfo_state state = { .thread = co_active() };
+	uv_getaddrinfo_t req = { .data = &state };
+	int const err = uv_getaddrinfo(loop, &req, getaddrinfo_cb, node, service, hints);
+	if(err < 0) return err;
+	co_switch(yield);
+	if(res) *res = state.res;
+	return state.status;
+}
+

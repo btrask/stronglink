@@ -34,6 +34,11 @@ static void async_exit_cb(uv_process_t *const proc, int64_t const status, int co
 	state->status = status;
 	co_switch(state->thread);
 }
+static void async_connect_cb(uv_connect_t *const req, int const status) {
+	async_state *const state = req->data;
+	state->status = status;
+	co_switch(state->thread);
+}
 
 void async_init(void);
 void async_wakeup(cothread_t const thread);
@@ -41,6 +46,7 @@ void async_wakeup(cothread_t const thread);
 void co_terminate(void);
 
 int async_random(unsigned char *const buf, size_t const len);
+int async_getaddrinfo(char const *const node, char const *const service, struct addrinfo const *const hints, struct addrinfo **const res);
 
 // async_fs.c
 uv_file async_fs_open(const char* path, int flags, int mode);
