@@ -33,26 +33,26 @@ bool_t URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs) {
 
 // TODO: These methods ought to be built on a public C API because the C API needs to support the same features as the HTTP interface.
 
-static bool_t postAuth(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool_t postAuth(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
 //	if(HTTP_POST != method) return false;
 	if(!URIPath(URI, "/efs/auth", NULL)) return false;
 
 	str_t *cookie = EFSRepoCreateCookie(repo, "ben", "testing"); // TODO
 	if(!cookie) {
-		HTTPConnectionSendStatus(conn, 403);
+		HTTPMessageSendStatus(msg, 403);
 		return true;
 	}
 
-	HTTPConnectionWriteResponse(conn, 200, "OK");
-	HTTPConnectionWriteSetCookie(conn, "s", cookie, "/", 60 * 60 * 24 * 365);
-	HTTPConnectionWriteContentLength(conn, 0);
-	HTTPConnectionBeginBody(conn);
-	HTTPConnectionEnd(conn);
+	HTTPMessageWriteResponse(msg, 200, "OK");
+	HTTPMessageWriteSetCookie(msg, "s", cookie, "/", 60 * 60 * 24 * 365);
+	HTTPMessageWriteContentLength(msg, 0);
+	HTTPMessageBeginBody(msg);
+	HTTPMessageEnd(msg);
 
 	FREE(&cookie);
 	return true;
 }
-static bool_t getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool_t getFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_GET != method && HTTP_HEAD != method) return false;
 	str_t algo[32] = {};
 	str_t hash[256] = {};
@@ -62,10 +62,10 @@ static bool_t getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 	if('/' == URI[pathlen]) ++pathlen;
 	if(!pathterm(URI, pathlen)) return false;
 
-	EFSHTTPHeaders const *const headers = HTTPConnectionGetHeaders(conn, EFSHTTPFields, numberof(EFSHTTPFields));
+	EFSHTTPHeaders const *const headers = HTTPMessageGetHeaders(msg, EFSHTTPFields, numberof(EFSHTTPFields));
 	EFSSessionRef const session = EFSRepoCreateSession(repo, headers->cookie);
 	if(!session) {
-		HTTPConnectionSendStatus(conn, 403);
+		HTTPMessageSendStatus(msg, 403);
 		return true;
 	}
 
@@ -75,29 +75,29 @@ static bool_t getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 	FREE(&fileURI);
 	if(!info) {
 		fprintf(stderr, "Couldn't find hash://%s/%s\n", algo, hash);
-		HTTPConnectionSendStatus(conn, 404);
+		HTTPMessageSendStatus(msg, 404);
 		EFSSessionFree(session);
 		return true;
 	}
 
 	// TODO: Do we need to send other headers?
-	HTTPConnectionSendFile(conn, info->path, info->type, info->size);
+	HTTPMessageSendFile(msg, info->path, info->type, info->size);
 
 	EFSFileInfoFree(info); info = NULL;
 	EFSSessionFree(session);
 	return true;
 }
-static bool_t postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool_t postFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_POST != method) return false;
 	size_t pathlen = prefix("/efs/file", URI);
 	if(!pathlen) return false;
 	if('/' == URI[pathlen]) ++pathlen;
 	if(!pathterm(URI, (size_t)pathlen)) return false;
 
-	EFSHTTPHeaders const *const headers = HTTPConnectionGetHeaders(conn, EFSHTTPFields, numberof(EFSHTTPFields));
+	EFSHTTPHeaders const *const headers = HTTPMessageGetHeaders(msg, EFSHTTPFields, numberof(EFSHTTPFields));
 	EFSSessionRef const session = EFSRepoCreateSession(repo, headers->cookie);
 	if(!session) {
-		HTTPConnectionSendStatus(conn, 403);
+		HTTPMessageSendStatus(msg, 403);
 		return true;
 	}
 
@@ -105,11 +105,11 @@ static bool_t postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTP
 	ssize_t (*read)();
 	void *context;
 
-	MultipartFormRef const form = MultipartFormCreate(conn, headers->content_type, EFSFormFields, numberof(EFSFormFields));
+	MultipartFormRef const form = MultipartFormCreate(msg, headers->content_type, EFSFormFields, numberof(EFSFormFields));
 	if(form) {
 		FormPartRef const part = MultipartFormGetPart(form);
 		if(!part) {
-			HTTPConnectionSendStatus(conn, 400);
+			HTTPMessageSendStatus(msg, 400);
 			EFSSessionFree(session);
 			return true;
 		}
@@ -119,26 +119,26 @@ static bool_t postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTP
 		context = part;
 	} else {
 		type = headers->content_type;
-		read = HTTPConnectionGetBuffer;
-		context = conn;
+		read = HTTPMessageGetBuffer;
+		context = msg;
 	}
 
 	EFSSubmissionRef const sub = EFSRepoCreateSubmission(repo, type, read, context);
 	if(EFSSessionAddSubmission(session, sub) < 0) {
 		fprintf(stderr, "Submission error for file type %s\n", type);
-		HTTPConnectionSendStatus(conn, 500);
+		HTTPMessageSendStatus(msg, 500);
 		EFSSubmissionFree(sub);
 		EFSSessionFree(session);
 		return true;
 	}
 
-	HTTPConnectionWriteResponse(conn, 201, "Created"); // TODO: Is this right?
+	HTTPMessageWriteResponse(msg, 201, "Created"); // TODO: Is this right?
 	// TODO: Some of our API clients follow redirects automatically, so it's a bad idea to do it here, but our blog submission form needs a redirect.
-//	HTTPConnectionWriteHeader(conn, "Location", "/");
-	HTTPConnectionWriteHeader(conn, "X-Location", EFSSubmissionGetPrimaryURI(sub));
-	HTTPConnectionWriteContentLength(conn, 0);
-	HTTPConnectionBeginBody(conn);
-	HTTPConnectionEnd(conn);
+//	HTTPMessageWriteHeader(msg, "Location", "/");
+	HTTPMessageWriteHeader(msg, "X-Location", EFSSubmissionGetPrimaryURI(sub));
+	HTTPMessageWriteContentLength(msg, 0);
+	HTTPMessageBeginBody(msg);
+	HTTPMessageEnd(msg);
 //	fprintf(stderr, "POST %s -> %s\n", type, EFSSubmissionGetPrimaryURI(sub));
 
 	EFSSubmissionFree(sub);
@@ -146,14 +146,14 @@ static bool_t postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTP
 	EFSSessionFree(session);
 	return true;
 }
-static bool_t query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_POST != method && HTTP_GET != method) return false;
 	if(!URIPath(URI, "/efs/query", NULL)) return false;
 
-	EFSHTTPHeaders const *const headers = HTTPConnectionGetHeaders(conn, EFSHTTPFields, numberof(EFSHTTPFields));
+	EFSHTTPHeaders const *const headers = HTTPMessageGetHeaders(msg, EFSHTTPFields, numberof(EFSHTTPFields));
 	EFSSessionRef const session = EFSRepoCreateSession(repo, headers->cookie);
 	if(!session) {
-		HTTPConnectionSendStatus(conn, 403);
+		HTTPMessageSendStatus(msg, 403);
 		return true;
 	}
 
@@ -165,9 +165,9 @@ static bool_t query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 		builder = EFSJSONFilterBuilderCreate();
 		for(;;) {
 			byte_t const *buf = NULL;
-			ssize_t const len = HTTPConnectionGetBuffer(conn, &buf);
+			ssize_t const len = HTTPMessageGetBuffer(msg, &buf);
 			if(-1 == len) {
-				HTTPConnectionSendStatus(conn, 400);
+				HTTPMessageSendStatus(msg, 400);
 				EFSSessionFree(session);
 				return true;
 			}
@@ -189,11 +189,11 @@ static bool_t query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 		"LEFT JOIN results AS r ON (f.file_id = r.file_id)\n"
 		"ORDER BY r.sort DESC LIMIT 50");
 
-	HTTPConnectionWriteResponse(conn, 200, "OK");
-	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
+	HTTPMessageWriteResponse(msg, 200, "OK");
+	HTTPMessageWriteHeader(msg, "Transfer-Encoding", "chunked");
 	// TODO: Ugh, more stuff to support.
-	HTTPConnectionWriteHeader(conn, "Content-Type", "text/uri-list; charset=utf-8");
-	HTTPConnectionBeginBody(conn);
+	HTTPMessageWriteHeader(msg, "Content-Type", "text/uri-list; charset=utf-8");
+	HTTPMessageBeginBody(msg);
 
 	strarg_t const prefix = "hash://sha256/"; // TODO: Handle different types of internal hashes.
 	size_t const prefixlen = strlen(prefix);
@@ -201,20 +201,20 @@ static bool_t query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 		strarg_t const hash = (strarg_t)sqlite3_column_text(select, 0);
 		size_t const hashlen = strlen(hash);
 		size_t const total = prefixlen + hashlen + 1;
-		HTTPConnectionWriteChunkLength(conn, total);
+		HTTPMessageWriteChunkLength(msg, total);
 		uv_buf_t parts[] = {
 			uv_buf_init((char *)prefix, prefixlen),
 			uv_buf_init((char *)hash, hashlen),
 			uv_buf_init("\n", 1),
 			uv_buf_init("\r\n", 2),
 		};
-		HTTPConnectionWritev(conn, parts, numberof(parts));
+		HTTPMessageWritev(msg, parts, numberof(parts));
 	}
 	sqlite3_finalize(select);
 
-	HTTPConnectionWriteChunkLength(conn, 0);
-	HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
-	HTTPConnectionEnd(conn);
+	HTTPMessageWriteChunkLength(msg, 0);
+	HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
+	HTTPMessageEnd(msg);
 
 	EFSRepoDBClose(repo, db);
 
@@ -225,11 +225,11 @@ static bool_t query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 }
 
 
-bool_t EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
-	if(postAuth(repo, conn, method, URI)) return true;
-	if(getFile(repo, conn, method, URI)) return true;
-	if(postFile(repo, conn, method, URI)) return true;
-	if(query(repo, conn, method, URI)) return true;
+bool_t EFSServerDispatch(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
+	if(postAuth(repo, msg, method, URI)) return true;
+	if(getFile(repo, msg, method, URI)) return true;
+	if(postFile(repo, msg, method, URI)) return true;
+	if(query(repo, msg, method, URI)) return true;
 	return false;
 }
 

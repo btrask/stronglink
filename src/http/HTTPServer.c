@@ -68,11 +68,11 @@ static void connection(void) {
 	http_parser_init(&parser, HTTP_REQUEST);
 	byte_t *buf = malloc(READ_BUFFER_SIZE);
 	for(;;) {
-		HTTPConnectionRef const conn = HTTPConnectionCreateIncoming(&stream, &parser, buf, READ_BUFFER_SIZE);
-		if(!conn) break;
-		server->listener(server->context, conn);
-		HTTPConnectionDrain(conn);
-		HTTPConnectionFree(conn);
+		HTTPMessageRef const msg = HTTPMessageCreateIncoming(&stream, &parser, buf, READ_BUFFER_SIZE);
+		if(!msg) break;
+		server->listener(server->context, msg);
+		HTTPMessageDrain(msg);
+		HTTPMessageFree(msg);
 		if(HPE_OK != HTTP_PARSER_ERRNO(&parser)) break;
 	}
 	FREE(&buf);

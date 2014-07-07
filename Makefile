@@ -14,7 +14,7 @@ HEADERS := \
 	src/Template.h \
 	src/http/status.h \
 	src/http/Headers.h \
-	src/http/HTTPConnection.h \
+	src/http/HTTPMessage.h \
 	src/http/HTTPServer.h \
 	src/http/MultipartForm.h \
 	src/http/QueryString.h \
@@ -43,7 +43,7 @@ OBJECTS := \
 	build/async_sqlite.o \
 	build/bcrypt.o \
 	build/http/Headers.o \
-	build/http/HTTPConnection.o \
+	build/http/HTTPMessage.o \
 	build/http/HTTPServer.o \
 	build/http/MultipartForm.o \
 	build/http/QueryString.o \

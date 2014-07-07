@@ -12,7 +12,7 @@ struct FormPart {
 	bool_t eof;
 };
 struct MultipartForm {
-	HTTPConnectionRef conn;
+	HTTPMessageRef msg;
 	multipart_parser *parser;
 	byte_t const *buf;
 	size_t len;
@@ -24,8 +24,8 @@ static multipart_parser_settings const callbacks;
 
 static err_t readOnce(FormPartRef const part);
 
-MultipartFormRef MultipartFormCreate(HTTPConnectionRef const conn, strarg_t const type, HeaderField const *const fields, count_t const count) {
-	if(!conn) return NULL;
+MultipartFormRef MultipartFormCreate(HTTPMessageRef const msg, strarg_t const type, HeaderField const *const fields, count_t const count) {
+	if(!msg) return NULL;
 	if(!type) return NULL;
 	// TODO: More robust content-type parsing.
 	off_t boff = prefix("multipart/form-data; boundary=", type);
@@ -33,7 +33,7 @@ MultipartFormRef MultipartFormCreate(HTTPConnectionRef const conn, strarg_t cons
 	str_t *boundary;
 	if(asprintf(&boundary, "--%s", type+boff) < 0) return NULL; // Why is the parser making us do this?
 	MultipartFormRef const form = calloc(1, sizeof(struct MultipartForm));
-	form->conn = conn;
+	form->msg = msg;
 	form->parser = multipart_parser_init(boundary, &callbacks);
 	FormPartRef const part = &form->part;
 	part->form = form;
@@ -91,7 +91,7 @@ static err_t readOnce(FormPartRef const part) {
 	if(form->eof) return -1;
 	if(part->eof) return -1;
 	if(!form->len) {
-		ssize_t const rlen = HTTPConnectionGetBuffer(form->conn, &form->buf);
+		ssize_t const rlen = HTTPMessageGetBuffer(form->msg, &form->buf);
 		if(!rlen) {
 			form->eof = 1;
 			part->eof = 1; // Should already be set...

@@ -212,7 +212,7 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 	if(err < 0) return -1;
 	return 0;
 }
-static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {
+static void sendPreview(BlogRef const blog, HTTPMessageRef const msg, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {
 	str_t *URI_HTMLSafe = htmlenc(URI);
 	str_t *URIEncoded_HTMLSafe = htmlenc(URI); // TODO: URI enc
 	TemplateArg const args[] = {
@@ -220,30 +220,30 @@ static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, EFSSes
 		{"URIEncoded", URIEncoded_HTMLSafe, -1},
 	};
 
-	TemplateWriteHTTPChunk(blog->entry_start, args, numberof(args), conn);
+	TemplateWriteHTTPChunk(blog->entry_start, args, numberof(args), msg);
 
 	if(
-		HTTPConnectionWriteChunkFile(conn, previewPath) < 0 &&
+		HTTPMessageWriteChunkFile(msg, previewPath) < 0 &&
 		(genPreview(blog, session, URI, previewPath) < 0 ||
-		HTTPConnectionWriteChunkFile(conn, previewPath) < 0)
+		HTTPMessageWriteChunkFile(msg, previewPath) < 0)
 	) {
-		TemplateWriteHTTPChunk(blog->empty, args, numberof(args), conn);
+		TemplateWriteHTTPChunk(blog->empty, args, numberof(args), msg);
 	}
 
-	TemplateWriteHTTPChunk(blog->entry_end, args, numberof(args), conn);
+	TemplateWriteHTTPChunk(blog->entry_end, args, numberof(args), msg);
 
 	FREE(&URI_HTMLSafe);
 	FREE(&URIEncoded_HTMLSafe);
 }
 
-static bool_t getResultsPage(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_GET != method) return false;
 	if(!URIPath(URI, "/", NULL)) return false;
 
-	BlogHTTPHeaders const *const headers = HTTPConnectionGetHeaders(conn, BlogHTTPFields, numberof(BlogHTTPFields));
+	BlogHTTPHeaders const *const headers = HTTPMessageGetHeaders(msg, BlogHTTPFields, numberof(BlogHTTPFields));
 	EFSSessionRef const session = EFSRepoCreateSession(blog->repo, headers->cookie);
 	if(!session) {
-		HTTPConnectionSendStatus(conn, 403);
+		HTTPMessageSendStatus(msg, 403);
 		return true;
 	}
 
@@ -253,13 +253,13 @@ static bool_t getResultsPage(BlogRef const blog, HTTPConnectionRef const conn, H
 
 	URIListRef const URIs = EFSSessionCreateFilteredURIList(session, filter, RESULTS_MAX); // TODO: We should be able to specify a specific algorithm here.
 
-	HTTPConnectionWriteResponse(conn, 200, "OK");
-	HTTPConnectionWriteHeader(conn, "Content-Type", "text/html; charset=utf-8");
-	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
-	HTTPConnectionBeginBody(conn);
+	HTTPMessageWriteResponse(msg, 200, "OK");
+	HTTPMessageWriteHeader(msg, "Content-Type", "text/html; charset=utf-8");
+	HTTPMessageWriteHeader(msg, "Transfer-Encoding", "chunked");
+	HTTPMessageBeginBody(msg);
 
 	// TODO: Template args like repo name.
-	TemplateWriteHTTPChunk(blog->header, NULL, 0, conn);
+	TemplateWriteHTTPChunk(blog->header, NULL, 0, msg);
 
 	for(index_t i = 0; i < URIListGetCount(URIs); ++i) {
 		strarg_t const URI = URIListGetURI(URIs, i);
@@ -267,38 +267,38 @@ static bool_t getResultsPage(BlogRef const blog, HTTPConnectionRef const conn, H
 		strarg_t const hash = URI+sizeof(prefix)-1;
 		str_t *previewPath = BlogCopyPreviewPath(blog, hash);
 		if(!previewPath) continue;
-		sendPreview(blog, conn, session, URI, previewPath);
+		sendPreview(blog, msg, session, URI, previewPath);
 		FREE(&previewPath);
 	}
 
-	TemplateWriteHTTPChunk(blog->footer, NULL, 0, conn);
+	TemplateWriteHTTPChunk(blog->footer, NULL, 0, msg);
 
-	HTTPConnectionWriteChunkLength(conn, 0);
-	HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
-	HTTPConnectionEnd(conn);
+	HTTPMessageWriteChunkLength(msg, 0);
+	HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
+	HTTPMessageEnd(msg);
 
 	URIListFree(URIs);
 	return true;
 }
-static bool_t getSubmissionForm(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool_t getSubmissionForm(BlogRef const blog, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_GET != method) return false;
 	if(!URIPath(URI, "/submit", NULL)) return false;
 
-	BlogHTTPHeaders const *const headers = HTTPConnectionGetHeaders(conn, BlogHTTPFields, numberof(BlogHTTPFields));
+	BlogHTTPHeaders const *const headers = HTTPMessageGetHeaders(msg, BlogHTTPFields, numberof(BlogHTTPFields));
 	EFSSessionRef const session = EFSRepoCreateSession(blog->repo, headers->cookie);
 	if(!session) {
-		HTTPConnectionSendStatus(conn, 403);
+		HTTPMessageSendStatus(msg, 403);
 		return true;
 	}
 
-	HTTPConnectionWriteResponse(conn, 200, "OK");
-	HTTPConnectionWriteHeader(conn, "Content-Type", "text/html; charset=utf-8");
-	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
-	HTTPConnectionBeginBody(conn);
-	TemplateWriteHTTPChunk(blog->submit, NULL, 0, conn);
-	HTTPConnectionWriteChunkLength(conn, 0);
-	HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
-	HTTPConnectionEnd(conn);
+	HTTPMessageWriteResponse(msg, 200, "OK");
+	HTTPMessageWriteHeader(msg, "Content-Type", "text/html; charset=utf-8");
+	HTTPMessageWriteHeader(msg, "Transfer-Encoding", "chunked");
+	HTTPMessageBeginBody(msg);
+	TemplateWriteHTTPChunk(blog->submit, NULL, 0, msg);
+	HTTPMessageWriteChunkLength(msg, 0);
+	HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
+	HTTPMessageEnd(msg);
 	return true;
 }
 
@@ -347,9 +347,9 @@ void BlogFree(BlogRef const blog) {
 	TemplateFree(blog->submit); blog->submit = NULL;
 	free(blog);
 }
-bool_t BlogDispatch(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
-	if(getResultsPage(blog, conn, method, URI)) return true;
-	if(getSubmissionForm(blog, conn, method, URI)) return true;
+bool_t BlogDispatch(BlogRef const blog, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
+	if(getResultsPage(blog, msg, method, URI)) return true;
+	if(getSubmissionForm(blog, msg, method, URI)) return true;
 
 	if(HTTP_GET != method && HTTP_HEAD != method) return false;
 
@@ -357,11 +357,11 @@ bool_t BlogDispatch(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod
 	str_t *path;
 	int const plen = asprintf(&path, "%s%s", blog->staticDir, URI);
 	if(plen < 0) {
-		HTTPConnectionSendStatus(conn, 500);
+		HTTPMessageSendStatus(msg, 500);
 		return true;
 	}
 
-	HTTPConnectionSendFile(conn, path, NULL, -1); // TODO: Determine file type.
+	HTTPMessageSendFile(msg, path, NULL, -1); // TODO: Determine file type.
 	FREE(&path);
 	return true;
 }

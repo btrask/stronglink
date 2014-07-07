@@ -2,11 +2,11 @@
 #define HTTPSERVER_H
 
 #include "../common.h"
-#include "HTTPConnection.h"
+#include "HTTPMessage.h"
 
 typedef struct HTTPServer* HTTPServerRef;
 
-typedef void (*HTTPListener)(void *const context, HTTPConnectionRef const conn);
+typedef void (*HTTPListener)(void *const context, HTTPMessageRef const msg);
 
 
 HTTPServerRef HTTPServerCreate(HTTPListener const listener, void *const context);

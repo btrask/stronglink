@@ -119,8 +119,8 @@ err_t TemplateWrite(TemplateRef const t, TemplateArg const args[], count_t const
 	}
 	return 0;
 }
-err_t TemplateWriteHTTPChunk(TemplateRef const t, TemplateArg const args[], count_t const argc, HTTPConnectionRef const conn) {
-	return TemplateWrite(t, args, argc, (int (*)())HTTPConnectionWriteChunkv, conn);
+err_t TemplateWriteHTTPChunk(TemplateRef const t, TemplateArg const args[], count_t const argc, HTTPMessageRef const msg) {
+	return TemplateWrite(t, args, argc, (int (*)())HTTPMessageWriteChunkv, msg);
 }
 err_t TemplateWriteFile(TemplateRef const t, TemplateArg const args[], count_t const argc, uv_file const file) {
 	assertf(sizeof(void *) >= sizeof(file), "Can't cast uv_file (%d) to void * (%d)", sizeof(file), sizeof(void *));
