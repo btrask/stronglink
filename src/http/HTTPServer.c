@@ -3,8 +3,6 @@
 #include "../async.h"
 #include "HTTPServer.h"
 
-#define READ_BUFFER_SIZE (1024 * 8)
-
 struct HTTPServer {
 	HTTPListener listener;
 	void *context;
@@ -59,27 +57,19 @@ static uv_stream_t *connection_socket;
 static void connection(void) {
 	uv_stream_t *const socket = connection_socket;
 	HTTPServerRef const server = socket->data;
+	HTTPConnectionRef const conn = HTTPConnectionCreateIncoming(socket);
+	if(!conn) return co_terminate();
 
-	uv_tcp_t stream;
-	if(uv_tcp_init(loop, &stream) < 0) return co_terminate();
-	if(uv_accept(socket, (uv_stream_t *)&stream) < 0) return co_terminate();
-
-	http_parser parser;
-	http_parser_init(&parser, HTTP_REQUEST);
-	byte_t *buf = malloc(READ_BUFFER_SIZE);
 	for(;;) {
-		HTTPMessageRef const msg = HTTPMessageCreateIncoming(&stream, &parser, buf, READ_BUFFER_SIZE);
+		HTTPMessageRef const msg = HTTPMessageCreateIncoming(conn);
 		if(!msg) break;
 		server->listener(server->context, msg);
 		HTTPMessageDrain(msg);
 		HTTPMessageFree(msg);
-		if(HPE_OK != HTTP_PARSER_ERRNO(&parser)) break;
+		if(HPE_OK != HTTPConnectionError(conn)) break;
 	}
-	FREE(&buf);
 
-	stream.data = co_active();
-	uv_close((uv_handle_t *)&stream, async_close_cb);
-	co_switch(yield);
+	HTTPConnectionFree(conn);
 	co_terminate();
 }
 static void connection_cb(uv_stream_t *const socket, int const status) {

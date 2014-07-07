@@ -8,9 +8,14 @@
 
 typedef enum http_method HTTPMethod;
 
+typedef struct HTTPConnection* HTTPConnectionRef;
 typedef struct HTTPMessage* HTTPMessageRef;
 
-HTTPMessageRef HTTPMessageCreateIncoming(uv_tcp_t *const stream, http_parser *const parser, byte_t *const buf, size_t const len);
+HTTPConnectionRef HTTPConnectionCreateIncoming(uv_stream_t *const socket);
+void HTTPConnectionFree(HTTPConnectionRef const conn);
+err_t HTTPConnectionError(HTTPConnectionRef const conn);
+
+HTTPMessageRef HTTPMessageCreateIncoming(HTTPConnectionRef const conn);
 void HTTPMessageFree(HTTPMessageRef const msg);
 
 // Message reading

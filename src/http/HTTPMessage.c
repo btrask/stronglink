@@ -3,15 +3,45 @@
 #include "HTTPMessage.h"
 #include "status.h"
 
-#define WRITE_BUFFER_SIZE (1024 * 8)
+#define BUFFER_SIZE (1024 * 8)
 #define URI_MAX 1024
 
-typedef struct HTTPMessage {
-	// Message
-	uv_tcp_t *stream;
-	http_parser *parser;
+struct HTTPConnection {
+	uv_tcp_t stream;
+	http_parser parser;
 	byte_t *buf;
-	size_t len;
+};
+
+HTTPConnectionRef HTTPConnectionCreateIncoming(uv_stream_t *const socket) {
+	HTTPConnectionRef const conn = calloc(1, sizeof(struct HTTPConnection));
+	if(!conn) return NULL;
+	if(
+		uv_tcp_init(loop, &conn->stream) < 0 ||
+		uv_accept(socket, (uv_stream_t *)&conn->stream) < 0
+	) {
+		HTTPConnectionFree(conn);
+		return NULL;
+	}
+	http_parser_init(&conn->parser, HTTP_REQUEST);
+	conn->buf = malloc(BUFFER_SIZE);
+	return conn;
+}
+void HTTPConnectionFree(HTTPConnectionRef const conn) {
+	if(!conn) return;
+	conn->stream.data = co_active();
+	uv_close((uv_handle_t *)&conn->stream, async_close_cb);
+	co_switch(yield);
+	conn->stream.data = NULL;
+	FREE(&conn->buf);
+	free(conn);
+}
+err_t HTTPConnectionError(HTTPConnectionRef const conn) {
+	if(!conn) return HPE_OK;
+	return HTTP_PARSER_ERRNO(&conn->parser);
+}
+
+struct HTTPMessage {
+	HTTPConnectionRef conn;
 	off_t pos;
 	size_t remaining;
 
@@ -26,20 +56,16 @@ typedef struct HTTPMessage {
 
 	// Outgoing
 	// nothing yet...
-} HTTPMessage;
+};
 
 static err_t readOnce(HTTPMessageRef const msg);
 
-HTTPMessageRef HTTPMessageCreateIncoming(uv_tcp_t *const stream, http_parser *const parser, byte_t *const buf, size_t const len) {
-	assertf(stream, "HTTPMessage stream required");
-	assertf(parser, "HTTPMessage parser required");
+HTTPMessageRef HTTPMessageCreateIncoming(HTTPConnectionRef const conn) {
+	assertf(conn, "HTTPMessage connection required");
 	HTTPMessageRef const msg = calloc(1, sizeof(struct HTTPMessage));
 	if(!msg) return NULL;
-	msg->stream = stream;
-	msg->parser = parser;
-	msg->parser->data = msg;
-	msg->buf = buf;
-	msg->len = len;
+	msg->conn = conn;
+	conn->parser.data = msg;
 	msg->requestURI = malloc(URI_MAX+1);
 	msg->requestURI[0] = '\0';
 	for(;;) {
@@ -47,7 +73,7 @@ HTTPMessageRef HTTPMessageCreateIncoming(uv_tcp_t *const stream, http_parser *co
 			HTTPMessageFree(msg);
 			return NULL;
 		}
-		if(HPE_PAUSED == HTTP_PARSER_ERRNO(msg->parser)) break;
+		if(HPE_PAUSED == HTTPConnectionError(msg->conn)) break;
 		if(msg->eof) {
 			HTTPMessageFree(msg);
 			return NULL;
@@ -60,15 +86,14 @@ void HTTPMessageFree(HTTPMessageRef const msg) {
 	if(!msg) return;
 	FREE(&msg->requestURI);
 	HeadersFree(msg->headers);
-	msg->parser->data = NULL;
-	msg->stream = NULL;
-	msg->parser = NULL;
+	msg->conn->parser.data = NULL;
+	msg->conn = NULL;
 	free(msg);
 }
 
 HTTPMethod HTTPMessageGetRequestMethod(HTTPMessageRef const msg) {
 	if(!msg) return 0;
-	return msg->parser->method;
+	return msg->conn->parser.method;
 }
 strarg_t HTTPMessageGetRequestURI(HTTPMessageRef const msg) {
 	if(!msg) return NULL;
@@ -85,7 +110,7 @@ void *HTTPMessageGetHeaders(HTTPMessageRef const msg, HeaderField const fields[]
 	}
 	for(;;) {
 		if(readOnce(msg) < 0) return NULL;
-		if(HPE_PAUSED == HTTP_PARSER_ERRNO(msg->parser)) break;
+		if(HPE_PAUSED == HTTPConnectionError(msg->conn)) break;
 		if(msg->eof) return NULL;
 	}
 	return HeadersGetData(msg->headers);
@@ -129,7 +154,7 @@ ssize_t HTTPMessageWrite(HTTPMessageRef const msg, byte_t const *const buf, size
 	uv_buf_t obj = uv_buf_init((char *)buf, len);
 	async_state state = { .thread = co_active() };
 	uv_write_t req = { .data = &state };
-	uv_write(&req, (uv_stream_t *)msg->stream, &obj, 1, async_write_cb);
+	uv_write(&req, (uv_stream_t *)&msg->conn->stream, &obj, 1, async_write_cb);
 	co_switch(yield);
 	return state.status;
 }
@@ -137,7 +162,7 @@ ssize_t HTTPMessageWritev(HTTPMessageRef const msg, uv_buf_t const parts[], unsi
 	if(!msg) return 0;
 	async_state state = { .thread = co_active() };
 	uv_write_t req = { .data = &state };
-	uv_write(&req, (uv_stream_t *)msg->stream, parts, count, async_write_cb);
+	uv_write(&req, (uv_stream_t *)&msg->conn->stream, parts, count, async_write_cb);
 	co_switch(yield);
 	return state.status;
 }
@@ -210,10 +235,10 @@ err_t HTTPMessageWriteFile(HTTPMessageRef const msg, uv_file const file) {
 	uv_fs_t req = { .data = thread };
 	async_state state = { .thread = thread };
 	uv_write_t wreq = { .data = &state };
-	byte_t *buf = malloc(WRITE_BUFFER_SIZE);
+	byte_t *buf = malloc(BUFFER_SIZE);
 	int64_t pos = 0;
 	for(;;) {
-		uv_buf_t const read = uv_buf_init((char *)buf, WRITE_BUFFER_SIZE);
+		uv_buf_t const read = uv_buf_init((char *)buf, BUFFER_SIZE);
 		uv_fs_read(loop, &req, file, &read, 1, pos, async_fs_cb);
 		co_switch(yield);
 		uv_fs_req_cleanup(&req);
@@ -224,7 +249,7 @@ err_t HTTPMessageWriteFile(HTTPMessageRef const msg, uv_file const file) {
 		}
 		pos += req.result;
 		uv_buf_t const write = uv_buf_init((char *)buf, req.result);
-		uv_write(&wreq, (uv_stream_t *)msg->stream, &write, 1, async_write_cb);
+		uv_write(&wreq, (uv_stream_t *)&msg->conn->stream, &write, 1, async_write_cb);
 		co_switch(yield);
 		if(state.status < 0) {
 			FREE(&buf);
@@ -250,7 +275,7 @@ ssize_t HTTPMessageWriteChunkv(HTTPMessageRef const msg, uv_buf_t const parts[],
 	HTTPMessageWriteChunkLength(msg, total);
 	async_state state = { .thread = co_active() };
 	uv_write_t req = { .data = &state };
-	uv_write(&req, (uv_stream_t *)msg->stream, parts, count, async_write_cb);
+	uv_write(&req, (uv_stream_t *)&msg->conn->stream, parts, count, async_write_cb);
 	co_switch(yield);
 	// TODO: We have to ensure that uv_write() really wrote everything or else we're messing up the chunked encoding. Returning partial writes doesn't cut it.
 	HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
@@ -413,7 +438,7 @@ struct msg_state {
 };
 static void alloc_cb(uv_handle_t *const handle, size_t const suggested_size, uv_buf_t *const buf) {
 	struct msg_state *const state = handle->data;
-	*buf = uv_buf_init((char *)state->msg->buf, state->msg->len);
+	*buf = uv_buf_init((char *)state->msg->conn->buf, BUFFER_SIZE);
 }
 static void read_cb(uv_stream_t *const stream, ssize_t const nread, const uv_buf_t *const buf) {
 	struct msg_state *const state = stream->data;
@@ -428,11 +453,11 @@ static ssize_t readOnce(HTTPMessageRef const msg) {
 			.thread = co_active(),
 			.msg = msg,
 		};
-		msg->stream->data = &state;
+		msg->conn->stream.data = &state;
 		for(;;) {
-			uv_read_start((uv_stream_t *)msg->stream, alloc_cb, read_cb);
+			uv_read_start((uv_stream_t *)&msg->conn->stream, alloc_cb, read_cb);
 			co_switch(yield);
-			uv_read_stop((uv_stream_t *)msg->stream);
+			uv_read_stop((uv_stream_t *)&msg->conn->stream);
 			if(state.nread) break;
 		}
 		if(UV_EOF == state.nread) {
@@ -443,12 +468,12 @@ static ssize_t readOnce(HTTPMessageRef const msg) {
 		msg->pos = 0;
 		msg->remaining = state.nread;
 	}
-	http_parser_pause(msg->parser, 0);
-	size_t const plen = http_parser_execute(msg->parser, &settings, (char const *)msg->buf + msg->pos, msg->remaining);
-	if(plen != msg->remaining && HPE_PAUSED != HTTP_PARSER_ERRNO(msg->parser)) {
+	http_parser_pause(&msg->conn->parser, 0);
+	size_t const plen = http_parser_execute(&msg->conn->parser, &settings, (char const *)msg->conn->buf + msg->pos, msg->remaining);
+	if(plen != msg->remaining && HPE_PAUSED != HTTPConnectionError(msg->conn)) {
 		fprintf(stderr, "HTTP parse error %s (%d)\n",
-			http_errno_name(HTTP_PARSER_ERRNO(msg->parser)),
-			HTTP_PARSER_ERRNO_LINE(msg->parser));
+			http_errno_name(HTTPConnectionError(msg->conn)),
+			HTTP_PARSER_ERRNO_LINE(&msg->conn->parser));
 		msg->eof = true; // Make sure we don't read anymore. HTTPMessageDrain() expects this too.
 		return -1;
 	}
