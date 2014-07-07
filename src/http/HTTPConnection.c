@@ -141,7 +141,22 @@ ssize_t HTTPConnectionWritev(HTTPConnectionRef const conn, uv_buf_t const parts[
 	co_switch(yield);
 	return state.status;
 }
-ssize_t HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, strarg_t const message) {
+err_t HTTPConnectionWriteRequest(HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const requestURI, strarg_t const host) {
+	if(!conn) return 0;
+	strarg_t methodstr = http_method_str(method);
+	uv_buf_t parts[] = {
+		uv_buf_init((char *)methodstr, strlen(methodstr)),
+		uv_buf_init(" ", 1),
+		uv_buf_init((char *)requestURI, strlen(requestURI)),
+		uv_buf_init(" HTTP/1.1\r\n", 11),
+		uv_buf_init("Host: ", 6),
+		uv_buf_init((char *)host, strlen(host)),
+		uv_buf_init("\r\n", 2),
+	};
+	ssize_t const wlen = HTTPConnectionWritev(conn, parts, numberof(parts));
+	return wlen < 0 ? -1 : 0;
+}
+err_t HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, strarg_t const message) {
 	if(!conn) return 0;
 	// TODO: TCP_CORK?
 	// TODO: Suppply our own message for known status codes.

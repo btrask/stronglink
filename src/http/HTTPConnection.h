@@ -24,6 +24,7 @@ void HTTPConnectionDrain(HTTPConnectionRef const conn);
 // Connection writing
 ssize_t HTTPConnectionWrite(HTTPConnectionRef const conn, byte_t const *const buf, size_t const len);
 ssize_t HTTPConnectionWritev(HTTPConnectionRef const conn, uv_buf_t const parts[], unsigned int const count);
+err_t HTTPConnectionWriteRequest(HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const requestURI, strarg_t const host);
 err_t HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, strarg_t const message);
 err_t HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value);
 err_t HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, uint64_t const length);
