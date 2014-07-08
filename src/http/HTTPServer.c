@@ -61,7 +61,7 @@ static void connection(void) {
 	if(!conn) return co_terminate();
 
 	for(;;) {
-		HTTPMessageRef const msg = HTTPMessageCreateIncoming(conn);
+		HTTPMessageRef const msg = HTTPMessageCreate(conn);
 		if(!msg) break;
 		server->listener(server->context, msg);
 		HTTPMessageDrain(msg);

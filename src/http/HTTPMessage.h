@@ -12,10 +12,11 @@ typedef struct HTTPConnection* HTTPConnectionRef;
 typedef struct HTTPMessage* HTTPMessageRef;
 
 HTTPConnectionRef HTTPConnectionCreateIncoming(uv_stream_t *const socket);
+HTTPConnectionRef HTTPConnectionCreateOutgoing(strarg_t const domain);
 void HTTPConnectionFree(HTTPConnectionRef const conn);
 err_t HTTPConnectionError(HTTPConnectionRef const conn);
 
-HTTPMessageRef HTTPMessageCreateIncoming(HTTPConnectionRef const conn);
+HTTPMessageRef HTTPMessageCreate(HTTPConnectionRef const conn);
 void HTTPMessageFree(HTTPMessageRef const msg);
 
 // Message reading

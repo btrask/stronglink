@@ -24,6 +24,47 @@ HTTPConnectionRef HTTPConnectionCreateIncoming(uv_stream_t *const socket) {
 	}
 	http_parser_init(&conn->parser, HTTP_REQUEST);
 	conn->buf = malloc(BUFFER_SIZE);
+	if(!conn->buf) {
+		HTTPConnectionFree(conn);
+		return NULL;
+	}
+	return conn;
+}
+HTTPConnectionRef HTTPConnectionCreateOutgoing(strarg_t const domain) {
+	str_t host[1025] = "";
+	str_t service[32] = "";
+	sscanf(domain, "%1024[^:]:%31s", host, service);
+
+	struct addrinfo hints = {
+		.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG,
+		.ai_family = AF_UNSPEC,
+		.ai_socktype = SOCK_STREAM,
+		.ai_protocol = 0, // ???
+	};
+	struct addrinfo *info;
+	if(async_getaddrinfo(host[0] ? host : NULL, service[0] ? service : NULL, &hints, &info) < 0) return NULL;
+
+	HTTPConnectionRef const conn = calloc(1, sizeof(struct HTTPConnection));
+	if(!conn) {
+		uv_freeaddrinfo(info);
+		return NULL;
+	}
+	if(uv_tcp_init(loop, &conn->stream) < 0) {
+		HTTPConnectionFree(conn);
+		uv_freeaddrinfo(info);
+		return NULL;
+	}
+	uv_connect_t req = { .data = co_active() };
+	uv_tcp_connect(&req, &conn->stream, info->ai_addr, async_connect_cb);
+	co_switch(yield);
+	uv_freeaddrinfo(info);
+
+	http_parser_init(&conn->parser, HTTP_RESPONSE);
+	conn->buf = malloc(BUFFER_SIZE);
+	if(!conn->buf) {
+		HTTPConnectionFree(conn);
+		return NULL;
+	}
 	return conn;
 }
 void HTTPConnectionFree(HTTPConnectionRef const conn) {
@@ -60,26 +101,30 @@ struct HTTPMessage {
 
 static err_t readOnce(HTTPMessageRef const msg);
 
-HTTPMessageRef HTTPMessageCreateIncoming(HTTPConnectionRef const conn) {
+HTTPMessageRef HTTPMessageCreate(HTTPConnectionRef const conn) {
 	assertf(conn, "HTTPMessage connection required");
 	HTTPMessageRef const msg = calloc(1, sizeof(struct HTTPMessage));
 	if(!msg) return NULL;
 	msg->conn = conn;
 	conn->parser.data = msg;
-	msg->requestURI = malloc(URI_MAX+1);
-	msg->requestURI[0] = '\0';
-	for(;;) {
-		if(readOnce(msg) < 0) {
-			HTTPMessageFree(msg);
-			return NULL;
+	enum http_parser_type type = conn->parser.type;
+	assertf(HTTP_BOTH != type, "HTTPMessage can't handle 'both'");
+	if(HTTP_REQUEST == type) {
+		msg->requestURI = malloc(URI_MAX+1);
+		msg->requestURI[0] = '\0';
+		for(;;) {
+			if(readOnce(msg) < 0) {
+				HTTPMessageFree(msg);
+				return NULL;
+			}
+			if(HPE_PAUSED == HTTPConnectionError(msg->conn)) break;
+			if(msg->eof) {
+				HTTPMessageFree(msg);
+				return NULL;
+			}
 		}
-		if(HPE_PAUSED == HTTPConnectionError(msg->conn)) break;
-		if(msg->eof) {
-			HTTPMessageFree(msg);
-			return NULL;
-		}
+		assertf(msg->requestURI[0], "No URI in request");
 	}
-	assertf(msg->requestURI[0], "No URI in request");
 	return msg;
 }
 void HTTPMessageFree(HTTPMessageRef const msg) {
