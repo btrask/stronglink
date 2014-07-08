@@ -43,7 +43,7 @@ HTTPConnectionRef HTTPConnectionCreateOutgoing(strarg_t const domain) {
 		.ai_protocol = 0, // ???
 	};
 	struct addrinfo *info;
-	if(async_getaddrinfo(host[0] ? host : NULL, service[0] ? service : "80", &hints, &info) < 0) return NULL;
+	if(async_getaddrinfo(host, service[0] ? service : "80", &hints, &info) < 0) return NULL;
 
 	HTTPConnectionRef const conn = calloc(1, sizeof(struct HTTPConnection));
 	if(!conn) {
