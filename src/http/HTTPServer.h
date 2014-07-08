@@ -11,7 +11,7 @@ typedef void (*HTTPListener)(void *const context, HTTPMessageRef const msg);
 
 HTTPServerRef HTTPServerCreate(HTTPListener const listener, void *const context);
 void HTTPServerFree(HTTPServerRef const server);
-int HTTPServerListen(HTTPServerRef const server, uint16_t const port, strarg_t const address);
+err_t HTTPServerListen(HTTPServerRef const server, strarg_t const port, uint32_t const address);
 void HTTPServerClose(HTTPServerRef const server);
 
 #endif

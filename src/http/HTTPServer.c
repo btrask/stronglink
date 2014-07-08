@@ -25,18 +25,33 @@ void HTTPServerFree(HTTPServerRef const server) {
 	free(server);
 }
 
-int HTTPServerListen(HTTPServerRef const server, uint16_t const port, strarg_t const address) {
+err_t HTTPServerListen(HTTPServerRef const server, strarg_t const port, uint32_t const address) {
 	if(!server) return 0;
 	assertf(!server->socket, "HTTPServer already listening");
-	// INADDR_ANY, INADDR_LOOPBACK
+	assertf(INADDR_ANY == address || INADDR_LOOPBACK == address, "HTTPServer unsupported address");
 	server->socket = malloc(sizeof(uv_tcp_t));
 	if(!server->socket) return -1;
 	if(uv_tcp_init(loop, server->socket) < 0) return -1;
 	server->socket->data = server;
-	struct sockaddr_in addr;
-	if(uv_ip4_addr(address, port, &addr) < 0) return -1;
-	if(uv_tcp_bind(server->socket, (struct sockaddr *)&addr, 0) < 0) return -1;
-	if(uv_listen((uv_stream_t *)server->socket, 511, connection_cb) < 0) return -1;
+	struct addrinfo const hints = {
+		.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG | AI_NUMERICSERV |
+			(INADDR_ANY == address ? AI_PASSIVE : 0),
+		.ai_family = AF_UNSPEC,
+		.ai_socktype = SOCK_STREAM,
+		.ai_protocol = 0, // ???
+	};
+	struct addrinfo *info;
+	if(async_getaddrinfo(NULL, port, &hints, &info) < 0) {
+		return -1;
+	}
+	if(uv_tcp_bind(server->socket, info->ai_addr, 0) < 0) {
+		uv_freeaddrinfo(info);
+		return -1;
+	}
+	uv_freeaddrinfo(info);
+	if(uv_listen((uv_stream_t *)server->socket, 511, connection_cb) < 0) {
+		return -1;
+	}
 	return 0;
 }
 static void socket_close_cb(uv_handle_t *const handle) {

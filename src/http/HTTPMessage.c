@@ -35,7 +35,7 @@ HTTPConnectionRef HTTPConnectionCreateOutgoing(strarg_t const domain) {
 	str_t service[32] = "";
 	sscanf(domain, "%1024[^:]:%31s", host, service);
 
-	struct addrinfo hints = {
+	struct addrinfo const hints = {
 		.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG,
 		.ai_family = AF_UNSPEC,
 		.ai_socktype = SOCK_STREAM,

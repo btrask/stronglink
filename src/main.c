@@ -25,7 +25,7 @@ static void init(void) {
 	repo = EFSRepoCreate("/home/ben/Documents/testrepo");
 	blog = BlogCreate(repo);
 	server = HTTPServerCreate((HTTPListener)listener, blog);
-	HTTPServerListen(server, 8000, "127.0.0.1");
+	HTTPServerListen(server, "8000", INADDR_LOOPBACK);
 	co_terminate();
 }
 static void term(void) {

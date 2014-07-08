@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdio.h> /* For debugging */
 #include <string.h>
 #include <openssl/rand.h>
 #include "async.h"
