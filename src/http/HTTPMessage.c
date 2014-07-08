@@ -32,17 +32,18 @@ HTTPConnectionRef HTTPConnectionCreateIncoming(uv_stream_t *const socket) {
 }
 HTTPConnectionRef HTTPConnectionCreateOutgoing(strarg_t const domain) {
 	str_t host[1025] = "";
-	str_t service[32] = "";
-	sscanf(domain, "%1024[^:]:%31s", host, service);
+	str_t service[9] = "";
+	sscanf(domain, "%1024[^:]:%8[0-9]", host, service);
+	if('\0' == host[0]) return NULL;
 
 	struct addrinfo const hints = {
-		.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG,
+		.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG | AI_NUMERICSERV,
 		.ai_family = AF_UNSPEC,
 		.ai_socktype = SOCK_STREAM,
 		.ai_protocol = 0, // ???
 	};
 	struct addrinfo *info;
-	if(async_getaddrinfo(host[0] ? host : NULL, service[0] ? service : NULL, &hints, &info) < 0) return NULL;
+	if(async_getaddrinfo(host[0] ? host : NULL, service[0] ? service : "80", &hints, &info) < 0) return NULL;
 
 	HTTPConnectionRef const conn = calloc(1, sizeof(struct HTTPConnection));
 	if(!conn) {
