@@ -101,6 +101,7 @@ struct HTTPMessage {
 };
 
 static err_t readOnce(HTTPMessageRef const msg);
+static err_t readFirstLine(HTTPMessageRef const msg);
 
 HTTPMessageRef HTTPMessageCreate(HTTPConnectionRef const conn) {
 	assertf(conn, "HTTPMessage connection required");
@@ -113,16 +114,9 @@ HTTPMessageRef HTTPMessageCreate(HTTPConnectionRef const conn) {
 	if(HTTP_REQUEST == type) {
 		msg->requestURI = malloc(URI_MAX+1);
 		msg->requestURI[0] = '\0';
-		for(;;) {
-			if(readOnce(msg) < 0) {
-				HTTPMessageFree(msg);
-				return NULL;
-			}
-			if(HPE_PAUSED == HTTPConnectionError(msg->conn)) break;
-			if(msg->eof) {
-				HTTPMessageFree(msg);
-				return NULL;
-			}
+		if(readFirstLine(msg) < 0) {
+			HTTPMessageFree(msg);
+			return NULL;
 		}
 		assertf(msg->requestURI[0], "No URI in request");
 	}
@@ -144,6 +138,10 @@ HTTPMethod HTTPMessageGetRequestMethod(HTTPMessageRef const msg) {
 strarg_t HTTPMessageGetRequestURI(HTTPMessageRef const msg) {
 	if(!msg) return NULL;
 	return msg->requestURI;
+}
+uint16_t HTTPMessageGetResponseStatus(HTTPMessageRef const msg) {
+	if(!msg) return 0;
+	return msg->conn->parser.status_code;
 }
 void *HTTPMessageGetHeaders(HTTPMessageRef const msg, HeaderField const fields[], count_t const count) {
 	if(!msg) return NULL;
@@ -363,6 +361,11 @@ err_t HTTPMessageEnd(HTTPMessageRef const msg) {
 	if(!msg) return 0;
 	if(HTTPMessageWrite(msg, (byte_t *)"", 0) < 0) return -1;
 	// TODO: Figure out keep-alive.
+
+	if(HTTP_RESPONSE == msg->conn->parser.type) {
+		if(readFirstLine(msg) < 0) return -1;
+	}
+
 	return 0;
 }
 
@@ -526,5 +529,12 @@ static ssize_t readOnce(HTTPMessageRef const msg) {
 	msg->pos += plen;
 	msg->remaining -= plen;
 	return 0;
+}
+static err_t readFirstLine(HTTPMessageRef const msg) {
+	for(;;) {
+		if(readOnce(msg) < 0) return -1;
+		if(HPE_PAUSED == HTTPConnectionError(msg->conn)) return 0;
+		if(msg->eof) return -1;
+	}
 }
 
