@@ -173,16 +173,17 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 	EFSFilterCreateTempTables(db);
 	EFSFilterExec(filter, db, 0);
 	sqlite3_stmt *const select = QUERY(db,
-		"SELECT ('hash://' || ? || '/' || f.internal_hash)\n"
+		"SELECT f.internal_hash\n"
 		"FROM files AS f\n"
 		"INNER JOIN results AS r ON (r.file_id = f.file_id)\n"
 		"ORDER BY r.sort DESC LIMIT ?");
-	sqlite3_bind_text(select, 1, "sha256", -1, SQLITE_STATIC);
-	sqlite3_bind_int64(select, 2, max);
+	sqlite3_bind_int64(select, 1, max);
 	URIListRef const URIs = URIListCreate();
 	while(SQLITE_ROW == STEP(select)) {
-		strarg_t const URI = (strarg_t)sqlite3_column_text(select, 0);
-		URIListAddURI(URIs, URI, strlen(URI));
+		strarg_t const hash = (strarg_t)sqlite3_column_text(select, 0);
+		str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
+		URIListAddURI(URIs, URI, -1);
+		FREE(&URI);
 	}
 	sqlite3_finalize(select);
 	EFSRepoDBClose(repo, db);
@@ -190,6 +191,7 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 }
 EFSFileInfo *EFSSessionCopyFileInfo(EFSSessionRef const session, strarg_t const URI) {
 	if(!session) return NULL;
+	if(!URI) return NULL;
 	// TODO: Check session mode.
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	sqlite3 *const db = EFSRepoDBConnect(repo);

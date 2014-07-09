@@ -263,8 +263,9 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 
 	for(index_t i = 0; i < URIListGetCount(URIs); ++i) {
 		strarg_t const URI = URIListGetURI(URIs, i);
-		str_t const prefix[] = "hash://sha256/";
-		strarg_t const hash = URI+sizeof(prefix)-1;
+		str_t algo[EFS_ALGO_SIZE]; // EFS_INTERNAL_ALGO
+		str_t hash[EFS_HASH_SIZE];
+		EFSParseURI(URI, algo, hash);
 		str_t *previewPath = BlogCopyPreviewPath(blog, hash);
 		if(!previewPath) continue;
 		sendPreview(blog, msg, session, URI, previewPath);

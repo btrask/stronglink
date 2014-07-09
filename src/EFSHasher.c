@@ -1,4 +1,3 @@
-#define _GNU_SOURCE // For asprintf().
 #include <openssl/sha.h> // TODO: Switch to LibreSSL.
 #include "EarthFS.h"
 
@@ -54,38 +53,42 @@ URIListRef EFSHasherEnd(EFSHasherRef const hasher) {
 	byte_t sha256[SHA256_DIGEST_LENGTH] = {};
 	if(SHA1_Final(sha1, &hasher->sha1) < 0) return NULL;
 	if(SHA256_Final(sha256, &hasher->sha256) < 0) return NULL;
-	str_t *sha1h = tohex(sha1, SHA_DIGEST_LENGTH);
-	str_t *sha256h = tohex(sha256, SHA256_DIGEST_LENGTH);
-	if(!sha1h || !sha256h) {
-		FREE(&sha1h);
-		FREE(&sha256h);
+	str_t *sha1hex = tohex(sha1, SHA_DIGEST_LENGTH);
+	str_t *sha256hex = tohex(sha256, SHA256_DIGEST_LENGTH);
+	if(!sha1hex || !sha256hex) {
+		FREE(&sha1hex);
+		FREE(&sha256hex);
 		return NULL;
 	}
 	// TODO: Base64.
 
-	hasher->internalHash = strdup(sha256h);
+	hasher->internalHash = strdup(sha256hex);
 
 	URIListRef const URIs = URIListCreate();
-	str_t *URI;
-	int len;
 
 	// Make sure the preferred URI (e.g. the one used for internalHash) is first.
-	// TODO: Get rid of asprintf()
-	len = asprintf(&URI, "hash://sha256/%s", sha256h);
-	if(len > 0) URIListAddURI(URIs, URI, len);
-	if(len >= 0) FREE(&URI);
-	len = asprintf(&URI, "hash://sha256/%.24s", sha256h);
-	if(len > 0) URIListAddURI(URIs, URI, len);
-	if(len >= 0) FREE(&URI);
-	len = asprintf(&URI, "hash://sha1/%s", sha1h);
-	if(len > 0) URIListAddURI(URIs, URI, len);
-	if(len >= 0) FREE(&URI);
-	len = asprintf(&URI, "hash://sha1/%.16s", sha1h);
-	if(len > 0) URIListAddURI(URIs, URI, len);
-	if(len >= 0) FREE(&URI);
+	str_t *URI;
 
-	FREE(&sha1h);
-	FREE(&sha256h);
+	URI = EFSFormatURI("sha256", sha256hex);
+	URIListAddURI(URIs, URI, -1);
+	FREE(&URI);
+
+	sha256hex[24] = '\0';
+	URI = EFSFormatURI("sha256", sha256hex);
+	URIListAddURI(URIs, URI, -1);
+	FREE(&URI);
+
+	URI = EFSFormatURI("sha1", sha1hex);
+	URIListAddURI(URIs, URI, -1);
+	FREE(&URI);
+
+	sha1hex[16] = '\0';
+	URI = EFSFormatURI("sha1", sha1hex);
+	URIListAddURI(URIs, URI, -1);
+	FREE(&URI);
+
+	FREE(&sha1hex);
+	FREE(&sha256hex);
 
 	return URIs;
 }

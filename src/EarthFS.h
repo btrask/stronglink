@@ -83,4 +83,26 @@ void EFSJSONFilterBuilderParse(EFSJSONFilterBuilderRef const builder, strarg_t c
 EFSFilterRef EFSJSONFilterBuilderDone(EFSJSONFilterBuilderRef const builder);
 EFSFilterType EFSFilterTypeFromString(strarg_t const type, size_t const len);
 
+#define EFS_ALGO_SIZE 32
+#define EFS_HASH_SIZE 256
+#define EFS_INTERNAL_ALGO ((strarg_t)"sha256")
+static bool_t EFSParseURI(strarg_t const URI, str_t *const algo, str_t *const hash) {
+	algo[0] = '\0';
+	hash[0] = '\0';
+	sscanf(URI, "hash://%31[a-zA-Z0-9.-]/%255[a-zA-Z0-9.%_-]", algo, hash);
+	return algo[0] && hash[0];
+}
+static str_t *EFSFormatURI(strarg_t const algo, strarg_t const hash) {
+	strarg_t const fmt = "hash://%s/%s";
+	int const len = snprintf(NULL, 0, fmt, algo, hash)+1;
+	if(len < 0) return NULL;
+	str_t *URI = malloc(len);
+	if(!URI) return NULL;
+	if(snprintf(URI, len, fmt, algo, hash) < 0) {
+		FREE(&URI);
+		return NULL;
+	}
+	return URI;
+}
+
 #endif

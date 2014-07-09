@@ -69,16 +69,16 @@ static bool_t getFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMetho
 		return true;
 	}
 
-	str_t *fileURI;
-	asprintf(&fileURI, "hash://%s/%s", algo, hash); // TODO: decode, normalize, error checking.
+	str_t *fileURI = EFSFormatURI(algo, hash);
 	EFSFileInfo *info = EFSSessionCopyFileInfo(session, fileURI);
-	FREE(&fileURI);
 	if(!info) {
-		fprintf(stderr, "Couldn't find hash://%s/%s\n", algo, hash);
+		fprintf(stderr, "Couldn't find %s", fileURI);
+		FREE(&fileURI);
 		HTTPMessageSendStatus(msg, 404);
 		EFSSessionFree(session);
 		return true;
 	}
+	FREE(&fileURI);
 
 	// TODO: Do we need to send other headers?
 	HTTPMessageSendFile(msg, info->path, info->type, info->size);
@@ -195,16 +195,11 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 	HTTPMessageWriteHeader(msg, "Content-Type", "text/uri-list; charset=utf-8");
 	HTTPMessageBeginBody(msg);
 
-	strarg_t const prefix = "hash://sha256/"; // TODO: Handle different types of internal hashes.
-	size_t const prefixlen = strlen(prefix);
 	while(SQLITE_ROW == sqlite3_step(select)) {
 		strarg_t const hash = (strarg_t)sqlite3_column_text(select, 0);
-		size_t const hashlen = strlen(hash);
-		size_t const total = prefixlen + hashlen + 1;
-		HTTPMessageWriteChunkLength(msg, total);
-		uv_buf_t parts[] = {
-			uv_buf_init((char *)prefix, prefixlen),
-			uv_buf_init((char *)hash, hashlen),
+		str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
+		uv_buf_t const parts[] = {
+			uv_buf_init((char *)URI, strlen(URI)),
 			uv_buf_init("\n", 1),
 			uv_buf_init("\r\n", 2),
 		};
