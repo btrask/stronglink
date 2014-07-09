@@ -25,7 +25,7 @@ strarg_t HTTPMessageGetRequestURI(HTTPMessageRef const msg);
 uint16_t HTTPMessageGetResponseStatus(HTTPMessageRef const msg);
 void *HTTPMessageGetHeaders(HTTPMessageRef const msg, HeaderField const fields[], count_t const count);
 ssize_t HTTPMessageRead(HTTPMessageRef const msg, byte_t *const buf, size_t const len);
-ssize_t HTTPMessageReadLine(HTTPMessageRef const msg, byte_t *const buf, size_t const len);
+ssize_t HTTPMessageReadLine(HTTPMessageRef const msg, str_t *const buf, size_t const len);
 ssize_t HTTPMessageGetBuffer(HTTPMessageRef const msg, byte_t const **const buf); // Zero-copy version.
 void HTTPMessageDrain(HTTPMessageRef const msg);
 

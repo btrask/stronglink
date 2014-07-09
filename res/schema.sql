@@ -71,3 +71,13 @@ CREATE TABLE file_permissions (
 );
 CREATE UNIQUE INDEX file_permissions_unique ON file_permissions (user_id ASC, file_id ASC, meta_file_id ASC);
 
+CREATE TABLE pulls (
+	pull_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+	user_id INTEGER NOT NULL,
+	host TEXT NOT NULL,
+	username TEXT NOT NULL,
+	password TEXT NOT NULL,
+	cookie TEXT NOT NULL,
+	query TEXT NOT NULL
+);
+

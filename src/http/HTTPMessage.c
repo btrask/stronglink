@@ -173,7 +173,7 @@ ssize_t HTTPMessageRead(HTTPMessageRef const msg, byte_t *const buf, size_t cons
 	if(!msg->eof && readOnce(msg) < 0) return -1;
 	return used;
 }
-ssize_t HTTPMessageReadLine(HTTPMessageRef const msg, byte_t *const buf, size_t const len) {
+ssize_t HTTPMessageReadLine(HTTPMessageRef const msg, str_t *const buf, size_t const len) {
 	if(!msg) return -1;
 	if(!msg->headers) HTTPMessageGetHeaders(msg, NULL, 0);
 	if(!msg->next.len) {

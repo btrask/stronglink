@@ -84,3 +84,28 @@ void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 *const db) {
 	sqlite3_close(db);
 }
 
+void EFSRepoStartPulls(EFSRepoRef const repo) {
+	if(!repo) return;
+	sqlite3 *db = EFSRepoDBConnect(repo);
+
+	sqlite3_stmt *select = QUERY(db,
+		"SELECT\n"
+		"	pull_id, user_id, host, username, password, cookie, query\n"
+		"FROM pulls");
+	while(SQLITE_ROW == sqlite3_step(select)) {
+		int64_t const pullID = sqlite3_column_int64(select, 0);
+		int64_t const userID = sqlite3_column_int64(select, 1);
+		strarg_t const host = (strarg_t)sqlite3_column_text(select, 2);
+		strarg_t const username = (strarg_t)sqlite3_column_text(select, 3);
+		strarg_t const password = (strarg_t)sqlite3_column_text(select, 4);
+		strarg_t const cookie = (strarg_t)sqlite3_column_text(select, 5);
+		strarg_t const query = (strarg_t)sqlite3_column_text(select, 6);
+		EFSPullRef const pull = EFSRepoCreatePull(repo, pullID, userID, host, username, password, cookie, query);
+		EFSPullStart(pull);
+		// TODO: Keep a list?
+	}
+	sqlite3_finalize(select); select = NULL;
+
+	EFSRepoDBClose(repo, db);
+}
+

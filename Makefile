@@ -33,6 +33,7 @@ OBJECTS := \
 	build/EFSMetaFile.o \
 	build/EFSFilter.o \
 	build/EFSJSONFilterBuilder.o \
+	build/EFSPull.o \
 	build/EFSServer.o \
 	build/Template.o \
 	build/URIList.o \

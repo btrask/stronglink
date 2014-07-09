@@ -12,6 +12,7 @@ typedef struct EFSHasher* EFSHasherRef;
 typedef struct EFSMetaFile* EFSMetaFileRef;
 typedef struct EFSFilter* EFSFilterRef;
 typedef struct EFSJSONFilterBuilder* EFSJSONFilterBuilderRef;
+typedef struct EFSPull* EFSPullRef;
 
 EFSRepoRef EFSRepoCreate(strarg_t const dir);
 void EFSRepoFree(EFSRepoRef const repo);
@@ -32,6 +33,7 @@ typedef struct {
 
 str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strarg_t const password);
 EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie);
+EFSSessionRef EFSRepoCreateSessionInternal(EFSRepoRef const repo, int64_t const userID); // TODO: Private
 void EFSSessionFree(EFSSessionRef const session);
 EFSRepoRef EFSSessionGetRepo(EFSSessionRef const session);
 int64_t EFSSessionGetUserID(EFSSessionRef const session);
@@ -82,6 +84,11 @@ void EFSJSONFilterBuilderFree(EFSJSONFilterBuilderRef const builder);
 void EFSJSONFilterBuilderParse(EFSJSONFilterBuilderRef const builder, strarg_t const json, size_t const len);
 EFSFilterRef EFSJSONFilterBuilderDone(EFSJSONFilterBuilderRef const builder);
 EFSFilterType EFSFilterTypeFromString(strarg_t const type, size_t const len);
+
+EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, int64_t const pullID, int64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query);
+void EFSPullFree(EFSPullRef const pull);
+void EFSPullStart(EFSPullRef const pull);
+err_t EFSPullImportURI(EFSPullRef const pull, strarg_t const URI);
 
 #define EFS_ALGO_SIZE 32
 #define EFS_HASH_SIZE 256

@@ -144,6 +144,9 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 	sqlite3_finalize(select); select = NULL;
 	EFSRepoDBClose(repo, db); db = NULL;
 
+	return EFSRepoCreateSessionInternal(repo, userID);
+}
+EFSSessionRef EFSRepoCreateSessionInternal(EFSRepoRef const repo, int64_t const userID) {
 	EFSSessionRef const session = calloc(1, sizeof(struct EFSSession));
 	if(!session) return NULL;
 	session->repo = repo;
