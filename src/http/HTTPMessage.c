@@ -162,12 +162,43 @@ void *HTTPMessageGetHeaders(HTTPMessageRef const msg, HeaderField const fields[]
 ssize_t HTTPMessageRead(HTTPMessageRef const msg, byte_t *const buf, size_t const len) {
 	if(!msg) return -1;
 	if(!msg->headers) HTTPMessageGetHeaders(msg, NULL, 0);
-	if(!msg->next.len) return msg->eof ? 0 : -1;
+	if(!msg->next.len) {
+		if(msg->eof) return 0;
+		if(readOnce(msg) < 0) return -1;
+	}
 	size_t const used = MIN(len, msg->next.len);
 	memcpy(buf, msg->next.at, used);
 	msg->next.at += used;
 	msg->next.len -= used;
-	if(!msg->eof && -1 == readOnce(msg)) return -1;
+	if(!msg->eof && readOnce(msg) < 0) return -1;
+	return used;
+}
+ssize_t HTTPMessageReadLine(HTTPMessageRef const msg, byte_t *const buf, size_t const len) {
+	if(!msg) return -1;
+	if(!msg->headers) HTTPMessageGetHeaders(msg, NULL, 0);
+	if(!msg->next.len) {
+		if(msg->eof) return 0;
+		if(readOnce(msg) < 0) return -1;
+	}
+	size_t used = 0;
+	for(;;) {
+		index_t i = 0;
+		count_t const max = MIN(msg->next.len, len - used);
+		for(; i < max; ++i) {
+			if('\r' == msg->next.at[i]) break;
+			if('\n' == msg->next.at[i]) break;
+		}
+		memcpy(buf+used, msg->next.at, i);
+		used += i;
+		msg->next.at += i;
+		msg->next.len -= i;
+		if('\r' == msg->next.at[0]) msg->next.at++;
+		if('\n' == msg->next.at[0]) msg->next.at++;
+		if(used >= len) break;
+		if(msg->eof) break;
+		if(readOnce(msg) < 0) return -1;
+	}
+	buf[used] = '\0';
 	return used;
 }
 ssize_t HTTPMessageGetBuffer(HTTPMessageRef const msg, byte_t const **const buf) {
