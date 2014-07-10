@@ -48,6 +48,7 @@ CREATE TABLE file_uris (
 	uri_id INTEGER NOT NULL
 );
 CREATE UNIQUE INDEX file_uris_unique ON file_uris (uri_id ASC, file_id ASC);
+CREATE INDEX file_uris_index ON file_uris (file_id ASC);
 
 -- LOTS of restrictions on column names. Apparently can't use underscores or "fulltext". And the table can't have any non-text columns either, besides the default rowid. So it's hard to give it a meaningful name. `description` isn't quite right because we index titles and potentially other fields too.
 CREATE VIRTUAL TABLE fulltext USING "fts4" (

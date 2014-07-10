@@ -199,10 +199,10 @@ EFSFileInfo *EFSSessionCopyFileInfo(EFSSessionRef const session, strarg_t const 
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	sqlite3 *const db = EFSRepoDBConnect(repo);
 	sqlite3_stmt *const select = QUERY(db,
-		"SELECT f.internal_hash, f.file_type, f.file_size\n"
-		"FROM files AS f\n"
-		"LEFT JOIN file_uris AS f2 ON (f2.file_id = f.file_id)\n"
-		"LEFT JOIN uris AS u ON (u.uri_id = f2.uri_id)\n"
+		"SELECT f2.internal_hash, f2.file_type, f2.file_size\n"
+		"FROM uris AS u\n"
+		"LEFT JOIN file_uris AS f ON (f.uri_id = u.uri_id)\n"
+		"LEFT JOIN files AS f2 ON (f2.file_id = f.file_id)\n"
 		"WHERE u.uri = ? LIMIT 1");
 	sqlite3_bind_text(select, 1, URI, -1, SQLITE_STATIC);
 	if(SQLITE_ROW != STEP(select)) {

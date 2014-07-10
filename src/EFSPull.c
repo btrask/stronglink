@@ -128,9 +128,11 @@ static err_t auth(EFSPullRef const pull, HTTPConnectionRef const conn) {
 
 typedef struct {
 	strarg_t content_type;
+	strarg_t content_length;
 } EFSImportHeaders;
 static HeaderField const EFSImportFields[] = {
 	{"content-type", 100},
+	{"content-length", 100},
 };
 err_t EFSPullImportURI(EFSPullRef const pull, strarg_t const URI) {
 	if(!pull) return 0;
@@ -169,11 +171,11 @@ err_t EFSPullImportURI(EFSPullRef const pull, strarg_t const URI) {
 	HTTPMessageBeginBody(msg);
 	HTTPMessageEnd(msg);
 	uint16_t const status = HTTPMessageGetResponseStatus(msg);
-	fprintf(stderr, "Importing %s, %d\n", URI, status);
 	err = err < 0 ? err : (status < 200 || status >= 300);
 
 	if(0 == err) {
 		EFSImportHeaders const *const headers = HTTPMessageGetHeaders(msg, EFSImportFields, numberof(EFSImportFields));
+		fprintf(stderr, "Importing file %s (%s)\n", headers->content_type, headers->content_length);
 		EFSSubmissionRef const submission = EFSRepoCreateSubmission(repo, headers->content_type, (ssize_t (*)())HTTPMessageGetBuffer, msg);
 		err = EFSSessionAddSubmission(session, submission);
 		EFSSubmissionFree(submission);
