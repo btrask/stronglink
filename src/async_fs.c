@@ -33,6 +33,12 @@ ssize_t async_fs_unlink(const char* path) {
 ssize_t async_fs_link(const char* path, const char* new_path) {
 	ASYNC_FS_WRAP(link, path, new_path)
 }
+ssize_t async_fs_fsync(uv_file const file) {
+	ASYNC_FS_WRAP(fsync, file)
+}
+ssize_t async_fs_fdatasync(uv_file const file) {
+	ASYNC_FS_WRAP(fdatasync, file)
+}
 
 ssize_t async_fs_fstat(uv_file file, uv_stat_t *stats) {
 	uv_fs_t req = { .data = co_active() };

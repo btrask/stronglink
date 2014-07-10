@@ -10,14 +10,8 @@
 
 #define FILE_LOCK_MODE 3
 
-#if FILE_LOCK_MODE==0
-#elif FILE_LOCK_MODE==1
-#define QUEUE_MAX 10
-static cothread_t queue[QUEUE_MAX];
-static unsigned queue_start = 0;
-static unsigned queue_length = 0;
-#elif FILE_LOCK_MODE==2
-static sqlite3_mutex *lock;
+#if FILE_LOCK_MODE==2
+static async_mutex_t *lock;
 #elif FILE_LOCK_MODE==3
 static async_rwlock_t *lock;
 #else
@@ -40,29 +34,24 @@ static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_fi
 	if(sqflags & SQLITE_OPEN_READONLY) uvflags |= O_RDONLY;
 	if(usetmp) uvflags |= O_TRUNC;
 
-	uv_fs_t req = { .data = co_active() };
 	for(;;) {
 		char *const tmp = usetmp ? async_tempnam(NULL, "async-sqlite") : NULL;
 		char const *const path = usetmp ? tmp : inpath;
-		uv_fs_open(loop, &req, path, uvflags, 0600, async_fs_cb);
-		co_switch(yield);
-		uv_fs_req_cleanup(&req);
+		int const result = async_fs_open(path, uvflags, 0600);
 		if(!usetmp) {
-			if(req.result < 0) return SQLITE_CANTOPEN;
-			file->file = req.result;
+			if(result < 0) return SQLITE_CANTOPEN;
+			file->file = result;
 			break;
 		}
-		if(-EEXIST == req.result) {
+		if(-EEXIST == result) {
 			free(tmp);
 			continue;
-		} else if(req.result < 0) {
+		} else if(result < 0) {
 			free(tmp);
 			return SQLITE_CANTOPEN;
 		}
-		file->file = req.result;
-		uv_fs_unlink(loop, &req, path, async_fs_cb); // TODO: Is this safe on Windows?
-		co_switch(yield);
-		uv_fs_req_cleanup(&req);
+		file->file = result;
+		async_fs_unlink(path); // TODO: Is this safe on Windows?
 		free(tmp);
 		break;
 	}
@@ -70,11 +59,7 @@ static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_fi
 	return SQLITE_OK;
 }
 static int async_delete(sqlite3_vfs *const vfs, char const *const path, int const syncDir) {
-	uv_fs_t req = { .data = co_active() };
-	uv_fs_unlink(loop, &req, path, async_fs_cb);
-	co_switch(yield);
-	int const unlinkresult = req.result;
-	uv_fs_req_cleanup(&req);
+	int const unlinkresult = async_fs_unlink(path);
 	if(ENOENT == unlinkresult) return SQLITE_OK;
 	if(unlinkresult < 0) return SQLITE_IOERR_DELETE;
 	if(syncDir) {
@@ -84,21 +69,10 @@ static int async_delete(sqlite3_vfs *const vfs, char const *const path, int cons
 		for(; i > 1 && '/' != dirname[i]; ++i);
 		dirname[i] = '\0';
 
-		uv_fs_open(loop, &req, dirname, O_RDWR, 0600, async_fs_cb);
-		co_switch(yield);
-		uv_file const dir = req.result;
-		uv_fs_req_cleanup(&req);
+		uv_file const dir = async_fs_open(dirname, O_RDWR, 0600);
 		if(dir < 0) return SQLITE_IOERR_DELETE;
-
-		uv_fs_fsync(loop, &req, dir, async_fs_cb);
-		co_switch(yield);
-		int const syncresult = req.result;
-		uv_fs_req_cleanup(&req);
-
-		uv_fs_close(loop, &req, dir, async_fs_cb);
-		co_switch(yield);
-		uv_fs_req_cleanup(&req);
-
+		int const syncresult = async_fs_fsync(dir);
+		async_fs_close(dir);
 		if(syncresult < 0) return SQLITE_IOERR_DELETE;
 	}
 	return SQLITE_OK;
@@ -122,13 +96,14 @@ static int async_access(sqlite3_vfs *const vfs, char const *const path, int cons
 	return SQLITE_OK;
 }
 static int async_fullPathname(sqlite3_vfs *const vfs, char const *const path, int const size, char *const outPath) {
-	char dir[MAXPATHNAME+1];
-	size_t len = sizeof(dir);
-	if('/' == path[0]) dir[0] = '\0';
-	else if(0 == uv_cwd(dir, &len)) return SQLITE_IOERR;
-	dir[MAXPATHNAME] = '\0';
-	sqlite3_snprintf(size, outPath, "%s/%s", dir, path);
-	outPath[size-1] = '\0';
+	if('/' == path[0]) {
+		sqlite3_snprintf(size, outPath, "%s", path);
+	} else {
+		char dir[MAXPATHNAME+1] = "";
+		size_t len = MAXPATHNAME;
+		if(uv_cwd(dir, &len) < 0) return SQLITE_IOERR;
+		sqlite3_snprintf(size, outPath, "%s/%s", dir, path);
+	}
 	return SQLITE_OK;
 }
 static int async_randomness(sqlite3_vfs *const vfs, int const size, char *const buf) {
@@ -198,21 +173,12 @@ static sqlite3_vfs async_vfs = {
 };
 
 static int async_close(async_file *const file) {
-	uv_fs_t req = { .data = co_active() };
-	uv_fs_close(loop, &req, file->file, async_fs_cb);
-	co_switch(yield);
-	int const result = req.result;
-	uv_fs_req_cleanup(&req);
-	if(result < 0) return SQLITE_IOERR;
+	if(async_fs_close(file->file) < 0) return SQLITE_IOERR;
 	return SQLITE_OK;
 }
 static int async_read(async_file *const file, void *const buf, int const len, sqlite3_int64 const offset) {
 	uv_buf_t info = uv_buf_init((char *)buf, len);
-	uv_fs_t req = { .data = co_active() };
-	uv_fs_read(loop, &req, file->file, &info, 1, offset, async_fs_cb);
-	co_switch(yield);
-	int const result = req.result;
-	uv_fs_req_cleanup(&req);
+	ssize_t const result = async_fs_read(file->file, &info, 1, offset);
 	if(result < 0) return SQLITE_IOERR_READ;
 	if(result < len) {
 		memset(buf+result, 0, len-result); // Under threat of database corruption.
@@ -222,11 +188,7 @@ static int async_read(async_file *const file, void *const buf, int const len, sq
 }
 static int async_write(async_file *const file, void const *const buf, int const len, sqlite3_int64 const offset) {
 	uv_buf_t info = uv_buf_init((char *)buf, len);
-	uv_fs_t req = { .data = co_active() };
-	uv_fs_write(loop, &req, file->file, &info, 1, offset, async_fs_cb);
-	co_switch(yield);
-	int const result = req.result;
-	uv_fs_req_cleanup(&req);
+	ssize_t const result = async_fs_write(file->file, &info, 1, offset);
 	if(result != len) return SQLITE_IOERR_WRITE;
 	return SQLITE_OK;
 }
@@ -240,15 +202,12 @@ static int async_truncate(async_file *const file, sqlite3_int64 const size) {
 	return SQLITE_OK;
 }
 static int async_sync(async_file *const file, int const flags) {
-	uv_fs_t req = { .data = co_active() };
+	int result = -1;
 	if(flags & SQLITE_SYNC_DATAONLY) {
-		uv_fs_fdatasync(loop, &req, file->file, async_fs_cb);
+		result = async_fs_fdatasync(file->file);
 	} else {
-		uv_fs_fsync(loop, &req, file->file, async_fs_cb);
+		result = async_fs_fsync(file->file);
 	}
-	co_switch(yield);
-	int const result = req.result;
-	uv_fs_req_cleanup(&req);
 	if(result < 0) return SQLITE_IOERR_FSYNC;
 	return SQLITE_OK;
 }
@@ -263,24 +222,11 @@ static int async_fileSize(async_file *const file, sqlite3_int64 *const outSize) 
 	return SQLITE_OK;
 }
 static int async_lock(async_file *const file, int const level) {
-#if FILE_LOCK_MODE==0
-	return SQLITE_OK;
-#elif FILE_LOCK_MODE==1
+#if FILE_LOCK_MODE==2
 	if(level <= SQLITE_LOCK_NONE) return SQLITE_OK;
-	if(queue_length && co_active() == queue[queue_start]) return SQLITE_OK;
-	if(queue_length >= QUEUE_MAX) return SQLITE_BUSY;
-	if(!queue_length) {
-		// TODO: flock() or equivalent, for other processes.
-	}
-	queue[(queue_start + queue_length) % QUEUE_MAX] = co_active();
-	if(queue_length++) co_switch(yield);
+	if(async_mutex_check(lock)) return SQLITE_OK;
+	async_mutex_lock(lock);
 	return SQLITE_OK;
-#elif FILE_LOCK_MODE==2
-	if(level <= SQLITE_LOCK_NONE) return SQLITE_OK;
-	if(sqlite3_mutex_held(lock)) return SQLITE_OK;
-	sqlite3_mutex_enter(lock);
-	return SQLITE_OK;
-//	return sqlite3_mutex_try(lock);
 #elif FILE_LOCK_MODE==3
 	switch(level) {
 		case SQLITE_LOCK_NONE:
@@ -307,24 +253,10 @@ static int async_lock(async_file *const file, int const level) {
 #endif
 }
 static int async_unlock(async_file *const file, int const level) {
-#if FILE_LOCK_MODE==0
-	return SQLITE_OK;
-#elif FILE_LOCK_MODE==1
+#if FILE_LOCK_MODE==2
 	if(level > SQLITE_LOCK_NONE) return SQLITE_OK;
-	if(!queue_length) return SQLITE_OK;
-	if(co_active() != queue[queue_start]) return SQLITE_OK;
-	queue_length = queue_length - 1;
-	queue_start = (queue_start + 1) % QUEUE_MAX;
-	if(!queue_length) {
-		// TODO: Unlock file.
-	} else {
-		async_wakeup(queue[queue_start]);
-	}
-	return SQLITE_OK;
-#elif FILE_LOCK_MODE==2
-	if(level > SQLITE_LOCK_NONE) return SQLITE_OK;
-	if(sqlite3_mutex_notheld(lock)) return SQLITE_OK;
-	sqlite3_mutex_leave(lock);
+	if(!async_mutex_check(lock)) return SQLITE_OK;
+	async_mutex_unlock(lock);
 	return SQLITE_OK;
 #elif FILE_LOCK_MODE==3
 	switch(level) {
@@ -358,14 +290,10 @@ static int async_unlock(async_file *const file, int const level) {
 #endif
 }
 static int async_checkReservedLock(async_file *const file, int *const outRes) {
-#if FILE_LOCK_MODE==0
-	*outRes = 0;
-#elif FILE_LOCK_MODE==1
-	*outRes = queue_length && co_active() == queue[queue_start];
-#elif FILE_LOCK_MODE==2
-	*outRes = sqlite3_mutex_held(lock);
+#if FILE_LOCK_MODE==2
+	*outRes = async_mutex_check(lock);
 #elif FILE_LOCK_MODE==3
-	*outRes = async_rwlock_wrcheck(lock) >= 0;
+	*outRes = async_rwlock_wrcheck(lock);
 #endif
 	return SQLITE_OK;
 }
@@ -461,10 +389,8 @@ static sqlite3_mutex_methods const async_mutex_methods = {
 void async_sqlite_register(void) {
 	int err = sqlite3_config(SQLITE_CONFIG_MUTEX, &async_mutex_methods);
 	assert(SQLITE_OK == err && "SQLite custom mutexes couldn't be set");
-#if FILE_LOCK_MODE==0
-#elif FILE_LOCK_MODE==1
-#elif FILE_LOCK_MODE==2
-	lock = sqlite3_mutex_alloc(SQLITE_MUTEX_RECURSIVE);
+#if FILE_LOCK_MODE==2
+	lock = async_mutex_create();
 	assert(lock && "File lock creation failed");
 #elif FILE_LOCK_MODE==3
 	lock = async_rwlock_create();
