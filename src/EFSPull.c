@@ -16,6 +16,7 @@ struct EFSPull {
 };
 
 static err_t auth(EFSPullRef const pull, HTTPConnectionRef const conn);
+static err_t import(EFSPullRef const pull, HTTPConnectionRef const conn, strarg_t const URI);
 
 EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, int64_t const pullID, int64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query) {
 	EFSPullRef const pull = calloc(1, sizeof(struct EFSPull));
@@ -43,24 +44,27 @@ static EFSPullRef pull_arg;
 static void pull_thread(void) {
 	EFSPullRef const pull = pull_arg;
 
-	HTTPConnectionRef conn = NULL;
+	HTTPConnectionRef queryConn = NULL;
+	HTTPConnectionRef fileConn = NULL;
 	HTTPMessageRef msg = NULL;
 
 	for(;;) {
-		if(conn) {
+		if(queryConn || fileConn || msg) {
 			HTTPMessageFree(msg); msg = NULL;
-			HTTPConnectionFree(conn); conn = NULL;
+			HTTPConnectionFree(fileConn); fileConn = NULL;
+			HTTPConnectionFree(queryConn); queryConn = NULL;
 			async_sleep(1000 * 5);
 		}
 
-		conn = HTTPConnectionCreateOutgoing(pull->host);
+		queryConn = HTTPConnectionCreateOutgoing(pull->host);
+		fileConn = HTTPConnectionCreateOutgoing(pull->host);
 
-		if(auth(pull, conn) < 0) {
+		if(auth(pull, queryConn) < 0) {
 			fprintf(stderr, "Pull auth error\n");
 			continue;
 		}
 
-		msg = HTTPMessageCreate(conn);
+		msg = HTTPMessageCreate(queryConn);
 		HTTPMessageWriteRequest(msg, HTTP_GET, "/api/query/latest?count=all", pull->host); // TODO: /efs/query
 		if(pull->cookie) HTTPMessageWriteHeader(msg, "Cookie", pull->cookie);
 		HTTPMessageBeginBody(msg);
@@ -79,7 +83,7 @@ static void pull_thread(void) {
 			str_t URI[URI_MAX+1];
 			if(HTTPMessageReadLine(msg, URI, URI_MAX) < 0) break;
 			for(;;) {
-				if(EFSPullImportURI(pull, URI) >= 0) break;
+				if(import(pull, fileConn, URI) >= 0) break;
 				async_sleep(1000);
 			}
 		}
@@ -87,7 +91,8 @@ static void pull_thread(void) {
 	}
 
 	HTTPMessageFree(msg); msg = NULL;
-	HTTPConnectionFree(conn); conn = NULL;
+	HTTPConnectionFree(fileConn); fileConn = NULL;
+	HTTPConnectionFree(queryConn); queryConn = NULL;
 
 	co_terminate();
 }
@@ -134,11 +139,9 @@ static HeaderField const EFSImportFields[] = {
 	{"content-type", 100},
 	{"content-length", 100},
 };
-err_t EFSPullImportURI(EFSPullRef const pull, strarg_t const URI) {
+static err_t import(EFSPullRef const pull, HTTPConnectionRef const conn, strarg_t const URI) {
 	if(!pull) return 0;
 	if(!URI) return 0;
-
-	fprintf(stderr, "Pulling URI '%s'\n", URI);
 
 	str_t algo[EFS_ALGO_SIZE];
 	str_t hash[EFS_HASH_SIZE];
@@ -152,13 +155,13 @@ err_t EFSPullImportURI(EFSPullRef const pull, strarg_t const URI) {
 		return 0;
 	}
 
+	fprintf(stderr, "Pulling %s\n", URI);
+
 	err_t err = 0;
 
-	HTTPConnectionRef conn = HTTPConnectionCreateOutgoing(pull->host);
 	HTTPMessageRef msg = HTTPMessageCreate(conn);
 	if(!conn || !msg) {
 		HTTPMessageFree(msg); msg = NULL;
-		HTTPConnectionFree(conn); conn = NULL;
 		return -1;
 	}
 
@@ -175,7 +178,6 @@ err_t EFSPullImportURI(EFSPullRef const pull, strarg_t const URI) {
 
 	if(0 == err) {
 		EFSImportHeaders const *const headers = HTTPMessageGetHeaders(msg, EFSImportFields, numberof(EFSImportFields));
-		fprintf(stderr, "Importing file %s (%s)\n", headers->content_type, headers->content_length);
 		EFSSubmissionRef const submission = EFSRepoCreateSubmission(repo, headers->content_type, (ssize_t (*)())HTTPMessageGetBuffer, msg);
 		err = EFSSessionAddSubmission(session, submission);
 		EFSSubmissionFree(submission);
@@ -183,7 +185,6 @@ err_t EFSPullImportURI(EFSPullRef const pull, strarg_t const URI) {
 
 	HTTPMessageDrain(msg);
 	HTTPMessageFree(msg); msg = NULL;
-	HTTPConnectionFree(conn); conn = NULL;
 
 	return err;
 }

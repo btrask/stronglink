@@ -107,6 +107,7 @@ struct HTTPMessage {
 
 static err_t readOnce(HTTPMessageRef const msg);
 static err_t readFirstLine(HTTPMessageRef const msg);
+static err_t readChunk(HTTPMessageRef const msg);
 
 HTTPMessageRef HTTPMessageCreate(HTTPConnectionRef const conn) {
 	assertf(conn, "HTTPMessage connection required");
@@ -169,13 +170,12 @@ ssize_t HTTPMessageRead(HTTPMessageRef const msg, byte_t *const buf, size_t cons
 	if(!msg->headers) HTTPMessageGetHeaders(msg, NULL, 0);
 	if(0 == msg->next.len) {
 		if(msg->eof) return 0;
-		if(readOnce(msg) < 0) return -1;
+		if(readChunk(msg) < 0) return -1;
 	}
 	size_t const used = MIN(len, msg->next.len);
 	memcpy(buf, msg->next.at, used);
 	msg->next.at += used;
 	msg->next.len -= used;
-	if(!msg->eof && readOnce(msg) < 0) return -1;
 	return used;
 }
 ssize_t HTTPMessageReadLine(HTTPMessageRef const msg, str_t *const buf, size_t const len) {
@@ -184,20 +184,19 @@ ssize_t HTTPMessageReadLine(HTTPMessageRef const msg, str_t *const buf, size_t c
 	if(msg->eof) return -1;
 	off_t pos = 0;
 	for(;;) {
-		if(0 == msg->next.len && readOnce(msg) < 0) break;
-		if(0 == msg->next.len) break; // TODO: readOnce should probably return -1 if we fail to read anything, whatever the reason.
+		if(readChunk(msg) < 0) break;
 		if('\r' == msg->next.at[0]) break;
 		if('\n' == msg->next.at[0]) break;
 		buf[MIN(pos++, len)] = msg->next.at[0];
 		msg->next.at++;
 		msg->next.len--;
 	}
-	if(0 == msg->next.len) readOnce(msg);
+	readChunk(msg);
 	if(msg->next.len > 0 && '\r' == msg->next.at[0]) {
 		msg->next.at++;
 		msg->next.len--;
 	}
-	if(0 == msg->next.len) readOnce(msg);
+	readChunk(msg);
 	if(msg->next.len > 0 && '\n' == msg->next.at[0]) {
 		msg->next.at++;
 		msg->next.len--;
@@ -210,7 +209,7 @@ ssize_t HTTPMessageGetBuffer(HTTPMessageRef const msg, byte_t const **const buf)
 	if(!msg->headers) HTTPMessageGetHeaders(msg, NULL, 0);
 	if(0 == msg->next.len) {
 		if(msg->eof) return 0;
-		if(readOnce(msg) < 0) return -1;
+		if(readChunk(msg) < 0) return -1;
 	}
 	size_t const used = msg->next.len;
 	*buf = (byte_t const *)msg->next.at;
@@ -571,4 +570,11 @@ static err_t readFirstLine(HTTPMessageRef const msg) {
 		if(msg->eof) return -1;
 	}
 }
+static err_t readChunk(HTTPMessageRef const msg) {
+	for(;;) {
+		if(msg->eof || msg->next.len > 0) return 0;
+		if(readOnce(msg) < 0) return -1;
+	}
+}
+
 
