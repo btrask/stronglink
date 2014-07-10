@@ -26,9 +26,11 @@ static void init(void) {
 	blog = BlogCreate(repo);
 	server = HTTPServerCreate((HTTPListener)listener, blog);
 	HTTPServerListen(server, "8000", INADDR_LOOPBACK);
+	EFSRepoStartPulls(repo);
 	co_terminate();
 }
 static void term(void) {
+	// TODO: EFSRepoStopPulls(repo);
 	HTTPServerClose(server);
 	HTTPServerFree(server); server = NULL;
 	BlogFree(blog); blog = NULL;
@@ -41,10 +43,10 @@ int main(int const argc, char const *const *const argv) {
 	async_sqlite_register();
 
 	// Even our init code wants to use async I/O.
-	co_switch(co_create(STACK_SIZE, init));
+	async_wakeup(co_create(STACK_SIZE, init));
 	uv_run(loop, UV_RUN_DEFAULT);
 
-	co_switch(co_create(STACK_SIZE, term));
+	async_wakeup(co_create(STACK_SIZE, term));
 	uv_run(loop, UV_RUN_DEFAULT); // Allows term() to execute.
 
 	return EXIT_SUCCESS;

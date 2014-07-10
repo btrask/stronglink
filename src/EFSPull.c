@@ -50,7 +50,7 @@ static void pull_thread(void) {
 		if(conn) {
 			HTTPMessageFree(msg); msg = NULL;
 			HTTPConnectionFree(conn); conn = NULL;
-			// TODO: Sleep.
+			async_sleep(1000 * 5);
 		}
 
 		conn = HTTPConnectionCreateOutgoing(pull->host);
@@ -91,7 +91,7 @@ static void pull_thread(void) {
 void EFSPullStart(EFSPullRef const pull) {
 	if(!pull) return;
 	pull_arg = pull;
-	co_switch(co_create(STACK_SIZE, pull_thread));
+	async_wakeup(co_create(STACK_SIZE, pull_thread));
 }
 
 typedef struct {

@@ -24,6 +24,7 @@ str_t *EFSRepoCopyTempPath(EFSRepoRef const repo);
 strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo);
 sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo);
 void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 *const db);
+void EFSRepoStartPulls(EFSRepoRef const repo);
 
 typedef struct {
 	str_t *path;

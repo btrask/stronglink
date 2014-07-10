@@ -51,12 +51,17 @@ HTTPConnectionRef HTTPConnectionCreateOutgoing(strarg_t const domain) {
 		return NULL;
 	}
 	if(uv_tcp_init(loop, &conn->stream) < 0) {
-		HTTPConnectionFree(conn);
 		uv_freeaddrinfo(info);
+		HTTPConnectionFree(conn);
 		return NULL;
 	}
-	uv_connect_t req = { .data = co_active() };
-	uv_tcp_connect(&req, &conn->stream, info->ai_addr, async_connect_cb);
+	async_state state = { .thread = co_active() };
+	uv_connect_t req = { .data = &state };
+	if(uv_tcp_connect(&req, &conn->stream, info->ai_addr, async_connect_cb) < 0) {
+		uv_freeaddrinfo(info);
+		HTTPConnectionFree(conn);
+		return NULL;
+	}
 	co_switch(yield);
 	uv_freeaddrinfo(info);
 

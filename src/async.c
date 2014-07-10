@@ -27,17 +27,12 @@ void co_terminate(void) {
 	co_switch(reap);
 }
 
-static void wakeup_cb(uv_handle_t *const handle) {
-	cothread_t const thread = handle->data;
-	free(handle);
-	co_switch(thread);
-}
 void async_wakeup(cothread_t const thread) {
-	// TODO: Use one global timer with a queue of threads to wake.
-	uv_timer_t *const timer = malloc(sizeof(uv_timer_t));
-	timer->data = thread;
-	uv_timer_init(loop, timer);
-	uv_close((uv_handle_t *)timer, wakeup_cb);
+	if(thread == yield) return; // The main thread will get woken up when we yield to it. It would never yield back to us.
+	cothread_t const original = yield;
+	yield = co_active();
+	co_switch(thread);
+	yield = original;
 }
 
 struct random_state {
@@ -92,7 +87,7 @@ int async_getaddrinfo(char const *const node, char const *const service, struct 
 }
 
 int async_sleep(uint64_t const milliseconds) {
-	// TODO: Pool timers together, possibly share implementation with async_wakeup.
+	// TODO: Pool timers together.
 	uv_timer_t timer = { .data = co_active() };
 	int err;
 	err = uv_timer_init(loop, &timer);

@@ -89,6 +89,6 @@ static void connection(void) {
 }
 static void connection_cb(uv_stream_t *const socket, int const status) {
 	connection_socket = socket;
-	co_switch(co_create(STACK_SIZE, connection));
+	async_wakeup(co_create(STACK_SIZE, connection));
 }
 
