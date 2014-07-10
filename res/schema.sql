@@ -81,3 +81,14 @@ CREATE TABLE pulls (
 	query TEXT NOT NULL
 );
 
+CREATE TABLE meta_data (
+	meta_data_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+	meta_file_id INTEGER NOT NULL,
+	file_id INTEGER NOT NULL,
+	field TEXT NOT NULL,
+	value TEXT NOT NULL
+);
+CREATE INDEX meta_data_meta_file_index ON meta_data (meta_file_id ASC);
+CREATE INDEX meta_data_file_index ON meta_data (file_id ASC);
+CREATE INDEX meta_data_field_index ON meta_data (field ASC);
+
