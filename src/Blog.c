@@ -248,8 +248,9 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	}
 
 	// TODO: Parse querystring `q` parameter
-	EFSFilterRef const filter = EFSFilterCreate(EFSBacklinkFilesFilter);
-	EFSFilterAddStringArg(filter, "efs://user", -1);
+	EFSFilterRef const filter = EFSFilterCreate(EFSNoFilter); // EFSBacklinkFilesFilter
+//	EFSFilterAddStringArg(filter, "efs://user", -1);
+	// TODO: Once we're done testing, start filtering by visibility again.
 
 	URIListRef const URIs = EFSSessionCreateFilteredURIList(session, filter, RESULTS_MAX); // TODO: We should be able to specify a specific algorithm here.
 

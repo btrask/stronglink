@@ -61,7 +61,7 @@ static void pull_thread(void) {
 		}
 
 		msg = HTTPMessageCreate(conn);
-		HTTPMessageWriteRequest(msg, HTTP_GET, "/efs/query", pull->host);
+		HTTPMessageWriteRequest(msg, HTTP_GET, "/api/query/latest?count=all", pull->host); // TODO: /efs/query
 		if(pull->cookie) HTTPMessageWriteHeader(msg, "Cookie", pull->cookie);
 		HTTPMessageBeginBody(msg);
 		HTTPMessageEnd(msg);
@@ -78,7 +78,10 @@ static void pull_thread(void) {
 		for(;;) {
 			str_t URI[URI_MAX+1];
 			if(HTTPMessageReadLine(msg, URI, URI_MAX) < 0) break;
-			if(EFSPullImportURI(pull, URI) < 0) break;
+			for(;;) {
+				if(EFSPullImportURI(pull, URI) >= 0) break;
+				async_sleep(1000);
+			}
 		}
 
 	}
@@ -133,7 +136,7 @@ err_t EFSPullImportURI(EFSPullRef const pull, strarg_t const URI) {
 	if(!pull) return 0;
 	if(!URI) return 0;
 
-	fprintf(stderr, "Pulling URI %s\n", URI);
+	fprintf(stderr, "Pulling URI '%s'\n", URI);
 
 	str_t algo[EFS_ALGO_SIZE];
 	str_t hash[EFS_HASH_SIZE];
@@ -158,13 +161,15 @@ err_t EFSPullImportURI(EFSPullRef const pull, strarg_t const URI) {
 	}
 
 	str_t *path;
-	asprintf(&path, "/efs/file/%s/%s", algo, hash);
+	asprintf(&path, "/api/file/best/%s/%s", algo, hash); // TODO: /efs/file
 	HTTPMessageWriteRequest(msg, HTTP_GET, path, pull->host);
 	FREE(&path);
 
+	HTTPMessageWriteHeader(msg, "Cookie", pull->cookie);
 	HTTPMessageBeginBody(msg);
 	HTTPMessageEnd(msg);
 	uint16_t const status = HTTPMessageGetResponseStatus(msg);
+	fprintf(stderr, "Importing %s, %d\n", URI, status);
 	err = err < 0 ? err : (status < 200 || status >= 300);
 
 	if(0 == err) {
@@ -174,6 +179,7 @@ err_t EFSPullImportURI(EFSPullRef const pull, strarg_t const URI) {
 		EFSSubmissionFree(submission);
 	}
 
+	HTTPMessageDrain(msg);
 	HTTPMessageFree(msg); msg = NULL;
 	HTTPConnectionFree(conn); conn = NULL;
 

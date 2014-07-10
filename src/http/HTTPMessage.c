@@ -152,7 +152,7 @@ void *HTTPMessageGetHeaders(HTTPMessageRef const msg, HeaderField const fields[]
 	if(!msg) return NULL;
 	assertf(!msg->headers, "Message headers already read");
 	msg->headers = HeadersCreate(fields, count);
-	if(msg->next.len) {
+	if(msg->next.len > 0) {
 		HeadersAppendFieldChunk(msg->headers, msg->next.at, msg->next.len);
 		msg->next.at = NULL;
 		msg->next.len = 0;
@@ -167,7 +167,7 @@ void *HTTPMessageGetHeaders(HTTPMessageRef const msg, HeaderField const fields[]
 ssize_t HTTPMessageRead(HTTPMessageRef const msg, byte_t *const buf, size_t const len) {
 	if(!msg) return -1;
 	if(!msg->headers) HTTPMessageGetHeaders(msg, NULL, 0);
-	if(!msg->next.len) {
+	if(0 == msg->next.len) {
 		if(msg->eof) return 0;
 		if(readOnce(msg) < 0) return -1;
 	}
@@ -181,35 +181,34 @@ ssize_t HTTPMessageRead(HTTPMessageRef const msg, byte_t *const buf, size_t cons
 ssize_t HTTPMessageReadLine(HTTPMessageRef const msg, str_t *const buf, size_t const len) {
 	if(!msg) return -1;
 	if(!msg->headers) HTTPMessageGetHeaders(msg, NULL, 0);
-	if(!msg->next.len) {
-		if(msg->eof) return 0;
-		if(readOnce(msg) < 0) return -1;
-	}
-	size_t used = 0;
+	if(msg->eof) return -1;
+	off_t pos = 0;
 	for(;;) {
-		index_t i = 0;
-		count_t const max = MIN(msg->next.len, len - used);
-		for(; i < max; ++i) {
-			if('\r' == msg->next.at[i]) break;
-			if('\n' == msg->next.at[i]) break;
-		}
-		memcpy(buf+used, msg->next.at, i);
-		used += i;
-		msg->next.at += i;
-		msg->next.len -= i;
-		if('\r' == msg->next.at[0]) msg->next.at++;
-		if('\n' == msg->next.at[0]) msg->next.at++;
-		if(used >= len) break;
-		if(msg->eof) break;
-		if(readOnce(msg) < 0) return -1;
+		if(0 == msg->next.len && readOnce(msg) < 0) break;
+		if(0 == msg->next.len) break; // TODO: readOnce should probably return -1 if we fail to read anything, whatever the reason.
+		if('\r' == msg->next.at[0]) break;
+		if('\n' == msg->next.at[0]) break;
+		buf[MIN(pos++, len)] = msg->next.at[0];
+		msg->next.at++;
+		msg->next.len--;
 	}
-	buf[used] = '\0';
-	return used;
+	if(0 == msg->next.len) readOnce(msg);
+	if(msg->next.len > 0 && '\r' == msg->next.at[0]) {
+		msg->next.at++;
+		msg->next.len--;
+	}
+	if(0 == msg->next.len) readOnce(msg);
+	if(msg->next.len > 0 && '\n' == msg->next.at[0]) {
+		msg->next.at++;
+		msg->next.len--;
+	}
+	buf[MIN(pos++, len)] = '\0';
+	return MIN(pos++, len);
 }
 ssize_t HTTPMessageGetBuffer(HTTPMessageRef const msg, byte_t const **const buf) {
 	if(!msg) return -1;
 	if(!msg->headers) HTTPMessageGetHeaders(msg, NULL, 0);
-	if(!msg->next.len) {
+	if(0 == msg->next.len) {
 		if(msg->eof) return 0;
 		if(readOnce(msg) < 0) return -1;
 	}
@@ -473,7 +472,7 @@ static int on_header_field(http_parser *const parser, char const *const at, size
 		}
 		HeadersAppendFieldChunk(msg->headers, at, len);
 	} else {
-		assertf(!msg->next.len, "Chunk already waiting");
+		assertf(0 == msg->next.len, "Chunk already waiting");
 		msg->next.at = at;
 		msg->next.len = len;
 		http_parser_pause(parser, 1);
@@ -493,8 +492,7 @@ static int on_headers_complete(http_parser *const parser) {
 }
 static int on_body(http_parser *const parser, char const *const at, size_t const len) {
 	HTTPMessageRef const msg = parser->data;
-	assertf(msg->requestURI[0], "Body chunk received out of order");
-	assertf(!msg->next.len, "Chunk already waiting");
+	assertf(0 == msg->next.len, "Chunk already waiting");
 	assertf(!msg->eof, "Message already complete");
 	msg->next.at = at;
 	msg->next.len = len;
@@ -531,7 +529,7 @@ static void read_cb(uv_stream_t *const stream, ssize_t const nread, const uv_buf
 	co_switch(state->thread);
 }
 static ssize_t readOnce(HTTPMessageRef const msg) {
-	assertf(!msg->next.len, "Existing unused chunk");
+	assertf(0 == msg->next.len, "Existing unused chunk");
 	if(msg->eof) return -1;
 	if(!msg->remaining) {
 		struct msg_state state = {
