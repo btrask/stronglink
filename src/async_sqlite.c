@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <stdio.h> /* TODO: Use async_fs instead */
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
