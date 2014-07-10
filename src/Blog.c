@@ -52,7 +52,10 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 	EFSFileInfo *info = EFSSessionCopyFileInfo(session, URI);
 	if(!info) return -1;
 
-	if(0 != strcasecmp("text/markdown; charset=utf-8", info->type)) {
+	if(
+		0 != strcasecmp("text/markdown; charset=utf-8", info->type) &&
+		0 != strcasecmp("text/markdown", info->type)
+	) {
 		EFSFileInfoFree(info); info = NULL;
 		return -1; // TODO: Other types, plugins, w/e.
 	}
