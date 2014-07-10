@@ -33,11 +33,14 @@ ssize_t async_fs_unlink(const char* path) {
 ssize_t async_fs_link(const char* path, const char* new_path) {
 	ASYNC_FS_WRAP(link, path, new_path)
 }
-ssize_t async_fs_fsync(uv_file const file) {
+ssize_t async_fs_fsync(uv_file file) {
 	ASYNC_FS_WRAP(fsync, file)
 }
-ssize_t async_fs_fdatasync(uv_file const file) {
+ssize_t async_fs_fdatasync(uv_file file) {
 	ASYNC_FS_WRAP(fdatasync, file)
+}
+ssize_t async_fs_mkdir(const char* path, int mode) {
+	ASYNC_FS_WRAP(mkdir, path, mode)
 }
 
 ssize_t async_fs_fstat(uv_file file, uv_stat_t *stats) {
@@ -68,45 +71,41 @@ static ssize_t dirlen(char const *const path, size_t const len) {
 	for(; i >= 0; --i) if('/' == path[i]) return i;
 	return -1;
 }
-int async_mkdirp_fast(char *const path, size_t const len, int const mode) {
+ssize_t async_fs_mkdirp_fast(char *const path, size_t const len, int const mode) {
 	if(0 == len) return 0;
 	if(1 == len) {
 		if('/' == path[0]) return 0;
 		if('.' == path[0]) return 0;
 	}
-	uv_fs_t req = { .data = co_active() };
+	ssize_t result;
 	char const old = path[len]; // Generally should be '/' or '\0'.
 	path[len] = '\0';
-	uv_fs_mkdir(loop, &req, path, mode, async_fs_cb);
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
+	result = async_fs_mkdir(path, mode);
 	path[len] = old;
-	if(req.result >= 0) return 0;
-	if(-EEXIST == req.result) return 0;
-	if(-ENOENT != req.result) return -1;
+	if(result >= 0) return 0;
+	if(-EEXIST == result) return 0;
+	if(-ENOENT != result) return -1;
 	ssize_t const dlen = dirlen(path, len);
 	if(dlen < 0) return -1;
-	if(async_mkdirp_fast(path, dlen, mode) < 0) return -1;
+	if(async_fs_mkdirp_fast(path, dlen, mode) < 0) return -1;
 	path[len] = '\0';
-	uv_fs_mkdir(loop, &req, path, mode, async_fs_cb);
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
+	result = async_fs_mkdir(path, mode);
 	path[len] = old;
-	if(req.result < 0) return -1;
+	if(result < 0) return -1;
 	return 0;
 }
-int async_mkdirp(char const *const path, int const mode) {
+ssize_t async_fs_mkdirp(char const *const path, int const mode) {
 	size_t const len = strlen(path);
 	char *mutable = strndup(path, len);
-	int const err = async_mkdirp_fast(mutable, len, mode);
+	ssize_t const err = async_fs_mkdirp_fast(mutable, len, mode);
 	free(mutable); mutable = NULL;
 	return err;
 }
-int async_mkdirp_dirname(char const *const path, int const mode) {
+ssize_t async_fs_mkdirp_dirname(char const *const path, int const mode) {
 	ssize_t dlen = dirlen(path, strlen(path));
 	if(dlen < 0) return dlen;
 	char *mutable = strndup(path, dlen);
-	int const err = async_mkdirp_fast(mutable, dlen, mode);
+	ssize_t const err = async_fs_mkdirp_fast(mutable, dlen, mode);
 	free(mutable); mutable = NULL;
 	return err;
 }
@@ -121,7 +120,7 @@ static char *tohex(char const *const buf, size_t const len) {
 	}
 	return hex;
 }
-char *async_tempnam(char const *dir, char const *prefix) {
+char *async_fs_tempnam(char const *dir, char const *prefix) {
 	if(!dir) dir = "/tmp"; // TODO: Use ENV
 	if(!prefix) prefix = "async";
 	char rand[ENTROPY_BYTES];

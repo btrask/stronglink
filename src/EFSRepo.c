@@ -55,7 +55,7 @@ strarg_t EFSRepoGetTempDir(EFSRepoRef const repo) {
 }
 str_t *EFSRepoCopyTempPath(EFSRepoRef const repo) {
 	if(!repo) return NULL;
-	return async_tempnam(repo->tempDir, "efs");
+	return async_fs_tempnam(repo->tempDir, "efs");
 }
 strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo) {
 	if(!repo) return NULL;
