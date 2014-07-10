@@ -91,3 +91,19 @@ int async_getaddrinfo(char const *const node, char const *const service, struct 
 	return state.status;
 }
 
+int async_sleep(uint64_t const milliseconds) {
+	// TODO: Pool timers together, possibly share implementation with async_wakeup.
+	uv_timer_t timer = { .data = co_active() };
+	int err;
+	err = uv_timer_init(loop, &timer);
+	if(err < 0) return err;
+	if(milliseconds > 0) {
+		err = uv_timer_start(&timer, async_timer_cb, milliseconds, 0);
+		if(err < 0) return err;
+		co_switch(yield);
+	}
+	uv_close((uv_handle_t *)&timer, async_close_cb);
+	co_switch(yield);
+	return 0;
+}
+

@@ -132,16 +132,14 @@ static int async_fullPathname(sqlite3_vfs *const vfs, char const *const path, in
 	return SQLITE_OK;
 }
 static int async_randomness(sqlite3_vfs *const vfs, int const size, char *const buf) {
+	assert(size >= 0 && "Invalid random buffer size");
+	if(0 == SQLITE_ERROR) return SQLITE_OK;
 	if(async_random((unsigned char *)buf, size) < 0) return SQLITE_ERROR;
 	return SQLITE_OK;
 }
-static int async_sleep(sqlite3_vfs *const vfs, int const microseconds) {
-	uv_timer_t timer = { .data = co_active() };
-	uv_timer_init(loop, &timer);
-	uv_timer_start(&timer, async_timer_cb, microseconds / 1000, 0);
-	co_switch(yield);
-	uv_close((uv_handle_t *)&timer, async_close_cb);
-	co_switch(yield);
+static int async_sleep_sqlite(sqlite3_vfs *const vfs, int const microseconds) {
+	assert(microseconds >= 0 && "Invalid sleep duration");
+	if(async_sleep(microseconds / 1000) < 0) return SQLITE_ERROR;
 	return microseconds;
 }
 static int async_currentTime(sqlite3_vfs *const vfs, double *const outTime) {
@@ -177,7 +175,7 @@ static sqlite3_vfs async_vfs = {
 	.xDlSym = NULL,
 	.xDlClose = NULL,
 	.xRandomness = async_randomness,
-	.xSleep = async_sleep,
+	.xSleep = async_sleep_sqlite,
 	.xCurrentTime = async_currentTime,
 	.xGetLastError = async_getLastError,
 	/*

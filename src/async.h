@@ -47,6 +47,7 @@ void co_terminate(void);
 
 int async_random(unsigned char *const buf, size_t const len);
 int async_getaddrinfo(char const *const node, char const *const service, struct addrinfo const *const hints, struct addrinfo **const res);
+int async_sleep(uint64_t const milliseconds);
 
 // async_fs.c
 uv_file async_fs_open(const char* path, int flags, int mode);
