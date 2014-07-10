@@ -85,12 +85,12 @@ CREATE TABLE pulls (
 CREATE TABLE meta_data (
 	meta_data_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 	meta_file_id INTEGER NOT NULL,
-	file_id INTEGER NOT NULL,
+	uri_id INTEGER NOT NULL,
 	field TEXT NOT NULL,
 	value TEXT NOT NULL
 );
-CREATE UNIQUE INDEX meta_data_unique ON meta_data (meta_file_id ASC, file_id ASC, field ASC, value ASC);
+CREATE UNIQUE INDEX meta_data_unique ON meta_data (meta_file_id ASC, uri_id ASC, field ASC, value ASC);
 CREATE INDEX meta_data_meta_file_index ON meta_data (meta_file_id ASC);
-CREATE INDEX meta_data_file_index ON meta_data (file_id ASC);
+CREATE INDEX meta_data_uri_index ON meta_data (uri_id ASC);
 CREATE INDEX meta_data_field_index ON meta_data (field ASC);
 
