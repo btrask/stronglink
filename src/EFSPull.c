@@ -19,7 +19,8 @@ static err_t auth(EFSPullRef const pull, HTTPConnectionRef const conn);
 static err_t import(EFSPullRef const pull, HTTPConnectionRef const conn, strarg_t const URI);
 
 EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, int64_t const pullID, int64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query) {
-	EFSPullRef const pull = calloc(1, sizeof(struct EFSPull));
+	EFSPullRef pull = calloc(1, sizeof(struct EFSPull));
+	if(!pull) return NULL;
 	pull->pullID = pullID;
 	pull->session = EFSRepoCreateSessionInternal(repo, userID);
 	pull->username = strdup(username);

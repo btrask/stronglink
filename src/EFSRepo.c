@@ -13,6 +13,7 @@ struct EFSRepo {
 EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 	assertf(dir, "EFSRepo dir required");
 	EFSRepoRef repo = calloc(1, sizeof(struct EFSRepo));
+	if(!repo) return NULL;
 	repo->dir = strdup(dir);
 	// TODO: If asprintf() fails, the string pointer is undefined.
 	if(

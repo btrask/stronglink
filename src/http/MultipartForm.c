@@ -32,12 +32,21 @@ MultipartFormRef MultipartFormCreate(HTTPMessageRef const msg, strarg_t const ty
 	if(!boff) return NULL;
 	str_t *boundary;
 	if(asprintf(&boundary, "--%s", type+boff) < 0) return NULL; // Why is the parser making us do this?
-	MultipartFormRef const form = calloc(1, sizeof(struct MultipartForm));
+	MultipartFormRef form = calloc(1, sizeof(struct MultipartForm));
+	if(!form) return NULL;
 	form->msg = msg;
 	form->parser = multipart_parser_init(boundary, &callbacks);
+	if(!form->parser) {
+		MultipartFormFree(&form);
+		return NULL;
+	}
 	FormPartRef const part = &form->part;
 	part->form = form;
 	part->headers = HeadersCreate(fields, count);
+	if(!part->headers) {
+		MultipartFormFree(&form);
+		return NULL;
+	}
 	part->eof = 1;
 	multipart_parser_set_data(form->parser, part);
 	FREE(&boundary);

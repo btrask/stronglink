@@ -13,6 +13,7 @@ static yajl_callbacks const callbacks;
 
 EFSJSONFilterBuilderRef EFSJSONFilterBuilderCreate(void) {
 	EFSJSONFilterBuilderRef builder = calloc(1, sizeof(struct EFSJSONFilterBuilder));
+	if(!builder) return NULL;
 	builder->parser = yajl_alloc(&callbacks, NULL, builder);
 	builder->depth = -1;
 	return builder;

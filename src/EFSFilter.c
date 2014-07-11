@@ -28,12 +28,14 @@ EFSFilterRef EFSFilterCreate(EFSFilterType const type) {
 		default:
 			return NULL;
 	}
-	EFSFilterRef const filter = calloc(1, sizeof(struct EFSFilter));
+	EFSFilterRef filter = calloc(1, sizeof(struct EFSFilter));
+	if(!filter) return NULL;
 	filter->type = type;
 	return filter;
 }
 EFSFilterRef EFSPermissionFilterCreate(int64_t const userID) {
-	EFSFilterRef const filter = calloc(1, sizeof(struct EFSFilter));
+	EFSFilterRef filter = calloc(1, sizeof(struct EFSFilter));
+	if(!filter) return NULL;
 	filter->type = EFSPermissionFilter;
 	filter->data.userID = userID;
 	return filter;

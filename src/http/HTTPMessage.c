@@ -120,6 +120,10 @@ HTTPMessageRef HTTPMessageCreate(HTTPConnectionRef const conn) {
 	assertf(HTTP_BOTH != type, "HTTPMessage can't handle 'both'");
 	if(HTTP_REQUEST == type) {
 		msg->requestURI = malloc(URI_MAX+1);
+		if(!msg->requestURI) {
+			HTTPMessageFree(&msg);
+			return NULL;
+		}
 		msg->requestURI[0] = '\0';
 		if(readFirstLine(msg) < 0) {
 			HTTPMessageFree(&msg);

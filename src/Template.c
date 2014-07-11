@@ -16,8 +16,13 @@ struct Template {
 TemplateRef TemplateCreate(strarg_t const str) {
 	count_t size = 10;
 	TemplateRef t = calloc(1, sizeof(struct Template));
+	if(!t) return NULL;
 	t->count = 0;
 	t->steps = malloc(sizeof(TemplateStep) * size);
+	if(!t->steps) {
+		TemplateFree(&t);
+		return NULL;
+	}
 
 	regex_t exp;
 	regcomp(&exp, "{{[a-zA-Z0-9]\\+}}", 0);

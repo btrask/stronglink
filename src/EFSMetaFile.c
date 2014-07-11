@@ -32,7 +32,8 @@ EFSMetaFileRef EFSMetaFileCreate(strarg_t const type) {
 	if(!type) return NULL;
 	if(0 != strcasecmp("text/efs-meta+json; charset=utf-8", type)) return NULL;
 
-	EFSMetaFileRef const meta = calloc(1, sizeof(struct EFSMetaFile));
+	EFSMetaFileRef meta = calloc(1, sizeof(struct EFSMetaFile));
+	if(!meta) return NULL;
 	meta->parser = yajl_alloc(&callbacks, NULL, meta);
 	meta->size = 0;
 	meta->state = s_start;

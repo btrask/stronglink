@@ -9,7 +9,8 @@ struct URIList {
 };
 
 URIListRef URIListCreate(void) {
-	URIListRef const list = calloc(1, sizeof(struct URIList));
+	URIListRef list = calloc(1, sizeof(struct URIList));
+	if(!list) return NULL;
 	list->count = 0;
 	list->size = 0;
 	list->items = NULL;
@@ -58,7 +59,8 @@ struct LineParser {
 };
 
 LineParserRef LineParserCreate(LineParserCB const cb, void *const context) {
-	LineParserRef const p = calloc(1, sizeof(struct LineParser));
+	LineParserRef p = calloc(1, sizeof(struct LineParser));
+	if(!p) return NULL;
 	p->cb = cb;
 	p->context = context;
 	return p;
@@ -148,9 +150,14 @@ URIListParserRef URIListParserCreate(strarg_t const type) {
 		0 != strcasecmp("text/efs-meta+uri-list; charset=ascii", type) &&
 		0 != strcasecmp("text/efs-meta+uri-list; charset=utf-8", type)
 	) return NULL;
-	URIListParserRef const lp = calloc(1, sizeof(struct URIListParser));
+	URIListParserRef lp = calloc(1, sizeof(struct URIListParser));
+	if(!lp) return NULL;
 	lp->list = URIListCreate();
 	lp->parser = LineParserCreate(URIListParserAddURI, lp->list);
+	if(!lp->list || !lp->parser) {
+		URIListParserFree(&lp);
+		return NULL;
+	}
 	return lp;
 }
 void URIListParserFree(URIListParserRef *const lpptr) {

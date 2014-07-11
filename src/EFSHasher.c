@@ -21,6 +21,7 @@ struct EFSHasher {
 EFSHasherRef EFSHasherCreate(strarg_t const type) {
 	assertf(type, "EFSHasher type required");
 	EFSHasherRef hasher = calloc(1, sizeof(struct EFSHasher));
+	if(!hasher) return NULL;
 	hasher->type = strdup(type);
 	if(
 		SHA1_Init(&hasher->sha1) < 0 ||

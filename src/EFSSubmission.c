@@ -19,6 +19,7 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 	if(!repo) return NULL;
 
 	EFSSubmissionRef sub = calloc(1, sizeof(struct EFSSubmission));
+	if(!sub) return NULL;
 	sub->repo = repo;
 	sub->type = strdup(type);
 

@@ -11,13 +11,22 @@ struct Headers {
 };
 
 HeadersRef HeadersCreate(HeaderField const fields[], count_t const count) {
-	HeadersRef const headers = calloc(1, sizeof(struct Headers));
+	HeadersRef headers = calloc(1, sizeof(struct Headers));
+	if(!headers) return NULL;
 	headers->fields = fields;
 	headers->field = malloc(FIELD_MAX+1);
+	if(!headers->field) {
+		HeadersFree(&headers);
+		return NULL;
+	}
 	headers->field[0] = '\0';
 	headers->current = count;
 	headers->count = count;
 	headers->data = calloc(count, sizeof(str_t *));
+	if(!headers->data) {
+		HeadersFree(&headers);
+		return NULL;
+	}
 	return headers;
 }
 void HeadersFree(HeadersRef *const headersptr) {
