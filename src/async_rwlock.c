@@ -57,7 +57,7 @@ static int lock_next(async_rwlock_t *const lock, unsigned const i) {
 }
 
 async_rwlock_t *async_rwlock_create(void) {
-	async_rwlock_t *const lock = calloc(1, sizeof(struct async_rwlock_s));
+	async_rwlock_t *lock = calloc(1, sizeof(struct async_rwlock_s));
 	if(!lock) return NULL;
 	lock->rdactive = calloc(READERS_MAX, sizeof(cothread_t));
 	lock->rdsize = 50;
@@ -65,7 +65,7 @@ async_rwlock_t *async_rwlock_create(void) {
 	lock->wrsize = 10;
 	lock->wrqueue = calloc(lock->wrsize, sizeof(cothread_t));
 	if(!lock->rdactive || !lock->rdqueue || !lock->wrqueue) {
-		async_rwlock_free(lock);
+		async_rwlock_free(lock); lock = NULL;
 		return NULL;
 	}
 	return lock;

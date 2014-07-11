@@ -34,7 +34,7 @@ static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_fi
 	if(usetmp) uvflags |= O_TRUNC;
 
 	for(;;) {
-		char *const tmp = usetmp ? async_fs_tempnam(NULL, "async-sqlite") : NULL;
+		char *tmp = usetmp ? async_fs_tempnam(NULL, "async-sqlite") : NULL;
 		char const *const path = usetmp ? tmp : inpath;
 		int const result = async_fs_open(path, uvflags, 0600);
 		if(!usetmp) {
@@ -43,15 +43,15 @@ static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_fi
 			break;
 		}
 		if(-EEXIST == result) {
-			free(tmp);
+			free(tmp); tmp = NULL;
 			continue;
 		} else if(result < 0) {
-			free(tmp);
+			free(tmp); tmp = NULL;
 			return SQLITE_CANTOPEN;
 		}
 		file->file = result;
 		async_fs_unlink(path); // TODO: Is this safe on Windows?
-		free(tmp);
+		free(tmp); tmp = NULL;
 		break;
 	}
 	file->methods = &io_methods;
@@ -367,7 +367,7 @@ static int async_mutex_init(void) {
 static int async_mutex_end(void) {
 	if(!global_mutexes) return SQLITE_OK;
 	for(unsigned i = 0; i < GLOBAL_MUTEX_COUNT; ++i) {
-		async_mutex_free(global_mutexes[i]);
+		async_mutex_free(global_mutexes[i]); global_mutexes[i] = NULL;
 	}
 	free(global_mutexes); global_mutexes = NULL;
 	return SQLITE_OK;

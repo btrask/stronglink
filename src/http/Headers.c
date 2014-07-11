@@ -20,14 +20,15 @@ HeadersRef HeadersCreate(HeaderField const fields[], count_t const count) {
 	headers->data = calloc(count, sizeof(str_t *));
 	return headers;
 }
-void HeadersFree(HeadersRef const headers) {
+void HeadersFree(HeadersRef *const headersptr) {
+	HeadersRef headers = *headersptr;
 	if(!headers) return;
 	FREE(&headers->field);
 	for(index_t i = 0; i < headers->count; ++i) {
 		FREE(&headers->data[i]);
 	}
 	FREE(headers->data);
-	free(headers);
+	FREE(headersptr); headers = NULL;
 }
 err_t HeadersAppendFieldChunk(HeadersRef const headers, strarg_t const chunk, size_t const len) {
 	if(!headers) return 0;

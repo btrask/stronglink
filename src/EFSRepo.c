@@ -12,7 +12,7 @@ struct EFSRepo {
 
 EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 	assertf(dir, "EFSRepo dir required");
-	EFSRepoRef const repo = calloc(1, sizeof(struct EFSRepo));
+	EFSRepoRef repo = calloc(1, sizeof(struct EFSRepo));
 	repo->dir = strdup(dir);
 	// TODO: If asprintf() fails, the string pointer is undefined.
 	if(
@@ -21,19 +21,20 @@ EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 		asprintf(&repo->cacheDir, "%s/cache", dir) < 0 ||
 		asprintf(&repo->DBPath, "%s/efs.db", dir) < 0
 	) {
-		EFSRepoFree(repo);
+		EFSRepoFree(&repo);
 		return NULL;
 	}
 	return repo;
 }
-void EFSRepoFree(EFSRepoRef const repo) {
+void EFSRepoFree(EFSRepoRef *const repoptr) {
+	EFSRepoRef repo = *repoptr;
 	if(!repo) return;
 	FREE(&repo->dir);
 	FREE(&repo->dataDir);
 	FREE(&repo->tempDir);
 	FREE(&repo->cacheDir);
 	FREE(&repo->DBPath);
-	free(repo);
+	FREE(repoptr); repo = NULL;
 }
 strarg_t EFSRepoGetDir(EFSRepoRef const repo) {
 	if(!repo) return NULL;

@@ -13,19 +13,19 @@ struct HTTPConnection {
 };
 
 HTTPConnectionRef HTTPConnectionCreateIncoming(uv_stream_t *const socket) {
-	HTTPConnectionRef const conn = calloc(1, sizeof(struct HTTPConnection));
+	HTTPConnectionRef conn = calloc(1, sizeof(struct HTTPConnection));
 	if(!conn) return NULL;
 	if(
 		uv_tcp_init(loop, &conn->stream) < 0 ||
 		uv_accept(socket, (uv_stream_t *)&conn->stream) < 0
 	) {
-		HTTPConnectionFree(conn);
+		HTTPConnectionFree(&conn);
 		return NULL;
 	}
 	http_parser_init(&conn->parser, HTTP_REQUEST);
 	conn->buf = malloc(BUFFER_SIZE);
 	if(!conn->buf) {
-		HTTPConnectionFree(conn);
+		HTTPConnectionFree(&conn);
 		return NULL;
 	}
 	return conn;
@@ -45,21 +45,21 @@ HTTPConnectionRef HTTPConnectionCreateOutgoing(strarg_t const domain) {
 	struct addrinfo *info;
 	if(async_getaddrinfo(host, service[0] ? service : "80", &hints, &info) < 0) return NULL;
 
-	HTTPConnectionRef const conn = calloc(1, sizeof(struct HTTPConnection));
+	HTTPConnectionRef conn = calloc(1, sizeof(struct HTTPConnection));
 	if(!conn) {
 		uv_freeaddrinfo(info);
 		return NULL;
 	}
 	if(uv_tcp_init(loop, &conn->stream) < 0) {
 		uv_freeaddrinfo(info);
-		HTTPConnectionFree(conn);
+		HTTPConnectionFree(&conn);
 		return NULL;
 	}
 	async_state state = { .thread = co_active() };
 	uv_connect_t req = { .data = &state };
 	if(uv_tcp_connect(&req, &conn->stream, info->ai_addr, async_connect_cb) < 0) {
 		uv_freeaddrinfo(info);
-		HTTPConnectionFree(conn);
+		HTTPConnectionFree(&conn);
 		return NULL;
 	}
 	co_switch(yield);
@@ -68,19 +68,20 @@ HTTPConnectionRef HTTPConnectionCreateOutgoing(strarg_t const domain) {
 	http_parser_init(&conn->parser, HTTP_RESPONSE);
 	conn->buf = malloc(BUFFER_SIZE);
 	if(!conn->buf) {
-		HTTPConnectionFree(conn);
+		HTTPConnectionFree(&conn);
 		return NULL;
 	}
 	return conn;
 }
-void HTTPConnectionFree(HTTPConnectionRef const conn) {
+void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
+	HTTPConnectionRef conn = *connptr;
 	if(!conn) return;
 	conn->stream.data = co_active();
 	uv_close((uv_handle_t *)&conn->stream, async_close_cb);
 	co_switch(yield);
 	conn->stream.data = NULL;
 	FREE(&conn->buf);
-	free(conn);
+	FREE(connptr); conn = NULL;
 }
 err_t HTTPConnectionError(HTTPConnectionRef const conn) {
 	if(!conn) return HPE_OK;
@@ -111,7 +112,7 @@ static err_t readChunk(HTTPMessageRef const msg);
 
 HTTPMessageRef HTTPMessageCreate(HTTPConnectionRef const conn) {
 	assertf(conn, "HTTPMessage connection required");
-	HTTPMessageRef const msg = calloc(1, sizeof(struct HTTPMessage));
+	HTTPMessageRef msg = calloc(1, sizeof(struct HTTPMessage));
 	if(!msg) return NULL;
 	msg->conn = conn;
 	conn->parser.data = msg;
@@ -121,20 +122,21 @@ HTTPMessageRef HTTPMessageCreate(HTTPConnectionRef const conn) {
 		msg->requestURI = malloc(URI_MAX+1);
 		msg->requestURI[0] = '\0';
 		if(readFirstLine(msg) < 0) {
-			HTTPMessageFree(msg);
+			HTTPMessageFree(&msg);
 			return NULL;
 		}
 		assertf(msg->requestURI[0], "No URI in request");
 	}
 	return msg;
 }
-void HTTPMessageFree(HTTPMessageRef const msg) {
+void HTTPMessageFree(HTTPMessageRef *const msgptr) {
+	HTTPMessageRef msg = *msgptr;
 	if(!msg) return;
 	FREE(&msg->requestURI);
-	HeadersFree(msg->headers);
+	HeadersFree(&msg->headers);
 	msg->conn->parser.data = NULL;
 	msg->conn = NULL;
-	free(msg);
+	FREE(msgptr); msg = NULL;
 }
 
 HTTPMethod HTTPMessageGetRequestMethod(HTTPMessageRef const msg) {

@@ -7,7 +7,7 @@ bool_t EFSServerDispatch(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMe
 typedef struct Blog* BlogRef;
 
 BlogRef BlogCreate(EFSRepoRef const repo);
-void BlogFree(BlogRef const blog);
+void BlogFree(BlogRef *const blogptr);
 bool_t BlogDispatch(BlogRef const blog, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI);
 
 static EFSRepoRef repo = NULL;
@@ -32,9 +32,9 @@ static void init(void) {
 static void term(void) {
 	// TODO: EFSRepoStopPulls(repo);
 	HTTPServerClose(server);
-	HTTPServerFree(server); server = NULL;
-	BlogFree(blog); blog = NULL;
-	EFSRepoFree(repo); repo = NULL;
+	HTTPServerFree(&server);
+	BlogFree(&blog);
+	EFSRepoFree(&repo);
 	co_terminate();
 }
 int main(int const argc, char const *const *const argv) {

@@ -29,15 +29,16 @@ EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, int64_t const pullID, int64_
 	pull->query = strdup(query);
 	return pull;
 }
-void EFSPullFree(EFSPullRef const pull) {
+void EFSPullFree(EFSPullRef *const pullptr) {
+	EFSPullRef pull = *pullptr;
 	if(!pull) return;
 	pull->pullID = -1;
-	EFSSessionFree(pull->session); pull->session = NULL;
+	EFSSessionFree(&pull->session);
 	FREE(&pull->host);
 	FREE(&pull->username);
 	FREE(&pull->password);
 	FREE(&pull->query);
-	free(pull);
+	FREE(pullptr); pull = NULL;
 }
 
 static EFSPullRef pull_arg;
@@ -50,9 +51,9 @@ static void pull_thread(void) {
 
 	for(;;) {
 		if(queryConn || fileConn || msg) {
-			HTTPMessageFree(msg); msg = NULL;
-			HTTPConnectionFree(fileConn); fileConn = NULL;
-			HTTPConnectionFree(queryConn); queryConn = NULL;
+			HTTPMessageFree(&msg);
+			HTTPConnectionFree(&fileConn);
+			HTTPConnectionFree(&queryConn);
 			async_sleep(1000 * 5);
 		}
 
@@ -90,9 +91,9 @@ static void pull_thread(void) {
 
 	}
 
-	HTTPMessageFree(msg); msg = NULL;
-	HTTPConnectionFree(fileConn); fileConn = NULL;
-	HTTPConnectionFree(queryConn); queryConn = NULL;
+	HTTPMessageFree(&msg);
+	HTTPConnectionFree(&fileConn);
+	HTTPConnectionFree(&queryConn);
 
 	co_terminate();
 }
@@ -125,7 +126,7 @@ static err_t auth(EFSPullRef const pull, HTTPConnectionRef const conn) {
 	fprintf(stderr, "Session cookie %s\n", headers->set_cookie);
 	// TODO: Parse and store.
 
-	HTTPMessageFree(msg); msg = NULL;
+	HTTPMessageFree(&msg);
 
 	return 0;
 }
@@ -151,7 +152,7 @@ static err_t import(EFSPullRef const pull, HTTPConnectionRef const conn, strarg_
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	EFSFileInfo *info = EFSSessionCopyFileInfo(pull->session, URI);
 	if(info) {
-		EFSFileInfoFree(info); info = NULL;
+		EFSFileInfoFree(&info);
 		return 0;
 	}
 
@@ -161,7 +162,7 @@ static err_t import(EFSPullRef const pull, HTTPConnectionRef const conn, strarg_
 
 	HTTPMessageRef msg = HTTPMessageCreate(conn);
 	if(!conn || !msg) {
-		HTTPMessageFree(msg); msg = NULL;
+		HTTPMessageFree(&msg);
 		return -1;
 	}
 
@@ -178,13 +179,13 @@ static err_t import(EFSPullRef const pull, HTTPConnectionRef const conn, strarg_
 
 	if(0 == err) {
 		EFSImportHeaders const *const headers = HTTPMessageGetHeaders(msg, EFSImportFields, numberof(EFSImportFields));
-		EFSSubmissionRef const submission = EFSRepoCreateSubmission(repo, headers->content_type, (ssize_t (*)())HTTPMessageGetBuffer, msg);
+		EFSSubmissionRef submission = EFSRepoCreateSubmission(repo, headers->content_type, (ssize_t (*)())HTTPMessageGetBuffer, msg);
 		err = EFSSessionAddSubmission(session, submission);
-		EFSSubmissionFree(submission);
+		EFSSubmissionFree(&submission);
 	}
 
 	HTTPMessageDrain(msg);
-	HTTPMessageFree(msg); msg = NULL;
+	HTTPMessageFree(&msg);
 
 	return err;
 }

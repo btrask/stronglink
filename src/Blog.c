@@ -56,19 +56,19 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 		0 != strcasecmp("text/markdown; charset=utf-8", info->type) &&
 		0 != strcasecmp("text/markdown", info->type)
 	) {
-		EFSFileInfoFree(info); info = NULL;
+		EFSFileInfoFree(&info);
 		return -1; // TODO: Other types, plugins, w/e.
 	}
 
 	if(async_fs_mkdirp_dirname(previewPath, 0700) < 0) {
-		EFSFileInfoFree(info); info = NULL;
+		EFSFileInfoFree(&info);
 		return -1;
 	}
 
 	str_t *tmpPath = EFSRepoCopyTempPath(EFSSessionGetRepo(session));
 	if(async_fs_mkdirp_dirname(tmpPath, 0700) < 0) {
 		FREE(&tmpPath);
-		EFSFileInfoFree(info); info = NULL;
+		EFSFileInfoFree(&info);
 		return -1;
 	}
 
@@ -93,7 +93,7 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 
 	if(state.status < 0) {
 		FREE(&tmpPath);
-		EFSFileInfoFree(info); info = NULL;
+		EFSFileInfoFree(&info);
 		return -1;
 	}
 
@@ -101,7 +101,7 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 
 	async_fs_unlink(tmpPath);
 	FREE(&tmpPath);
-	EFSFileInfoFree(info); info = NULL;
+	EFSFileInfoFree(&info);
 
 	if(err < 0) return -1;
 	return 0;
@@ -115,11 +115,11 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 	EFSFilterAddStringArg(backlinks, URI, -1);
 	EFSFilterRef const metafiles = EFSFilterCreate(EFSFileTypeFilter);
 	EFSFilterAddStringArg(metafiles, "text/efs-meta+json; charset=utf-8", -1);
-	EFSFilterRef const filter = EFSFilterCreate(EFSIntersectionFilter);
+	EFSFilterRef filter = EFSFilterCreate(EFSIntersectionFilter);
 	EFSFilterAddFilterArg(filter, backlinks);
 	EFSFilterAddFilterArg(filter, metafiles);
 
-	URIListRef const metaURIs = EFSSessionCreateFilteredURIList(session, filter, 10);
+	URIListRef metaURIs = EFSSessionCreateFilteredURIList(session, filter, 10);
 	count_t const metaURIsCount = URIListGetCount(metaURIs);
 
 	str_t *URI_HTMLSafe = htmlenc(URI);
@@ -137,7 +137,7 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 		EFSFileInfo *metaInfo = EFSSessionCopyFileInfo(session, metaURI);
 		if(!metaInfo) continue;
 		uv_file file = async_fs_open(metaInfo->path, O_RDONLY, 0000);
-		EFSFileInfoFree(metaInfo); metaInfo = NULL;
+		EFSFileInfoFree(&metaInfo);
 		if(file < 0) continue;
 
 		str_t *str = malloc(BUFFER_SIZE + 1);
@@ -153,7 +153,7 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 
 		str[len] = '\0';
 		str_t err[200];
-		yajl_val const obj = yajl_tree_parse(str, err, sizeof(err));
+		yajl_val obj = yajl_tree_parse(str, err, sizeof(err));
 		if(!emptystr(err)) fprintf(stderr, "parse error %s:\n%s\n", metaURI, err);
 
 		FREE(&str);
@@ -165,7 +165,7 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 		strarg_t yajl_description[] = { "description", NULL };
 		if(!description_HTMLSafe) description_HTMLSafe = htmlenc(YAJL_GET_STRING(yajl_tree_get(obj, yajl_description, yajl_t_string)));
 
-		yajl_tree_free(obj);
+		yajl_tree_free(obj); obj = NULL;
 
 //		break;
 	}
@@ -209,8 +209,8 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 	FREE(&thumbnailURI_HTMLSafe);
 	FREE(&faviconURI_HTMLSafe);
 
-	URIListFree(metaURIs);
-	EFSFilterFree(filter);
+	URIListFree(&metaURIs);
+	EFSFilterFree(&filter);
 
 	if(err < 0) return -1;
 	return 0;
@@ -251,11 +251,11 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	}
 
 	// TODO: Parse querystring `q` parameter
-	EFSFilterRef const filter = EFSFilterCreate(EFSNoFilter); // EFSBacklinkFilesFilter
+	EFSFilterRef filter = EFSFilterCreate(EFSNoFilter); // EFSBacklinkFilesFilter
 //	EFSFilterAddStringArg(filter, "efs://user", -1);
 	// TODO: Once we're done testing, start filtering by visibility again.
 
-	URIListRef const URIs = EFSSessionCreateFilteredURIList(session, filter, RESULTS_MAX); // TODO: We should be able to specify a specific algorithm here.
+	URIListRef URIs = EFSSessionCreateFilteredURIList(session, filter, RESULTS_MAX); // TODO: We should be able to specify a specific algorithm here.
 
 	HTTPMessageWriteResponse(msg, 200, "OK");
 	HTTPMessageWriteHeader(msg, "Content-Type", "text/html; charset=utf-8");
@@ -282,7 +282,8 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
 	HTTPMessageEnd(msg);
 
-	URIListFree(URIs);
+	URIListFree(&URIs);
+	EFSFilterFree(&filter);
 	return true;
 }
 static bool_t getSubmissionForm(BlogRef const blog, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
@@ -290,7 +291,7 @@ static bool_t getSubmissionForm(BlogRef const blog, HTTPMessageRef const msg, HT
 	if(!URIPath(URI, "/submit", NULL)) return false;
 
 	BlogHTTPHeaders const *const headers = HTTPMessageGetHeaders(msg, BlogHTTPFields, numberof(BlogHTTPFields));
-	EFSSessionRef const session = EFSRepoCreateSession(blog->repo, headers->cookie);
+	EFSSessionRef session = EFSRepoCreateSession(blog->repo, headers->cookie);
 	if(!session) {
 		HTTPMessageSendStatus(msg, 403);
 		return true;
@@ -304,6 +305,8 @@ static bool_t getSubmissionForm(BlogRef const blog, HTTPMessageRef const msg, HT
 	HTTPMessageWriteChunkLength(msg, 0);
 	HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
 	HTTPMessageEnd(msg);
+
+	EFSSessionFree(&session);
 	return true;
 }
 
@@ -337,20 +340,21 @@ BlogRef BlogCreate(EFSRepoRef const repo) {
 
 	return blog;
 }
-void BlogFree(BlogRef const blog) {
+void BlogFree(BlogRef *const blogptr) {
+	BlogRef blog = *blogptr;
 	if(!blog) return;
 	FREE(&blog->dir);
 	FREE(&blog->staticDir);
 	FREE(&blog->templateDir);
 	FREE(&blog->cacheDir);
-	TemplateFree(blog->header); blog->header = NULL;
-	TemplateFree(blog->footer); blog->footer = NULL;
-	TemplateFree(blog->entry_start); blog->entry_start = NULL;
-	TemplateFree(blog->entry_end); blog->entry_end = NULL;
-	TemplateFree(blog->preview); blog->preview = NULL;
-	TemplateFree(blog->empty); blog->empty = NULL;
-	TemplateFree(blog->submit); blog->submit = NULL;
-	free(blog);
+	TemplateFree(&blog->header);
+	TemplateFree(&blog->footer);
+	TemplateFree(&blog->entry_start);
+	TemplateFree(&blog->entry_end);
+	TemplateFree(&blog->preview);
+	TemplateFree(&blog->empty);
+	TemplateFree(&blog->submit);
+	FREE(blogptr); blog = NULL;
 }
 bool_t BlogDispatch(BlogRef const blog, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
 	if(getResultsPage(blog, msg, method, URI)) return true;

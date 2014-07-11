@@ -15,7 +15,7 @@ typedef struct EFSJSONFilterBuilder* EFSJSONFilterBuilderRef;
 typedef struct EFSPull* EFSPullRef;
 
 EFSRepoRef EFSRepoCreate(strarg_t const dir);
-void EFSRepoFree(EFSRepoRef const repo);
+void EFSRepoFree(EFSRepoRef *const repoptr);
 strarg_t EFSRepoGetDir(EFSRepoRef const repo);
 strarg_t EFSRepoGetDataDir(EFSRepoRef const repo);
 str_t *EFSRepoCopyInternalPath(EFSRepoRef const repo, strarg_t const internalHash);
@@ -35,26 +35,26 @@ typedef struct {
 str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strarg_t const password);
 EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie);
 EFSSessionRef EFSRepoCreateSessionInternal(EFSRepoRef const repo, int64_t const userID); // TODO: Private
-void EFSSessionFree(EFSSessionRef const session);
+void EFSSessionFree(EFSSessionRef *const sessionptr);
 EFSRepoRef EFSSessionGetRepo(EFSSessionRef const session);
 int64_t EFSSessionGetUserID(EFSSessionRef const session);
 URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilterRef const filter, count_t const max); // TODO: Public API?
 EFSFileInfo *EFSSessionCopyFileInfo(EFSSessionRef const session, strarg_t const URI);
-void EFSFileInfoFree(EFSFileInfo *const info);
+void EFSFileInfoFree(EFSFileInfo **const infoptr);
 
 EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context);
-void EFSSubmissionFree(EFSSubmissionRef const sub);
+void EFSSubmissionFree(EFSSubmissionRef *const subptr);
 strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub);
 err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef const submission);
 
 EFSHasherRef EFSHasherCreate(strarg_t const type);
-void EFSHasherFree(EFSHasherRef const hasher);
+void EFSHasherFree(EFSHasherRef *const hasherptr);
 err_t EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, size_t const len);
 URIListRef EFSHasherEnd(EFSHasherRef const hasher);
 strarg_t EFSHasherGetInternalHash(EFSHasherRef const hasher);
 
 EFSMetaFileRef EFSMetaFileCreate(strarg_t const type);
-void EFSMetaFileFree(EFSMetaFileRef const meta);
+void EFSMetaFileFree(EFSMetaFileRef *const metaptr);
 err_t EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len);
 err_t EFSMetaFileEnd(EFSMetaFileRef const meta);
 err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t const URI, sqlite3 *const db);
@@ -73,7 +73,7 @@ typedef enum {
 
 EFSFilterRef EFSFilterCreate(EFSFilterType const type);
 EFSFilterRef EFSPermissionFilterCreate(int64_t const userID);
-void EFSFilterFree(EFSFilterRef const filter);
+void EFSFilterFree(EFSFilterRef *const filterptr);
 err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len);
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
 sqlite3_stmt *EFSFilterCreateQuery(EFSFilterRef const filter);
@@ -81,13 +81,13 @@ void EFSFilterCreateTempTables(sqlite3 *const db); // "results"
 void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const depth);
 
 EFSJSONFilterBuilderRef EFSJSONFilterBuilderCreate(void);
-void EFSJSONFilterBuilderFree(EFSJSONFilterBuilderRef const builder);
+void EFSJSONFilterBuilderFree(EFSJSONFilterBuilderRef *const builderptr);
 void EFSJSONFilterBuilderParse(EFSJSONFilterBuilderRef const builder, strarg_t const json, size_t const len);
 EFSFilterRef EFSJSONFilterBuilderDone(EFSJSONFilterBuilderRef const builder);
 EFSFilterType EFSFilterTypeFromString(strarg_t const type, size_t const len);
 
 EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, int64_t const pullID, int64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query);
-void EFSPullFree(EFSPullRef const pull);
+void EFSPullFree(EFSPullRef *const pullptr);
 void EFSPullStart(EFSPullRef const pull);
 
 #define EFS_ALGO_SIZE 32

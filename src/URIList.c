@@ -15,13 +15,14 @@ URIListRef URIListCreate(void) {
 	list->items = NULL;
 	return list;
 }
-void URIListFree(URIListRef const list) {
+void URIListFree(URIListRef *const listptr) {
+	URIListRef list = *listptr;
 	if(!list) return;
 	for(index_t i = 0; i < list->count; ++i) {
 		FREE(&list->items[i]);
 	}
 	FREE(&list->items);
-	free(list);
+	FREE(listptr); list = NULL;
 }
 count_t URIListGetCount(URIListRef const list) {
 	if(!list) return 0;
@@ -62,9 +63,10 @@ LineParserRef LineParserCreate(LineParserCB const cb, void *const context) {
 	p->context = context;
 	return p;
 }
-void LineParserFree(LineParserRef const p) {
+void LineParserFree(LineParserRef *const pptr) {
+	LineParserRef p = *pptr;
 	if(!p) return;
-	free(p);
+	FREE(pptr); p = NULL;
 }
 
 static size_t linebreak(byte_t const *const buf, size_t const len) {
@@ -151,11 +153,12 @@ URIListParserRef URIListParserCreate(strarg_t const type) {
 	lp->parser = LineParserCreate(URIListParserAddURI, lp->list);
 	return lp;
 }
-void URIListParserFree(URIListParserRef const lp) {
+void URIListParserFree(URIListParserRef *const lpptr) {
+	URIListParserRef lp = *lpptr;
 	if(!lp) return;
-	URIListFree(lp->list); lp->list = NULL;
-	LineParserFree(lp->parser); lp->parser = NULL;
-	free(lp);
+	URIListFree(&lp->list);
+	LineParserFree(&lp->parser);
+	FREE(lpptr); lp = NULL;
 }
 void URIListParserWrite(URIListParserRef const lp, byte_t const *const buf, size_t const len) {
 	if(!lp) return;
@@ -165,7 +168,7 @@ URIListRef URIListParserEnd(URIListParserRef const lp, bool_t const truncate) {
 	if(!lp) return NULL;
 	if(truncate) LineParserReset(lp->parser);
 	else LineParserEnd(lp->parser);
-	LineParserFree(lp->parser); lp->parser = NULL;
+	LineParserFree(&lp->parser);
 	URIListRef const list = lp->list;
 	lp->list = NULL;
 	return list;

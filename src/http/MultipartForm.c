@@ -43,12 +43,13 @@ MultipartFormRef MultipartFormCreate(HTTPMessageRef const msg, strarg_t const ty
 	FREE(&boundary);
 	return form;
 }
-void MultipartFormFree(MultipartFormRef const form) {
+void MultipartFormFree(MultipartFormRef *const formptr) {
+	MultipartFormRef form = *formptr;
 	if(!form) return;
 	FormPartRef const part = &form->part;
-	HeadersFree(part->headers); part->headers = NULL;
-	multipart_parser_free(form->parser);
-	free(form);
+	HeadersFree(&part->headers);
+	multipart_parser_free(form->parser); form->parser = NULL;
+	FREE(formptr); form = NULL;
 }
 FormPartRef MultipartFormGetPart(MultipartFormRef const form) {
 	if(!form) return NULL;

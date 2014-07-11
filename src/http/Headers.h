@@ -11,7 +11,7 @@ typedef struct {
 typedef struct Headers* HeadersRef;
 
 HeadersRef HeadersCreate(HeaderField const fields[], count_t const count);
-void HeadersFree(HeadersRef const headers);
+void HeadersFree(HeadersRef *const headersptr);
 err_t HeadersAppendFieldChunk(HeadersRef const headers, strarg_t const chunk, size_t const len);
 err_t HeadersAppendValueChunk(HeadersRef const headers, strarg_t const chunk, size_t const len);
 void HeadersEnd(HeadersRef const headers);

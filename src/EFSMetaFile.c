@@ -43,7 +43,8 @@ EFSMetaFileRef EFSMetaFileCreate(strarg_t const type) {
 	meta->links = URIListCreate();
 	return meta;
 }
-void EFSMetaFileFree(EFSMetaFileRef const meta) {
+void EFSMetaFileFree(EFSMetaFileRef *const metaptr) {
+	EFSMetaFileRef meta = *metaptr;
 	if(!meta) return;
 	if(meta->parser) {
 		yajl_free(meta->parser); meta->parser = NULL;
@@ -51,8 +52,8 @@ void EFSMetaFileFree(EFSMetaFileRef const meta) {
 	FREE(&meta->URI);
 	FREE(&meta->title);
 	FREE(&meta->desc);
-	URIListFree(meta->links); meta->links = NULL;
-	free(meta);
+	URIListFree(&meta->links);
+	FREE(metaptr); meta = NULL;
 }
 
 err_t EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len) {

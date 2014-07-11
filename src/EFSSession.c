@@ -153,11 +153,12 @@ EFSSessionRef EFSRepoCreateSessionInternal(EFSRepoRef const repo, int64_t const 
 	session->userID = userID;
 	return session;
 }
-void EFSSessionFree(EFSSessionRef const session) {
+void EFSSessionFree(EFSSessionRef *const sessionptr) {
+	EFSSessionRef session = *sessionptr;
 	if(!session) return;
 	session->repo = NULL;
 	session->userID = -1;
-	free(session);
+	FREE(sessionptr); session = NULL;
 }
 EFSRepoRef EFSSessionGetRepo(EFSSessionRef const session) {
 	if(!session) return NULL;
@@ -218,10 +219,11 @@ EFSFileInfo *EFSSessionCopyFileInfo(EFSSessionRef const session, strarg_t const 
 	EFSRepoDBClose(repo, db);
 	return info;
 }
-void EFSFileInfoFree(EFSFileInfo *const info) {
+void EFSFileInfoFree(EFSFileInfo **const infoptr) {
+	EFSFileInfo *info = *infoptr;
 	if(!info) return;
 	FREE(&info->path);
 	FREE(&info->type);
-	free(info);
+	FREE(infoptr); info = NULL;
 }
 

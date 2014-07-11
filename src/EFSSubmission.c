@@ -25,7 +25,7 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 	sub->path = EFSRepoCopyTempPath(repo);
 	if(async_fs_mkdirp_dirname(sub->path, 0700) < 0) {
 		fprintf(stderr, "Error: couldn't create temp dir %s\n", sub->path);
-		EFSSubmissionFree(sub);
+		EFSSubmissionFree(&sub);
 		return NULL;
 	}
 
@@ -35,12 +35,12 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 	uv_fs_req_cleanup(&req);
 	if(req.result < 0) {
 		fprintf(stderr, "Error: couldn't create temp file %s\n", sub->path);
-		EFSSubmissionFree(sub);
+		EFSSubmissionFree(&sub);
 		return NULL;
 	}
 	uv_file const tmp = req.result;
 
-	EFSHasherRef const hasher = EFSHasherCreate(sub->type);
+	EFSHasherRef hasher = EFSHasherCreate(sub->type);
 	sub->meta = EFSMetaFileCreate(sub->type);
 
 	for(;;) {
@@ -49,7 +49,7 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 		if(0 == rlen) break;
 		if(rlen < 0) {
 			fprintf(stderr, "EFSSubmission read error %d\n", rlen);
-			EFSSubmissionFree(sub); sub = NULL;
+			EFSSubmissionFree(&sub);
 			goto bail;
 		}
 
@@ -59,7 +59,7 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 		uv_fs_req_cleanup(&req);
 		if(req.result < 0) {
 			fprintf(stderr, "EFSSubmission write error %d\n", req.result);
-			EFSSubmissionFree(sub); sub = NULL;
+			EFSSubmissionFree(&sub);
 			goto bail;
 		}
 
@@ -72,7 +72,7 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 
 	if(!sub->size) {
 		fprintf(stderr, "Empty submission\n");
-		EFSSubmissionFree(sub); sub = NULL;
+		EFSSubmissionFree(&sub);
 		goto bail;
 	}
 
@@ -81,7 +81,7 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 	EFSMetaFileEnd(sub->meta);
 
 bail:
-	EFSHasherFree(hasher);
+	EFSHasherFree(&hasher);
 
 	uv_fs_close(loop, &req, tmp, async_fs_cb);
 	co_switch(yield);
@@ -89,7 +89,8 @@ bail:
 
 	return sub;
 }
-void EFSSubmissionFree(EFSSubmissionRef const sub) {
+void EFSSubmissionFree(EFSSubmissionRef *const subptr) {
+	EFSSubmissionRef sub = *subptr;
 	if(!sub) return;
 	if(sub->path) {
 		uv_fs_t req = { .data = co_active() };
@@ -99,10 +100,10 @@ void EFSSubmissionFree(EFSSubmissionRef const sub) {
 	}
 	FREE(&sub->path);
 	FREE(&sub->type);
-	URIListFree(sub->URIs); sub->URIs = NULL;
+	URIListFree(&sub->URIs);
 	FREE(&sub->internalHash);
-	EFSMetaFileFree(sub->meta); sub->meta = NULL;
-	free(sub);
+	EFSMetaFileFree(&sub->meta);
+	FREE(subptr); sub = NULL;
 }
 strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub) {
 	if(!sub) return NULL;

@@ -17,15 +17,16 @@ EFSJSONFilterBuilderRef EFSJSONFilterBuilderCreate(void) {
 	builder->depth = -1;
 	return builder;
 }
-void EFSJSONFilterBuilderFree(EFSJSONFilterBuilderRef const builder) {
+void EFSJSONFilterBuilderFree(EFSJSONFilterBuilderRef *const builderptr) {
+	EFSJSONFilterBuilderRef builder = *builderptr;
 	if(!builder) return;
 	if(builder->parser) {
 		yajl_free(builder->parser); builder->parser = NULL;
 	}
 	for(index_t i = 0; i < DEPTH_MAX; ++i) {
-		EFSFilterFree(builder->stack[i]); builder->stack[i] = NULL;
+		EFSFilterFree(&builder->stack[i]);
 	}
-	free(builder);
+	FREE(builderptr); builder = NULL;
 }
 void EFSJSONFilterBuilderParse(EFSJSONFilterBuilderRef const builder, strarg_t const json, size_t const len) {
 	if(!builder) return;

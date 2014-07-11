@@ -63,7 +63,7 @@ static bool_t getFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMetho
 	if(!pathterm(URI, pathlen)) return false;
 
 	EFSHTTPHeaders const *const headers = HTTPMessageGetHeaders(msg, EFSHTTPFields, numberof(EFSHTTPFields));
-	EFSSessionRef const session = EFSRepoCreateSession(repo, headers->cookie);
+	EFSSessionRef session = EFSRepoCreateSession(repo, headers->cookie);
 	if(!session) {
 		HTTPMessageSendStatus(msg, 403);
 		return true;
@@ -75,7 +75,7 @@ static bool_t getFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMetho
 		fprintf(stderr, "Couldn't find %s", fileURI);
 		FREE(&fileURI);
 		HTTPMessageSendStatus(msg, 404);
-		EFSSessionFree(session);
+		EFSSessionFree(&session);
 		return true;
 	}
 	FREE(&fileURI);
@@ -83,8 +83,8 @@ static bool_t getFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMetho
 	// TODO: Do we need to send other headers?
 	HTTPMessageSendFile(msg, info->path, info->type, info->size);
 
-	EFSFileInfoFree(info); info = NULL;
-	EFSSessionFree(session);
+	EFSFileInfoFree(&info);
+	EFSSessionFree(&session);
 	return true;
 }
 static bool_t postFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
@@ -95,7 +95,7 @@ static bool_t postFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMeth
 	if(!pathterm(URI, (size_t)pathlen)) return false;
 
 	EFSHTTPHeaders const *const headers = HTTPMessageGetHeaders(msg, EFSHTTPFields, numberof(EFSHTTPFields));
-	EFSSessionRef const session = EFSRepoCreateSession(repo, headers->cookie);
+	EFSSessionRef session = EFSRepoCreateSession(repo, headers->cookie);
 	if(!session) {
 		HTTPMessageSendStatus(msg, 403);
 		return true;
@@ -105,12 +105,12 @@ static bool_t postFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMeth
 	ssize_t (*read)();
 	void *context;
 
-	MultipartFormRef const form = MultipartFormCreate(msg, headers->content_type, EFSFormFields, numberof(EFSFormFields));
+	MultipartFormRef form = MultipartFormCreate(msg, headers->content_type, EFSFormFields, numberof(EFSFormFields));
 	if(form) {
 		FormPartRef const part = MultipartFormGetPart(form);
 		if(!part) {
 			HTTPMessageSendStatus(msg, 400);
-			EFSSessionFree(session);
+			EFSSessionFree(&session);
 			return true;
 		}
 		EFSFormHeaders const *const formHeaders = FormPartGetHeaders(part);
@@ -123,12 +123,13 @@ static bool_t postFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMeth
 		context = msg;
 	}
 
-	EFSSubmissionRef const sub = EFSRepoCreateSubmission(repo, type, read, context);
+	EFSSubmissionRef sub = EFSRepoCreateSubmission(repo, type, read, context);
 	if(EFSSessionAddSubmission(session, sub) < 0) {
 		fprintf(stderr, "Submission error for file type %s\n", type);
 		HTTPMessageSendStatus(msg, 500);
-		EFSSubmissionFree(sub);
-		EFSSessionFree(session);
+		EFSSubmissionFree(&sub);
+		MultipartFormFree(&form);
+		EFSSessionFree(&session);
 		return true;
 	}
 
@@ -141,9 +142,9 @@ static bool_t postFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMeth
 	HTTPMessageEnd(msg);
 //	fprintf(stderr, "POST %s -> %s\n", type, EFSSubmissionGetPrimaryURI(sub));
 
-	EFSSubmissionFree(sub);
-	MultipartFormFree(form);
-	EFSSessionFree(session);
+	EFSSubmissionFree(&sub);
+	MultipartFormFree(&form);
+	EFSSessionFree(&session);
 	return true;
 }
 static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
@@ -151,7 +152,7 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 	if(!URIPath(URI, "/efs/query", NULL)) return false;
 
 	EFSHTTPHeaders const *const headers = HTTPMessageGetHeaders(msg, EFSHTTPFields, numberof(EFSHTTPFields));
-	EFSSessionRef const session = EFSRepoCreateSession(repo, headers->cookie);
+	EFSSessionRef session = EFSRepoCreateSession(repo, headers->cookie);
 	if(!session) {
 		HTTPMessageSendStatus(msg, 403);
 		return true;
@@ -168,7 +169,7 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 			ssize_t const len = HTTPMessageGetBuffer(msg, &buf);
 			if(-1 == len) {
 				HTTPMessageSendStatus(msg, 400);
-				EFSSessionFree(session);
+				EFSSessionFree(&session);
 				return true;
 			}
 			if(!len) break;
@@ -213,9 +214,9 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 
 	EFSRepoDBClose(repo, db);
 
-	EFSFilterFree(filter);
-	EFSJSONFilterBuilderFree(builder);
-	EFSSessionFree(session);
+	EFSFilterFree(&filter);
+	EFSJSONFilterBuilderFree(&builder);
+	EFSSessionFree(&session);
 	return true;
 }
 

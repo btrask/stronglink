@@ -15,7 +15,7 @@ struct Template {
 
 TemplateRef TemplateCreate(strarg_t const str) {
 	count_t size = 10;
-	TemplateRef const t = calloc(1, sizeof(struct Template));
+	TemplateRef t = calloc(1, sizeof(struct Template));
 	t->count = 0;
 	t->steps = malloc(sizeof(TemplateStep) * size);
 
@@ -27,7 +27,7 @@ TemplateRef TemplateCreate(strarg_t const str) {
 			size *= 2;
 			t->steps = realloc(t->steps, sizeof(TemplateStep) * size);
 			if(!t->steps) {
-				TemplateFree(t);
+				TemplateFree(&t);
 				return NULL;
 			}
 		}
@@ -75,14 +75,15 @@ TemplateRef TemplateCreateFromPath(strarg_t const path) {
 	FREE(&str);
 	return t;
 }
-void TemplateFree(TemplateRef const t) {
+void TemplateFree(TemplateRef *const tptr) {
+	TemplateRef t = *tptr;
 	if(!t) return;
 	for(index_t i = 0; i < t->count; ++i) {
 		FREE(&t->steps[i].str);
 		FREE(&t->steps[i].var);
 	}
 	FREE(&t->steps);
-	free(t);
+	FREE(tptr); t = NULL;
 }
 err_t TemplateWrite(TemplateRef const t, TemplateArg const args[], count_t const argc, err_t (*writev)(void *, uv_buf_t[], unsigned int, int64_t), void *ctx) {
 	if(!t) return 0;

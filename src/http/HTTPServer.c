@@ -19,10 +19,11 @@ HTTPServerRef HTTPServerCreate(HTTPListener const listener, void *const context)
 	server->socket = NULL;
 	return server;
 }
-void HTTPServerFree(HTTPServerRef const server) {
+void HTTPServerFree(HTTPServerRef *const serverptr) {
+	HTTPServerRef server = *serverptr;
 	if(!server) return;
 	HTTPServerClose(server);
-	free(server);
+	FREE(serverptr); server = NULL;
 }
 
 err_t HTTPServerListen(HTTPServerRef const server, strarg_t const port, uint32_t const address) {
@@ -72,19 +73,19 @@ static uv_stream_t *connection_socket;
 static void connection(void) {
 	uv_stream_t *const socket = connection_socket;
 	HTTPServerRef const server = socket->data;
-	HTTPConnectionRef const conn = HTTPConnectionCreateIncoming(socket);
+	HTTPConnectionRef conn = HTTPConnectionCreateIncoming(socket);
 	if(!conn) return co_terminate();
 
 	for(;;) {
-		HTTPMessageRef const msg = HTTPMessageCreate(conn);
+		HTTPMessageRef msg = HTTPMessageCreate(conn);
 		if(!msg) break;
 		server->listener(server->context, msg);
 		HTTPMessageDrain(msg);
-		HTTPMessageFree(msg);
+		HTTPMessageFree(&msg);
 		if(HPE_OK != HTTPConnectionError(conn)) break;
 	}
 
-	HTTPConnectionFree(conn);
+	HTTPConnectionFree(&conn);
 	co_terminate();
 }
 static void connection_cb(uv_stream_t *const socket, int const status) {

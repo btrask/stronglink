@@ -38,7 +38,8 @@ EFSFilterRef EFSPermissionFilterCreate(int64_t const userID) {
 	filter->data.userID = userID;
 	return filter;
 }
-void EFSFilterFree(EFSFilterRef const filter) {
+void EFSFilterFree(EFSFilterRef *const filterptr) {
+	EFSFilterRef filter = *filterptr;
 	if(!filter) return;
 	switch(filter->type) {
 		case EFSNoFilter:
@@ -54,14 +55,14 @@ void EFSFilterFree(EFSFilterRef const filter) {
 		case EFSUnionFilter: {
 			EFSFilterList *const list = filter->data.filters;
 			if(list) for(index_t i = 0; i < list->count; ++i) {
-				EFSFilterFree(list->items[i]); list->items[i] = NULL;
+				EFSFilterFree(&list->items[i]);
 			}
 			FREE(&filter->data.filters);
 			break;
 		} default:
 			assertf(0, "Invalid filter type %d", (int)filter->type);
 	}
-	free(filter);
+	FREE(filterptr); filter = NULL;
 }
 err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len) {
 	if(!filter) return 0;

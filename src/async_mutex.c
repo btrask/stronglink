@@ -11,7 +11,7 @@ struct async_mutex_s {
 };
 
 async_mutex_t *async_mutex_create(void) {
-	async_mutex_t *const mutex = calloc(1, sizeof(struct async_mutex_s));
+	async_mutex_t *mutex = calloc(1, sizeof(struct async_mutex_s));
 	if(!mutex) return NULL;
 	mutex->cur = 0;
 	mutex->count = 0;
@@ -19,7 +19,7 @@ async_mutex_t *async_mutex_create(void) {
 	mutex->depth = 0;
 	mutex->queue = calloc(mutex->size, sizeof(cothread_t));
 	if(!mutex->queue) {
-		async_mutex_free(mutex);
+		async_mutex_free(mutex); mutex = NULL;
 		return NULL;
 	}
 	return mutex;
