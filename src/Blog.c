@@ -32,7 +32,7 @@ struct Blog {
 	TemplateRef entry_end;
 	TemplateRef preview;
 	TemplateRef empty;
-	TemplateRef submit;
+	TemplateRef compose;
 };
 
 // TODO: Real public API.
@@ -286,9 +286,9 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	EFSFilterFree(&filter);
 	return true;
 }
-static bool_t getSubmissionForm(BlogRef const blog, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
+static bool_t getCompose(BlogRef const blog, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_GET != method) return false;
-	if(!URIPath(URI, "/submit", NULL)) return false;
+	if(!URIPath(URI, "/compose", NULL)) return false;
 
 	BlogHTTPHeaders const *const headers = HTTPMessageGetHeaders(msg, BlogHTTPFields, numberof(BlogHTTPFields));
 	EFSSessionRef session = EFSRepoCreateSession(blog->repo, headers->cookie);
@@ -301,7 +301,7 @@ static bool_t getSubmissionForm(BlogRef const blog, HTTPMessageRef const msg, HT
 	HTTPMessageWriteHeader(msg, "Content-Type", "text/html; charset=utf-8");
 	HTTPMessageWriteHeader(msg, "Transfer-Encoding", "chunked");
 	HTTPMessageBeginBody(msg);
-	TemplateWriteHTTPChunk(blog->submit, NULL, 0, msg);
+	TemplateWriteHTTPChunk(blog->compose, NULL, 0, msg);
 	HTTPMessageWriteChunkLength(msg, 0);
 	HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
 	HTTPMessageEnd(msg);
@@ -334,8 +334,8 @@ BlogRef BlogCreate(EFSRepoRef const repo) {
 	blog->preview = TemplateCreateFromPath(path);
 	snprintf(path, PATH_MAX, "%s/empty.html", blog->templateDir);
 	blog->empty = TemplateCreateFromPath(path);
-	snprintf(path, PATH_MAX, "%s/submit.html", blog->templateDir);
-	blog->submit = TemplateCreateFromPath(path);
+	snprintf(path, PATH_MAX, "%s/compose.html", blog->templateDir);
+	blog->compose = TemplateCreateFromPath(path);
 	FREE(&path);
 
 	return blog;
@@ -353,12 +353,12 @@ void BlogFree(BlogRef *const blogptr) {
 	TemplateFree(&blog->entry_end);
 	TemplateFree(&blog->preview);
 	TemplateFree(&blog->empty);
-	TemplateFree(&blog->submit);
+	TemplateFree(&blog->compose);
 	FREE(blogptr); blog = NULL;
 }
 bool_t BlogDispatch(BlogRef const blog, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
 	if(getResultsPage(blog, msg, method, URI)) return true;
-	if(getSubmissionForm(blog, msg, method, URI)) return true;
+	if(getCompose(blog, msg, method, URI)) return true;
 
 	if(HTTP_GET != method && HTTP_HEAD != method) return false;
 

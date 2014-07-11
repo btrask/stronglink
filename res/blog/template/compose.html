@@ -1,0 +1,49 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Blog Submission</title>
+<link rel="stylesheet" type="text/css" href="/index.css">
+<style>
+.absolute { position: absolute; }
+.full { top: 0; bottom: 0; left: 0; right: 0; }
+.toolbar { top: 0; left: 0; right: 0; height: 30px; border-bottom: 1px solid #555; }
+.editor { top: 30px; left: 0; right: 0; bottom: 0; }
+.textarea, .preview { top: 0; bottom: 0; border: none; padding: 1em; font-family: "Helvetica", sans-serif; font-size: 16px; }
+.textarea { left: 0; width: 50%; outline: none; border-right: 1px solid #555; }
+.preview { right: 0; width: 50%; }
+.scroll { overflow: auto; overflow-x: hidden; }
+</style>
+<script src="/marked.js"></script>
+
+<form method="POST" action="/efs/file" enctype="multipart/form-data">
+	<div class="absolute full">
+		<div class="absolute toolbar">
+			<input type="submit">
+		</div>
+		<div class="absolute editor">
+			<textarea id="input" name="markdown" class="absolute textarea"></textarea>
+			<div id="output" class="absolute preview scroll"></div>
+		</div>
+	</div>
+</form>
+
+<script>
+
+marked.setOptions({
+	gfm: true,
+	breaks: true,
+	sanitize: true,
+});
+
+var input = document.getElementById("input");
+var output = document.getElementById("output");
+
+var coalesce = null;
+input.oninput = input.onpropertychange = function() {
+	clearTimeout(coalesce); coalesce = null;
+	coalesce = setTimeout(function() {
+		output.innerHTML = marked(input.value);
+	}, 1000 * 0.5);
+};
+
+</script>
+

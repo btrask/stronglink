@@ -15,9 +15,11 @@ static HeaderField const EFSHTTPFields[] = {
 };
 typedef struct {
 	strarg_t content_type;
+	strarg_t content_disposition;
 } EFSFormHeaders;
 static HeaderField const EFSFormFields[] = {
 	{"content-type", 100},
+	{"content-disposition", 100},
 };
 
 // TODO: Put this somewhere.
@@ -114,7 +116,11 @@ static bool_t postFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMeth
 			return true;
 		}
 		EFSFormHeaders const *const formHeaders = FormPartGetHeaders(part);
-		type = formHeaders->content_type;
+		if(0 == strcmp("form-data; name=\"markdown\"", formHeaders->content_disposition)) {
+			type = "text/markdown; charset=utf-8";
+		} else {
+			type = formHeaders->content_type;
+		}
 		read = FormPartGetBuffer;
 		context = part;
 	} else {

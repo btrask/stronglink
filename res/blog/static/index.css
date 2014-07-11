@@ -23,9 +23,6 @@ a:hover {
 body {
 	background: #eee;
 }
-body > * {
-	margin: 14px;
-}
 body, input {
 	font-family: Helvetica, sans-serif;
 	font-size: 16px;
@@ -35,6 +32,9 @@ input {
 	padding: 2px 4px;
 }
 
+.margin {
+	margin: 14px;
+}
 .search {
 	float: right;
 }
