@@ -190,6 +190,7 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, sqlite3 *const db) {
 	if(EFSMetaFileStore(sub->meta, fileID, preferredURI, db) < 0) {
 		fprintf(stderr, "EFSMetaFileStore error\n");
 		EXEC(QUERY(db, "ROLLBACK TO submission"));
+		EXEC(QUERY(db, "RELEASE submission"));
 		return -1;
 	}
 
@@ -270,6 +271,7 @@ EFSSubmissionRef EFSSubmissionCreateAndAddPair(EFSSessionRef const session, stra
 		EFSSubmissionStore(meta, db) < 0
 	) {
 		EXEC(QUERY(db, "ROLLBACK TO addpair"));
+		EXEC(QUERY(db, "RELEASE addpair"));
 		EFSRepoDBClose(repo, &db);
 		EFSSubmissionFree(&sub);
 		EFSSubmissionFree(&meta);
