@@ -81,9 +81,9 @@ sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo) {
 	sqlite3_busy_handler(db, handler, NULL);
 	return db;
 }
-void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 *const db) {
+void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 **const dbptr) {
 	if(!repo) return;
-	sqlite3_close(db);
+	sqlite3_close(*dbptr); *dbptr = NULL;
 }
 
 void EFSRepoStartPulls(EFSRepoRef const repo) {
@@ -108,6 +108,6 @@ void EFSRepoStartPulls(EFSRepoRef const repo) {
 	}
 	sqlite3_finalize(select); select = NULL;
 
-	EFSRepoDBClose(repo, db);
+	EFSRepoDBClose(repo, &db);
 }
 

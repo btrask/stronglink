@@ -108,20 +108,17 @@ strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub) {
 	return URIListGetURI(sub->URIs, 0);
 }
 
-err_t EFSSubmissionStore(EFSSubmissionRef const sub) {
+err_t EFSSubmissionAddFile(EFSSubmissionRef const sub) {
 	if(!sub) return -1;
 	if(!sub->tmppath) return -1;
 	if(!sub->size) return -1;
-	EFSSessionRef const session = sub->session;
-	EFSRepoRef const repo = EFSSessionGetRepo(session);
-
+	EFSRepoRef const repo = EFSSessionGetRepo(sub->session);
 	str_t *internalPath = EFSRepoCopyInternalPath(repo, sub->internalHash);
 	if(async_fs_mkdirp_dirname(internalPath, 0700) < 0) {
 		fprintf(stderr, "Couldn't mkdir -p %s\n", internalPath);
 		FREE(&internalPath);
 		return -1;
 	}
-
 	err_t const result = async_fs_link(sub->tmppath, internalPath);
 	if(result < 0 && -EEXIST != result) {
 		fprintf(stderr, "Couldn't move %s to %s\n", sub->tmppath, internalPath);
@@ -129,14 +126,19 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub) {
 		return -1;
 	}
 	FREE(&internalPath);
-
 	async_fs_unlink(sub->tmppath);
 	FREE(&sub->tmppath);
-
+	return 0;
+}
+err_t EFSSubmissionStore(EFSSubmissionRef const sub, sqlite3 *const db) {
+	if(!sub) return -1;
+	assertf(db, "EFSSubmissionStore DB required");
+	if(sub->tmppath) return -1;
+	EFSSessionRef const session = sub->session;
+	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	uint64_t const userID = EFSSessionGetUserID(session);
-	sqlite3 *const db = EFSRepoDBConnect(repo);
 
-	EXEC(QUERY(db, "BEGIN TRANSACTION"));
+	EXEC(QUERY(db, "SAVEPOINT submission"));
 
 	sqlite3_stmt *insertFile = QUERY(db,
 		"INSERT OR IGNORE INTO files (internal_hash, file_type, file_size)\n"
@@ -187,13 +189,11 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub) {
 	strarg_t const preferredURI = URIListGetURI(sub->URIs, 0);
 	if(EFSMetaFileStore(sub->meta, fileID, preferredURI, db) < 0) {
 		fprintf(stderr, "EFSMetaFileStore error\n");
-		EXEC(QUERY(db, "ROLLBACK"));
-		EFSRepoDBClose(repo, db);
+		EXEC(QUERY(db, "ROLLBACK TO submission"));
 		return -1;
 	}
 
-	EXEC(QUERY(db, "COMMIT"));
-	EFSRepoDBClose(repo, db);
+	EXEC(QUERY(db, "RELEASE submission"));
 
 	return 0;
 }
@@ -203,7 +203,13 @@ EFSSubmissionRef EFSSubmissionCreateAndAdd(EFSSessionRef const session, strarg_t
 	if(!sub) return NULL;
 	err_t err = 0;
 	err = err < 0 ? err : EFSSubmissionWriteFrom(sub, read, context);
-	err = err < 0 ? err : EFSSubmissionStore(sub);
+	err = err < 0 ? err : EFSSubmissionAddFile(sub);
+	if(err >= 0) {
+		EFSRepoRef const repo = EFSSessionGetRepo(sub->session);
+		sqlite3 *db = EFSRepoDBConnect(repo);
+		err = err < 0 ? err : EFSSubmissionStore(sub, db);
+		EFSRepoDBClose(repo, &db);
+	}
 	if(err < 0) EFSSubmissionFree(&sub);
 	return sub;
 }
@@ -213,7 +219,7 @@ EFSSubmissionRef EFSSubmissionCreateAndAddPair(EFSSessionRef const session, stra
 	if(
 		!sub || !meta ||
 		EFSSubmissionWriteFrom(sub, read, context) < 0 ||
-		EFSSubmissionStore(sub) < 0
+		EFSSubmissionAddFile(sub) < 0
 	) {
 		EFSSubmissionFree(&sub);
 		EFSSubmissionFree(&meta);
@@ -248,12 +254,30 @@ EFSSubmissionRef EFSSubmissionCreateAndAddPair(EFSSessionRef const session, stra
 
 	if(
 		EFSSubmissionEnd(meta) < 0 ||
-		EFSSubmissionStore(meta) < 0
+		EFSSubmissionAddFile(meta) < 0
 	) {
 		EFSSubmissionFree(&sub);
 		EFSSubmissionFree(&meta);
 		return NULL;
 	}
+
+	EFSRepoRef const repo = EFSSessionGetRepo(sub->session);
+	sqlite3 *db = EFSRepoDBConnect(repo);
+	EXEC(QUERY(db, "SAVEPOINT addpair"));
+
+	if(
+		EFSSubmissionStore(sub, db) < 0 ||
+		EFSSubmissionStore(meta, db) < 0
+	) {
+		EXEC(QUERY(db, "ROLLBACK TO addpair"));
+		EFSRepoDBClose(repo, &db);
+		EFSSubmissionFree(&sub);
+		EFSSubmissionFree(&meta);
+		return NULL;
+	}
+
+	EXEC(QUERY(db, "RELEASE addpair"));
+	EFSRepoDBClose(repo, &db);
 	EFSSubmissionFree(&meta);
 	return sub;
 }

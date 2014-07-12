@@ -48,7 +48,7 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	sqlite3_bind_text(select, 1, username, -1, SQLITE_STATIC);
 	if(SQLITE_ROW != STEP(select)) {
 		sqlite3_finalize(select);
-		EFSRepoDBClose(repo, db);
+		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
 	int64_t const userID = sqlite3_column_int64(select, 0);
@@ -56,21 +56,21 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	sqlite3_finalize(select); select = NULL;
 	if(userID <= 0 && !checkpass(password, passhash)) {
 		FREE(&passhash);
-		EFSRepoDBClose(repo, db);
+		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
 	FREE(&passhash);
 
 	str_t *sessionKey = strdup("not-very-random"); // TODO: Generate
 	if(!sessionKey) {
-		EFSRepoDBClose(repo, db);
+		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
 	str_t *sessionHash = hashpass(sessionKey);
 	if(!sessionHash) {
 		FREE(&sessionHash);
 		FREE(&sessionKey);
-		EFSRepoDBClose(repo, db);
+		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
 
@@ -88,7 +88,7 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 		if(asprintf(&cookie, "%lld:%s", sessionID, sessionKey) < 0) cookie = NULL;
 	}
 
-	EFSRepoDBClose(repo, db); db = NULL;
+	EFSRepoDBClose(repo, &db);
 	FREE(&sessionKey);
 	return cookie;
 }
@@ -118,7 +118,7 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 	if(SQLITE_ROW != STEP(select)) {
 		FREE(&sessionKey);
 		sqlite3_finalize(select); select = NULL;
-		EFSRepoDBClose(repo, db); db = NULL;
+		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
 
@@ -126,7 +126,7 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 	if(userID <= 0) {
 		FREE(&sessionKey);
 		sqlite3_finalize(select); select = NULL;
-		EFSRepoDBClose(repo, db); db = NULL;
+		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
 
@@ -135,14 +135,14 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 		if(!checkpass(sessionKey, sessionHash)) {
 			FREE(&sessionKey);
 			sqlite3_finalize(select); select = NULL;
-			EFSRepoDBClose(repo, db); db = NULL;
+			EFSRepoDBClose(repo, &db);
 			return NULL;
 		}
 		cookie_cache_store(sessionID, sessionKey);
 	}
 	FREE(&sessionKey);
 	sqlite3_finalize(select); select = NULL;
-	EFSRepoDBClose(repo, db); db = NULL;
+	EFSRepoDBClose(repo, &db);
 
 	return EFSRepoCreateSessionInternal(repo, userID);
 }
@@ -173,7 +173,7 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 	if(!session) return NULL;
 	// TODO: Check session mode.
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
-	sqlite3 *const db = EFSRepoDBConnect(repo);
+	sqlite3 *db = EFSRepoDBConnect(repo);
 	EFSFilterCreateTempTables(db);
 	EFSFilterExec(filter, db, 0);
 	sqlite3_stmt *const select = QUERY(db,
@@ -190,7 +190,7 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 		FREE(&URI);
 	}
 	sqlite3_finalize(select);
-	EFSRepoDBClose(repo, db);
+	EFSRepoDBClose(repo, &db);
 	return URIs;
 }
 EFSFileInfo *EFSSessionCopyFileInfo(EFSSessionRef const session, strarg_t const URI) {
@@ -198,7 +198,7 @@ EFSFileInfo *EFSSessionCopyFileInfo(EFSSessionRef const session, strarg_t const 
 	if(!URI) return NULL;
 	// TODO: Check session mode.
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
-	sqlite3 *const db = EFSRepoDBConnect(repo);
+	sqlite3 *db = EFSRepoDBConnect(repo);
 	sqlite3_stmt *const select = QUERY(db,
 		"SELECT f2.internal_hash, f2.file_type, f2.file_size\n"
 		"FROM uris AS u\n"
@@ -208,7 +208,7 @@ EFSFileInfo *EFSSessionCopyFileInfo(EFSSessionRef const session, strarg_t const 
 	sqlite3_bind_text(select, 1, URI, -1, SQLITE_STATIC);
 	if(SQLITE_ROW != STEP(select)) {
 		sqlite3_finalize(select);
-		EFSRepoDBClose(repo, db);
+		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
 	EFSFileInfo *const info = calloc(1, sizeof(EFSFileInfo));
@@ -216,7 +216,7 @@ EFSFileInfo *EFSSessionCopyFileInfo(EFSSessionRef const session, strarg_t const 
 	info->type = strdup((strarg_t)sqlite3_column_text(select, 1));
 	info->size = sqlite3_column_int64(select, 2);
 	sqlite3_finalize(select);
-	EFSRepoDBClose(repo, db);
+	EFSRepoDBClose(repo, &db);
 	return info;
 }
 void EFSFileInfoFree(EFSFileInfo **const infoptr) {

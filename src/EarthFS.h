@@ -23,7 +23,7 @@ strarg_t EFSRepoGetTempDir(EFSRepoRef const repo);
 str_t *EFSRepoCopyTempPath(EFSRepoRef const repo);
 strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo);
 sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo);
-void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 *const db);
+void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 **const dbptr);
 void EFSRepoStartPulls(EFSRepoRef const repo);
 
 typedef struct {
@@ -48,7 +48,8 @@ err_t EFSSubmissionWrite(EFSSubmissionRef const sub, byte_t const *const buf, si
 err_t EFSSubmissionEnd(EFSSubmissionRef const sub);
 err_t EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context);
 strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub);
-err_t EFSSubmissionStore(EFSSubmissionRef const submission);
+err_t EFSSubmissionAddFile(EFSSubmissionRef const sub);
+err_t EFSSubmissionStore(EFSSubmissionRef const sub, sqlite3 *const db);
 // Convenience methods
 EFSSubmissionRef EFSSubmissionCreateAndAdd(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context);
 EFSSubmissionRef EFSSubmissionCreateAndAddPair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title); // Automatically adds a basic meta-file too.

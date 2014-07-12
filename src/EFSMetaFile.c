@@ -99,6 +99,8 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 		return -1;
 	}
 
+	EXEC(QUERY(db, "SAVEPOINT metafile"));
+
 	sqlite3_stmt *const insertURI = QUERY(db,
 		"INSERT OR IGNORE INTO uris (uri) VALUES (?)");
 	sqlite3_stmt *const insertLink = QUERY(db,
@@ -131,6 +133,8 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 	sqlite3_finalize(insertLink);
 
 	// TODO: title, description
+
+	EXEC(QUERY(db, "RELEASE metafile"));
 
 	return 0;
 }
