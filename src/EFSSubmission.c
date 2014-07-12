@@ -63,7 +63,7 @@ err_t EFSSubmissionWrite(EFSSubmissionRef const sub, byte_t const *const buf, si
 	if(sub->tmpfile < 0) return -1;
 
 	uv_buf_t info = uv_buf_init((char *)buf, len);
-	int const result = async_fs_write(sub->tmpfile, &info, 1, sub->size);
+	ssize_t const result = async_fs_write(sub->tmpfile, &info, 1, sub->size);
 	if(result < 0) {
 		fprintf(stderr, "EFSSubmission write error %d\n", result);
 		return -1;
@@ -122,7 +122,7 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 		return -1;
 	}
 
-	int const result = async_fs_link(sub->tmppath, internalPath);
+	err_t const result = async_fs_link(sub->tmppath, internalPath);
 	if(result < 0 && -EEXIST != result) {
 		fprintf(stderr, "Couldn't move %s to %s\n", sub->tmppath, internalPath);
 		FREE(&internalPath);

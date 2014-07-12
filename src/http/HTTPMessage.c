@@ -315,24 +315,20 @@ err_t HTTPMessageBeginBody(HTTPMessageRef const msg) {
 }
 err_t HTTPMessageWriteFile(HTTPMessageRef const msg, uv_file const file) {
 	// TODO: How do we use uv_fs_sendfile to a TCP stream? Is it impossible?
-	cothread_t const thread = co_active();
-	uv_fs_t req = { .data = thread };
-	async_state state = { .thread = thread };
+	async_state state = { .thread = co_active() };
 	uv_write_t wreq = { .data = &state };
 	byte_t *buf = malloc(BUFFER_SIZE);
 	int64_t pos = 0;
 	for(;;) {
 		uv_buf_t const read = uv_buf_init((char *)buf, BUFFER_SIZE);
-		uv_fs_read(loop, &req, file, &read, 1, pos, async_fs_cb);
-		co_switch(yield);
-		uv_fs_req_cleanup(&req);
-		if(0 == req.result) break;
-		if(req.result < 0) { // TODO: EAGAIN, etc?
+		ssize_t const len = async_fs_read(file, &read, 1, pos);
+		if(0 == len) break;
+		if(len < 0) { // TODO: EAGAIN, etc?
 			FREE(&buf);
-			return req.result;
+			return len;
 		}
-		pos += req.result;
-		uv_buf_t const write = uv_buf_init((char *)buf, req.result);
+		pos += len;
+		uv_buf_t const write = uv_buf_init((char *)buf, len);
 		uv_write(&wreq, (uv_stream_t *)&msg->conn->stream, &write, 1, async_write_cb);
 		co_switch(yield);
 		if(state.status < 0) {
@@ -367,34 +363,23 @@ ssize_t HTTPMessageWriteChunkv(HTTPMessageRef const msg, uv_buf_t const parts[],
 	// TODO: Hack? The status is always zero for me even when it wrote, so is uv_write() guaranteed to write everything?
 }
 err_t HTTPMessageWriteChunkFile(HTTPMessageRef const msg, strarg_t const path) {
-	uv_fs_t req = { .data = co_active() };
-	uv_fs_open(loop, &req, path, O_RDONLY, 0000, async_fs_cb);
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
-	if(req.result < 0) {
+	uv_file const file = async_fs_open(path, O_RDONLY, 0000);
+	if(file < 0) {
 		return -1;
 	}
-	uv_file const file = req.result;
-	uv_fs_fstat(loop, &req, file, async_fs_cb);
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
-	if(req.result < 0) {
-		uv_fs_close(loop, &req, file, async_fs_cb);
-		co_switch(yield);
-		uv_fs_req_cleanup(&req);
+	uv_stat_t stats;
+	if(async_fs_fstat(file, &stats) < 0) {
+		async_fs_close(file);
 		return -1;
 	}
-	uint64_t const size = req.statbuf.st_size;
 
-	if(size) {
-		HTTPMessageWriteChunkLength(msg, size);
+	if(stats.st_size) {
+		HTTPMessageWriteChunkLength(msg, stats.st_size);
 		HTTPMessageWriteFile(msg, file);
 		HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
 	}
 
-	uv_fs_close(loop, &req, file, async_fs_cb);
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
+	async_fs_close(file);
 	return 0;
 }
 err_t HTTPMessageEnd(HTTPMessageRef const msg) {
@@ -428,31 +413,22 @@ void HTTPMessageSendStatus(HTTPMessageRef const msg, uint16_t const status) {
 	HTTPMessageSendMessage(msg, status, str);
 }
 void HTTPMessageSendFile(HTTPMessageRef const msg, strarg_t const path, strarg_t const type, int64_t size) {
-	uv_fs_t req = { .data = co_active() };
-	uv_fs_open(loop, &req, path, O_RDONLY, 0600, async_fs_cb);
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
-	uv_file const file = req.result;
+	uv_file const file = async_fs_open(path, O_RDONLY, 0000);
 	if(file < 0) return HTTPMessageSendStatus(msg, 400); // TODO: Error conversion.
 	if(size < 0) {
-		uv_fs_fstat(loop, &req, file, async_fs_cb);
-		co_switch(yield);
-		if(req.result < 0) {
-			uv_fs_req_cleanup(&req);
+		uv_stat_t stats;
+		if(async_fs_fstat(file, &stats) < 0) {
 			return HTTPMessageSendStatus(msg, 400);
 		}
-		size = req.statbuf.st_size;
+		size = stats.st_size;
 	}
-	uv_fs_req_cleanup(&req);
 	HTTPMessageWriteResponse(msg, 200, "OK");
 	HTTPMessageWriteContentLength(msg, size);
 	if(type) HTTPMessageWriteHeader(msg, "Content-Type", type);
 	HTTPMessageBeginBody(msg);
 	HTTPMessageWriteFile(msg, file);
 	HTTPMessageEnd(msg);
-	uv_fs_close(loop, &req, file, async_fs_cb);
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
+	async_fs_close(file);
 }
 
 

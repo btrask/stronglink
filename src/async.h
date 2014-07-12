@@ -51,20 +51,20 @@ int async_sleep(uint64_t const milliseconds);
 
 // async_fs.c
 uv_file async_fs_open(const char* path, int flags, int mode);
-ssize_t async_fs_close(uv_file file);
+int async_fs_close(uv_file file);
 ssize_t async_fs_read(uv_file file, const uv_buf_t bufs[], unsigned int nbufs, int64_t offset);
 ssize_t async_fs_write(uv_file file, const uv_buf_t bufs[], unsigned int nbufs, int64_t offset);
-ssize_t async_fs_unlink(const char* path);
-ssize_t async_fs_link(const char* path, const char* new_path);
-ssize_t async_fs_fsync(uv_file file);
-ssize_t async_fs_fdatasync(uv_file file);
-ssize_t async_fs_mkdir(const char* path, int mode);
+int async_fs_unlink(const char* path);
+int async_fs_link(const char* path, const char* new_path);
+int async_fs_fsync(uv_file file);
+int async_fs_fdatasync(uv_file file);
+int async_fs_mkdir(const char* path, int mode);
 
-ssize_t async_fs_fstat(uv_file file, uv_stat_t *stats);
+int async_fs_fstat(uv_file file, uv_stat_t *stats);
 
-ssize_t async_fs_mkdirp_fast(char *const path, size_t const len, int const mode);
-ssize_t async_fs_mkdirp(char const *const path, int const mode);
-ssize_t async_fs_mkdirp_dirname(char const *const path, int const mode);
+int async_fs_mkdirp_fast(char *const path, size_t const len, int const mode);
+int async_fs_mkdirp(char const *const path, int const mode);
+int async_fs_mkdirp_dirname(char const *const path, int const mode);
 
 char *async_fs_tempnam(char const *dir, char const *prefix);
 

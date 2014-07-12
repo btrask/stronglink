@@ -18,7 +18,7 @@
 uv_file async_fs_open(const char* path, int flags, int mode) {
 	ASYNC_FS_WRAP(open, path, flags, mode)
 }
-ssize_t async_fs_close(uv_file file) {
+int async_fs_close(uv_file file) {
 	ASYNC_FS_WRAP(close, file)
 }
 ssize_t async_fs_read(uv_file file, const uv_buf_t bufs[], unsigned int nbufs, int64_t offset) {
@@ -27,23 +27,23 @@ ssize_t async_fs_read(uv_file file, const uv_buf_t bufs[], unsigned int nbufs, i
 ssize_t async_fs_write(uv_file file, const uv_buf_t bufs[], unsigned int nbufs, int64_t offset) {
 	ASYNC_FS_WRAP(write, file, bufs, nbufs, offset)
 }
-ssize_t async_fs_unlink(const char* path) {
+int async_fs_unlink(const char* path) {
 	ASYNC_FS_WRAP(unlink, path)
 }
-ssize_t async_fs_link(const char* path, const char* new_path) {
+int async_fs_link(const char* path, const char* new_path) {
 	ASYNC_FS_WRAP(link, path, new_path)
 }
-ssize_t async_fs_fsync(uv_file file) {
+int async_fs_fsync(uv_file file) {
 	ASYNC_FS_WRAP(fsync, file)
 }
-ssize_t async_fs_fdatasync(uv_file file) {
+int async_fs_fdatasync(uv_file file) {
 	ASYNC_FS_WRAP(fdatasync, file)
 }
-ssize_t async_fs_mkdir(const char* path, int mode) {
+int async_fs_mkdir(const char* path, int mode) {
 	ASYNC_FS_WRAP(mkdir, path, mode)
 }
 
-ssize_t async_fs_fstat(uv_file file, uv_stat_t *stats) {
+int async_fs_fstat(uv_file file, uv_stat_t *stats) {
 	uv_fs_t req = { .data = co_active() };
 	int const err = uv_fs_fstat(loop, &req, file, async_fs_cb);
 	if(err < 0) return err;
@@ -71,13 +71,13 @@ static ssize_t dirlen(char const *const path, size_t const len) {
 	for(; i >= 0; --i) if('/' == path[i]) return i;
 	return -1;
 }
-ssize_t async_fs_mkdirp_fast(char *const path, size_t const len, int const mode) {
+int async_fs_mkdirp_fast(char *const path, size_t const len, int const mode) {
 	if(0 == len) return 0;
 	if(1 == len) {
 		if('/' == path[0]) return 0;
 		if('.' == path[0]) return 0;
 	}
-	ssize_t result;
+	int result;
 	char const old = path[len]; // Generally should be '/' or '\0'.
 	path[len] = '\0';
 	result = async_fs_mkdir(path, mode);
@@ -94,18 +94,18 @@ ssize_t async_fs_mkdirp_fast(char *const path, size_t const len, int const mode)
 	if(result < 0) return -1;
 	return 0;
 }
-ssize_t async_fs_mkdirp(char const *const path, int const mode) {
+int async_fs_mkdirp(char const *const path, int const mode) {
 	size_t const len = strlen(path);
 	char *mutable = strndup(path, len);
-	ssize_t const err = async_fs_mkdirp_fast(mutable, len, mode);
+	int const err = async_fs_mkdirp_fast(mutable, len, mode);
 	free(mutable); mutable = NULL;
 	return err;
 }
-ssize_t async_fs_mkdirp_dirname(char const *const path, int const mode) {
+int async_fs_mkdirp_dirname(char const *const path, int const mode) {
 	ssize_t dlen = dirlen(path, strlen(path));
 	if(dlen < 0) return dlen;
 	char *mutable = strndup(path, dlen);
-	ssize_t const err = async_fs_mkdirp_fast(mutable, dlen, mode);
+	int const err = async_fs_mkdirp_fast(mutable, dlen, mode);
 	free(mutable); mutable = NULL;
 	return err;
 }

@@ -36,7 +36,7 @@ static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_fi
 	for(;;) {
 		char *tmp = usetmp ? async_fs_tempnam(NULL, "async-sqlite") : NULL;
 		char const *const path = usetmp ? tmp : inpath;
-		int const result = async_fs_open(path, uvflags, 0600);
+		uv_file const result = async_fs_open(path, uvflags, 0600);
 		if(!usetmp) {
 			if(result < 0) return SQLITE_CANTOPEN;
 			file->file = result;

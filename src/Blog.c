@@ -142,7 +142,7 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 
 		str_t *str = malloc(BUFFER_SIZE + 1);
 		uv_buf_t bufInfo = uv_buf_init(str, BUFFER_SIZE);
-		int const len = async_fs_read(file, &bufInfo, 1, 0);
+		ssize_t const len = async_fs_read(file, &bufInfo, 1, 0);
 
 		async_fs_close(file); file = -1;
 
