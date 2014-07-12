@@ -3,109 +3,104 @@
 #include "async.h"
 #include "EarthFS.h"
 
-#define INDEX_MAX (1024 * 100)
-
 struct EFSSubmission {
 	EFSRepoRef repo;
-	str_t *path;
 	str_t *type;
+
+	str_t *tmppath;
+	uv_file tmpfile;
 	int64_t size;
+	EFSHasherRef hasher;
+	EFSMetaFileRef meta;
+
 	URIListRef URIs;
 	str_t *internalHash;
-	EFSMetaFileRef meta;
 };
 
-EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context) {
+EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const type) {
 	if(!repo) return NULL;
+	assertf(type, "Submission requires type");
 
 	EFSSubmissionRef sub = calloc(1, sizeof(struct EFSSubmission));
 	if(!sub) return NULL;
 	sub->repo = repo;
 	sub->type = strdup(type);
 
-	sub->path = EFSRepoCopyTempPath(repo);
-	if(async_fs_mkdirp_dirname(sub->path, 0700) < 0) {
-		fprintf(stderr, "Error: couldn't create temp dir %s\n", sub->path);
+	sub->tmppath = EFSRepoCopyTempPath(repo);
+	if(async_fs_mkdirp_dirname(sub->tmppath, 0700) < 0) {
+		fprintf(stderr, "Error: couldn't create temp dir %s\n", sub->tmppath);
 		EFSSubmissionFree(&sub);
 		return NULL;
 	}
 
-	uv_fs_t req = { .data = co_active() };
-	uv_fs_open(loop, &req, sub->path, O_CREAT | O_EXCL | O_TRUNC | O_WRONLY, 0400, async_fs_cb);
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
-	if(req.result < 0) {
-		fprintf(stderr, "Error: couldn't create temp file %s\n", sub->path);
+	sub->tmpfile = async_fs_open(sub->tmppath, O_CREAT | O_EXCL | O_TRUNC | O_WRONLY, 0400);
+	if(sub->tmpfile < 0) {
+		fprintf(stderr, "Error: couldn't create temp file %s\n", sub->tmppath);
 		EFSSubmissionFree(&sub);
 		return NULL;
 	}
-	uv_file const tmp = req.result;
 
-	EFSHasherRef hasher = EFSHasherCreate(sub->type);
+	sub->hasher = EFSHasherCreate(sub->type);
 	sub->meta = EFSMetaFileCreate(sub->type);
-
-	for(;;) {
-		byte_t const *buf = NULL;
-		ssize_t const rlen = read(context, &buf);
-		if(0 == rlen) break;
-		if(rlen < 0) {
-			fprintf(stderr, "EFSSubmission read error %d\n", rlen);
-			EFSSubmissionFree(&sub);
-			goto bail;
-		}
-
-		uv_buf_t info = uv_buf_init((char *)buf, rlen);
-		uv_fs_write(loop, &req, tmp, &info, 1, sub->size, async_fs_cb);
-		co_switch(yield);
-		uv_fs_req_cleanup(&req);
-		if(req.result < 0) {
-			fprintf(stderr, "EFSSubmission write error %d\n", req.result);
-			EFSSubmissionFree(&sub);
-			goto bail;
-		}
-
-		size_t const indexable = MIN(rlen, SUB_ZERO(INDEX_MAX, sub->size));
-		EFSHasherWrite(hasher, buf, rlen);
-		EFSMetaFileWrite(sub->meta, buf, rlen);
-
-		sub->size += rlen;
-	}
-
-	if(!sub->size) {
-		fprintf(stderr, "Empty submission\n");
-		EFSSubmissionFree(&sub);
-		goto bail;
-	}
-
-	sub->URIs = EFSHasherEnd(hasher);
-	sub->internalHash = strdup(EFSHasherGetInternalHash(hasher));
-	EFSMetaFileEnd(sub->meta);
-
-bail:
-	EFSHasherFree(&hasher);
-
-	uv_fs_close(loop, &req, tmp, async_fs_cb);
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
 
 	return sub;
 }
 void EFSSubmissionFree(EFSSubmissionRef *const subptr) {
 	EFSSubmissionRef sub = *subptr;
 	if(!sub) return;
-	if(sub->path) {
-		uv_fs_t req = { .data = co_active() };
-		uv_fs_unlink(loop, &req, sub->path, async_fs_cb);
-		co_switch(yield);
-		uv_fs_req_cleanup(&req);
-	}
-	FREE(&sub->path);
+	sub->repo = NULL;
 	FREE(&sub->type);
+	if(sub->tmppath) async_fs_unlink(sub->tmppath);
+	FREE(&sub->tmppath);
+	EFSHasherFree(&sub->hasher);
+	EFSMetaFileFree(&sub->meta);
 	URIListFree(&sub->URIs);
 	FREE(&sub->internalHash);
-	EFSMetaFileFree(&sub->meta);
 	FREE(subptr); sub = NULL;
 }
+err_t EFSSubmissionWrite(EFSSubmissionRef const sub, byte_t const *const buf, size_t const len) {
+	if(!sub) return 0;
+	if(sub->tmpfile < 0) return -1;
+
+	uv_buf_t info = uv_buf_init((char *)buf, len);
+	int const result = async_fs_write(sub->tmpfile, &info, 1, sub->size);
+	if(result < 0) {
+		fprintf(stderr, "EFSSubmission write error %d\n", result);
+		return -1;
+	}
+
+	sub->size += len;
+	EFSHasherWrite(sub->hasher, buf, len);
+	EFSMetaFileWrite(sub->meta, buf, len);
+	return 0;
+}
+err_t EFSSubmissionEnd(EFSSubmissionRef const sub) {
+	if(!sub) return 0;
+	if(sub->tmpfile < 0) return -1;
+	sub->URIs = EFSHasherEnd(sub->hasher);
+	sub->internalHash = strdup(EFSHasherGetInternalHash(sub->hasher));
+	EFSHasherFree(&sub->hasher);
+
+	EFSMetaFileEnd(sub->meta);
+
+	async_fs_close(sub->tmpfile);
+	sub->tmpfile = -1;
+	return 0;
+}
+err_t EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context) {
+	if(!sub) return 0;
+	assertf(read, "Read function required");
+	for(;;) {
+		byte_t const *buf = NULL;
+		ssize_t const len = read(context, &buf);
+		if(0 == len) break;
+		if(len < 0) return -1;
+		if(EFSSubmissionWrite(sub, buf, len) < 0) return -1;
+	}
+	if(EFSSubmissionEnd(sub) < 0) return -1;
+	return 0;
+}
+
 strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub) {
 	if(!sub) return NULL;
 	return URIListGetURI(sub->URIs, 0);
@@ -114,6 +109,7 @@ strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub) {
 err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef const sub) {
 	if(!session) return 0;
 	if(!sub) return -1;
+	if(!sub->tmppath) return -1;
 
 	// TODO: Check session mode
 	// TODO: Make sure session repo and submission repo match
@@ -126,21 +122,16 @@ err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef cons
 		return -1;
 	}
 
-	uv_fs_t req = { .data = co_active() };
-	uv_fs_link(loop, &req, sub->path, internalPath, async_fs_cb);
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
-	if(req.result < 0 && -EEXIST != req.result) {
-		fprintf(stderr, "Couldn't move %s to %s\n", sub->path, internalPath);
+	int const result = async_fs_link(sub->tmppath, internalPath);
+	if(result < 0 && -EEXIST != result) {
+		fprintf(stderr, "Couldn't move %s to %s\n", sub->tmppath, internalPath);
 		FREE(&internalPath);
 		return -1;
 	}
 	FREE(&internalPath);
 
-	uv_fs_unlink(loop, &req, sub->path, async_fs_cb);
-	co_switch(yield);
-	uv_fs_req_cleanup(&req);
-	FREE(&sub->path);
+	async_fs_unlink(sub->tmppath);
+	FREE(&sub->tmppath);
 
 	uint64_t const userID = EFSSessionGetUserID(session);
 	sqlite3 *const db = EFSRepoDBConnect(repo);
