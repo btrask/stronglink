@@ -159,10 +159,10 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, sqlite3 *const db) {
 	sqlite3_finalize(selectFile); selectFile = NULL;
 
 	sqlite3_stmt *insertURI = QUERY(db,
-		"INSERT OR IGNORE INTO uris (uri) VALUES (?)");
+		"INSERT OR IGNORE INTO strings (string) VALUES (?)");
 	sqlite3_stmt *insertFileURI = QUERY(db,
-		"INSERT OR IGNORE INTO file_uris (file_id, uri_id)\n"
-		"SELECT ?, uri_id FROM uris WHERE uri = ? LIMIT 1");
+		"INSERT OR IGNORE INTO file_uris (file_id, uri_sid)\n"
+		"SELECT ?, sid FROM strings WHERE string = ? LIMIT 1");
 	for(index_t i = 0; i < URIListGetCount(sub->URIs); ++i) {
 		strarg_t const URI = URIListGetURI(sub->URIs, i);
 		sqlite3_bind_text(insertURI, 1, URI, -1, SQLITE_STATIC);
@@ -177,17 +177,18 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, sqlite3 *const db) {
 
 
 	// TODO: Add permissions for other specified users too.
-	sqlite3_stmt *insertFilePermission = QUERY(db,
+/*	sqlite3_stmt *insertFilePermission = QUERY(db,
 		"INSERT OR IGNORE INTO file_permissions\n"
 		"	(file_id, user_id, meta_file_id)\n"
 		"VALUES (?, ?, ?)");
 	sqlite3_bind_int64(insertFilePermission, 1, fileID);
 	sqlite3_bind_int64(insertFilePermission, 2, userID);
 	sqlite3_bind_int64(insertFilePermission, 3, fileID);
-	EXEC(insertFilePermission); insertFilePermission = NULL;
+	EXEC(insertFilePermission); insertFilePermission = NULL;*/
 
-	strarg_t const preferredURI = URIListGetURI(sub->URIs, 0);
-	if(EFSMetaFileStore(sub->meta, fileID, preferredURI, db) < 0) {
+
+	strarg_t const primaryURI = EFSSubmissionGetPrimaryURI(sub);
+	if(EFSMetaFileStore(sub->meta, fileID, primaryURI, db) < 0) {
 		fprintf(stderr, "EFSMetaFileStore error\n");
 		EXEC(QUERY(db, "ROLLBACK TO submission"));
 		EXEC(QUERY(db, "RELEASE submission"));
@@ -245,7 +246,7 @@ EFSSubmissionRef EFSSubmissionCreateAndAddPair(EFSSessionRef const session, stra
 	}
 	// TODO: We should also try to extract a title from the content. Write them together in an array. All of our fields should support multiple values.
 
-	yajl_gen_string(json, (byte_t const *)"links", strlen("links"));
+	yajl_gen_string(json, (byte_t const *)"link", strlen("link"));
 	yajl_gen_array_open(json);
 	yajl_gen_string(json, (byte_t const *)"efs://user", strlen("efs://user"));
 	yajl_gen_array_close(json);

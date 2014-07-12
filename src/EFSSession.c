@@ -179,7 +179,7 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 	sqlite3_stmt *const select = QUERY(db,
 		"SELECT f.internal_hash\n"
 		"FROM files AS f\n"
-		"INNER JOIN results AS r ON (r.file_id = f.file_id)\n"
+		"INNER JOIN results AS r ON (f.file_id = r.file_id)\n"
 		"ORDER BY r.sort DESC LIMIT ?");
 	sqlite3_bind_int64(select, 1, max);
 	URIListRef const URIs = URIListCreate();
@@ -200,11 +200,11 @@ EFSFileInfo *EFSSessionCopyFileInfo(EFSSessionRef const session, strarg_t const 
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	sqlite3 *db = EFSRepoDBConnect(repo);
 	sqlite3_stmt *const select = QUERY(db,
-		"SELECT f2.internal_hash, f2.file_type, f2.file_size\n"
-		"FROM uris AS u\n"
-		"LEFT JOIN file_uris AS f ON (f.uri_id = u.uri_id)\n"
-		"LEFT JOIN files AS f2 ON (f2.file_id = f.file_id)\n"
-		"WHERE u.uri = ? LIMIT 1");
+		"SELECT f.internal_hash, f.file_type, f.file_size\n"
+		"FROM files AS f\n"
+		"INNER JOIN file_uris AS f2 ON (f.file_id = f2.file_id)\n"
+		"INNER JOIN strings AS uri ON (f2.uri_sid = uri.sid)\n"
+		"WHERE uri.string = ? LIMIT 1");
 	sqlite3_bind_text(select, 1, URI, -1, SQLITE_STATIC);
 	if(SQLITE_ROW != STEP(select)) {
 		sqlite3_finalize(select);

@@ -6,27 +6,17 @@
 typedef enum {
 	s_start = 0,
 	s_top,
-		s_skip,
 		s_meta_uri,
-		s_title,
-		s_desc,
-		s_link_start,
-			s_link,
+		s_field_value,
+		s_field_array,
 	s_end,
 } meta_state;
 
 struct EFSMetaFile {
-	yajl_handle parser;
-	int64_t size;
-	meta_state state;
-	int skip;
-	str_t *URI;
-	str_t *title;
-	str_t *desc;
-	URIListRef links;
+	size_t size;
+	byte_t *buf;
+	size_t len;
 };
-
-static yajl_callbacks const callbacks;
 
 EFSMetaFileRef EFSMetaFileCreate(strarg_t const type) {
 	if(!type) return NULL;
@@ -34,201 +24,194 @@ EFSMetaFileRef EFSMetaFileCreate(strarg_t const type) {
 
 	EFSMetaFileRef meta = calloc(1, sizeof(struct EFSMetaFile));
 	if(!meta) return NULL;
-	meta->parser = yajl_alloc(&callbacks, NULL, meta);
 	meta->size = 0;
-	meta->state = s_start;
-	meta->skip = 0;
-	meta->URI = NULL;
-	meta->title = NULL;
-	meta->desc = NULL;
-	meta->links = URIListCreate();
+	meta->buf = NULL;
+	meta->len = 0;
 	return meta;
 }
 void EFSMetaFileFree(EFSMetaFileRef *const metaptr) {
 	EFSMetaFileRef meta = *metaptr;
 	if(!meta) return;
-	if(meta->parser) {
-		yajl_free(meta->parser); meta->parser = NULL;
-	}
-	FREE(&meta->URI);
-	FREE(&meta->title);
-	FREE(&meta->desc);
-	URIListFree(&meta->links);
+	meta->size = 0;
+	FREE(&meta->buf);
+	meta->len = 0;
 	FREE(metaptr); meta = NULL;
 }
 
 err_t EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len) {
 	if(!meta) return 0;
-	meta->size += len;
-	if(meta->size > META_MAX) return -1;
-	if(!meta->parser) return -1;
-	yajl_status const status = yajl_parse(meta->parser, buf, len);
-	if(yajl_status_ok != status) {
-		unsigned char *msg = yajl_get_error(meta->parser, true, buf, len);
-		fprintf(stderr, "%s", msg);
-		yajl_free_error(meta->parser, msg); msg = NULL;
-		yajl_free(meta->parser); meta->parser = NULL;
+	if(meta->len + len > meta->size) {
+		meta->size = MIN(META_MAX, MAX(meta->len + len, meta->size) * 2);
+		meta->buf = realloc(meta->buf, meta->size);
+		if(!meta->buf) return -1;
 	}
-	return yajl_status_ok == status ? 0 : -1;
+	size_t const use = MIN(meta->size - meta->len, len);
+	memcpy(meta->buf + meta->len, buf, use);
+	meta->len += use;
+	return 0;
 }
 err_t EFSMetaFileEnd(EFSMetaFileRef const meta) {
 	if(!meta) return 0;
-	if(meta->size > META_MAX) return -1;
-	if(!meta->parser) return -1;
-	yajl_status const status = yajl_complete_parse(meta->parser);
-	if(yajl_status_ok != status) {
-		unsigned char *msg = yajl_get_error(meta->parser, true, NULL, 0);
-		fprintf(stderr, "%s", msg);
-		yajl_free_error(meta->parser, msg); msg = NULL;
-	}
-	return yajl_status_ok == status ? 0 : -1;
-}
-err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t const URI, sqlite3 *const db) {
-	if(!meta) return 0;
-	if(!meta->parser) return -1;
-	if(meta->size > META_MAX) {
-		fprintf(stderr, "Meta-file too large (%llu)\n", (unsigned long long)meta->size);
-		return -1;
-	}
-	if(s_end != meta->state) {
-		fprintf(stderr, "Meta-file parse incomplete (state: %d)\n", meta->state);
-		return -1;
-	}
-	if(!meta->URI) {
-		fprintf(stderr, "Meta-file missing URI\n");
-		return -1;
-	}
-
-	EXEC(QUERY(db, "SAVEPOINT metafile"));
-
-	sqlite3_stmt *const insertURI = QUERY(db,
-		"INSERT OR IGNORE INTO uris (uri) VALUES (?)");
-	sqlite3_stmt *const insertLink = QUERY(db,
-		"INSERT OR IGNORE INTO links\n"
-		"	(source_uri_id, target_uri_id, meta_file_id)\n"
-		"SELECT s.uri_id, t.uri_id, ?\n"
-		"FROM uris AS s\n"
-		"INNER JOIN uris AS t\n"
-		"WHERE s.uri = ? AND t.uri = ?");
-	sqlite3_bind_int64(insertLink, 1, fileID);
-
-	sqlite3_bind_text(insertURI, 1, meta->URI, -1, SQLITE_STATIC);
-	sqlite3_step(insertURI); sqlite3_reset(insertURI);
-	sqlite3_bind_text(insertLink, 2, URI, -1, SQLITE_STATIC);
-	sqlite3_bind_text(insertLink, 3, meta->URI, -1, SQLITE_STATIC);
-	sqlite3_step(insertLink); sqlite3_reset(insertLink);
-
-	count_t const linkCount = URIListGetCount(meta->links);
-	sqlite3_bind_text(insertLink, 2, meta->URI, -1, SQLITE_STATIC);
-	for(index_t i = 0; i < linkCount; ++i) {
-		strarg_t const link = URIListGetURI(meta->links, i);
-		size_t const len = strlen(link);
-		sqlite3_bind_text(insertURI, 1, link, len, SQLITE_STATIC);
-		sqlite3_step(insertURI); sqlite3_reset(insertURI);
-		sqlite3_bind_text(insertLink, 3, link, len, SQLITE_STATIC);
-		sqlite3_step(insertLink); sqlite3_reset(insertLink);
-	}
-
-	sqlite3_finalize(insertURI);
-	sqlite3_finalize(insertLink);
-
-	// TODO: title, description
-
-	EXEC(QUERY(db, "RELEASE metafile"));
-
 	return 0;
 }
 
 
-static int yajl_null(EFSMetaFileRef const meta) {
-	switch(meta->state) {
-		case s_skip: if(!meta->skip) meta->state = s_top; break;
+typedef struct {
+	sqlite3 *db;
+	int64_t fileID; // Us
+	int64_t fileURISID;
+
+	meta_state state;
+	int64_t metaURISID; // Target
+	str_t *field;
+} parse_state;
+
+static yajl_callbacks const callbacks;
+
+err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t const fileURI, sqlite3 *const db) {
+	if(!meta) return 0;
+	parse_state state = {
+		.db = db,
+		.fileID = fileID,
+
+		.state = s_start,
+		.metaURISID = -1,
+		.field = NULL,
+	};
+	EXEC(QUERY(db, "SAVEPOINT metafile"));
+
+	sqlite3_stmt *selectFileURISID = QUERY(db,
+		"SELECT sid FROM strings WHERE string = ?");
+	sqlite3_bind_text(selectFileURISID, 1, fileURI, -1, SQLITE_STATIC);
+	STEP(selectFileURISID);
+	state.fileURISID = sqlite3_column_int64(selectFileURISID, 0);
+	sqlite3_finalize(selectFileURISID); selectFileURISID = NULL;
+
+	yajl_handle parser = yajl_alloc(&callbacks, NULL, &state);
+	yajl_config(parser, yajl_allow_partial_values, (int)true);
+	(void)yajl_parse(parser, meta->buf, meta->len);
+	yajl_status const status = yajl_complete_parse(parser);
+	if(yajl_status_ok != status) {
+		EXEC(QUERY(db, "ROLLBACK TO metafile"));
+		unsigned char *msg = yajl_get_error(parser, true, meta->buf, meta->len);
+		fprintf(stderr, "%s", msg);
+		yajl_free_error(parser, msg); msg = NULL;
+		yajl_free(parser); parser = NULL;
+		return -1;
+	}
+	yajl_free(parser); parser = NULL;
+
+	EXEC(QUERY(db, "RELEASE metafile"));
+	return 0;
+}
+
+static int yajl_null(parse_state *const state) {
+	return false;
+}
+static int yajl_boolean(parse_state *const state, int const flag) {
+	return false;
+}
+static int yajl_number(parse_state *const state, strarg_t const str, size_t const len) {
+	return false;
+}
+static int yajl_string(parse_state *const state, strarg_t const str, size_t const len) {
+	switch(state->state) {
+		case s_meta_uri: {
+			sqlite3_stmt *insertStrings = QUERY(state->db,
+				"INSERT OR IGNORE INTO strings (string) VALUES ('link'), (?)");
+			sqlite3_bind_text(insertStrings, 1, str, len, SQLITE_STATIC);
+			EXEC(insertStrings); insertStrings = NULL;
+			sqlite3_stmt *selectMetaURISID = QUERY(state->db,
+				"SELECT sid FROM strings WHERE string = ?");
+			sqlite3_bind_text(selectMetaURISID, 1, str, len, SQLITE_STATIC);
+			STEP(selectMetaURISID);
+			state->metaURISID = sqlite3_column_int64(selectMetaURISID, 0);
+			sqlite3_finalize(selectMetaURISID); selectMetaURISID = NULL;
+			sqlite3_stmt *insertMeta = QUERY(state->db,
+				"INSERT OR IGNORE INTO meta_data\n"
+				"	(meta_file_id, uri_sid, field_sid, value_sid)\n"
+				"SELECT ?, ?, sid, ?\n"
+				"FROM strings AS s WHERE string = 'link' LIMIT 1");
+			sqlite3_bind_int64(insertMeta, 1, state->fileID);
+			sqlite3_bind_int64(insertMeta, 2, state->fileURISID);
+			sqlite3_bind_int64(insertMeta, 3, state->metaURISID);
+			EXEC(insertMeta); insertMeta = NULL;
+			state->state = s_top;
+			return true;
+		} case s_field_value: {
+			/* fallthrough */
+		} case s_field_array: {
+			sqlite3_stmt *insertStrings = QUERY(state->db,
+				"INSERT OR IGNORE INTO strings (string) VALUES (?), (?)");
+			sqlite3_bind_text(insertStrings, 1, state->field, -1, SQLITE_STATIC);
+			sqlite3_bind_text(insertStrings, 2, str, len, SQLITE_STATIC);
+			EXEC(insertStrings); insertStrings = NULL;
+			sqlite3_stmt *insertMeta = QUERY(state->db,
+				"INSERT OR IGNORE INTO meta_data\n"
+				"	(meta_file_id, uri_sid, field_sid, value_sid)\n"
+				"SELECT ?, ?, s1.sid, s2.sid\n"
+				"FROM strings AS s1\n"
+				"INNER JOIN strings AS s2\n"
+				"WHERE s1.string = ? AND s2.string = ? LIMIT 1");
+			sqlite3_bind_int64(insertMeta, 1, state->fileID);
+			sqlite3_bind_int64(insertMeta, 2, state->fileURISID);
+			sqlite3_bind_text(insertMeta, 3, state->field, -1, SQLITE_STATIC);
+			sqlite3_bind_text(insertMeta, 4, str, len, SQLITE_STATIC);
+			EXEC(insertMeta); insertMeta = NULL;
+			// TODO: Full text indexing.
+			if(s_field_value == state->state) {
+				FREE(&state->field);
+				state->state = s_top;
+			}
+			return true;
+		} default: {
+			return false;
+		}
+	}
+	return true;
+}
+static int yajl_start_map(parse_state *const state) {
+	switch(state->state) {
+		case s_start: state->state = s_top; break;
 		default: return false;
 	}
 	return true;
 }
-static int yajl_boolean(EFSMetaFileRef const meta, int const flag) {
-	switch(meta->state) {
-		case s_skip: if(!meta->skip) meta->state = s_top; break;
-		default: return false;
-	}
-	return true;
-}
-static int yajl_number(EFSMetaFileRef const meta, strarg_t const str, size_t const len) {
-	switch(meta->state) {
-		case s_skip: if(!meta->skip) meta->state = s_top; break;
-		default: return false;
-	}
-	return true;
-}
-static int yajl_string(EFSMetaFileRef const meta, strarg_t const str, size_t const len) {
-	switch(meta->state) {
-		case s_skip: if(!meta->skip) meta->state = s_top; break;
-		case s_meta_uri:
-			meta->URI = strndup(str, len);
-			meta->state = s_top;
-			break;
-		case s_link:
-			URIListAddURI(meta->links, str, len);
-			meta->state = s_link;
-			break;
-		case s_title:
-			meta->title = strndup(str, len);
-			meta->state = s_top;
-			break;
-		case s_desc:
-			meta->desc = strndup(str, len);
-			meta->state = s_top;
-			break;
-		default: return false;
-	}
-	return true;
-}
-static int yajl_start_map(EFSMetaFileRef const meta) {
-	switch(meta->state) {
-		case s_skip: ++meta->skip; break;
-		case s_start: meta->state = s_top; break;
-		default: return false;
-	}
-	return true;
-}
-static int yajl_map_key(EFSMetaFileRef const meta, strarg_t const key, size_t const len) {
-	switch(meta->state) {
-		case s_skip: break;
+static int yajl_map_key(parse_state *const state, strarg_t const key, size_t const len) {
+	switch(state->state) {
 		case s_top:
-			meta->state = s_skip;
-			assertf(0 == meta->skip, "Invalid skip depth");
-			if(substr("metaURI", key, len)) meta->state = s_meta_uri;
-			if(substr("links", key, len)) meta->state = s_link_start;
-			if(substr("description", key, len)) meta->state = s_desc;
-			if(substr("title", key, len)) meta->state = s_title;
+			assertf(!state->field, "Already parsing field");
+			if(substr("metaURI", key, len)) state->state = s_meta_uri;
+			else {
+				state->field = strndup(key, len);
+				state->state = s_field_value;
+			}
 			break;
-		default: assertf(0, "Unexpected map key in state %d", meta->state);
+		default: assertf(0, "Unexpected map key in state %d", state->state);
 	}
 	return true;
 }
-static int yajl_end_map(EFSMetaFileRef const meta) {
-	switch(meta->state) {
-		case s_skip: if(!--meta->skip) meta->state = s_top; break;
-		case s_top: meta->state = s_end; break;
-		default: assertf(0, "Unexpected map end in state %d", meta->state);
+static int yajl_end_map(parse_state *const state) {
+	switch(state->state) {
+		case s_top: state->state = s_end; break;
+		default: assertf(0, "Unexpected map end in state %d", state->state);
 	}
 	return true;
 }
-static int yajl_start_array(EFSMetaFileRef const meta) {
-	switch(meta->state) {
-		case s_skip: ++meta->skip; break;
-		case s_link_start: meta->state = s_link; break;
-		default: return false;
+static int yajl_start_array(parse_state *const state) {
+	switch(state->state) {
+		case s_field_value: state->state = s_field_array; break;
+		default: assertf(0, "zomg"); return false;
 	}
 	return true;
 }
-static int yajl_end_array(EFSMetaFileRef const meta) {
-	switch(meta->state) {
-		case s_skip: if(!--meta->skip) meta->state = s_top; break;
-		case s_link_start:
-		case s_link: meta->state = s_top; break;
-		default: assertf(0, "Unexpected array end in state %d", meta->state);
+static int yajl_end_array(parse_state *const state) {
+	switch(state->state) {
+		case s_field_array:
+			FREE(&state->field);
+			state->state = s_top;
+			break;
+		default: assertf(0, "Unexpected array end in state %d", state->state);
 	}
 	return true;
 }

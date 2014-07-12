@@ -176,13 +176,14 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 		filter = EFSFilterCreate(EFSNoFilter);
 	}
 
+	// TODO: Use EFSSessionCreateFilteredURIList? Streaming version?
 	sqlite3 *db = EFSRepoDBConnect(repo);
 	EFSFilterCreateTempTables(db);
 	EFSFilterExec(filter, db, 0);
 	sqlite3_stmt *const select = QUERY(db,
 		"SELECT f.internal_hash\n"
 		"FROM files AS f\n"
-		"LEFT JOIN results AS r ON (f.file_id = r.file_id)\n"
+		"INNER JOIN results AS r ON (f.file_id = r.file_id)\n"
 		"ORDER BY r.sort DESC LIMIT 50");
 
 	HTTPMessageWriteResponse(msg, 200, "OK");

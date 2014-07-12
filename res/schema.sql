@@ -25,50 +25,54 @@ CREATE TABLE files (
 );
 CREATE UNIQUE INDEX files_hash_unique ON files (internal_hash, file_type);
 
-CREATE TABLE uris (
-	uri_id INTEGER PRIMARY KEY NOT NULL,
-	uri TEXT NOT NULL
+CREATE TABLE strings (
+	sid INTEGER PRIMARY KEY NOT NULL,
+	string TEXT NOT NULL
 );
-CREATE UNIQUE INDEX uris_unique ON uris (uri);
+CREATE UNIQUE INDEX strings_unique ON strings (string);
 
-CREATE TABLE links (
-	link_id INTEGER PRIMARY KEY NOT NULL,
-	source_uri_id INTEGER NOT NULL,
-	target_uri_id INTEGER NOT NULL,
-	meta_file_id INTEGER NOT NULL
+CREATE TABLE meta_data (
+	meta_data_id INTEGER PRIMARY KEY NOT NULL,
+	meta_file_id INTEGER NOT NULL,
+	uri_sid INTEGER NOT NULL,
+	field_sid INTEGER NOT NULL,
+	value_sid INTEGER NOT NULL
 );
-CREATE UNIQUE INDEX links_unique ON links (source_uri_id, target_uri_id, meta_file_id);
-CREATE INDEX links_backlink_index ON links (target_uri_id, source_uri_id, meta_file_id);
+CREATE UNIQUE INDEX meta_data_unique ON meta_data (meta_file_id, uri_sid, field_sid, value_sid);
+CREATE INDEX meta_data_meta_file_index ON meta_data (meta_file_id);
+CREATE INDEX meta_data_uri_index ON meta_data (uri_sid);
+CREATE INDEX meta_data_field_index ON meta_data (field_sid);
 
 CREATE TABLE file_uris (
 	file_uri_id INTEGER PRIMARY KEY NOT NULL,
 	file_id INTEGER NOT NULL,
-	uri_id INTEGER NOT NULL
+	uri_sid INTEGER NOT NULL
 );
-CREATE UNIQUE INDEX file_uris_unique ON file_uris (uri_id, file_id);
+CREATE UNIQUE INDEX file_uris_unique ON file_uris (uri_sid, file_id);
 CREATE INDEX file_uris_index ON file_uris (file_id);
 
+-- TODO
 -- LOTS of restrictions on column names. Apparently can't use underscores or "fulltext". And the table can't have any non-text columns either, besides the default rowid. So it's hard to give it a meaningful name. `description` isn't quite right because we index titles and potentially other fields too.
-CREATE VIRTUAL TABLE fulltext USING "fts4" (
-	content="",
-	description TEXT
-);
-CREATE TABLE file_content (
-	file_content_id INTEGER PRIMARY KEY NOT NULL,
-	fulltext_rowid INTEGER NOT NULL,
-	file_id INTEGER NOT NULL,
-	meta_file_id INTEGER NOT NULL
-);
-CREATE UNIQUE INDEX file_content_unique ON file_content (fulltext_rowid, file_id, meta_file_id);
+--CREATE VIRTUAL TABLE fulltext USING "fts4" (
+--	content="",
+--	description TEXT
+--);
+--CREATE TABLE file_content (
+--	file_content_id INTEGER PRIMARY KEY NOT NULL,
+--	fulltext_rowid INTEGER NOT NULL,
+--	file_id INTEGER NOT NULL,
+--	meta_file_id INTEGER NOT NULL
+--);
+--CREATE UNIQUE INDEX file_content_unique ON file_content (fulltext_rowid, file_id, meta_file_id);
 
 -- TODO: We need a much better way to handle permissions, especially in order to determine accurate sort orders.
-CREATE TABLE file_permissions (
-	file_permission_id INTEGER PRIMARY KEY NOT NULL,
-	file_id INTEGER NOT NULL,
-	user_id INTEGER NOT NULL,
-	meta_file_id INTEGER NOT NULL
-);
-CREATE UNIQUE INDEX file_permissions_unique ON file_permissions (user_id, file_id, meta_file_id);
+--CREATE TABLE file_permissions (
+--	file_permission_id INTEGER PRIMARY KEY NOT NULL,
+--	file_id INTEGER NOT NULL,
+--	user_id INTEGER NOT NULL,
+--	meta_file_id INTEGER NOT NULL
+--);
+--CREATE UNIQUE INDEX file_permissions_unique ON file_permissions (user_id, file_id, meta_file_id);
 
 CREATE TABLE pulls (
 	pull_id INTEGER PRIMARY KEY NOT NULL,
@@ -79,16 +83,4 @@ CREATE TABLE pulls (
 	cookie TEXT NOT NULL,
 	query TEXT NOT NULL
 );
-
-CREATE TABLE meta_data (
-	meta_data_id INTEGER PRIMARY KEY NOT NULL,
-	meta_file_id INTEGER NOT NULL,
-	uri_id INTEGER NOT NULL,
-	field TEXT NOT NULL,
-	value TEXT NOT NULL
-);
-CREATE UNIQUE INDEX meta_data_unique ON meta_data (meta_file_id, uri_id, field, value);
-CREATE INDEX meta_data_meta_file_index ON meta_data (meta_file_id);
-CREATE INDEX meta_data_uri_index ON meta_data (uri_id);
-CREATE INDEX meta_data_field_index ON meta_data (field);
 

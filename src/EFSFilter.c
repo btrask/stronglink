@@ -147,30 +147,33 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 			EXEC(op);
 			break;
 		} case EFSFullTextFilter: {
-			sqlite3_stmt *const op = QUERY(db,
+/*			sqlite3_stmt *const op = QUERY(db,
 				"INSERT INTO results\n"
 				"	(file_id, sort, depth)\n"
 				"SELECT f.file_id, MIN(f.meta_file_id), ?\n"
 				"FROM fulltext AS t\n"
-				"LEFT JOIN file_content AS f\n"
+				"INNER JOIN file_content AS f\n"
 				"	ON (t.rowid = f.fulltext_rowid)\n"
 				"WHERE t.description MATCH ?\n"
 				"GROUP BY f.file_id");
 			sqlite3_bind_int64(op, 1, depth);
 			sqlite3_bind_text(op, 2, filter->data.string, -1, SQLITE_STATIC);
-			EXEC(op);
+			EXEC(op);*/
+			assertf(0, "Not implemented");
 			break;
 		} case EFSBacklinkFilesFilter: {
 			sqlite3_stmt *const op = QUERY(db,
 				"INSERT INTO results\n"
 				"	(file_id, sort, depth)\n"
-				"SELECT f.file_id, MIN(l.meta_file_id), ?\n"
-				"FROM uris AS u\n"
-				"LEFT JOIN links AS l\n"
-				"	ON (u.uri_id = l.target_uri_id)\n"
-				"LEFT JOIN file_uris AS f\n"
-				"	ON (l.source_uri_id = f.uri_id)\n"
-				"WHERE u.uri = ?\n"
+				"SELECT f.file_id, MIN(md.meta_file_id), ?\n"
+				"FROM file_uris AS f\n"
+				"INNER JOIN meta_data AS md\n"
+				"	ON (f.uri_sid = md.uri_sid)\n"
+				"INNER JOIN strings AS field\n"
+				"	ON (md.field_sid = field.sid)\n"
+				"INNER JOIN strings AS uri\n"
+				"	ON (md.value_sid = uri.sid)\n"
+				"WHERE field.string = 'link' AND uri.string = ?\n"
 				"GROUP BY f.file_id");
 			sqlite3_bind_int64(op, 1, depth);
 			sqlite3_bind_text(op, 2, filter->data.string, -1, SQLITE_STATIC);
@@ -180,13 +183,15 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 			sqlite3_stmt *const op = QUERY(db,
 				"INSERT INTO results\n"
 				"	(file_id, sort, depth)\n"
-				"SELECT f.file_id, MIN(l.meta_file_id), ?\n"
-				"FROM uris AS u\n"
-				"LEFT JOIN links AS l\n"
-				"	ON (u.uri_id = l.source_uri_id)\n"
-				"LEFT JOIN file_uris AS f\n"
-				"	ON (l.target_uri_id = f.uri_id)\n"
-				"WHERE u.uri = ?\n"
+				"SELECT f.file_id, MIN(md.meta_file_id), ?\n"
+				"FROM file_uris AS f\n"
+				"INNER JOIN meta_data AS md\n"
+				"	ON (f.uri_sid = md.value_sid)\n"
+				"INNER JOIN strings AS field\n"
+				"	ON (md.field_sid = field.sid)\n"
+				"INNER JOIN strings AS uri\n"
+				"	ON (md.uri_sid = uri.sid)\n"
+				"WHERE field.string = 'link' AND uri.string = ?\n"
 				"GROUP BY f.file_id");
 			sqlite3_bind_int64(op, 1, depth);
 			sqlite3_bind_text(op, 2, filter->data.string, -1, SQLITE_STATIC);
