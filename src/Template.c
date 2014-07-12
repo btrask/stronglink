@@ -90,40 +90,44 @@ void TemplateFree(TemplateRef *const tptr) {
 	FREE(&t->steps);
 	FREE(tptr); t = NULL;
 }
-err_t TemplateWrite(TemplateRef const t, strarg_t (*lookup)(void const *, strarg_t), void const *const lctx, err_t (*writev)(void *, uv_buf_t[], unsigned int, int64_t), void *wctx) {
+err_t TemplateWrite(TemplateRef const t, TemplateArgCBs const *const cbs, void const *const actx, TemplateWritev const writev, void *wctx) {
 	if(!t) return 0;
 	int64_t pos = 0;
 	for(index_t i = 0; i < t->count; ++i) {
 		TemplateStep const *const s = &t->steps[i];
 		strarg_t const sstr = s->str;
-		strarg_t astr = NULL;
+		str_t *astr = NULL;
 		size_t const slen = s->len;
 		ssize_t alen = 0;
 		if(s->var) {
-			astr = lookup(lctx, s->var);
+			astr = cbs->lookup(actx, s->var);
 			alen = astr ? strlen(astr) : 0;
 		}
 
-		if(0 == slen + alen) continue;
+		if(0 == slen + alen) {
+			if(s->var && cbs->free) cbs->free(actx, s->var, &astr);
+			continue;
+		}
 		uv_buf_t info[] = {
 			uv_buf_init((char *)sstr, slen),
 			uv_buf_init((char *)astr, alen),
 		};
 		int const err = writev(wctx, info, numberof(info), pos);
+		if(s->var && cbs->free) cbs->free(actx, s->var, &astr);
 		if(err < 0) return err;
 		pos += slen + alen;
 	}
 	return 0;
 }
-err_t TemplateWriteHTTPChunk(TemplateRef const t, strarg_t (*lookup)(void const *, strarg_t), void const *const lctx, HTTPMessageRef const msg) {
-	return TemplateWrite(t, lookup, lctx, (int (*)())HTTPMessageWriteChunkv, msg);
+err_t TemplateWriteHTTPChunk(TemplateRef const t, TemplateArgCBs const *const cbs, void const *const actx, HTTPMessageRef const msg) {
+	return TemplateWrite(t, cbs, actx, (TemplateWritev)HTTPMessageWriteChunkv, msg);
 }
-err_t TemplateWriteFile(TemplateRef const t, strarg_t (*lookup)(void const*, strarg_t), void const *const lctx, uv_file const file) {
+err_t TemplateWriteFile(TemplateRef const t, TemplateArgCBs const *const cbs, void const *const actx, uv_file const file) {
 	assertf(sizeof(void *) >= sizeof(file), "Can't cast uv_file (%d) to void * (%d)", sizeof(file), sizeof(void *));
-	return TemplateWrite(t, lookup, lctx, (int (*)())async_fs_write, (void *)file);
+	return TemplateWrite(t, cbs, actx, (TemplateWritev)async_fs_write, (void *)file);
 }
 
-strarg_t TemplateStaticLookup(void const *const ptr, strarg_t const var) {
+static str_t *TemplateStaticLookup(void const *const ptr, strarg_t const var) {
 	TemplateStaticArg const *args = ptr;
 	assertf(args, "TemplateStaticLookup args required");
 	while(args->var) {
@@ -132,6 +136,10 @@ strarg_t TemplateStaticLookup(void const *const ptr, strarg_t const var) {
 	}
 	return NULL;
 }
+TemplateArgCBs const TemplateStaticCBs = {
+	.lookup = TemplateStaticLookup,
+	.free = NULL,
+};
 
 str_t *htmlenc(strarg_t const str) {
 	if(!str) return NULL;

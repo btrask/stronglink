@@ -203,7 +203,7 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 		{"faviconURI", faviconURI_HTMLSafe},
 		{NULL, NULL},
 	};
-	err = err < 0 ? err : TemplateWriteFile(blog->preview, TemplateStaticLookup, args, file); // TODO: Dynamic lookup function.
+	err = err < 0 ? err : TemplateWriteFile(blog->preview, &TemplateStaticCBs, args, file); // TODO: Dynamic lookup function.
 
 	async_fs_close(file); file = -1;
 
@@ -236,17 +236,17 @@ static void sendPreview(BlogRef const blog, HTTPMessageRef const msg, EFSSession
 		{NULL, NULL},
 	};
 
-	TemplateWriteHTTPChunk(blog->entry_start, TemplateStaticLookup, args, msg);
+	TemplateWriteHTTPChunk(blog->entry_start, &TemplateStaticCBs, args, msg);
 
 	if(
 		HTTPMessageWriteChunkFile(msg, previewPath) < 0 &&
 		(genPreview(blog, session, URI, previewPath) < 0 ||
 		HTTPMessageWriteChunkFile(msg, previewPath) < 0)
 	) {
-		TemplateWriteHTTPChunk(blog->empty, TemplateStaticLookup, args, msg);
+		TemplateWriteHTTPChunk(blog->empty, &TemplateStaticCBs, args, msg);
 	}
 
-	TemplateWriteHTTPChunk(blog->entry_end, TemplateStaticLookup, args, msg);
+	TemplateWriteHTTPChunk(blog->entry_end, &TemplateStaticCBs, args, msg);
 
 	FREE(&URI_HTMLSafe);
 	FREE(&URIEncoded_HTMLSafe);
