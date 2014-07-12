@@ -180,10 +180,10 @@ static err_t import(EFSPullRef const pull, HTTPConnectionRef const conn, strarg_
 
 	if(0 == err) {
 		EFSImportHeaders const *const headers = HTTPMessageGetHeaders(msg, EFSImportFields, numberof(EFSImportFields));
-		EFSSubmissionRef submission = EFSRepoCreateSubmission(repo, headers->content_type);
-		err = err < 0 ? err : EFSSubmissionWriteFrom(submission, (ssize_t (*)())HTTPMessageGetBuffer, msg);
-		err = err < 0 ? err : EFSSessionAddSubmission(session, submission);
-		EFSSubmissionFree(&submission);
+		EFSSubmissionRef sub = EFSSubmissionCreate(session, headers->content_type);
+		err = err < 0 ? err : EFSSubmissionWriteFrom(sub, (ssize_t (*)())HTTPMessageGetBuffer, msg);
+		err = err < 0 ? err : EFSSubmissionStore(sub);
+		EFSSubmissionFree(&sub);
 	}
 
 	HTTPMessageDrain(msg);

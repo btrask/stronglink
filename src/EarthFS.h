@@ -42,13 +42,13 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 EFSFileInfo *EFSSessionCopyFileInfo(EFSSessionRef const session, strarg_t const URI);
 void EFSFileInfoFree(EFSFileInfo **const infoptr);
 
-EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const type);
+EFSSubmissionRef EFSSubmissionCreate(EFSSessionRef const session, strarg_t const type);
 void EFSSubmissionFree(EFSSubmissionRef *const subptr);
 err_t EFSSubmissionWrite(EFSSubmissionRef const sub, byte_t const *const buf, size_t const len);
 err_t EFSSubmissionEnd(EFSSubmissionRef const sub);
 err_t EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context);
 strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub);
-err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef const submission);
+err_t EFSSubmissionStore(EFSSubmissionRef const submission);
 
 EFSHasherRef EFSHasherCreate(strarg_t const type);
 void EFSHasherFree(EFSHasherRef *const hasherptr);

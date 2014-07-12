@@ -341,11 +341,11 @@ static bool_t postSubmission(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	} else {
 		type = fheaders->content_type;
 	}
-	EFSSubmissionRef sub = EFSRepoCreateSubmission(blog->repo, type);
+	EFSSubmissionRef sub = EFSSubmissionCreate(session, type);
 	if(
 		!sub ||
 		EFSSubmissionWriteFrom(sub, (ssize_t (*)())FormPartGetBuffer, part) < 0 ||
-		EFSSessionAddSubmission(session, sub) < 0
+		EFSSubmissionStore(sub) < 0
 	) {
 		fprintf(stderr, "Blog submission error\n");
 		HTTPMessageSendStatus(msg, 500);
@@ -356,7 +356,7 @@ static bool_t postSubmission(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	}
 
 
-	EFSSubmissionRef meta = EFSRepoCreateSubmission(blog->repo, "text/efs-meta+json; charset=utf-8");
+	EFSSubmissionRef meta = EFSSubmissionCreate(session, "text/efs-meta+json; charset=utf-8");
 
 	yajl_gen const json = yajl_gen_alloc(NULL);
 	yajl_gen_config(json, yajl_gen_print_callback, (void (*)())EFSSubmissionWrite, meta);
@@ -379,7 +379,7 @@ static bool_t postSubmission(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	if(
 		!meta ||
 		EFSSubmissionEnd(meta) < 0 ||
-		EFSSessionAddSubmission(session, meta) < 0
+		EFSSubmissionStore(meta) < 0
 	) {
 		HTTPMessageSendStatus(msg, 500);
 		EFSSubmissionFree(&meta);

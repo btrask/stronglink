@@ -125,11 +125,11 @@ static bool_t postFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMeth
 		context = msg;
 	}
 
-	EFSSubmissionRef sub = EFSRepoCreateSubmission(repo, type);
+	EFSSubmissionRef sub = EFSSubmissionCreate(session, type);
 	if(
 		!sub ||
 		EFSSubmissionWriteFrom(sub, read, context) < 0 ||
-		EFSSessionAddSubmission(session, sub) < 0
+		EFSSubmissionStore(sub) < 0
 	) {
 		fprintf(stderr, "Submission error for file type %s\n", type);
 		HTTPMessageSendStatus(msg, 500);

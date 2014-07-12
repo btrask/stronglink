@@ -4,7 +4,7 @@
 #include "EarthFS.h"
 
 struct EFSSubmission {
-	EFSRepoRef repo;
+	EFSSessionRef session;
 	str_t *type;
 
 	str_t *tmppath;
@@ -17,16 +17,17 @@ struct EFSSubmission {
 	str_t *internalHash;
 };
 
-EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const type) {
-	if(!repo) return NULL;
+EFSSubmissionRef EFSSubmissionCreate(EFSSessionRef const session, strarg_t const type) {
+	if(!session) return NULL;
 	assertf(type, "Submission requires type");
+	// TODO: Check session permissions?
 
 	EFSSubmissionRef sub = calloc(1, sizeof(struct EFSSubmission));
 	if(!sub) return NULL;
-	sub->repo = repo;
+	sub->session = session;
 	sub->type = strdup(type);
 
-	sub->tmppath = EFSRepoCopyTempPath(repo);
+	sub->tmppath = EFSRepoCopyTempPath(EFSSessionGetRepo(session));
 	if(async_fs_mkdirp_dirname(sub->tmppath, 0700) < 0) {
 		fprintf(stderr, "Error: couldn't create temp dir %s\n", sub->tmppath);
 		EFSSubmissionFree(&sub);
@@ -48,7 +49,7 @@ EFSSubmissionRef EFSRepoCreateSubmission(EFSRepoRef const repo, strarg_t const t
 void EFSSubmissionFree(EFSSubmissionRef *const subptr) {
 	EFSSubmissionRef sub = *subptr;
 	if(!sub) return;
-	sub->repo = NULL;
+	sub->session = NULL;
 	FREE(&sub->type);
 	if(sub->tmppath) async_fs_unlink(sub->tmppath);
 	FREE(&sub->tmppath);
@@ -106,14 +107,11 @@ strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub) {
 	return URIListGetURI(sub->URIs, 0);
 }
 
-err_t EFSSessionAddSubmission(EFSSessionRef const session, EFSSubmissionRef const sub) {
-	if(!session) return 0;
+err_t EFSSubmissionStore(EFSSubmissionRef const sub) {
 	if(!sub) return -1;
 	if(!sub->tmppath) return -1;
-
-	// TODO: Check session mode
-	// TODO: Make sure session repo and submission repo match
-	EFSRepoRef const repo = sub->repo;
+	EFSSessionRef const session = sub->session;
+	EFSRepoRef const repo = EFSSessionGetRepo(session);
 
 	str_t *internalPath = EFSRepoCopyInternalPath(repo, sub->internalHash);
 	if(async_fs_mkdirp_dirname(internalPath, 0700) < 0) {
