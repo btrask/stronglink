@@ -117,93 +117,50 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 	if(err < 0) return -1;
 	return 0;
 }
+typedef struct {
+	BlogRef blog;
+	strarg_t fileURI;
+} md_state;
+static str_t *md_lookup(md_state const *const state, strarg_t const var) {
+	sqlite3 *db = EFSRepoDBConnect(state->blog->repo);
+	sqlite3_stmt *select = QUERY(db,
+		"SELECT value.string\n"
+		"FROM strings AS value\n"
+		"INNER JOIN meta_data AS md ON (value.sid = md.value_sid)\n"
+		"INNER JOIN strings AS field ON (md.field_sid = field.sid)\n"
+		"WHERE field.string = ? LIMIT 1");
+	sqlite3_bind_text(select, 1, var, -1, SQLITE_STATIC);
+	str_t *result = NULL;
+	if(SQLITE_ROW == sqlite3_step(select)) {
+		result = htmlenc((strarg_t)sqlite3_column_text(select, 1));
+	} else {
+		result = strdup(""); // TODO: Handle empty values intelligently, possibly in the template system itself.
+	}
+	sqlite3_finalize(select); select = NULL;
+	EFSRepoDBClose(state->blog->repo, &db);
+	return result;
+}
+static void md_free(md_state const *const state, strarg_t const var, str_t **const val) {
+	FREE(val);
+}
+static TemplateArgCBs const md_cbs = {
+	.lookup = (str_t *(*)())md_lookup,
+	.free = (void (*)())md_free,
+};
 static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {
 	if(genMarkdownPreview(blog, session, URI, previewPath) >= 0) return 0;
 
 	if(async_fs_mkdirp_dirname(previewPath, 0700) < 0) return -1;
-
-	EFSFilterRef const backlinks = EFSFilterCreate(EFSBacklinkFilesFilter);
-	EFSFilterAddStringArg(backlinks, URI, -1);
-	EFSFilterRef const metafiles = EFSFilterCreate(EFSFileTypeFilter);
-	EFSFilterAddStringArg(metafiles, "text/efs-meta+json; charset=utf-8", -1);
-	EFSFilterRef filter = EFSFilterCreate(EFSIntersectionFilter);
-	EFSFilterAddFilterArg(filter, backlinks);
-	EFSFilterAddFilterArg(filter, metafiles);
-
-	URIListRef metaURIs = EFSSessionCreateFilteredURIList(session, filter, 10);
-	count_t const metaURIsCount = URIListGetCount(metaURIs);
-
-	str_t *URI_HTMLSafe = htmlenc(URI);
-	str_t *URIEncoded_HTMLSafe = htmlenc(URI); // TODO
-	str_t *title_HTMLSafe = NULL;
-	str_t *sourceURI_HTMLSafe = NULL;
-	str_t *description_HTMLSafe = NULL;
-	str_t *thumbnailURI_HTMLSafe = NULL;
-	str_t *faviconURI_HTMLSafe = NULL;
-
-	for(index_t i = 0; i < metaURIsCount; ++i) {
-		// TODO: Streaming.
-
-		strarg_t const metaURI = URIListGetURI(metaURIs, 0);
-		EFSFileInfo *metaInfo = EFSSessionCopyFileInfo(session, metaURI);
-		if(!metaInfo) continue;
-		uv_file file = async_fs_open(metaInfo->path, O_RDONLY, 0000);
-		EFSFileInfoFree(&metaInfo);
-		if(file < 0) continue;
-
-		str_t *str = malloc(BUFFER_SIZE + 1);
-		uv_buf_t bufInfo = uv_buf_init(str, BUFFER_SIZE);
-		ssize_t const len = async_fs_read(file, &bufInfo, 1, 0);
-
-		async_fs_close(file); file = -1;
-
-		if(len < 0) {
-			FREE(&str);
-			continue;
-		}
-
-		str[len] = '\0';
-		str_t err[200];
-		yajl_val obj = yajl_tree_parse(str, err, sizeof(err));
-		if(!emptystr(err)) fprintf(stderr, "parse error %s:\n%s\n", metaURI, err);
-
-		FREE(&str);
-
-		strarg_t yajl_title[] = { "title", NULL };
-		if(!title_HTMLSafe) title_HTMLSafe = htmlenc(YAJL_GET_STRING(yajl_tree_get(obj, yajl_title, yajl_t_string)));
-		strarg_t yajl_sourceURI[] = { "sourceURI", NULL };
-		if(!sourceURI_HTMLSafe) sourceURI_HTMLSafe = htmlenc(YAJL_GET_STRING(yajl_tree_get(obj, yajl_sourceURI, yajl_t_string)));
-		strarg_t yajl_description[] = { "description", NULL };
-		if(!description_HTMLSafe) description_HTMLSafe = htmlenc(YAJL_GET_STRING(yajl_tree_get(obj, yajl_description, yajl_t_string)));
-
-		yajl_tree_free(obj); obj = NULL;
-
-//		break;
-	}
-
 	str_t *tmpPath = EFSRepoCopyTempPath(blog->repo);
 	async_fs_mkdirp_dirname(tmpPath, 0700);
-
 	uv_file file = async_fs_open(tmpPath, O_CREAT | O_EXCL | O_WRONLY, 0400);
 	err_t err = file;
 
-	if(emptystr(title_HTMLSafe)) FREE(&title_HTMLSafe);
-	if(emptystr(description_HTMLSafe)) FREE(&description_HTMLSafe);
-	if(emptystr(sourceURI_HTMLSafe)) FREE(&sourceURI_HTMLSafe);
-	if(emptystr(thumbnailURI_HTMLSafe)) FREE(&thumbnailURI_HTMLSafe);
-	if(emptystr(faviconURI_HTMLSafe)) FREE(&faviconURI_HTMLSafe);
-
-	TemplateStaticArg const args[] = {
-		{"URI", URI_HTMLSafe},
-		{"URIEncoded", URIEncoded_HTMLSafe},
-		{"title", title_HTMLSafe ?: "(no title)"},
-		{"description", description_HTMLSafe ?: "(no description)"},
-		{"sourceURI", sourceURI_HTMLSafe},
-		{"thumbnailURI", thumbnailURI_HTMLSafe ?: "/file.png"},
-		{"faviconURI", faviconURI_HTMLSafe},
-		{NULL, NULL},
+	md_state const state = {
+		.blog = blog,
+		.fileURI = URI,
 	};
-	err = err < 0 ? err : TemplateWriteFile(blog->preview, &TemplateStaticCBs, args, file); // TODO: Dynamic lookup function.
+	err = err < 0 ? err : TemplateWriteFile(blog->preview, &md_cbs, &state, file); // TODO: Dynamic lookup function.
 
 	async_fs_close(file); file = -1;
 
@@ -212,17 +169,6 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 	async_fs_unlink(tmpPath);
 
 	FREE(&tmpPath);
-
-	FREE(&URI_HTMLSafe);
-	FREE(&URIEncoded_HTMLSafe);
-	FREE(&title_HTMLSafe);
-	FREE(&description_HTMLSafe);
-	FREE(&sourceURI_HTMLSafe);
-	FREE(&thumbnailURI_HTMLSafe);
-	FREE(&faviconURI_HTMLSafe);
-
-	URIListFree(&metaURIs);
-	EFSFilterFree(&filter);
 
 	if(err < 0) return -1;
 	return 0;
