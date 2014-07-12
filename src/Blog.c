@@ -193,16 +193,17 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 	if(emptystr(thumbnailURI_HTMLSafe)) FREE(&thumbnailURI_HTMLSafe);
 	if(emptystr(faviconURI_HTMLSafe)) FREE(&faviconURI_HTMLSafe);
 
-	TemplateArg const args[] = {
-		{"URI", URI_HTMLSafe, -1},
-		{"URIEncoded", URIEncoded_HTMLSafe, -1},
-		{"title", title_HTMLSafe ?: "(no title)", -1},
-		{"description", description_HTMLSafe ?: "(no description)", -1},
-		{"sourceURI", sourceURI_HTMLSafe, -1},
-		{"thumbnailURI", thumbnailURI_HTMLSafe ?: "/file.png", -1},
-		{"faviconURI", faviconURI_HTMLSafe, -1},
+	TemplateStaticArg const args[] = {
+		{"URI", URI_HTMLSafe},
+		{"URIEncoded", URIEncoded_HTMLSafe},
+		{"title", title_HTMLSafe ?: "(no title)"},
+		{"description", description_HTMLSafe ?: "(no description)"},
+		{"sourceURI", sourceURI_HTMLSafe},
+		{"thumbnailURI", thumbnailURI_HTMLSafe ?: "/file.png"},
+		{"faviconURI", faviconURI_HTMLSafe},
+		{NULL, NULL},
 	};
-	err = err < 0 ? err : TemplateWriteFile(blog->preview, args, numberof(args), file);
+	err = err < 0 ? err : TemplateWriteFile(blog->preview, TemplateStaticLookup, args, file); // TODO: Dynamic lookup function.
 
 	async_fs_close(file); file = -1;
 
@@ -229,22 +230,23 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 static void sendPreview(BlogRef const blog, HTTPMessageRef const msg, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {
 	str_t *URI_HTMLSafe = htmlenc(URI);
 	str_t *URIEncoded_HTMLSafe = htmlenc(URI); // TODO: URI enc
-	TemplateArg const args[] = {
-		{"URI", URI_HTMLSafe, -1},
-		{"URIEncoded", URIEncoded_HTMLSafe, -1},
+	TemplateStaticArg const args[] = {
+		{"URI", URI_HTMLSafe},
+		{"URIEncoded", URIEncoded_HTMLSafe},
+		{NULL, NULL},
 	};
 
-	TemplateWriteHTTPChunk(blog->entry_start, args, numberof(args), msg);
+	TemplateWriteHTTPChunk(blog->entry_start, TemplateStaticLookup, args, msg);
 
 	if(
 		HTTPMessageWriteChunkFile(msg, previewPath) < 0 &&
 		(genPreview(blog, session, URI, previewPath) < 0 ||
 		HTTPMessageWriteChunkFile(msg, previewPath) < 0)
 	) {
-		TemplateWriteHTTPChunk(blog->empty, args, numberof(args), msg);
+		TemplateWriteHTTPChunk(blog->empty, TemplateStaticLookup, args, msg);
 	}
 
-	TemplateWriteHTTPChunk(blog->entry_end, args, numberof(args), msg);
+	TemplateWriteHTTPChunk(blog->entry_end, TemplateStaticLookup, args, msg);
 
 	FREE(&URI_HTMLSafe);
 	FREE(&URIEncoded_HTMLSafe);
@@ -273,7 +275,7 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	HTTPMessageBeginBody(msg);
 
 	// TODO: Template args like repo name.
-	TemplateWriteHTTPChunk(blog->header, NULL, 0, msg);
+	TemplateWriteHTTPChunk(blog->header, NULL, NULL, msg);
 
 	for(index_t i = 0; i < URIListGetCount(URIs); ++i) {
 		strarg_t const URI = URIListGetURI(URIs, i);
@@ -286,7 +288,7 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 		FREE(&previewPath);
 	}
 
-	TemplateWriteHTTPChunk(blog->footer, NULL, 0, msg);
+	TemplateWriteHTTPChunk(blog->footer, NULL, NULL, msg);
 
 	HTTPMessageWriteChunkLength(msg, 0);
 	HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
@@ -311,7 +313,7 @@ static bool_t getCompose(BlogRef const blog, HTTPMessageRef const msg, HTTPMetho
 	HTTPMessageWriteHeader(msg, "Content-Type", "text/html; charset=utf-8");
 	HTTPMessageWriteHeader(msg, "Transfer-Encoding", "chunked");
 	HTTPMessageBeginBody(msg);
-	TemplateWriteHTTPChunk(blog->compose, NULL, 0, msg);
+	TemplateWriteHTTPChunk(blog->compose, NULL, NULL, msg);
 	HTTPMessageWriteChunkLength(msg, 0);
 	HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
 	HTTPMessageEnd(msg);

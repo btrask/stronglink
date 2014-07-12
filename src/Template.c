@@ -90,7 +90,7 @@ void TemplateFree(TemplateRef *const tptr) {
 	FREE(&t->steps);
 	FREE(tptr); t = NULL;
 }
-err_t TemplateWrite(TemplateRef const t, TemplateArg const args[], count_t const argc, err_t (*writev)(void *, uv_buf_t[], unsigned int, int64_t), void *ctx) {
+err_t TemplateWrite(TemplateRef const t, strarg_t (*lookup)(void const *, strarg_t), void const *const lctx, err_t (*writev)(void *, uv_buf_t[], unsigned int, int64_t), void *wctx) {
 	if(!t) return 0;
 	int64_t pos = 0;
 	for(index_t i = 0; i < t->count; ++i) {
@@ -100,18 +100,8 @@ err_t TemplateWrite(TemplateRef const t, TemplateArg const args[], count_t const
 		size_t const slen = s->len;
 		ssize_t alen = 0;
 		if(s->var) {
-			index_t j = 0;
-			// TODO: Is binary search even worth it?
-			for(; j < argc; ++j) {
-				if(0 == strcmp(s->var, args[j].var)) break;
-			}
-			if(j >= argc) {
-				fprintf(stderr, "Unrecognized argument %s\n", s->var);
-				return -1;
-			}
-			astr = args[j].str;
-			alen = args[j].len;
-			if(alen < 0) alen = astr ? strlen(astr) : 0;
+			astr = lookup(lctx, s->var);
+			alen = astr ? strlen(astr) : 0;
 		}
 
 		if(0 == slen + alen) continue;
@@ -119,18 +109,28 @@ err_t TemplateWrite(TemplateRef const t, TemplateArg const args[], count_t const
 			uv_buf_init((char *)sstr, slen),
 			uv_buf_init((char *)astr, alen),
 		};
-		int const err = writev(ctx, info, numberof(info), pos);
+		int const err = writev(wctx, info, numberof(info), pos);
 		if(err < 0) return err;
 		pos += slen + alen;
 	}
 	return 0;
 }
-err_t TemplateWriteHTTPChunk(TemplateRef const t, TemplateArg const args[], count_t const argc, HTTPMessageRef const msg) {
-	return TemplateWrite(t, args, argc, (int (*)())HTTPMessageWriteChunkv, msg);
+err_t TemplateWriteHTTPChunk(TemplateRef const t, strarg_t (*lookup)(void const *, strarg_t), void const *const lctx, HTTPMessageRef const msg) {
+	return TemplateWrite(t, lookup, lctx, (int (*)())HTTPMessageWriteChunkv, msg);
 }
-err_t TemplateWriteFile(TemplateRef const t, TemplateArg const args[], count_t const argc, uv_file const file) {
+err_t TemplateWriteFile(TemplateRef const t, strarg_t (*lookup)(void const*, strarg_t), void const *const lctx, uv_file const file) {
 	assertf(sizeof(void *) >= sizeof(file), "Can't cast uv_file (%d) to void * (%d)", sizeof(file), sizeof(void *));
-	return TemplateWrite(t, args, argc, (int (*)())async_fs_write, (void *)file);
+	return TemplateWrite(t, lookup, lctx, (int (*)())async_fs_write, (void *)file);
+}
+
+strarg_t TemplateStaticLookup(void const *const ptr, strarg_t const var) {
+	TemplateStaticArg const *args = ptr;
+	assertf(args, "TemplateStaticLookup args required");
+	while(args->var) {
+		if(0 == strcmp(args->var, var)) return args->val;
+		args++;
+	}
+	return NULL;
 }
 
 str_t *htmlenc(strarg_t const str) {
