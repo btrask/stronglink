@@ -207,7 +207,7 @@ EFSSubmissionRef EFSSubmissionCreateAndAdd(EFSSessionRef const session, strarg_t
 	if(err < 0) EFSSubmissionFree(&sub);
 	return sub;
 }
-EFSSubmissionRef EFSSubmissionCreateAndAddPair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context) {
+EFSSubmissionRef EFSSubmissionCreateAndAddPair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title) {
 	EFSSubmissionRef sub = EFSSubmissionCreate(session, type);
 	EFSSubmissionRef meta = EFSSubmissionCreate(session, "text/efs-meta+json; charset=utf-8");
 	if(
@@ -229,6 +229,14 @@ EFSSubmissionRef EFSSubmissionCreateAndAddPair(EFSSessionRef const session, stra
 	strarg_t const metaURI = EFSSubmissionGetPrimaryURI(sub);
 	yajl_gen_string(json, (byte_t const *)"metaURI", strlen("metaURI"));
 	yajl_gen_string(json, (byte_t const *)metaURI, strlen(metaURI));
+
+	if(title) {
+		yajl_gen_string(json, (byte_t const *)"title", strlen("title"));
+//		yajl_gen_array_open(json);
+		yajl_gen_string(json, (byte_t const *)title, strlen(title));
+//		yajl_gen_array_close(json);
+	}
+	// TODO: We should also try to extract a title from the content. Write them together in an array. All of our fields should support multiple values.
 
 	yajl_gen_string(json, (byte_t const *)"links", strlen("links"));
 	yajl_gen_array_open(json);

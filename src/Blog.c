@@ -342,7 +342,9 @@ static bool_t postSubmission(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 		type = fheaders->content_type;
 	}
 
-	if(EFSSubmissionCreateAndAddPair(session, type, (ssize_t (*)())FormPartGetBuffer, part)) {
+	strarg_t title = NULL; // TODO: Get file name from form part.
+
+	if(EFSSubmissionCreateAndAddPair(session, type, (ssize_t (*)())FormPartGetBuffer, part, title)) {
 		HTTPMessageWriteResponse(msg, 303, "See Other");
 		HTTPMessageWriteHeader(msg, "Location", "/");
 		HTTPMessageBeginBody(msg);
