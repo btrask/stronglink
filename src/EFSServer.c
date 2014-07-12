@@ -116,11 +116,7 @@ static bool_t postFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMeth
 			return true;
 		}
 		EFSFormHeaders const *const formHeaders = FormPartGetHeaders(part);
-		if(0 == strcmp("form-data; name=\"markdown\"", formHeaders->content_disposition)) {
-			type = "text/markdown; charset=utf-8";
-		} else {
-			type = formHeaders->content_type;
-		}
+		type = formHeaders->content_type;
 		read = FormPartGetBuffer;
 		context = part;
 	} else {
@@ -143,10 +139,8 @@ static bool_t postFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMeth
 		return true;
 	}
 
-	HTTPMessageWriteResponse(msg, 201, "Created"); // TODO: Is this right?
-	// TODO: Some of our API clients follow redirects automatically, so it's a bad idea to do it here, but our blog submission form needs a redirect.
-//	HTTPMessageWriteHeader(msg, "Location", "/");
-	HTTPMessageWriteHeader(msg, "X-Location", EFSSubmissionGetPrimaryURI(sub));
+	HTTPMessageWriteResponse(msg, 201, "Created");
+	HTTPMessageWriteHeader(msg, "X-Location", EFSSubmissionGetPrimaryURI(sub)); // TODO: X-Content-Address or something? Or X-Name?
 	HTTPMessageWriteContentLength(msg, 0);
 	HTTPMessageBeginBody(msg);
 	HTTPMessageEnd(msg);

@@ -1,11 +1,13 @@
 #define _GNU_SOURCE
 #include <yajl/yajl_tree.h>
+#include <yajl/yajl_gen.h>
 #include <limits.h>
 #include "common.h"
 #include "async.h"
 #include "EarthFS.h"
 #include "Template.h"
 #include "http/HTTPServer.h"
+#include "http/MultipartForm.h"
 #include "http/QueryString.h"
 
 #define RESULTS_MAX 50
@@ -13,9 +15,19 @@
 
 typedef struct {
 	strarg_t cookie;
+	strarg_t content_type;
 } BlogHTTPHeaders;
 static HeaderField const BlogHTTPFields[] = {
 	{"cookie", 100},
+	{"content-type", 100},
+};
+typedef struct {
+	strarg_t content_type;
+	strarg_t content_disposition;
+} BlogSubmissionHeaders;
+static HeaderField const BlogSubmissionFields[] = {
+	{"content-type", 100},
+	{"content-disposition", 100},
 };
 
 typedef struct Blog* BlogRef;
@@ -251,9 +263,8 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	}
 
 	// TODO: Parse querystring `q` parameter
-	EFSFilterRef filter = EFSFilterCreate(EFSNoFilter); // EFSBacklinkFilesFilter
-//	EFSFilterAddStringArg(filter, "efs://user", -1);
-	// TODO: Once we're done testing, start filtering by visibility again.
+	EFSFilterRef filter = EFSFilterCreate(EFSBacklinkFilesFilter);
+	EFSFilterAddStringArg(filter, "efs://user", -1);
 
 	URIListRef URIs = EFSSessionCreateFilteredURIList(session, filter, RESULTS_MAX); // TODO: We should be able to specify a specific algorithm here.
 
@@ -311,7 +322,7 @@ static bool_t getCompose(BlogRef const blog, HTTPMessageRef const msg, HTTPMetho
 }
 static bool_t postSubmission(BlogRef const blog, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_POST != method) return false;
-	if(!URIPath(URI, "/submit", NULL)) return false;
+	if(!URIPath(URI, "/submission", NULL)) return false;
 
 	BlogHTTPHeaders const *const headers = HTTPMessageGetHeaders(msg, BlogHTTPFields, numberof(BlogHTTPFields));
 	EFSSessionRef session = EFSRepoCreateSession(blog->repo, headers->cookie);
@@ -320,7 +331,69 @@ static bool_t postSubmission(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 		return true;
 	}
 
-	HTTPMessageSendStatus(msg, 400); // TODO
+	MultipartFormRef form = MultipartFormCreate(msg, headers->content_type, BlogSubmissionFields, numberof(BlogSubmissionFields));
+	FormPartRef const part = MultipartFormGetPart(form);
+	BlogSubmissionHeaders const *const fheaders = FormPartGetHeaders(part);
+
+	strarg_t type;
+	if(0 == strcmp("form-data; name=\"markdown\"", fheaders->content_disposition)) {
+		type = "text/markdown; charset=utf-8";
+	} else {
+		type = fheaders->content_type;
+	}
+	EFSSubmissionRef sub = EFSRepoCreateSubmission(blog->repo, type);
+	if(
+		!sub ||
+		EFSSubmissionWriteFrom(sub, (ssize_t (*)())FormPartGetBuffer, part) < 0 ||
+		EFSSessionAddSubmission(session, sub) < 0
+	) {
+		fprintf(stderr, "Blog submission error\n");
+		HTTPMessageSendStatus(msg, 500);
+		EFSSubmissionFree(&sub);
+		MultipartFormFree(&form);
+		EFSSessionFree(&session);
+		return true;
+	}
+
+
+	EFSSubmissionRef meta = EFSRepoCreateSubmission(blog->repo, "text/efs-meta+json; charset=utf-8");
+
+	yajl_gen const json = yajl_gen_alloc(NULL);
+	yajl_gen_config(json, yajl_gen_print_callback, (void (*)())EFSSubmissionWrite, meta);
+	yajl_gen_config(json, yajl_gen_beautify, (int)true);
+
+	yajl_gen_map_open(json);
+
+	strarg_t const metaURI = EFSSubmissionGetPrimaryURI(sub);
+	yajl_gen_string(json, (byte_t const *)"metaURI", strlen("metaURI"));
+	yajl_gen_string(json, (byte_t const *)metaURI, strlen(metaURI));
+
+	yajl_gen_string(json, (byte_t const *)"links", strlen("links"));
+	yajl_gen_array_open(json);
+	yajl_gen_string(json, (byte_t const *)"efs://user", strlen("efs://user"));
+	yajl_gen_array_close(json);
+	// TODO: Full text indexing, determine links, etc.
+
+	yajl_gen_map_close(json);
+
+	if(
+		!meta ||
+		EFSSubmissionEnd(meta) < 0 ||
+		EFSSessionAddSubmission(session, meta) < 0
+	) {
+		HTTPMessageSendStatus(msg, 500);
+		EFSSubmissionFree(&meta);
+		EFSSessionFree(&session);
+		return true;
+	}
+
+	HTTPMessageWriteResponse(msg, 303, "See Other");
+	HTTPMessageWriteHeader(msg, "Location", "/");
+	HTTPMessageBeginBody(msg);
+	HTTPMessageEnd(msg);
+
+	EFSSubmissionFree(&meta);
+	EFSSessionFree(&session);
 	return true;
 }
 
@@ -373,6 +446,7 @@ void BlogFree(BlogRef *const blogptr) {
 bool_t BlogDispatch(BlogRef const blog, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
 	if(getResultsPage(blog, msg, method, URI)) return true;
 	if(getCompose(blog, msg, method, URI)) return true;
+	if(postSubmission(blog, msg, method, URI)) return true;
 
 	if(HTTP_GET != method && HTTP_HEAD != method) return false;
 
