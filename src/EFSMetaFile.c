@@ -201,7 +201,7 @@ static int yajl_end_map(parse_state *const state) {
 static int yajl_start_array(parse_state *const state) {
 	switch(state->state) {
 		case s_field_value: state->state = s_field_array; break;
-		default: assertf(0, "zomg"); return false;
+		default: return false;
 	}
 	return true;
 }
