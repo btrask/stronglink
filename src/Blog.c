@@ -309,6 +309,20 @@ static bool_t getCompose(BlogRef const blog, HTTPMessageRef const msg, HTTPMetho
 	EFSSessionFree(&session);
 	return true;
 }
+static bool_t postSubmission(BlogRef const blog, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
+	if(HTTP_POST != method) return false;
+	if(!URIPath(URI, "/submit", NULL)) return false;
+
+	BlogHTTPHeaders const *const headers = HTTPMessageGetHeaders(msg, BlogHTTPFields, numberof(BlogHTTPFields));
+	EFSSessionRef session = EFSRepoCreateSession(blog->repo, headers->cookie);
+	if(!session) {
+		HTTPMessageSendStatus(msg, 403);
+		return true;
+	}
+
+	HTTPMessageSendStatus(msg, 400); // TODO
+	return true;
+}
 
 
 BlogRef BlogCreate(EFSRepoRef const repo) {
