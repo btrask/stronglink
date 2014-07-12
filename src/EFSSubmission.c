@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <fcntl.h>
+#include <yajl/yajl_gen.h>
 #include "async.h"
 #include "EarthFS.h"
 
@@ -110,6 +111,7 @@ strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub) {
 err_t EFSSubmissionStore(EFSSubmissionRef const sub) {
 	if(!sub) return -1;
 	if(!sub->tmppath) return -1;
+	if(!sub->size) return -1;
 	EFSSessionRef const session = sub->session;
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 
@@ -194,5 +196,57 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub) {
 	EFSRepoDBClose(repo, db);
 
 	return 0;
+}
+
+EFSSubmissionRef EFSSubmissionCreateAndAdd(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context) {
+	EFSSubmissionRef sub = EFSSubmissionCreate(session, type);
+	if(!sub) return NULL;
+	err_t err = 0;
+	err = err < 0 ? err : EFSSubmissionWriteFrom(sub, read, context);
+	err = err < 0 ? err : EFSSubmissionStore(sub);
+	if(err < 0) EFSSubmissionFree(&sub);
+	return sub;
+}
+EFSSubmissionRef EFSSubmissionCreateAndAddPair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context) {
+	EFSSubmissionRef sub = EFSSubmissionCreate(session, type);
+	EFSSubmissionRef meta = EFSSubmissionCreate(session, "text/efs-meta+json; charset=utf-8");
+	if(
+		!sub || !meta ||
+		EFSSubmissionWriteFrom(sub, read, context) < 0 ||
+		EFSSubmissionStore(sub) < 0
+	) {
+		EFSSubmissionFree(&sub);
+		EFSSubmissionFree(&meta);
+		return NULL;
+	}
+
+	yajl_gen const json = yajl_gen_alloc(NULL);
+	yajl_gen_config(json, yajl_gen_print_callback, (void (*)())EFSSubmissionWrite, meta);
+	yajl_gen_config(json, yajl_gen_beautify, (int)true);
+
+	yajl_gen_map_open(json);
+
+	strarg_t const metaURI = EFSSubmissionGetPrimaryURI(sub);
+	yajl_gen_string(json, (byte_t const *)"metaURI", strlen("metaURI"));
+	yajl_gen_string(json, (byte_t const *)metaURI, strlen(metaURI));
+
+	yajl_gen_string(json, (byte_t const *)"links", strlen("links"));
+	yajl_gen_array_open(json);
+	yajl_gen_string(json, (byte_t const *)"efs://user", strlen("efs://user"));
+	yajl_gen_array_close(json);
+	// TODO: Full text indexing, determine links, etc.
+
+	yajl_gen_map_close(json);
+
+	if(
+		EFSSubmissionEnd(meta) < 0 ||
+		EFSSubmissionStore(meta) < 0
+	) {
+		EFSSubmissionFree(&sub);
+		EFSSubmissionFree(&meta);
+		return NULL;
+	}
+	EFSSubmissionFree(&meta);
+	return sub;
 }
 

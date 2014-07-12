@@ -49,6 +49,9 @@ err_t EFSSubmissionEnd(EFSSubmissionRef const sub);
 err_t EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context);
 strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub);
 err_t EFSSubmissionStore(EFSSubmissionRef const submission);
+// Convenience methods
+EFSSubmissionRef EFSSubmissionCreateAndAdd(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context);
+EFSSubmissionRef EFSSubmissionCreateAndAddPair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context); // Automatically adds a basic meta-file too.
 
 EFSHasherRef EFSHasherCreate(strarg_t const type);
 void EFSHasherFree(EFSHasherRef *const hasherptr);

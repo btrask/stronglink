@@ -1,6 +1,5 @@
 #define _GNU_SOURCE
 #include <yajl/yajl_tree.h>
-#include <yajl/yajl_gen.h>
 #include <limits.h>
 #include "common.h"
 #include "async.h"
@@ -331,6 +330,7 @@ static bool_t postSubmission(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 		return true;
 	}
 
+	// TODO: CSRF token
 	MultipartFormRef form = MultipartFormCreate(msg, headers->content_type, BlogSubmissionFields, numberof(BlogSubmissionFields));
 	FormPartRef const part = MultipartFormGetPart(form);
 	BlogSubmissionHeaders const *const fheaders = FormPartGetHeaders(part);
@@ -341,58 +341,18 @@ static bool_t postSubmission(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	} else {
 		type = fheaders->content_type;
 	}
-	EFSSubmissionRef sub = EFSSubmissionCreate(session, type);
-	if(
-		!sub ||
-		EFSSubmissionWriteFrom(sub, (ssize_t (*)())FormPartGetBuffer, part) < 0 ||
-		EFSSubmissionStore(sub) < 0
-	) {
+
+	if(EFSSubmissionCreateAndAddPair(session, type, (ssize_t (*)())FormPartGetBuffer, part)) {
+		HTTPMessageWriteResponse(msg, 303, "See Other");
+		HTTPMessageWriteHeader(msg, "Location", "/");
+		HTTPMessageBeginBody(msg);
+		HTTPMessageEnd(msg);
+	} else {
 		fprintf(stderr, "Blog submission error\n");
 		HTTPMessageSendStatus(msg, 500);
-		EFSSubmissionFree(&sub);
-		MultipartFormFree(&form);
-		EFSSessionFree(&session);
-		return true;
 	}
 
-
-	EFSSubmissionRef meta = EFSSubmissionCreate(session, "text/efs-meta+json; charset=utf-8");
-
-	yajl_gen const json = yajl_gen_alloc(NULL);
-	yajl_gen_config(json, yajl_gen_print_callback, (void (*)())EFSSubmissionWrite, meta);
-	yajl_gen_config(json, yajl_gen_beautify, (int)true);
-
-	yajl_gen_map_open(json);
-
-	strarg_t const metaURI = EFSSubmissionGetPrimaryURI(sub);
-	yajl_gen_string(json, (byte_t const *)"metaURI", strlen("metaURI"));
-	yajl_gen_string(json, (byte_t const *)metaURI, strlen(metaURI));
-
-	yajl_gen_string(json, (byte_t const *)"links", strlen("links"));
-	yajl_gen_array_open(json);
-	yajl_gen_string(json, (byte_t const *)"efs://user", strlen("efs://user"));
-	yajl_gen_array_close(json);
-	// TODO: Full text indexing, determine links, etc.
-
-	yajl_gen_map_close(json);
-
-	if(
-		!meta ||
-		EFSSubmissionEnd(meta) < 0 ||
-		EFSSubmissionStore(meta) < 0
-	) {
-		HTTPMessageSendStatus(msg, 500);
-		EFSSubmissionFree(&meta);
-		EFSSessionFree(&session);
-		return true;
-	}
-
-	HTTPMessageWriteResponse(msg, 303, "See Other");
-	HTTPMessageWriteHeader(msg, "Location", "/");
-	HTTPMessageBeginBody(msg);
-	HTTPMessageEnd(msg);
-
-	EFSSubmissionFree(&meta);
+	MultipartFormFree(&form);
 	EFSSessionFree(&session);
 	return true;
 }

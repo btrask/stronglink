@@ -91,10 +91,7 @@ static bool_t getFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMetho
 }
 static bool_t postFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_POST != method) return false;
-	size_t pathlen = prefix("/efs/file", URI);
-	if(!pathlen) return false;
-	if('/' == URI[pathlen]) ++pathlen;
-	if(!pathterm(URI, (size_t)pathlen)) return false;
+	if(!URIPath(URI, "/efs/file", NULL)) return false;
 
 	EFSHTTPHeaders const *const headers = HTTPMessageGetHeaders(msg, EFSHTTPFields, numberof(EFSHTTPFields));
 	EFSSessionRef session = EFSRepoCreateSession(repo, headers->cookie);
@@ -102,6 +99,8 @@ static bool_t postFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMeth
 		HTTPMessageSendStatus(msg, 403);
 		return true;
 	}
+
+	// TODO: CSRF token
 
 	strarg_t type;
 	ssize_t (*read)();
@@ -125,26 +124,18 @@ static bool_t postFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMeth
 		context = msg;
 	}
 
-	EFSSubmissionRef sub = EFSSubmissionCreate(session, type);
-	if(
-		!sub ||
-		EFSSubmissionWriteFrom(sub, read, context) < 0 ||
-		EFSSubmissionStore(sub) < 0
-	) {
+	EFSSubmissionRef sub = EFSSubmissionCreateAndAdd(session, type, read, context);
+	if(sub) {
+		HTTPMessageWriteResponse(msg, 201, "Created");
+		HTTPMessageWriteHeader(msg, "X-Location", EFSSubmissionGetPrimaryURI(sub)); // TODO: X-Content-Address or something? Or X-Name?
+		HTTPMessageWriteContentLength(msg, 0);
+		HTTPMessageBeginBody(msg);
+		HTTPMessageEnd(msg);
+//		fprintf(stderr, "POST %s -> %s\n", type, EFSSubmissionGetPrimaryURI(sub));
+	} else {
 		fprintf(stderr, "Submission error for file type %s\n", type);
 		HTTPMessageSendStatus(msg, 500);
-		EFSSubmissionFree(&sub);
-		MultipartFormFree(&form);
-		EFSSessionFree(&session);
-		return true;
 	}
-
-	HTTPMessageWriteResponse(msg, 201, "Created");
-	HTTPMessageWriteHeader(msg, "X-Location", EFSSubmissionGetPrimaryURI(sub)); // TODO: X-Content-Address or something? Or X-Name?
-	HTTPMessageWriteContentLength(msg, 0);
-	HTTPMessageBeginBody(msg);
-	HTTPMessageEnd(msg);
-//	fprintf(stderr, "POST %s -> %s\n", type, EFSSubmissionGetPrimaryURI(sub));
 
 	EFSSubmissionFree(&sub);
 	MultipartFormFree(&form);
