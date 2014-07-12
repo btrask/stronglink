@@ -113,7 +113,7 @@ void EFSFilterCreateTempTables(sqlite3 *const db) {
 		")"));
 	EXEC(QUERY(db,
 		"CREATE INDEX results_depth_index\n"
-		"ON results (depth ASC)"));
+		"ON results (depth)"));
 	EXEC(QUERY(db,
 		"CREATE TEMPORARY TABLE depths (\n"
 		"	depth_id INTEGER PRIMARY KEY NOT NULL,\n"
@@ -122,7 +122,7 @@ void EFSFilterCreateTempTables(sqlite3 *const db) {
 		")"));
 	EXEC(QUERY(db,
 		"CREATE INDEX depth_depths_index\n"
-		"ON depths (depth ASC)"));
+		"ON depths (depth)"));
 }
 void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const depth) {
 	if(!filter) return;
