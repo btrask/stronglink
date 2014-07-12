@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include "../deps/sqlite/sqlite3.h"
 #include "async.h"
@@ -116,16 +117,25 @@ static int async_sleep_sqlite(sqlite3_vfs *const vfs, int const microseconds) {
 	if(async_sleep(microseconds / 1000) < 0) return SQLITE_ERROR;
 	return microseconds;
 }
-static int async_currentTime(sqlite3_vfs *const vfs, double *const outTime) {
-/* TODO
-** This implementation is not very good. The current time is rounded to
-** an integer number of seconds. Also, assuming time_t is a signed 32-bit 
-** value, it will stop working some time in the year 2038 AD (the so-called
-** "year 2038" problem that afflicts systems that store time this way). 
-*/
-	time_t t = time(NULL);
-	*outTime = t/86400.0 + 2440587.5; 
-	return SQLITE_OK;
+static int async_currentTimeInt64(sqlite3_vfs *const vfs, sqlite3_int64 *const piNow) {
+	// From sqlite/os_unix.c
+	static const sqlite3_int64 unixEpoch = 24405875*(sqlite3_int64)8640000;
+	int rc = SQLITE_OK;
+	struct timeval sNow;
+	if( gettimeofday(&sNow, 0)==0 ){
+		*piNow = unixEpoch + 1000*(sqlite3_int64)sNow.tv_sec + sNow.tv_usec/1000;
+	}else{
+		rc = SQLITE_ERROR;
+	}
+	return rc;
+}
+static int async_currentTime(sqlite3_vfs *const vfs, double *const prNow) {
+	// From sqlite/os_unix.c
+	sqlite3_int64 i = 0;
+	int rc;
+	rc = async_currentTimeInt64(NULL, &i);
+	*prNow = i/86400000.0;
+	return rc;
 }
 static int async_getLastError(sqlite3_vfs *const vfs, int const size, char *const msg) {
 	sqlite3_snprintf(size, msg, "testing");
@@ -134,12 +144,14 @@ static int async_getLastError(sqlite3_vfs *const vfs, int const size, char *cons
 
 
 static sqlite3_vfs async_vfs = {
-	.iVersion = 1,            /* Structure version number (currently 3) */
+	.iVersion = 3,            /* Structure version number (currently 3) */
 	.szOsFile = sizeof(async_file),            /* Size of subclassed sqlite3_file */
 	.mxPathname = MAXPATHNAME,          /* Maximum file pathname length */
 	.pNext = NULL,      /* Next registered VFS */
 	.zName = "async_vfs",       /* Name of this virtual file system */
 	.pAppData = NULL,          /* Pointer to application-specific data */
+
+	// V1
 	.xOpen = (int (*)())async_open,
 	.xDelete = async_delete,
 	.xAccess = async_access,
@@ -152,23 +164,14 @@ static sqlite3_vfs async_vfs = {
 	.xSleep = async_sleep_sqlite,
 	.xCurrentTime = async_currentTime,
 	.xGetLastError = async_getLastError,
-	/*
-	** The methods above are in version 1 of the sqlite_vfs object
-	** definition.  Those that follow are added in version 2 or later
-	*/
-//	int (*xCurrentTimeInt64)(sqlite3_vfs*, sqlite3_int64*);
-	/*
-	** The methods above are in versions 1 and 2 of the sqlite_vfs object.
-	** Those below are for version 3 and greater.
-	*/
-//	int (*xSetSystemCall)(sqlite3_vfs*, const char *zName, sqlite3_syscall_ptr);
-//	sqlite3_syscall_ptr (*xGetSystemCall)(sqlite3_vfs*, const char *zName);
-//	const char *(*xNextSystemCall)(sqlite3_vfs*, const char *zName);
-	/*
-	** The methods above are in versions 1 through 3 of the sqlite_vfs object.
-	** New fields may be appended in figure versions.  The iVersion
-	** value will increment whenever this happens. 
-	*/
+
+	// V2
+	.xCurrentTimeInt64 = async_currentTimeInt64,
+
+	// V3
+	.xSetSystemCall = NULL,
+	.xGetSystemCall = NULL,
+	.xNextSystemCall = NULL,
 };
 
 static int async_close(async_file *const file) {
