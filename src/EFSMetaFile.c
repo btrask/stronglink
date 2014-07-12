@@ -154,7 +154,7 @@ static int yajl_string(parse_state *const state, strarg_t const str, size_t cons
 				"INNER JOIN strings AS s2\n"
 				"WHERE s1.string = ? AND s2.string = ? LIMIT 1");
 			sqlite3_bind_int64(insertMeta, 1, state->fileID);
-			sqlite3_bind_int64(insertMeta, 2, state->fileURISID);
+			sqlite3_bind_int64(insertMeta, 2, state->metaURISID);
 			sqlite3_bind_text(insertMeta, 3, state->field, -1, SQLITE_STATIC);
 			sqlite3_bind_text(insertMeta, 4, str, len, SQLITE_STATIC);
 			EXEC(insertMeta); insertMeta = NULL;
