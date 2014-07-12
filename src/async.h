@@ -4,7 +4,10 @@
 #include <uv.h>
 #include "../deps/libco/libco.h"
 
-#define STACK_SIZE (1024 * 50 * sizeof(void *) / 4)
+// TODO: Get page size at runtime?
+#define STACK_SIZE(kb) (1024 * (kb) * sizeof(void *) / 4)
+#define STACK_DEFAULT STACK_SIZE(48)
+#define STACK_MINIMUM STACK_SIZE(4)
 
 extern uv_loop_t *loop;
 extern cothread_t yield;

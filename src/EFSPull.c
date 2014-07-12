@@ -101,7 +101,7 @@ static void pull_thread(void) {
 void EFSPullStart(EFSPullRef const pull) {
 	if(!pull) return;
 	pull_arg = pull;
-	async_wakeup(co_create(STACK_SIZE, pull_thread));
+	async_wakeup(co_create(STACK_DEFAULT, pull_thread));
 }
 
 typedef struct {

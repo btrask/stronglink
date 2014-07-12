@@ -43,10 +43,10 @@ int main(int const argc, char const *const *const argv) {
 	async_sqlite_register();
 
 	// Even our init code wants to use async I/O.
-	async_wakeup(co_create(STACK_SIZE, init));
+	async_wakeup(co_create(STACK_DEFAULT, init));
 	uv_run(loop, UV_RUN_DEFAULT);
 
-	async_wakeup(co_create(STACK_SIZE, term));
+	async_wakeup(co_create(STACK_DEFAULT, term));
 	uv_run(loop, UV_RUN_DEFAULT); // Allows term() to execute.
 
 	return EXIT_SUCCESS;

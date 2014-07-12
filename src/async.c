@@ -19,7 +19,7 @@ static void reaper(void) {
 void async_init(void) {
 	loop = uv_default_loop();
 	yield = co_active();
-	reap = co_create(1024 * 4 * sizeof(void *) / 4, reaper);
+	reap = co_create(STACK_MINIMUM, reaper);
 	assert(reap && "async_init() thread creation failed");
 }
 void co_terminate(void) {
