@@ -151,9 +151,9 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 				"INSERT INTO results\n"
 				"	(file_id, sort, depth)\n"
 				"SELECT f.file_id, MIN(f.meta_file_id), ?\n"
-				"FROM file_content AS f\n"
-				"LEFT JOIN fulltext AS t\n"
-				"	ON (f.fulltext_rowid = t.rowid)\n"
+				"FROM fulltext AS t\n"
+				"LEFT JOIN file_content AS f\n"
+				"	ON (t.rowid = f.fulltext_rowid)\n"
 				"WHERE t.description MATCH ?\n"
 				"GROUP BY f.file_id");
 			sqlite3_bind_int64(op, 1, depth);
@@ -165,11 +165,11 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 				"INSERT INTO results\n"
 				"	(file_id, sort, depth)\n"
 				"SELECT f.file_id, MIN(l.meta_file_id), ?\n"
-				"FROM file_uris AS f\n"
+				"FROM uris AS u\n"
 				"LEFT JOIN links AS l\n"
-				"	ON (f.uri_id = l.source_uri_id)\n"
-				"LEFT JOIN uris AS u\n"
-				"	ON (l.target_uri_id = u.uri_id)\n"
+				"	ON (u.uri_id = l.target_uri_id)\n"
+				"LEFT JOIN file_uris AS f\n"
+				"	ON (l.source_uri_id = f.uri_id)\n"
 				"WHERE u.uri = ?\n"
 				"GROUP BY f.file_id");
 			sqlite3_bind_int64(op, 1, depth);
@@ -181,11 +181,11 @@ void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const d
 				"INSERT INTO results\n"
 				"	(file_id, sort, depth)\n"
 				"SELECT f.file_id, MIN(l.meta_file_id), ?\n"
-				"FROM file_uris AS f\n"
+				"FROM uris AS u\n"
 				"LEFT JOIN links AS l\n"
-				"	ON (f.uri_id = l.target_uri_id)\n"
-				"LEFT JOIN uris AS u\n"
-				"	ON (l.source_uri_id = u.uri_id)\n"
+				"	ON (u.uri_id = l.source_uri_id)\n"
+				"LEFT JOIN file_uris AS f\n"
+				"	ON (l.target_uri_id = f.uri_id)\n"
 				"WHERE u.uri = ?\n"
 				"GROUP BY f.file_id");
 			sqlite3_bind_int64(op, 1, depth);
