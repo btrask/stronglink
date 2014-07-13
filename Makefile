@@ -1,7 +1,12 @@
 ROOT_DIR := .
 
 CC := gcc
-CFLAGS := -std=gnu99 -g -O0 -Wno-format-extra-args -DSQLITE_DEBUG -DHTTP_PARSER_DEBUG #-DSQLITE_ENABLE_SQLLOG
+CFLAGS := -std=gnu99
+
+#CFLAGS += -Os -Wno-unused-result
+CFLAGS += -g -O0
+CFLAGS += -DSQLITE_DEBUG -DHTTP_PARSER_DEBUG
+#CFLAGS += -DSQLITE_ENABLE_SQLLOG
 
 BUILD_DIR := $(ROOT_DIR)/build
 SRC_DIR := $(ROOT_DIR)/src
