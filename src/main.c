@@ -2,6 +2,10 @@
 #include "EarthFS.h"
 #include "http/HTTPServer.h"
 
+#ifdef SQLITE_ENABLE_SQLLOG
+void sqlite3_init_sqllog(void);
+#endif
+
 bool_t EFSServerDispatch(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI);
 
 typedef struct Blog* BlogRef;
@@ -38,6 +42,10 @@ static void term(void) {
 	co_terminate();
 }
 int main(int const argc, char const *const *const argv) {
+#ifdef SQLITE_ENABLE_SQLLOG
+	setenv("SQLITE_SQLLOG_DIR", "/home/ben/Documents/testrepo", 1);
+	sqlite3_init_sqllog();
+#endif
 	signal(SIGPIPE, SIG_IGN);
 	async_init();
 	async_sqlite_register();
