@@ -2,6 +2,8 @@ ROOT_DIR := .
 
 CC := gcc
 CFLAGS := -std=gnu99
+LIBCO_VER := libco
+# Use sjlj for clang on x86
 
 #CFLAGS += -Os -Wno-unused-result
 CFLAGS += -g -O0
@@ -62,7 +64,7 @@ OBJECTS := \
 	$(BUILD_DIR)/crypt/wrapper.o \
 	$(BUILD_DIR)/crypt/x86.S.o \
 	$(BUILD_DIR)/http_parser.o \
-	$(BUILD_DIR)/libco.o \
+	$(BUILD_DIR)/libco/$(LIBCO_VER).o \
 	$(BUILD_DIR)/multipart_parser.o \
 	$(BUILD_DIR)/sqlite/sqlite3.o
 
@@ -99,10 +101,9 @@ $(BUILD_DIR)/http_parser.o: $(DEPS_DIR)/http_parser/http_parser.c $(DEPS_DIR)/ht
 	@-mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-$(BUILD_DIR)/libco.o: $(DEPS_DIR)/libco/libco.c $(DEPS_DIR)/libco/libco.h
+$(BUILD_DIR)/libco/%.o: $(DEPS_DIR)/libco/%.c $(DEPS_DIR)/libco/libco.h
 	@-mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) -Wno-parentheses
-	# x86 version seems incompatible with Clang 3.3.
 
 $(BUILD_DIR)/multipart_parser.o: $(DEPS_DIR)/multipart-parser-c/multipart_parser.c $(DEPS_DIR)/multipart-parser-c/multipart_parser.h
 	@-mkdir -p $(dir $@)
