@@ -105,7 +105,7 @@ $(BUILD_DIR)/multipart_parser.o: $(DEPS_DIR)/multipart-parser-c/multipart_parser
 
 $(BUILD_DIR)/sqlite/%.o: $(DEPS_DIR)/sqlite/%.c $(DEPS_DIR)/sqlite/sqlite3.h
 	@-mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS) -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -DSQLITE_MUTEX_APPDEF=1 -Wno-unused-value
+	$(CC) -c -o $@ $< $(CFLAGS) -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -Wno-unused-value
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c $(HEADERS)
 	@-mkdir -p $(dir $@)
