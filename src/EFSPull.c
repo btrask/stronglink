@@ -149,13 +149,20 @@ static err_t import(EFSPullRef const pull, HTTPConnectionRef const conn, strarg_
 	str_t hash[EFS_HASH_SIZE];
 	if(!EFSParseURI(URI, algo, hash)) return 0;
 
+	// TODO: Have a public API for testing whether a file exists without actually loading the file info with EFSSessionCopyFileInfo(). Even once we have a smarter fast-forward algorithm, this will still be useful.
 	EFSSessionRef const session = pull->session;
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
-	EFSFileInfo *info = EFSSessionCopyFileInfo(pull->session, URI);
-	if(info) {
-		EFSFileInfoFree(&info);
-		return 0;
-	}
+	sqlite3 *db = EFSRepoDBConnect(repo);
+	sqlite3_stmt *test = QUERY(db,
+		"SELECT f.file_id\n"
+		"FROM file_uris AS f\n"
+		"INNER JOIN strings AS uri ON (f.uri_sid = uri.sid)\n"
+		"WHERE uri.string = ? LIMIT 1");
+	sqlite3_bind_text(test, 1, URI, -1, SQLITE_STATIC);
+	bool_t exists = SQLITE_ROW == sqlite3_step(test);
+	sqlite3_finalize(test); test = NULL;
+	EFSRepoDBClose(repo, &db);
+	if(exists) return 0;
 
 	fprintf(stderr, "Pulling %s\n", URI);
 
