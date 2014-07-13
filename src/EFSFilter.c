@@ -115,6 +115,9 @@ void EFSFilterCreateTempTables(sqlite3 *const db) {
 		"CREATE INDEX results_depth_index\n"
 		"ON results (depth)"));
 	EXEC(QUERY(db,
+		"CREATE INDEX results_sort_index\n"
+		"ON results (sort, file_id)"));
+	EXEC(QUERY(db,
 		"CREATE TEMPORARY TABLE depths (\n"
 		"	depth_id INTEGER PRIMARY KEY NOT NULL,\n"
 		"	subdepth INTEGER NOT NULL,\n"
