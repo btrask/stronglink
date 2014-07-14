@@ -24,7 +24,8 @@ CREATE TABLE files (
     file_size INTEGER NOT NULL
 );
 CREATE UNIQUE INDEX files_hash_unique ON files (internal_hash, file_type);
-CREATE INDEX file_types_index ON files (file_type);
+CREATE INDEX file_type_index ON files (file_type);
+CREATE INDEX file_size_index ON files (file_size);
 
 CREATE TABLE strings (
 	sid INTEGER PRIMARY KEY NOT NULL,
