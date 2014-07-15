@@ -122,6 +122,9 @@ typedef struct {
 	strarg_t fileURI;
 } md_state;
 static str_t *md_lookup(md_state const *const state, strarg_t const var) {
+	strarg_t unsafe = NULL;
+	if(0 == strcmp(var, "rawURI")) unsafe = state->fileURI; // TODO
+	if(unsafe) return htmlenc(unsafe);
 	sqlite3 *db = EFSRepoDBConnect(state->blog->repo);
 	sqlite3_stmt *select = QUERY(db,
 		"SELECT value FROM meta_data\n"
@@ -129,12 +132,10 @@ static str_t *md_lookup(md_state const *const state, strarg_t const var) {
 		"AND value != '' LIMIT 1");
 	sqlite3_bind_text(select, 1, state->fileURI, -1, SQLITE_STATIC);
 	sqlite3_bind_text(select, 2, var, -1, SQLITE_STATIC);
-	strarg_t unsafe = NULL;
 	if(SQLITE_ROW == sqlite3_step(select)) {
 		unsafe = (strarg_t)sqlite3_column_text(select, 0);
 	}
 	if(!unsafe) {
-		if(0 == strcmp(var, "rawURI")) unsafe = state->fileURI; // TODO
 		if(0 == strcmp(var, "thumbnailURI")) unsafe = "/file.png";
 		if(0 == strcmp(var, "title")) unsafe = "(no title)";
 		if(0 == strcmp(var, "description")) unsafe = "(no description)";
