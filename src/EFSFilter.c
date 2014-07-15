@@ -250,7 +250,10 @@ int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const fileID) {
 		case EFSLinksToFilter: {
 			sqlite3_bind_int64(filter->matchAge, filter->argc + 1, fileID);
 			int64_t age = INT64_MAX;
-			if(SQLITE_ROW == sqlite3_step(filter->matchAge)) {
+			if(
+				SQLITE_ROW == sqlite3_step(filter->matchAge) &&
+				SQLITE_NULL != sqlite3_column_type(filter->matchAge, 0)
+			) {
 				age = sqlite3_column_int64(filter->matchAge, 0);
 			}
 			sqlite3_reset(filter->matchAge);
