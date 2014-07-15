@@ -112,9 +112,10 @@ err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfil
 	return 0;
 }
 
-
+// It's fine if COUNT() overcounts (e.g duplicates) because it's just an optimization. Not sure whether using DISTINCT makes any difference.
 #define MATCH_FILE(str) \
-	"SELECT MIN(f.file_id)\n" \
+	"SELECT MIN(f.file_id),\n" \
+	"	COUNT(f.file_id) > 1\n" \
 	str "\n" \
 	"AND (md.meta_file_id = ? AND f.file_id > ?)"
 
@@ -177,12 +178,12 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3 *const db) {
 		}
 	}
 }
-int64_t EFSFilterMatchFile(EFSFilterRef const filter, int64_t const sortID, int64_t const lastFileID) {
+EFSMatch EFSFilterMatchFile(EFSFilterRef const filter, int64_t const sortID, int64_t const lastFileID) {
 	switch(filter->type) {
 		case EFSNoFilter:
 		case EFSPermissionFilter: {
-			if(lastFileID < sortID) return sortID;
-			return -1;
+			if(lastFileID < sortID) return (EFSMatch){sortID, false};
+			return (EFSMatch){-1, false};
 		}
 		case EFSFileTypeFilter:
 		case EFSFullTextFilter:
@@ -191,40 +192,46 @@ int64_t EFSFilterMatchFile(EFSFilterRef const filter, int64_t const sortID, int6
 			sqlite3_bind_int64(filter->matchFile, filter->argc + 1, sortID);
 			sqlite3_bind_int64(filter->matchFile, filter->argc + 2, lastFileID);
 			int64_t fileID = -1;
+			bool_t more = false;
 			if(
 				SQLITE_ROW == sqlite3_step(filter->matchFile) &&
 				SQLITE_NULL != sqlite3_column_type(filter->matchFile, 0)
 			) {
 				fileID = sqlite3_column_int64(filter->matchFile, 0);
+				more = sqlite3_column_int(filter->matchFile, 1);
 			}
 			sqlite3_reset(filter->matchFile);
-			if(fileID < 0) return -1;
-			return fileID;
+			if(fileID < 0) return (EFSMatch){-1, false};
+			return (EFSMatch){fileID, more};
 		}
 		case EFSIntersectionFilter:
 		case EFSUnionFilter: {
 			EFSFilterList const *const list = filter->data.filters;
 			int64_t firstFileID = INT64_MAX;
+			bool_t more = false;
 			for(index_t i = 0; i < list->count; ++i) {
-				int64_t const fileID = EFSFilterMatchFile(list->items[i], sortID, lastFileID);
-				if(fileID < 0) continue;
-				if(fileID < firstFileID) firstFileID = fileID;
+				EFSMatch const match = EFSFilterMatchFile(list->items[i], sortID, lastFileID);
+				if(match.fileID < 0) continue;
+				if(INT64_MAX != firstFileID || match.more) more = true;
+				if(match.fileID < firstFileID) firstFileID = match.fileID;
 			}
-			if(INT64_MAX == firstFileID) return -1;
+			if(INT64_MAX == firstFileID) return (EFSMatch){-1, false};
 
 			for(index_t i = 0; i < list->count; ++i) {
 				int64_t const age = EFSFilterMatchAge(list->items[i], firstFileID);
 				if(EFSIntersectionFilter == filter->type) {
-					if(age > sortID) return -1;
+					if(age <= sortID) continue;
 				} else {
-					if(age < sortID) return -1;
+					if(age >= sortID) continue;
 				}
+				if(more) return EFSFilterMatchFile(filter, sortID, firstFileID);
+				return (EFSMatch){-1, false};
 			}
-			return firstFileID;
+			return (EFSMatch){firstFileID, more};
 		}
 		default: {
 			assertf(0, "Unknown filter type %d\n", filter->type);
-			return -1;
+			return (EFSMatch){-1, false};
 		}
 	}
 }

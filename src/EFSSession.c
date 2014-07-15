@@ -194,10 +194,10 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 	while(sortID > 0 && URIListGetCount(URIs) < max) {
 		int64_t lastFileID = 0;
 		while(URIListGetCount(URIs) < max) {
-			int64_t const fileID = EFSFilterMatchFile(filter, sortID, lastFileID);
+			EFSMatch const match = EFSFilterMatchFile(filter, sortID, lastFileID);
 //			fprintf(stderr, "got match %lld of %lld, %lld\n", fileID, sortID, lastFileID);
-			if(fileID < 0) break;
-			sqlite3_bind_int64(selectHash, 1, fileID);
+			if(match.fileID < 0) break;
+			sqlite3_bind_int64(selectHash, 1, match.fileID);
 			if(SQLITE_ROW == sqlite3_step(selectHash)) {
 				strarg_t const hash = (strarg_t)sqlite3_column_text(selectHash, 0);
 				str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
@@ -205,7 +205,8 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 				FREE(&URI);
 			}
 			sqlite3_reset(selectHash);
-			lastFileID = fileID;
+			if(!match.more) break;
+			lastFileID = match.fileID;
 		}
 		--sortID;
 	}
