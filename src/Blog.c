@@ -125,11 +125,11 @@ static str_t *md_lookup(md_state const *const state, strarg_t const var) {
 	sqlite3 *db = EFSRepoDBConnect(state->blog->repo);
 	sqlite3_stmt *select = QUERY(db,
 		"SELECT value.string\n"
-		"FROM strings AS uri\n"
-		"CROSS JOIN strings AS field\n"
-		"INNER JOIN meta_data AS md\n"
-		"	ON (md.uri_sid = uri.sid\n"
-		"	AND md.field_sid = field.sid)\n"
+		"FROM meta_data AS md\n"
+		"INNER JOIN strings AS uri\n"
+		"	ON (uri.sid = md.uri_sid)\n"
+		"INNER JOIN strings AS field\n"
+		"	ON (md.field_sid = field.sid)\n"
 		"INNER JOIN strings AS value\n"
 		"	ON (md.value_sid = value.sid)\n"
 		"WHERE uri.string = ?\n"

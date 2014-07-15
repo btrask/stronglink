@@ -8,7 +8,7 @@ typedef struct {
 
 struct EFSFilter {
 	EFSFilterType type;
-	sqlite3_stmt *match;
+	sqlite3_stmt *matchFile;
 	sqlite3_stmt *matchAge;
 	int argc;
 	union {
@@ -55,7 +55,7 @@ void EFSFilterFree(EFSFilterRef *const filterptr) {
 		case EFSFullTextFilter:
 		case EFSLinkedFromFilter:
 		case EFSLinksToFilter: {
-			sqlite3_finalize(filter->match); filter->match = NULL;
+			sqlite3_finalize(filter->matchFile); filter->matchFile = NULL;
 			sqlite3_finalize(filter->matchAge); filter->matchAge = NULL;
 			FREE(&filter->data.string);
 			break;
@@ -113,9 +113,7 @@ err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfil
 }
 
 
-// TODO: We should probably just split these into two copies for each filter type, even though there is so much redundancy, and use CROSS JOINs everywhere.
-
-#define MATCH(str) \
+#define MATCH_FILE(str) \
 	"SELECT MIN(f.file_id)\n" \
 	str "\n" \
 	"AND (md.meta_file_id = ? AND f.file_id > ?)"
@@ -126,22 +124,9 @@ err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfil
 	"AND (f.file_id = ?)"
 
 
-#define LINKS_TO(type) \
+#define LINKED_FROM \
 	"FROM file_uris AS f\n" \
-	type " JOIN meta_data AS md\n" \
-	"	ON (f.uri_sid = md.uri_sid)\n" \
-	"INNER JOIN strings AS field\n" \
-	"	ON (md.field_sid = field.sid)\n" \
-	"INNER JOIN strings AS value\n" \
-	"	ON (md.value_sid = value.sid)\n" \
-	"WHERE (\n" \
-	"	field.string = 'link'\n" \
-	"	AND value.string = ?\n" \
-	")"
-
-#define LINKED_FROM(type) \
-	"FROM file_uris AS f\n" \
-	type " JOIN meta_data AS md\n" \
+	"INNER JOIN meta_data AS md\n" \
 	"	ON (f.uri_sid = md.value_sid)\n" \
 	"INNER JOIN strings AS field\n" \
 	"	ON (md.field_sid = field.sid)\n" \
@@ -152,23 +137,36 @@ err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfil
 	"	AND value.string = ?\n" \
 	")"
 
+#define LINKS_TO \
+	"FROM file_uris AS f\n" \
+	"INNER JOIN meta_data AS md\n" \
+	"	ON (f.uri_sid = md.uri_sid)\n" \
+	"INNER JOIN strings AS field\n" \
+	"	ON (md.field_sid = field.sid)\n" \
+	"INNER JOIN strings AS value\n" \
+	"	ON (md.value_sid = value.sid)\n" \
+	"WHERE (\n" \
+	"	field.string = 'link'\n" \
+	"	AND value.string = ?\n" \
+	")"
+
 err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3 *const db) {
-	assertf(!filter->match, "Filter already prepared");
+	assertf(!filter->matchFile, "Filter already prepared");
 	assertf(!filter->matchAge, "Filter already prepared");
 	assertf(0 == filter->argc, "Filter already prepared");
 	switch(filter->type) {
 		case EFSLinkedFromFilter: {
-			filter->match = QUERY(db, MATCH(LINKED_FROM("INNER")));
-			sqlite3_bind_text(filter->match, 1, filter->data.string, -1, SQLITE_STATIC);
-			filter->matchAge = QUERY(db, MATCH_AGE(LINKED_FROM("CROSS")));
+			filter->matchFile = QUERY(db, MATCH_FILE(LINKED_FROM));
+			sqlite3_bind_text(filter->matchFile, 1, filter->data.string, -1, SQLITE_STATIC);
+			filter->matchAge = QUERY(db, MATCH_AGE(LINKED_FROM));
 			sqlite3_bind_text(filter->matchAge, 1, filter->data.string, -1, SQLITE_STATIC);
 			filter->argc = 1;
 			return 0;
 		}
 		case EFSLinksToFilter: {
-			filter->match = QUERY(db, MATCH(LINKS_TO("INNER")));
-			sqlite3_bind_text(filter->match, 1, filter->data.string, -1, SQLITE_STATIC);
-			filter->matchAge = QUERY(db, MATCH_AGE(LINKS_TO("CROSS")));
+			filter->matchFile = QUERY(db, MATCH_FILE(LINKS_TO));
+			sqlite3_bind_text(filter->matchFile, 1, filter->data.string, -1, SQLITE_STATIC);
+			filter->matchAge = QUERY(db, MATCH_AGE(LINKS_TO));
 			sqlite3_bind_text(filter->matchAge, 1, filter->data.string, -1, SQLITE_STATIC);
 			filter->argc = 1;
 			return 0;
@@ -187,7 +185,7 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3 *const db) {
 		}
 	}
 }
-int64_t EFSFilterMatch(EFSFilterRef const filter, int64_t const sortID, int64_t const lastFileID) {
+int64_t EFSFilterMatchFile(EFSFilterRef const filter, int64_t const sortID, int64_t const lastFileID) {
 	switch(filter->type) {
 		case EFSNoFilter:
 		case EFSPermissionFilter: {
@@ -198,16 +196,16 @@ int64_t EFSFilterMatch(EFSFilterRef const filter, int64_t const sortID, int64_t 
 		case EFSFullTextFilter:
 		case EFSLinkedFromFilter:
 		case EFSLinksToFilter: {
-			sqlite3_bind_int64(filter->match, filter->argc + 1, sortID);
-			sqlite3_bind_int64(filter->match, filter->argc + 2, lastFileID);
+			sqlite3_bind_int64(filter->matchFile, filter->argc + 1, sortID);
+			sqlite3_bind_int64(filter->matchFile, filter->argc + 2, lastFileID);
 			int64_t fileID = -1;
 			if(
-				SQLITE_ROW == sqlite3_step(filter->match) &&
-				SQLITE_NULL != sqlite3_column_type(filter->match, 0)
+				SQLITE_ROW == sqlite3_step(filter->matchFile) &&
+				SQLITE_NULL != sqlite3_column_type(filter->matchFile, 0)
 			) {
-				fileID = sqlite3_column_int64(filter->match, 0);
+				fileID = sqlite3_column_int64(filter->matchFile, 0);
 			}
-			sqlite3_reset(filter->match);
+			sqlite3_reset(filter->matchFile);
 			if(fileID < 0) return -1;
 			if(EFSFilterMatchAge(filter, fileID) < sortID) return -1;
 			return fileID;
@@ -217,7 +215,7 @@ int64_t EFSFilterMatch(EFSFilterRef const filter, int64_t const sortID, int64_t 
 			EFSFilterList const *const list = filter->data.filters;
 			int64_t firstFileID = INT64_MAX;
 			for(index_t i = 0; i < list->count; ++i) {
-				int64_t const fileID = EFSFilterMatch(list->items[i], sortID, lastFileID);
+				int64_t const fileID = EFSFilterMatchFile(list->items[i], sortID, lastFileID);
 				if(fileID < 0) continue;
 				if(fileID < firstFileID) firstFileID = fileID;
 			}

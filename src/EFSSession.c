@@ -194,7 +194,7 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 	while(sortID > 0 && URIListGetCount(URIs) < max) {
 		int64_t lastFileID = 0;
 		while(URIListGetCount(URIs) < max) {
-			int64_t const fileID = EFSFilterMatch(filter, sortID, lastFileID);
+			int64_t const fileID = EFSFilterMatchFile(filter, sortID, lastFileID);
 //			fprintf(stderr, "got match %lld of %lld, %lld\n", fileID, sortID, lastFileID);
 			if(fileID < 0) break;
 			sqlite3_bind_int64(selectHash, 1, fileID);
