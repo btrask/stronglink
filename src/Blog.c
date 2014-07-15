@@ -125,17 +125,29 @@ static str_t *md_lookup(md_state const *const state, strarg_t const var) {
 	sqlite3 *db = EFSRepoDBConnect(state->blog->repo);
 	sqlite3_stmt *select = QUERY(db,
 		"SELECT value.string\n"
-		"FROM strings AS value\n"
-		"INNER JOIN meta_data AS md ON (value.sid = md.value_sid)\n"
-		"INNER JOIN strings AS field ON (md.field_sid = field.sid)\n"
-		"WHERE field.string = ? LIMIT 1");
-	sqlite3_bind_text(select, 1, var, -1, SQLITE_STATIC);
-	str_t *result = NULL;
+		"FROM strings AS uri\n"
+		"CROSS JOIN strings AS field\n"
+		"INNER JOIN meta_data AS md\n"
+		"	ON (md.uri_sid = uri.sid\n"
+		"	AND md.field_sid = field.sid)\n"
+		"INNER JOIN strings AS value\n"
+		"	ON (md.value_sid = value.sid)\n"
+		"WHERE uri.string = ?\n"
+		"AND field.string = ?\n"
+		"AND value.string != '' LIMIT 1");
+	sqlite3_bind_text(select, 1, state->fileURI, -1, SQLITE_STATIC);
+	sqlite3_bind_text(select, 2, var, -1, SQLITE_STATIC);
+	strarg_t unsafe = NULL;
 	if(SQLITE_ROW == sqlite3_step(select)) {
-		result = htmlenc((strarg_t)sqlite3_column_text(select, 1));
-	} else {
-		result = strdup(""); // TODO: Handle empty values intelligently, possibly in the template system itself.
+		unsafe = (strarg_t)sqlite3_column_text(select, 0);
 	}
+	if(!unsafe) {
+		if(0 == strcmp(var, "rawURI")) unsafe = state->fileURI; // TODO
+		if(0 == strcmp(var, "thumbnailURI")) unsafe = "/file.png";
+		if(0 == strcmp(var, "title")) unsafe = "(no title)";
+		if(0 == strcmp(var, "description")) unsafe = "(no description)";
+	}
+	str_t *result = htmlenc(unsafe);
 	sqlite3_finalize(select); select = NULL;
 	EFSRepoDBClose(state->blog->repo, &db);
 	return result;

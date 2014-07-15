@@ -41,8 +41,8 @@ CREATE TABLE meta_data (
 	value_sid INTEGER NOT NULL
 );
 CREATE UNIQUE INDEX meta_data_unique ON meta_data (meta_file_id, uri_sid, field_sid, value_sid);
+CREATE INDEX meta_data_preview_index ON meta_data (uri_sid, field_sid, value_sid);
 CREATE INDEX meta_data_meta_file_index ON meta_data (meta_file_id);
-CREATE INDEX meta_data_uri_index ON meta_data (uri_sid);
 CREATE INDEX meta_data_field_index ON meta_data (field_sid, value_sid);
 
 CREATE TABLE file_uris (
