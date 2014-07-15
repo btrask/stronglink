@@ -27,29 +27,23 @@ CREATE UNIQUE INDEX files_hash_unique ON files (internal_hash, file_type);
 CREATE INDEX file_type_index ON files (file_type);
 CREATE INDEX file_size_index ON files (file_size);
 
-CREATE TABLE strings (
-	sid INTEGER PRIMARY KEY NOT NULL,
-	string TEXT NOT NULL
-);
-CREATE UNIQUE INDEX strings_unique ON strings (string);
-
 CREATE TABLE meta_data (
 	meta_data_id INTEGER PRIMARY KEY NOT NULL,
 	meta_file_id INTEGER NOT NULL,
-	uri_sid INTEGER NOT NULL,
-	field_sid INTEGER NOT NULL,
-	value_sid INTEGER NOT NULL
+	uri TEXT NOT NULL,
+	field TEXT NOT NULL,
+	value TEXT NOT NULL
 );
-CREATE UNIQUE INDEX meta_data_file_index ON meta_data (meta_file_id, value_sid, uri_sid, field_sid);
-CREATE INDEX meta_data_age_index ON meta_data (uri_sid, value_sid, field_sid, meta_file_id);
-CREATE INDEX meta_data_preview_index ON meta_data (uri_sid, field_sid, value_sid);
+CREATE UNIQUE INDEX meta_data_file_index ON meta_data (meta_file_id, value, uri, field);
+CREATE INDEX meta_data_age_index ON meta_data (uri, value, field, meta_file_id);
+CREATE INDEX meta_data_preview_index ON meta_data (uri, field, value);
 
 CREATE TABLE file_uris (
 	file_uri_id INTEGER PRIMARY KEY NOT NULL,
 	file_id INTEGER NOT NULL,
-	uri_sid INTEGER NOT NULL
+	uri TEXT NOT NULL
 );
-CREATE UNIQUE INDEX file_uris_unique ON file_uris (uri_sid, file_id);
+CREATE UNIQUE INDEX file_uris_unique ON file_uris (uri, file_id);
 CREATE INDEX file_uris_index ON file_uris (file_id);
 
 -- TODO

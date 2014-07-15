@@ -127,27 +127,19 @@ err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfil
 #define LINKED_FROM \
 	"FROM file_uris AS f\n" \
 	"INNER JOIN meta_data AS md\n" \
-	"	ON (f.uri_sid = md.value_sid)\n" \
-	"INNER JOIN strings AS field\n" \
-	"	ON (md.field_sid = field.sid)\n" \
-	"INNER JOIN strings AS value\n" \
-	"	ON (md.uri_sid = value.sid)\n" \
+	"	ON (f.uri = md.value)\n" \
 	"WHERE (\n" \
-	"	field.string = 'link'\n" \
-	"	AND value.string = ?\n" \
+	"	md.field = 'link'\n" \
+	"	AND md.value = ?\n" \
 	")"
 
 #define LINKS_TO \
 	"FROM file_uris AS f\n" \
 	"INNER JOIN meta_data AS md\n" \
-	"	ON (f.uri_sid = md.uri_sid)\n" \
-	"INNER JOIN strings AS field\n" \
-	"	ON (md.field_sid = field.sid)\n" \
-	"INNER JOIN strings AS value\n" \
-	"	ON (md.value_sid = value.sid)\n" \
+	"	ON (f.uri = md.uri)\n" \
 	"WHERE (\n" \
-	"	field.string = 'link'\n" \
-	"	AND value.string = ?\n" \
+	"	md.field = 'link'\n" \
+	"	AND md.value = ?\n" \
 	")"
 
 err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3 *const db) {

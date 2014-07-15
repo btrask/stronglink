@@ -124,17 +124,9 @@ typedef struct {
 static str_t *md_lookup(md_state const *const state, strarg_t const var) {
 	sqlite3 *db = EFSRepoDBConnect(state->blog->repo);
 	sqlite3_stmt *select = QUERY(db,
-		"SELECT value.string\n"
-		"FROM meta_data AS md\n"
-		"INNER JOIN strings AS uri\n"
-		"	ON (uri.sid = md.uri_sid)\n"
-		"INNER JOIN strings AS field\n"
-		"	ON (md.field_sid = field.sid)\n"
-		"INNER JOIN strings AS value\n"
-		"	ON (md.value_sid = value.sid)\n"
-		"WHERE uri.string = ?\n"
-		"AND field.string = ?\n"
-		"AND value.string != '' LIMIT 1");
+		"SELECT value FROM meta_data\n"
+		"WHERE uri = ? AND field = ?\n"
+		"AND value != '' LIMIT 1");
 	sqlite3_bind_text(select, 1, state->fileURI, -1, SQLITE_STATIC);
 	sqlite3_bind_text(select, 2, var, -1, SQLITE_STATIC);
 	strarg_t unsafe = NULL;

@@ -59,10 +59,10 @@ err_t EFSMetaFileEnd(EFSMetaFileRef const meta) {
 typedef struct {
 	sqlite3 *db;
 	int64_t fileID; // Us
-	int64_t fileURISID;
+	strarg_t fileURI;
 
 	meta_state state;
-	int64_t metaURISID; // Target
+	str_t *metaURI; // Target
 	str_t *field;
 } parse_state;
 
@@ -73,19 +73,13 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 	parse_state state = {
 		.db = db,
 		.fileID = fileID,
+		.fileURI = fileURI,
 
 		.state = s_start,
-		.metaURISID = -1,
+		.metaURI = NULL,
 		.field = NULL,
 	};
 	EXEC(QUERY(db, "SAVEPOINT metafile"));
-
-	sqlite3_stmt *selectFileURISID = QUERY(db,
-		"SELECT sid FROM strings WHERE string = ?");
-	sqlite3_bind_text(selectFileURISID, 1, fileURI, -1, SQLITE_STATIC);
-	STEP(selectFileURISID);
-	state.fileURISID = sqlite3_column_int64(selectFileURISID, 0);
-	sqlite3_finalize(selectFileURISID); selectFileURISID = NULL;
 
 	yajl_handle parser = yajl_alloc(&callbacks, NULL, &state);
 	yajl_config(parser, yajl_allow_partial_values, (int)true);
@@ -97,9 +91,11 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 		fprintf(stderr, "%s", msg);
 		yajl_free_error(parser, msg); msg = NULL;
 		yajl_free(parser); parser = NULL;
+		FREE(&state.metaURI);
 		return -1;
 	}
 	yajl_free(parser); parser = NULL;
+	FREE(&state.metaURI);
 
 	EXEC(QUERY(db, "RELEASE metafile"));
 	return 0;
@@ -117,44 +113,27 @@ static int yajl_number(parse_state *const state, strarg_t const str, size_t cons
 static int yajl_string(parse_state *const state, strarg_t const str, size_t const len) {
 	switch(state->state) {
 		case s_meta_uri: {
-			sqlite3_stmt *insertStrings = QUERY(state->db,
-				"INSERT OR IGNORE INTO strings (string) VALUES ('link'), (?)");
-			sqlite3_bind_text(insertStrings, 1, str, len, SQLITE_STATIC);
-			EXEC(insertStrings); insertStrings = NULL;
-			sqlite3_stmt *selectMetaURISID = QUERY(state->db,
-				"SELECT sid FROM strings WHERE string = ?");
-			sqlite3_bind_text(selectMetaURISID, 1, str, len, SQLITE_STATIC);
-			STEP(selectMetaURISID);
-			state->metaURISID = sqlite3_column_int64(selectMetaURISID, 0);
-			sqlite3_finalize(selectMetaURISID); selectMetaURISID = NULL;
+			if(state->metaURI) return false;
+			state->metaURI = strndup(str, len);
 			sqlite3_stmt *insertMeta = QUERY(state->db,
 				"INSERT OR IGNORE INTO meta_data\n"
-				"	(meta_file_id, uri_sid, field_sid, value_sid)\n"
-				"SELECT ?, ?, sid, ?\n"
-				"FROM strings AS s WHERE string = 'link' LIMIT 1");
+				"	(meta_file_id, uri, field, value)\n"
+				"VALUES (?, ?, 'link', ?)");
 			sqlite3_bind_int64(insertMeta, 1, state->fileID);
-			sqlite3_bind_int64(insertMeta, 2, state->fileURISID);
-			sqlite3_bind_int64(insertMeta, 3, state->metaURISID);
+			sqlite3_bind_text(insertMeta, 2, state->fileURI, -1, SQLITE_STATIC);
+			sqlite3_bind_text(insertMeta, 3, state->metaURI, -1, SQLITE_STATIC);
 			EXEC(insertMeta); insertMeta = NULL;
 			state->state = s_top;
 			return true;
 		} case s_field_value: {
 			/* fallthrough */
 		} case s_field_array: {
-			sqlite3_stmt *insertStrings = QUERY(state->db,
-				"INSERT OR IGNORE INTO strings (string) VALUES (?), (?)");
-			sqlite3_bind_text(insertStrings, 1, state->field, -1, SQLITE_STATIC);
-			sqlite3_bind_text(insertStrings, 2, str, len, SQLITE_STATIC);
-			EXEC(insertStrings); insertStrings = NULL;
 			sqlite3_stmt *insertMeta = QUERY(state->db,
 				"INSERT OR IGNORE INTO meta_data\n"
-				"	(meta_file_id, uri_sid, field_sid, value_sid)\n"
-				"SELECT ?, ?, s1.sid, s2.sid\n"
-				"FROM strings AS s1\n"
-				"INNER JOIN strings AS s2\n"
-				"WHERE s1.string = ? AND s2.string = ? LIMIT 1");
+				"	(meta_file_id, uri, field, value)\n"
+				"VALUES (?, ?, ?, ?)");
 			sqlite3_bind_int64(insertMeta, 1, state->fileID);
-			sqlite3_bind_int64(insertMeta, 2, state->metaURISID);
+			sqlite3_bind_text(insertMeta, 2, state->metaURI, -1, SQLITE_STATIC);
 			sqlite3_bind_text(insertMeta, 3, state->field, -1, SQLITE_STATIC);
 			sqlite3_bind_text(insertMeta, 4, str, len, SQLITE_STATIC);
 			EXEC(insertMeta); insertMeta = NULL;

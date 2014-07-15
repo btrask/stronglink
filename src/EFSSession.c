@@ -223,8 +223,7 @@ EFSFileInfo *EFSSessionCopyFileInfo(EFSSessionRef const session, strarg_t const 
 		"SELECT f.internal_hash, f.file_type, f.file_size\n"
 		"FROM files AS f\n"
 		"INNER JOIN file_uris AS f2 ON (f.file_id = f2.file_id)\n"
-		"INNER JOIN strings AS uri ON (f2.uri_sid = uri.sid)\n"
-		"WHERE uri.string = ? LIMIT 1");
+		"WHERE f2.uri = ? LIMIT 1");
 	sqlite3_bind_text(select, 1, URI, -1, SQLITE_STATIC);
 	if(SQLITE_ROW != STEP(select)) {
 		sqlite3_finalize(select);

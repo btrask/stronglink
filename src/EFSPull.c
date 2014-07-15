@@ -154,10 +154,8 @@ static err_t import(EFSPullRef const pull, HTTPConnectionRef const conn, strarg_
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	sqlite3 *db = EFSRepoDBConnect(repo);
 	sqlite3_stmt *test = QUERY(db,
-		"SELECT f.file_id\n"
-		"FROM file_uris AS f\n"
-		"INNER JOIN strings AS uri ON (f.uri_sid = uri.sid)\n"
-		"WHERE uri.string = ? LIMIT 1");
+		"SELECT file_id FROM file_uris\n"
+		"WHERE uri = ? LIMIT 1");
 	sqlite3_bind_text(test, 1, URI, -1, SQLITE_STATIC);
 	bool_t exists = SQLITE_ROW == sqlite3_step(test);
 	sqlite3_finalize(test); test = NULL;

@@ -158,21 +158,15 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, sqlite3 *const db) {
 	int64_t const fileID = sqlite3_column_int64(selectFile, 0);
 	sqlite3_finalize(selectFile); selectFile = NULL;
 
-	sqlite3_stmt *insertURI = QUERY(db,
-		"INSERT OR IGNORE INTO strings (string) VALUES (?)");
 	sqlite3_stmt *insertFileURI = QUERY(db,
-		"INSERT OR IGNORE INTO file_uris (file_id, uri_sid)\n"
-		"SELECT ?, sid FROM strings WHERE string = ? LIMIT 1");
+		"INSERT OR IGNORE INTO file_uris (file_id, uri)\n"
+		"VALUES (?, ?)");
 	for(index_t i = 0; i < URIListGetCount(sub->URIs); ++i) {
 		strarg_t const URI = URIListGetURI(sub->URIs, i);
-		sqlite3_bind_text(insertURI, 1, URI, -1, SQLITE_STATIC);
-		STEP(insertURI); sqlite3_reset(insertURI);
-
 		sqlite3_bind_int64(insertFileURI, 1, fileID);
 		sqlite3_bind_text(insertFileURI, 2, URI, -1, SQLITE_STATIC);
 		STEP(insertFileURI); sqlite3_reset(insertFileURI);
 	}
-	sqlite3_finalize(insertURI); insertURI = NULL;
 	sqlite3_finalize(insertFileURI); insertFileURI = NULL;
 
 
