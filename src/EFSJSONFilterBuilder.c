@@ -50,8 +50,8 @@ EFSFilterType EFSFilterTypeFromString(strarg_t const type, size_t const len) {
 	if(substr("intersection", type, len)) return EFSIntersectionFilter;
 	if(substr("union", type, len)) return EFSUnionFilter;
 	if(substr("fulltext", type, len)) return EFSFullTextFilter;
-	if(substr("backlinks", type, len)) return EFSBacklinkFilesFilter;
-	if(substr("links", type, len)) return EFSFileLinksFilter;
+	if(substr("linked-from", type, len)) return EFSLinkedFromFilter;
+	if(substr("links-to", type, len)) return EFSLinksToFilter;
 	return EFSFilterInvalid;
 }
 

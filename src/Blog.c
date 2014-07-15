@@ -210,7 +210,7 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	}
 
 	// TODO: Parse querystring `q` parameter
-	EFSFilterRef filter = EFSFilterCreate(EFSBacklinkFilesFilter);
+	EFSFilterRef filter = EFSFilterCreate(EFSLinksToFilter);
 	EFSFilterAddStringArg(filter, "efs://user", -1);
 
 	URIListRef URIs = EFSSessionCreateFilteredURIList(session, filter, RESULTS_MAX); // TODO: We should be able to specify a specific algorithm here.

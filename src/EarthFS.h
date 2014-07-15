@@ -73,8 +73,8 @@ typedef enum {
 	EFSIntersectionFilter,
 	EFSUnionFilter,
 	EFSFullTextFilter,
-	EFSBacklinkFilesFilter,
-	EFSFileLinksFilter,
+	EFSLinkedFromFilter,
+	EFSLinksToFilter,
 	EFSPermissionFilter,
 } EFSFilterType;
 
@@ -84,8 +84,9 @@ void EFSFilterFree(EFSFilterRef *const filterptr);
 err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len);
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
 sqlite3_stmt *EFSFilterCreateQuery(EFSFilterRef const filter);
-void EFSFilterCreateTempTables(sqlite3 *const db); // "results"
-void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const depth);
+err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3 *const db);
+int64_t EFSFilterMatch(EFSFilterRef const filter, int64_t const sortID, int64_t const lastFileID);
+int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const fileID);
 
 EFSJSONFilterBuilderRef EFSJSONFilterBuilderCreate(void);
 void EFSJSONFilterBuilderFree(EFSJSONFilterBuilderRef *const builderptr);

@@ -174,22 +174,42 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 	// TODO: Check session mode.
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	sqlite3 *db = EFSRepoDBConnect(repo);
-	EFSFilterCreateTempTables(db);
-	EFSFilterExec(filter, db, 0);
-	sqlite3_stmt *const select = QUERY(db,
-		"SELECT f.internal_hash\n"
-		"FROM files AS f\n"
-		"INNER JOIN results AS r ON (f.file_id = r.file_id)\n"
-		"ORDER BY r.sort DESC LIMIT ?");
-	sqlite3_bind_int64(select, 1, max);
-	URIListRef const URIs = URIListCreate();
-	while(SQLITE_ROW == STEP(select)) {
-		strarg_t const hash = (strarg_t)sqlite3_column_text(select, 0);
-		str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
-		URIListAddURI(URIs, URI, -1);
-		FREE(&URI);
+	if(!db) return NULL;
+	EFSFilterPrepare(filter, db);
+
+	sqlite3_stmt *selectMax = QUERY(db,
+		"SELECT MAX(file_id) FROM files");
+	if(SQLITE_ROW != sqlite3_step(selectMax)) {
+		sqlite3_finalize(selectMax); selectMax = NULL;
+		EFSRepoDBClose(repo, &db);
+		return NULL;
 	}
-	sqlite3_finalize(select);
+	int64_t sortID = sqlite3_column_int64(selectMax, 0);
+	sqlite3_finalize(selectMax); selectMax = NULL;
+
+	sqlite3_stmt *selectHash = QUERY(db,
+		"SELECT internal_hash\n"
+		"FROM files WHERE file_id = ? LIMIT 1");
+	URIListRef const URIs = URIListCreate();
+	while(sortID > 0 && URIListGetCount(URIs) < max) {
+		int64_t lastFileID = 0;
+		while(URIListGetCount(URIs) < max) {
+			int64_t const fileID = EFSFilterMatch(filter, sortID, lastFileID);
+//			fprintf(stderr, "got match %lld of %lld, %lld\n", fileID, sortID, lastFileID);
+			if(fileID < 0) break;
+			sqlite3_bind_int64(selectHash, 1, fileID);
+			if(SQLITE_ROW == sqlite3_step(selectHash)) {
+				strarg_t const hash = (strarg_t)sqlite3_column_text(selectHash, 0);
+				str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
+				URIListAddURI(URIs, URI, -1);
+				FREE(&URI);
+			}
+			sqlite3_reset(selectHash);
+			lastFileID = fileID;
+		}
+		--sortID;
+	}
+	sqlite3_finalize(selectHash); selectHash = NULL;
 	EFSRepoDBClose(repo, &db);
 	return URIs;
 }

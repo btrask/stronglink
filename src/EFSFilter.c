@@ -8,6 +8,9 @@ typedef struct {
 
 struct EFSFilter {
 	EFSFilterType type;
+	sqlite3_stmt *match;
+	sqlite3_stmt *matchAge;
+	int argc;
 	union {
 		str_t *string;
 		EFSFilterList *filters;
@@ -22,8 +25,8 @@ EFSFilterRef EFSFilterCreate(EFSFilterType const type) {
 		case EFSIntersectionFilter:
 		case EFSUnionFilter:
 		case EFSFullTextFilter:
-		case EFSBacklinkFilesFilter:
-		case EFSFileLinksFilter:
+		case EFSLinkedFromFilter:
+		case EFSLinksToFilter:
 			break;
 		default:
 			return NULL;
@@ -45,14 +48,18 @@ void EFSFilterFree(EFSFilterRef *const filterptr) {
 	if(!filter) return;
 	switch(filter->type) {
 		case EFSNoFilter:
-		case EFSPermissionFilter:
+		case EFSPermissionFilter: {
 			break;
+		}
 		case EFSFileTypeFilter:
 		case EFSFullTextFilter:
-		case EFSBacklinkFilesFilter:
-		case EFSFileLinksFilter:
+		case EFSLinkedFromFilter:
+		case EFSLinksToFilter: {
+			sqlite3_finalize(filter->match); filter->match = NULL;
+			sqlite3_finalize(filter->matchAge); filter->matchAge = NULL;
 			FREE(&filter->data.string);
 			break;
+		}
 		case EFSIntersectionFilter:
 		case EFSUnionFilter: {
 			EFSFilterList *const list = filter->data.filters;
@@ -61,8 +68,10 @@ void EFSFilterFree(EFSFilterRef *const filterptr) {
 			}
 			FREE(&filter->data.filters);
 			break;
-		} default:
+		}
+		default: {
 			assertf(0, "Invalid filter type %d", (int)filter->type);
+		}
 	}
 	FREE(filterptr); filter = NULL;
 }
@@ -71,8 +80,8 @@ err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize
 	switch(filter->type) {
 		case EFSFileTypeFilter:
 		case EFSFullTextFilter:
-		case EFSBacklinkFilesFilter:
-		case EFSFileLinksFilter:
+		case EFSLinkedFromFilter:
+		case EFSLinksToFilter:
 			break;
 		default: return -1;
 	}
@@ -103,157 +112,163 @@ err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfil
 	return 0;
 }
 
-void EFSFilterCreateTempTables(sqlite3 *const db) {
-	EXEC(QUERY(db,
-		"CREATE TEMPORARY TABLE results (\n"
-		"	result_id INTEGER PRIMARY KEY NOT NULL,\n"
-		"	file_id INTEGER NOT NULL,\n"
-		"	sort INTEGER NOT NULL,\n"
-		"	depth INTEGER NOT NULL\n"
-		")"));
-	EXEC(QUERY(db,
-		"CREATE INDEX results_depth_index\n"
-		"ON results (depth)"));
-	EXEC(QUERY(db,
-		"CREATE INDEX results_sort_index\n"
-		"ON results (sort, file_id)"));
-	EXEC(QUERY(db,
-		"CREATE TEMPORARY TABLE depths (\n"
-		"	depth_id INTEGER PRIMARY KEY NOT NULL,\n"
-		"	subdepth INTEGER NOT NULL,\n"
-		"	depth INTEGER NOT NULL\n"
-		")"));
-	EXEC(QUERY(db,
-		"CREATE INDEX depth_depths_index\n"
-		"ON depths (depth)"));
-}
-void EFSFilterExec(EFSFilterRef const filter, sqlite3 *const db, int64_t const depth) {
-	if(!filter) return;
+
+// TODO: We should probably just split these into two copies for each filter type, even though there is so much redundancy, and use CROSS JOINs everywhere.
+
+#define MATCH(str) \
+	"SELECT MIN(f.file_id)\n" \
+	str "\n" \
+	"AND (md.meta_file_id = ? AND f.file_id > ?)"
+
+#define MATCH_AGE(str) \
+	"SELECT MIN(md.meta_file_id)\n" \
+	str "\n" \
+	"AND (f.file_id = ?)"
+
+
+#define LINKS_TO(type) \
+	"FROM file_uris AS f\n" \
+	type " JOIN meta_data AS md\n" \
+	"	ON (f.uri_sid = md.uri_sid)\n" \
+	"INNER JOIN strings AS field\n" \
+	"	ON (md.field_sid = field.sid)\n" \
+	"INNER JOIN strings AS value\n" \
+	"	ON (md.value_sid = value.sid)\n" \
+	"WHERE (\n" \
+	"	field.string = 'link'\n" \
+	"	AND value.string = ?\n" \
+	")"
+
+#define LINKED_FROM(type) \
+	"FROM file_uris AS f\n" \
+	type " JOIN meta_data AS md\n" \
+	"	ON (f.uri_sid = md.value_sid)\n" \
+	"INNER JOIN strings AS field\n" \
+	"	ON (md.field_sid = field.sid)\n" \
+	"INNER JOIN strings AS value\n" \
+	"	ON (md.uri_sid = value.sid)\n" \
+	"WHERE (\n" \
+	"	field.string = 'link'\n" \
+	"	AND value.string = ?\n" \
+	")"
+
+err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3 *const db) {
+	assertf(!filter->match, "Filter already prepared");
+	assertf(!filter->matchAge, "Filter already prepared");
+	assertf(0 == filter->argc, "Filter already prepared");
 	switch(filter->type) {
-		case EFSNoFilter: {
-			sqlite3_stmt *const op = QUERY(db,
-				"INSERT INTO results\n"
-				"	(file_id, sort, depth)\n"
-				"SELECT file_id, file_id, ?\n"
-				"FROM files WHERE 1");
-			sqlite3_bind_int64(op, 1, depth);
-			EXEC(op);
-			break;
-		} case EFSFileTypeFilter: {
-			sqlite3_stmt *const op = QUERY(db,
-				"INSERT INTO results\n"
-				"	(file_id, sort, depth)\n"
-				"SELECT file_id, file_id, ?\n"
-				"FROM files WHERE file_type = ?");
-			sqlite3_bind_int64(op, 1, depth);
-			sqlite3_bind_text(op, 2, filter->data.string, -1, SQLITE_STATIC);
-			EXEC(op);
-			break;
-		} case EFSFullTextFilter: {
-/*			sqlite3_stmt *const op = QUERY(db,
-				"INSERT INTO results\n"
-				"	(file_id, sort, depth)\n"
-				"SELECT f.file_id, MIN(f.meta_file_id), ?\n"
-				"FROM fulltext AS t\n"
-				"INNER JOIN file_content AS f\n"
-				"	ON (t.rowid = f.fulltext_rowid)\n"
-				"WHERE t.description MATCH ?\n"
-				"GROUP BY f.file_id");
-			sqlite3_bind_int64(op, 1, depth);
-			sqlite3_bind_text(op, 2, filter->data.string, -1, SQLITE_STATIC);
-			EXEC(op);*/
-			assertf(0, "Not implemented");
-			break;
-		} case EFSBacklinkFilesFilter: {
-			sqlite3_stmt *const op = QUERY(db,
-				"INSERT INTO results\n"
-				"	(file_id, sort, depth)\n"
-				"SELECT f.file_id, MIN(md.meta_file_id), ?\n"
-				"FROM file_uris AS f\n"
-				"INNER JOIN meta_data AS md\n"
-				"	ON (f.uri_sid = md.uri_sid)\n"
-				"INNER JOIN strings AS field\n"
-				"	ON (md.field_sid = field.sid)\n"
-				"INNER JOIN strings AS uri\n"
-				"	ON (md.value_sid = uri.sid)\n"
-				"WHERE field.string = 'link' AND uri.string = ?\n"
-				"GROUP BY f.file_id");
-			sqlite3_bind_int64(op, 1, depth);
-			sqlite3_bind_text(op, 2, filter->data.string, -1, SQLITE_STATIC);
-			EXEC(op);
-			break;
-		} case EFSFileLinksFilter: {
-			sqlite3_stmt *const op = QUERY(db,
-				"INSERT INTO results\n"
-				"	(file_id, sort, depth)\n"
-				"SELECT f.file_id, MIN(md.meta_file_id), ?\n"
-				"FROM file_uris AS f\n"
-				"INNER JOIN meta_data AS md\n"
-				"	ON (f.uri_sid = md.value_sid)\n"
-				"INNER JOIN strings AS field\n"
-				"	ON (md.field_sid = field.sid)\n"
-				"INNER JOIN strings AS uri\n"
-				"	ON (md.uri_sid = uri.sid)\n"
-				"WHERE field.string = 'link' AND uri.string = ?\n"
-				"GROUP BY f.file_id");
-			sqlite3_bind_int64(op, 1, depth);
-			sqlite3_bind_text(op, 2, filter->data.string, -1, SQLITE_STATIC);
-			EXEC(op);
-			break;
-/*		} case EFSPermissionFilter: {
-			QUERY(db,
-				"INSERT INTO results\n"
-				"	(file_id, sort, depth)\n"
-				"SELECT file_id\n"
-				"FROM file_ermissions\n"
-				"WHERE user_id = ?");
-			break;*/
-		} case EFSIntersectionFilter: {
-			// continue;
-		} case EFSUnionFilter: {
+		case EFSLinkedFromFilter: {
+			filter->match = QUERY(db, MATCH(LINKED_FROM("INNER")));
+			sqlite3_bind_text(filter->match, 1, filter->data.string, -1, SQLITE_STATIC);
+			filter->matchAge = QUERY(db, MATCH_AGE(LINKED_FROM("CROSS")));
+			sqlite3_bind_text(filter->matchAge, 1, filter->data.string, -1, SQLITE_STATIC);
+			filter->argc = 1;
+			return 0;
+		}
+		case EFSLinksToFilter: {
+			filter->match = QUERY(db, MATCH(LINKS_TO("INNER")));
+			sqlite3_bind_text(filter->match, 1, filter->data.string, -1, SQLITE_STATIC);
+			filter->matchAge = QUERY(db, MATCH_AGE(LINKS_TO("CROSS")));
+			sqlite3_bind_text(filter->matchAge, 1, filter->data.string, -1, SQLITE_STATIC);
+			filter->argc = 1;
+			return 0;
+		}
+		case EFSIntersectionFilter:
+		case EFSUnionFilter: {
 			EFSFilterList const *const list = filter->data.filters;
-			if(!list || !list->count) break;
-			sqlite3_stmt *const insertDepth = QUERY(db,
-				"INSERT INTO depths (subdepth, depth)\n"
-				"VALUES (?, ?)");
 			for(index_t i = 0; i < list->count; ++i) {
-				EFSFilterExec(list->items[i], db, depth+i+1);
-				sqlite3_bind_int64(insertDepth, 1, depth+i+1);
-				sqlite3_bind_int64(insertDepth, 2, depth);
-				sqlite3_step(insertDepth);
-				sqlite3_reset(insertDepth);
+				if(EFSFilterPrepare(list->items[i], db) < 0) return -1;
 			}
-			sqlite3_finalize(insertDepth);
+			return 0;
+		}
+		default: {
+			assertf(0, "Unknown filter type %d\n", filter->type);
+			return -1;
+		}
+	}
+}
+int64_t EFSFilterMatch(EFSFilterRef const filter, int64_t const sortID, int64_t const lastFileID) {
+	switch(filter->type) {
+		case EFSNoFilter:
+		case EFSPermissionFilter: {
+			if(lastFileID < sortID) return sortID;
+			return -1;
+		}
+		case EFSFileTypeFilter:
+		case EFSFullTextFilter:
+		case EFSLinkedFromFilter:
+		case EFSLinksToFilter: {
+			sqlite3_bind_int64(filter->match, filter->argc + 1, sortID);
+			sqlite3_bind_int64(filter->match, filter->argc + 2, lastFileID);
+			int64_t fileID = -1;
+			if(
+				SQLITE_ROW == sqlite3_step(filter->match) &&
+				SQLITE_NULL != sqlite3_column_type(filter->match, 0)
+			) {
+				fileID = sqlite3_column_int64(filter->match, 0);
+			}
+			sqlite3_reset(filter->match);
+			if(fileID < 0) return -1;
+			if(EFSFilterMatchAge(filter, fileID) < sortID) return -1;
+			return fileID;
+		}
+		case EFSIntersectionFilter:
+		case EFSUnionFilter: {
+			EFSFilterList const *const list = filter->data.filters;
+			int64_t firstFileID = INT64_MAX;
+			for(index_t i = 0; i < list->count; ++i) {
+				int64_t const fileID = EFSFilterMatch(list->items[i], sortID, lastFileID);
+				if(fileID < 0) continue;
+				if(fileID < firstFileID) firstFileID = fileID;
+			}
+			if(INT64_MAX == firstFileID) return -1;
 
-			sqlite3_stmt *const op = QUERY(db,
-				"INSERT INTO results\n"
-				"	(file_id, sort, depth)\n"
-				"SELECT file_id, MIN(sort), ?\n"
-				"FROM results\n"
-				"WHERE depth IN (\n"
-				"	SELECT subdepth FROM depths\n"
-				"	WHERE depth = ?)\n"
-				"GROUP BY file_id\n"
-				"HAVING COUNT(file_id) >= ?");
-			sqlite3_bind_int64(op, 1, depth);
-			sqlite3_bind_int64(op, 2, depth);
-			int64_t const threshold =
-				EFSUnionFilter == filter-> type ? 1 : list->count;
-			sqlite3_bind_int64(op, 3, threshold);
-			EXEC(op);
-
-			sqlite3_stmt *const clearDepths = QUERY(db,
-				"DELETE FROM depths WHERE depth = ?");
-			sqlite3_bind_int64(clearDepths, 1, depth);
-			EXEC(clearDepths);
-
-			sqlite3_stmt *const clearStack = QUERY(db,
-				"DELETE FROM results WHERE depth > ?");
-			sqlite3_bind_int64(clearStack, 1, depth);
-			EXEC(clearStack);
-			break;
-		} default: {
-			assertf(0, "Unrecognized filter type %d\n", (int)filter->type);
+			for(index_t i = 0; i < list->count; ++i) {
+				int64_t const age = EFSFilterMatchAge(list->items[i], firstFileID);
+				if(EFSIntersectionFilter == filter->type) {
+					if(age > sortID) return -1;
+				} else {
+					if(age < sortID) return -1;
+				}
+			}
+			return firstFileID;
+		}
+		default: {
+			assertf(0, "Unknown filter type %d\n", filter->type);
+			return -1;
+		}
+	}
+}
+int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const fileID) {
+	switch(filter->type) {
+		case EFSNoFilter:
+		case EFSPermissionFilter:
+			return fileID;
+		case EFSFileTypeFilter:
+		case EFSFullTextFilter:
+		case EFSLinkedFromFilter:
+		case EFSLinksToFilter: {
+			sqlite3_bind_int64(filter->matchAge, filter->argc + 1, fileID);
+			int64_t age = INT64_MAX;
+			if(SQLITE_ROW == sqlite3_step(filter->matchAge)) {
+				age = sqlite3_column_int64(filter->matchAge, 0);
+			}
+			sqlite3_reset(filter->matchAge);
+			return age;
+		}
+		case EFSIntersectionFilter:
+		case EFSUnionFilter: {
+			EFSFilterList const *const list = filter->data.filters;
+			int64_t minAge = INT64_MAX;
+			for(index_t i = 0; i < list->count; ++i) {
+				int64_t age = EFSFilterMatchAge(list->items[i], fileID);
+				if(age < minAge) minAge = age;
+			}
+			return minAge;
+		}
+		default: {
+			assertf(0, "Unknown filter type %d\n", filter->type);
+			return INT64_MAX;
 		}
 	}
 }
