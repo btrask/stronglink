@@ -199,7 +199,6 @@ int64_t EFSFilterMatchFile(EFSFilterRef const filter, int64_t const sortID, int6
 			}
 			sqlite3_reset(filter->matchFile);
 			if(fileID < 0) return -1;
-			if(EFSFilterMatchAge(filter, fileID) < sortID) return -1;
 			return fileID;
 		}
 		case EFSIntersectionFilter:

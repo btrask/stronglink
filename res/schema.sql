@@ -34,9 +34,9 @@ CREATE TABLE meta_data (
 	field TEXT NOT NULL,
 	value TEXT NOT NULL
 );
-CREATE UNIQUE INDEX meta_data_file_index ON meta_data (meta_file_id, value, uri, field);
+CREATE UNIQUE INDEX meta_data_preview_index ON meta_data (uri, field, value);
+CREATE INDEX meta_data_file_index ON meta_data (meta_file_id, value, uri, field);
 CREATE INDEX meta_data_age_index ON meta_data (uri, value, field, meta_file_id);
-CREATE INDEX meta_data_preview_index ON meta_data (uri, field, value);
 
 CREATE TABLE file_uris (
 	file_uri_id INTEGER PRIMARY KEY NOT NULL,
