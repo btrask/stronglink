@@ -6,7 +6,6 @@
 #define URI_MAX 1024
 
 struct EFSPull {
-	EFSRepoRef repo;
 	int64_t pullID;
 	EFSSessionRef session;
 	str_t *host;
@@ -22,7 +21,6 @@ static err_t import(EFSPullRef const pull, HTTPConnectionRef const conn, strarg_
 EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, int64_t const pullID, int64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query) {
 	EFSPullRef pull = calloc(1, sizeof(struct EFSPull));
 	if(!pull) return NULL;
-	pull->repo = repo;
 	pull->pullID = pullID;
 	pull->session = EFSRepoCreateSessionInternal(repo, userID);
 	pull->username = strdup(username);
@@ -35,7 +33,6 @@ EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, int64_t const pullID, int64_
 void EFSPullFree(EFSPullRef *const pullptr) {
 	EFSPullRef pull = *pullptr;
 	if(!pull) return;
-	pull->repo = NULL;
 	pull->pullID = -1;
 	EFSSessionFree(&pull->session);
 	FREE(&pull->host);
@@ -192,7 +189,7 @@ static err_t import(EFSPullRef const pull, HTTPConnectionRef const conn, strarg_
 	err = err < 0 ? err : EFSSubmissionCreatePair(session, headers->content_type, (ssize_t (*)())HTTPMessageGetBuffer, msg, NULL, &sub, &meta);
 
 	if(err >= 0) {
-		sqlite3 *db = EFSRepoDBConnect(pull->repo);
+		sqlite3 *db = EFSRepoDBConnect(EFSSessionGetRepo(pull->session));
 		EXEC(QUERY(db, "SAVEPOINT store"));
 		if(
 			EFSSubmissionStore(sub, db) < 0 ||
@@ -202,7 +199,7 @@ static err_t import(EFSPullRef const pull, HTTPConnectionRef const conn, strarg_
 			err = -1;
 		}
 		EXEC(QUERY(db, "RELEASE store"));
-		EFSRepoDBClose(pull->repo, &db);
+		EFSRepoDBClose(EFSSessionGetRepo(pull->session), &db);
 	}
 
 	EFSSubmissionFree(&sub);
