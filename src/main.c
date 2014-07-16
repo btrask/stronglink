@@ -6,6 +6,10 @@
 void sqlite3_init_sqllog(void);
 #endif
 
+static void sqlite_error(void *const ctx, int const err, char const *const msg){
+  fprintf(stderr, "sqlite: (%d) %s\n", err, msg);
+}
+
 bool_t EFSServerDispatch(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI);
 
 typedef struct Blog* BlogRef;
@@ -49,6 +53,8 @@ int main(int const argc, char const *const *const argv) {
 	signal(SIGPIPE, SIG_IGN);
 	async_init();
 	async_sqlite_register();
+
+	sqlite3_config(SQLITE_CONFIG_LOG, sqlite_error, NULL);
 
 	// Even our init code wants to use async I/O.
 	async_wakeup(co_create(STACK_DEFAULT, init));
