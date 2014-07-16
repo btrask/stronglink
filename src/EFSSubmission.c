@@ -60,6 +60,12 @@ void EFSSubmissionFree(EFSSubmissionRef *const subptr) {
 	FREE(&sub->internalHash);
 	FREE(subptr); sub = NULL;
 }
+
+EFSRepoRef EFSSubmissionGetRepo(EFSSubmissionRef const sub) {
+	if(!sub) return NULL;
+	return EFSSessionGetRepo(sub->session);
+}
+
 err_t EFSSubmissionWrite(EFSSubmissionRef const sub, byte_t const *const buf, size_t const len) {
 	if(!sub) return 0;
 	if(sub->tmpfile < 0) return -1;
@@ -112,7 +118,7 @@ err_t EFSSubmissionAddFile(EFSSubmissionRef const sub) {
 	if(!sub) return -1;
 	if(!sub->tmppath) return -1;
 	if(!sub->size) return -1;
-	EFSRepoRef const repo = EFSSessionGetRepo(sub->session);
+	EFSRepoRef const repo = EFSSubmissionGetRepo(sub);
 	str_t *internalPath = EFSRepoCopyInternalPath(repo, sub->internalHash);
 	if(async_fs_mkdirp_dirname(internalPath, 0700) < 0) {
 		fprintf(stderr, "Couldn't mkdir -p %s\n", internalPath);
@@ -135,7 +141,7 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, sqlite3 *const db) {
 	assertf(db, "EFSSubmissionStore DB required");
 	if(sub->tmppath) return -1;
 	EFSSessionRef const session = sub->session;
-	EFSRepoRef const repo = EFSSessionGetRepo(session);
+	EFSRepoRef const repo = EFSSubmissionGetRepo(sub);
 	uint64_t const userID = EFSSessionGetUserID(session);
 
 	EXEC(QUERY(db, "SAVEPOINT submission"));
@@ -201,7 +207,7 @@ EFSSubmissionRef EFSSubmissionCreateAndAdd(EFSSessionRef const session, strarg_t
 	err = err < 0 ? err : EFSSubmissionWriteFrom(sub, read, context);
 	err = err < 0 ? err : EFSSubmissionAddFile(sub);
 	if(err >= 0) {
-		EFSRepoRef const repo = EFSSessionGetRepo(sub->session);
+		EFSRepoRef const repo = EFSSubmissionGetRepo(sub);
 		sqlite3 *db = EFSRepoDBConnect(repo);
 		err = err < 0 ? err : EFSSubmissionStore(sub, db);
 		EFSRepoDBClose(repo, &db);
@@ -257,7 +263,7 @@ EFSSubmissionRef EFSSubmissionCreateAndAddPair(EFSSessionRef const session, stra
 		return NULL;
 	}
 
-	EFSRepoRef const repo = EFSSessionGetRepo(sub->session);
+	EFSRepoRef const repo = EFSSubmissionGetRepo(sub);
 	sqlite3 *db = EFSRepoDBConnect(repo);
 	EXEC(QUERY(db, "SAVEPOINT addpair"));
 

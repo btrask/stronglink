@@ -44,6 +44,7 @@ void EFSFileInfoFree(EFSFileInfo **const infoptr);
 
 EFSSubmissionRef EFSSubmissionCreate(EFSSessionRef const session, strarg_t const type);
 void EFSSubmissionFree(EFSSubmissionRef *const subptr);
+EFSRepoRef EFSSubmissionGetRepo(EFSSubmissionRef const sub);
 err_t EFSSubmissionWrite(EFSSubmissionRef const sub, byte_t const *const buf, size_t const len);
 err_t EFSSubmissionEnd(EFSSubmissionRef const sub);
 err_t EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context);
