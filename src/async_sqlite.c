@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdio.h> /* For debugging */
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
@@ -17,6 +18,9 @@ static async_rwlock_t *lock;
 #else
 #error "Invalid file lock mode"
 #endif
+
+#define DBG(status) ({ assert(0); status; })
+//#define DBG(status) ({ fprintf(stderr, "%s:%d\n", __FILE__, __LINE__); status; })
 
 static sqlite3_io_methods const io_methods;
 
@@ -39,7 +43,7 @@ static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_fi
 		char const *const path = usetmp ? tmp : inpath;
 		uv_file const result = async_fs_open(path, uvflags, 0600);
 		if(!usetmp) {
-			if(result < 0) return SQLITE_CANTOPEN;
+			if(result < 0) return DBG(SQLITE_CANTOPEN);
 			file->file = result;
 			break;
 		}
@@ -48,7 +52,7 @@ static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_fi
 			continue;
 		} else if(result < 0) {
 			free(tmp); tmp = NULL;
-			return SQLITE_CANTOPEN;
+			return DBG(SQLITE_CANTOPEN);
 		}
 		file->file = result;
 		async_fs_unlink(path); // TODO: Is this safe on Windows?
@@ -60,8 +64,8 @@ static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_fi
 }
 static int async_delete(sqlite3_vfs *const vfs, char const *const path, int const syncDir) {
 	int const unlinkresult = async_fs_unlink(path);
-	if(ENOENT == unlinkresult) return SQLITE_OK;
-	if(unlinkresult < 0) return SQLITE_IOERR_DELETE;
+	if(-ENOENT == unlinkresult) return SQLITE_OK;
+	if(unlinkresult < 0) return DBG(SQLITE_IOERR_DELETE);
 	if(syncDir) {
 		char dirname[MAXPATHNAME+1];
 		sqlite3_snprintf(MAXPATHNAME+1, dirname, "%s", path);
@@ -70,10 +74,10 @@ static int async_delete(sqlite3_vfs *const vfs, char const *const path, int cons
 		dirname[i] = '\0';
 
 		uv_file const dir = async_fs_open(dirname, O_RDWR, 0600);
-		if(dir < 0) return SQLITE_IOERR_DELETE;
+		if(dir < 0) return DBG(SQLITE_IOERR_DELETE);
 		int const syncresult = async_fs_fsync(dir);
 		async_fs_close(dir);
-		if(syncresult < 0) return SQLITE_IOERR_DELETE;
+		if(syncresult < 0) return DBG(SQLITE_IOERR_DELETE);
 	}
 	return SQLITE_OK;
 }
@@ -101,7 +105,7 @@ static int async_fullPathname(sqlite3_vfs *const vfs, char const *const path, in
 	} else {
 		char dir[MAXPATHNAME+1] = "";
 		size_t len = MAXPATHNAME;
-		if(uv_cwd(dir, &len) < 0) return SQLITE_IOERR;
+		if(uv_cwd(dir, &len) < 0) return DBG(SQLITE_IOERR);
 		sqlite3_snprintf(size, outPath, "%s/%s", dir, path);
 	}
 	return SQLITE_OK;
@@ -109,12 +113,12 @@ static int async_fullPathname(sqlite3_vfs *const vfs, char const *const path, in
 static int async_randomness(sqlite3_vfs *const vfs, int const size, char *const buf) {
 	assert(size >= 0 && "Invalid random buffer size");
 	if(0 == SQLITE_ERROR) return SQLITE_OK;
-	if(async_random((unsigned char *)buf, size) < 0) return SQLITE_ERROR;
+	if(async_random((unsigned char *)buf, size) < 0) return DBG(SQLITE_ERROR);
 	return SQLITE_OK;
 }
 static int async_sleep_sqlite(sqlite3_vfs *const vfs, int const microseconds) {
 	assert(microseconds >= 0 && "Invalid sleep duration");
-	if(async_sleep(microseconds / 1000) < 0) return SQLITE_ERROR;
+	if(async_sleep(microseconds / 1000) < 0) return DBG(SQLITE_ERROR);
 	return microseconds;
 }
 static int async_currentTimeInt64(sqlite3_vfs *const vfs, sqlite3_int64 *const piNow) {
@@ -125,7 +129,7 @@ static int async_currentTimeInt64(sqlite3_vfs *const vfs, sqlite3_int64 *const p
 	if( gettimeofday(&sNow, 0)==0 ){
 		*piNow = unixEpoch + 1000*(sqlite3_int64)sNow.tv_sec + sNow.tv_usec/1000;
 	}else{
-		rc = SQLITE_ERROR;
+		rc = DBG(SQLITE_ERROR);
 	}
 	return rc;
 }
@@ -175,13 +179,13 @@ static sqlite3_vfs async_vfs = {
 };
 
 static int async_close(async_file *const file) {
-	if(async_fs_close(file->file) < 0) return SQLITE_IOERR;
+	if(async_fs_close(file->file) < 0) return DBG(SQLITE_IOERR);
 	return SQLITE_OK;
 }
 static int async_read(async_file *const file, void *const buf, int const len, sqlite3_int64 const offset) {
 	uv_buf_t info = uv_buf_init((char *)buf, len);
 	ssize_t const result = async_fs_read(file->file, &info, 1, offset);
-	if(result < 0) return SQLITE_IOERR_READ;
+	if(result < 0) return DBG(SQLITE_IOERR_READ);
 	if(result < len) {
 		memset(buf+result, 0, len-result); // Under threat of database corruption.
 		return SQLITE_IOERR_SHORT_READ;
@@ -191,7 +195,7 @@ static int async_read(async_file *const file, void *const buf, int const len, sq
 static int async_write(async_file *const file, void const *const buf, int const len, sqlite3_int64 const offset) {
 	uv_buf_t info = uv_buf_init((char *)buf, len);
 	ssize_t const result = async_fs_write(file->file, &info, 1, offset);
-	if(result != len) return SQLITE_IOERR_WRITE;
+	if(result != len) return DBG(SQLITE_IOERR_WRITE);
 	return SQLITE_OK;
 }
 static int async_truncate(async_file *const file, sqlite3_int64 const size) {
@@ -200,7 +204,7 @@ static int async_truncate(async_file *const file, sqlite3_int64 const size) {
 	co_switch(yield);
 	int const result = req.result;
 	uv_fs_req_cleanup(&req);
-	if(result < 0) return SQLITE_IOERR_TRUNCATE;
+	if(result < 0) return DBG(SQLITE_IOERR_TRUNCATE);
 	return SQLITE_OK;
 }
 static int async_sync(async_file *const file, int const flags) {
@@ -210,7 +214,7 @@ static int async_sync(async_file *const file, int const flags) {
 	} else {
 		result = async_fs_fsync(file->file);
 	}
-	if(result < 0) return SQLITE_IOERR_FSYNC;
+	if(result < 0) return DBG(SQLITE_IOERR_FSYNC);
 	return SQLITE_OK;
 }
 static int async_fileSize(async_file *const file, sqlite3_int64 *const outSize) {
@@ -220,7 +224,7 @@ static int async_fileSize(async_file *const file, sqlite3_int64 *const outSize) 
 	*outSize = req.statbuf.st_size;
 	int const result = req.result;
 	uv_fs_req_cleanup(&req);
-	if(result < 0) return SQLITE_IOERR;
+	if(result < 0) return DBG(SQLITE_IOERR);
 	return SQLITE_OK;
 }
 static int async_lock(async_file *const file, int const level) {
