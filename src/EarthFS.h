@@ -102,7 +102,8 @@ EFSFilterType EFSFilterTypeFromString(strarg_t const type, size_t const len);
 
 EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, int64_t const pullID, int64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query);
 void EFSPullFree(EFSPullRef *const pullptr);
-void EFSPullStart(EFSPullRef const pull);
+err_t EFSPullStart(EFSPullRef const pull);
+void EFSPullStop(EFSPullRef const pull);
 
 #define EFS_ALGO_SIZE 32
 #define EFS_HASH_SIZE 256

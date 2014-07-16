@@ -4,6 +4,14 @@
 #include "http/HTTPMessage.h"
 
 #define URI_MAX 1024
+#define CONNECTION_COUNT 4
+
+typedef enum {
+	t_run,
+	t_wait,
+	t_stop,
+	t_done,
+} thread_state;
 
 struct EFSPull {
 	int64_t pullID;
@@ -13,10 +21,19 @@ struct EFSPull {
 	str_t *password;
 	str_t *cookie;
 	str_t *query;
+
+	async_mutex_t *lock;
+	HTTPConnectionRef conn;
+	HTTPMessageRef msg;
+
+	cothread_t threads[CONNECTION_COUNT];
+	thread_state states[CONNECTION_COUNT];
+	index_t next;
+	cothread_t master;
 };
 
-static err_t auth(EFSPullRef const pull, HTTPConnectionRef const conn);
-static err_t import(EFSPullRef const pull, HTTPConnectionRef const conn, strarg_t const URI);
+static err_t reconnect(EFSPullRef const pull);
+static err_t import(EFSPullRef const pull, index_t const thread, strarg_t const URI, HTTPConnectionRef *const conn);
 
 EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, int64_t const pullID, int64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query) {
 	EFSPullRef pull = calloc(1, sizeof(struct EFSPull));
@@ -42,66 +59,132 @@ void EFSPullFree(EFSPullRef *const pullptr) {
 	FREE(pullptr); pull = NULL;
 }
 
-static EFSPullRef pull_arg;
+static EFSPullRef arg_pull;
+static index_t arg_thread;
 static void pull_thread(void) {
-	EFSPullRef const pull = pull_arg;
-
-	HTTPConnectionRef queryConn = NULL;
-	HTTPConnectionRef fileConn = NULL;
-	HTTPMessageRef msg = NULL;
+	EFSPullRef const pull = arg_pull;
+	index_t const thread = arg_thread;
+	HTTPConnectionRef conn = NULL;
 
 	for(;;) {
-		if(queryConn || fileConn || msg) {
-			HTTPMessageFree(&msg);
-			HTTPConnectionFree(&fileConn);
-			HTTPConnectionFree(&queryConn);
-			async_sleep(1000 * 5);
-		}
+		if(t_stop == pull->states[thread]) break;
+		assertf(t_run == pull->states[thread], "Pull thread running in invalid state %d", pull->states[thread]);
 
-		queryConn = HTTPConnectionCreateOutgoing(pull->host);
-		fileConn = HTTPConnectionCreateOutgoing(pull->host);
+		str_t URI[URI_MAX+1];
 
-		if(auth(pull, queryConn) < 0) {
-			fprintf(stderr, "Pull auth error\n");
+		async_mutex_lock(pull->lock);
+		if(HTTPMessageReadLine(pull->msg, URI, URI_MAX) < 0) {
+			for(;;) {
+				if(reconnect(pull) >= 0) break;
+				if(t_stop == pull->states[thread]) break;
+				async_sleep(1000 * 5);
+			}
+			async_mutex_unlock(pull->lock);
 			continue;
 		}
-
-		msg = HTTPMessageCreate(queryConn);
-		HTTPMessageWriteRequest(msg, HTTP_GET, "/efs/query?count=all", pull->host);
-		if(pull->cookie) HTTPMessageWriteHeader(msg, "Cookie", pull->cookie);
-		HTTPMessageBeginBody(msg);
-		HTTPMessageEnd(msg);
-		uint16_t const status = HTTPMessageGetResponseStatus(msg);
-		if(403 == status) {
-			FREE(&pull->cookie);
-			continue;
-		}
-		if(status < 200 || status >= 300) {
-			fprintf(stderr, "Pull query error %d\n", (int)status);
-			continue;
-		}
+		async_mutex_unlock(pull->lock);
 
 		for(;;) {
-			str_t URI[URI_MAX+1];
-			if(HTTPMessageReadLine(msg, URI, URI_MAX) < 0) break;
-			for(;;) {
-				if(import(pull, fileConn, URI) >= 0) break;
-				async_sleep(1000);
-			}
+			if(import(pull, thread, URI, &conn) >= 0) break;
+			if(t_stop == pull->states[thread]) break;
+			async_sleep(1000 * 5);
 		}
-
 	}
 
-	HTTPMessageFree(&msg);
-	HTTPConnectionFree(&fileConn);
-	HTTPConnectionFree(&queryConn);
-
+	HTTPConnectionFree(&conn);
+	pull->threads[thread] = NULL;
+	pull->states[thread] = t_done;
+	if(pull->master) async_wakeup(pull->master);
 	co_terminate();
 }
-void EFSPullStart(EFSPullRef const pull) {
+err_t EFSPullStart(EFSPullRef const pull) {
+	if(!pull) return 0;
+	assertf(!pull->lock, "Pull already running");
+	pull->lock = async_mutex_create();
+	if(!pull->lock) return -1;
+	pull->next = 0;
+	for(index_t i = 0; i < CONNECTION_COUNT; ++i) {
+		arg_pull = pull;
+		arg_thread = i;
+		pull->threads[i] = co_create(STACK_DEFAULT, pull_thread);
+		assertf(pull->threads[i], "co_create() failed"); // TODO: Handle failure.
+		pull->states[i] = t_run;
+		async_wakeup(pull->threads[i]);
+	}
+	return 0;
+}
+void EFSPullStop(EFSPullRef const pull) {
 	if(!pull) return;
-	pull_arg = pull;
-	async_wakeup(co_create(STACK_DEFAULT, pull_thread));
+	if(!pull->lock) return;
+	count_t wait = 0;
+
+	for(index_t i = 0; i < CONNECTION_COUNT; ++i) {
+		switch(pull->states[i]) {
+			case t_run:
+				pull->states[i] = t_stop;
+				wait++;
+				break;
+			case t_wait:
+				pull->states[i] = t_stop;
+				async_wakeup(pull->threads[i]);
+				switch(pull->states[i]) {
+					case t_run:
+					case t_wait:
+						assertf(0, "Thread entered invalid state %d instead of stopping", pull->states[i]);
+						break;
+					case t_stop:
+						wait++;
+						break;
+					case t_done:
+						break;
+				}
+				break;
+			case t_stop:
+				assertf(0, "Thread already stopped");
+				break;
+			case t_done:
+				break;
+		}
+	}
+
+	pull->master = co_active();
+	while(wait) {
+		co_switch(yield);
+		--wait;
+	}
+	pull->master = NULL;
+
+	for(index_t i = 0; i < CONNECTION_COUNT; ++i) {
+		assertf(t_done == pull->states[i], "Pull thread ended in invalid state %d", pull->states[i]);
+	}
+
+	async_mutex_free(pull->lock); pull->lock = NULL;
+}
+
+static err_t auth(EFSPullRef const pull);
+
+static err_t reconnect(EFSPullRef const pull) {
+	HTTPMessageFree(&pull->msg);
+	HTTPConnectionFree(&pull->conn);
+
+	pull->conn = HTTPConnectionCreateOutgoing(pull->host);
+	pull->msg = HTTPMessageCreate(pull->conn);
+	if(!pull->conn || !pull->msg) return -1;
+	HTTPMessageWriteRequest(pull->msg, HTTP_GET, "/efs/query?count=all", pull->host);
+	// TODO: Pagination...
+	if(pull->cookie) HTTPMessageWriteHeader(pull->msg, "Cookie", pull->cookie);
+	HTTPMessageBeginBody(pull->msg);
+	HTTPMessageEnd(pull->msg);
+	uint16_t const status = HTTPMessageGetResponseStatus(pull->msg);
+	if(403 == status) {
+		auth(pull);
+		return -1;
+	}
+	if(status < 200 || status >= 300) {
+		fprintf(stderr, "Pull connection error %d\n", status);
+		return -1;
+	}
+	return 0;
 }
 
 typedef struct {
@@ -110,10 +193,11 @@ typedef struct {
 static HeaderField const EFSAuthFields[] = {
 	{"set-cookie", 100},
 };
-static err_t auth(EFSPullRef const pull, HTTPConnectionRef const conn) {
+static err_t auth(EFSPullRef const pull) {
 	if(!pull) return 0;
-	if(pull->cookie) return 0;
+	FREE(&pull->cookie);
 
+	HTTPConnectionRef conn = HTTPConnectionCreateOutgoing(pull->host);
 	HTTPMessageRef msg = HTTPMessageCreate(conn);
 	HTTPMessageWriteRequest(msg, HTTP_POST, "/efs/auth", pull->host);
 	HTTPMessageWriteContentLength(msg, 0);
@@ -128,6 +212,7 @@ static err_t auth(EFSPullRef const pull, HTTPConnectionRef const conn) {
 	// TODO: Parse and store.
 
 	HTTPMessageFree(&msg);
+	HTTPConnectionFree(&conn);
 
 	return 0;
 }
@@ -141,7 +226,7 @@ static HeaderField const EFSImportFields[] = {
 	{"content-type", 100},
 	{"content-length", 100},
 };
-static err_t import(EFSPullRef const pull, HTTPConnectionRef const conn, strarg_t const URI) {
+static err_t import(EFSPullRef const pull, index_t const thread, strarg_t const URI, HTTPConnectionRef *const conn) {
 	if(!pull) return 0;
 	if(!URI) return 0;
 
@@ -164,42 +249,67 @@ static err_t import(EFSPullRef const pull, HTTPConnectionRef const conn, strarg_
 
 	fprintf(stderr, "Pulling %s\n", URI);
 
-	err_t err = 0;
-
-	HTTPMessageRef msg = HTTPMessageCreate(conn);
-	if(!conn || !msg) {
-		HTTPMessageFree(&msg);
-		return -1;
+	if(!*conn) *conn = HTTPConnectionCreateOutgoing(pull->host);
+	HTTPMessageRef msg = HTTPMessageCreate(*conn);
+	if(!*conn || !msg) {
+		fprintf(stderr, "Pull import connection error\n");
+		goto fail;
 	}
 
 	str_t *path;
-	asprintf(&path, "/efs/file/%s/%s", algo, hash);
+	asprintf(&path, "/efs/file/%s/%s", algo, hash); // TODO: Error checking
 	HTTPMessageWriteRequest(msg, HTTP_GET, path, pull->host);
 	FREE(&path);
 
 	HTTPMessageWriteHeader(msg, "Cookie", pull->cookie);
 	HTTPMessageBeginBody(msg);
-	HTTPMessageEnd(msg);
+	if(HTTPMessageEnd(msg) < 0) {
+		fprintf(stderr, "Pull import request error\n");
+		goto fail;
+	}
 	uint16_t const status = HTTPMessageGetResponseStatus(msg);
-	err = err < 0 ? err : (status < 200 || status >= 300);
+	if(status < 200 || status >= 300) {
+		fprintf(stderr, "Pull import response error %d\n", status);
+		goto fail;
+	}
 
 	EFSImportHeaders const *const headers = HTTPMessageGetHeaders(msg, EFSImportFields, numberof(EFSImportFields));
 	EFSSubmissionRef sub = NULL;
 	EFSSubmissionRef meta = NULL;
-	err = err < 0 ? err : EFSSubmissionCreatePair(session, headers->content_type, (ssize_t (*)())HTTPMessageGetBuffer, msg, NULL, &sub, &meta);
+	if(EFSSubmissionCreatePair(session, headers->content_type, (ssize_t (*)())HTTPMessageGetBuffer, msg, NULL, &sub, &meta) < 0) {
+		fprintf(stderr, "Pull import submission error\n");
+		goto fail;
+	}
+	// TODO: Call EFSSubmissionWrite() in a loop so we can also check whether our thread was stopped.
 
-	if(err >= 0) {
+	if(t_stop == pull->states[thread]) goto fail2;
+	assertf(t_run == pull->states[thread], "Pull thread in invalid state %d", pull->states[thread]);
+
+	if(thread != pull->next) {
+		pull->states[thread] = t_wait;
+		co_switch(yield);
+		if(t_stop == pull->states[thread]) goto fail2;
+		assertf(t_run == pull->states[thread], "Pull thread in invalid state %d", pull->states[thread]);
+	}
+
+	for(;;) {
 		sqlite3 *db = EFSRepoDBConnect(EFSSessionGetRepo(pull->session));
 		EXEC(QUERY(db, "SAVEPOINT store"));
-		if(
-			EFSSubmissionStore(sub, db) < 0 ||
-			EFSSubmissionStore(meta, db) < 0
-		) {
-			EXEC(QUERY(db, "ROLLBACK TO store"));
-			err = -1;
-		}
+		err_t err = 0;
+		if(err >= 0) err = EFSSubmissionStore(sub, db);
+		if(err >= 0) err = EFSSubmissionStore(meta, db);
+		if(err < 0) EXEC(QUERY(db, "ROLLBACK TO store"));
 		EXEC(QUERY(db, "RELEASE store"));
 		EFSRepoDBClose(EFSSessionGetRepo(pull->session), &db);
+		if(err >= 0) break;
+		async_sleep(1000 * 5);
+	}
+
+	assertf(thread == pull->next, "Pull submission order error");
+	pull->next = (pull->next + 1) % CONNECTION_COUNT;
+	if(t_wait == pull->states[pull->next]) {
+		pull->states[pull->next] = t_run;
+		async_wakeup(pull->threads[pull->next]);
 	}
 
 	EFSSubmissionFree(&sub);
@@ -208,6 +318,14 @@ static err_t import(EFSPullRef const pull, HTTPConnectionRef const conn, strarg_
 	HTTPMessageDrain(msg);
 	HTTPMessageFree(&msg);
 
-	return err;
+	return 0;
+
+fail2:
+	EFSSubmissionFree(&sub);
+	EFSSubmissionFree(&meta);
+fail:
+	HTTPMessageFree(&msg);
+	HTTPConnectionFree(conn);
+	return -1;
 }
 

@@ -70,15 +70,17 @@ sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	// TODO: Connection pooling.
 	sqlite3 *db = NULL;
-	if(SQLITE_OK != sqlite3_open_v2(
+	int const status = sqlite3_open_v2(
 		repo->DBPath,
 		&db,
 		SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX,
 		NULL
-	)) return NULL;
-//	sqlite3_busy_timeout(db, 5);
-	// TODO: Doesn't work?
-	sqlite3_busy_handler(db, handler, NULL);
+	);
+	assertf(SQLITE_OK == status, "EFSRepo database connection error");
+	assertf(db, "EFSRepo database connection error");
+	// When we switch to connection pooling, it should be impossible for this method to fail because the connections will be already open and we will block until one is available.
+
+	sqlite3_busy_handler(db, handler, NULL); // TODO: Use unlock notify with shared cache.
 	return db;
 }
 void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 **const dbptr) {
@@ -95,13 +97,14 @@ void EFSRepoStartPulls(EFSRepoRef const repo) {
 		"	pull_id, user_id, host, username, password, cookie, query\n"
 		"FROM pulls");
 	while(SQLITE_ROW == sqlite3_step(select)) {
-		int64_t const pullID = sqlite3_column_int64(select, 0);
-		int64_t const userID = sqlite3_column_int64(select, 1);
-		strarg_t const host = (strarg_t)sqlite3_column_text(select, 2);
-		strarg_t const username = (strarg_t)sqlite3_column_text(select, 3);
-		strarg_t const password = (strarg_t)sqlite3_column_text(select, 4);
-		strarg_t const cookie = (strarg_t)sqlite3_column_text(select, 5);
-		strarg_t const query = (strarg_t)sqlite3_column_text(select, 6);
+		int col = 0;
+		int64_t const pullID = sqlite3_column_int64(select, col++);
+		int64_t const userID = sqlite3_column_int64(select, col++);
+		strarg_t const host = (strarg_t)sqlite3_column_text(select, col++);
+		strarg_t const username = (strarg_t)sqlite3_column_text(select, col++);
+		strarg_t const password = (strarg_t)sqlite3_column_text(select, col++);
+		strarg_t const cookie = (strarg_t)sqlite3_column_text(select, col++);
+		strarg_t const query = (strarg_t)sqlite3_column_text(select, col++);
 		EFSPullRef const pull = EFSRepoCreatePull(repo, pullID, userID, host, username, password, cookie, query);
 		EFSPullStart(pull);
 		// TODO: Keep a list?
