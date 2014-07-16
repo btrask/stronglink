@@ -297,18 +297,39 @@ static bool_t postSubmission(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 
 	strarg_t title = NULL; // TODO: Get file name from form part.
 
-	if(EFSSubmissionCreateAndAddPair(session, type, (ssize_t (*)())FormPartGetBuffer, part, title)) {
+	EFSSubmissionRef sub = NULL;
+	EFSSubmissionRef meta = NULL;
+	if(EFSSubmissionCreatePair(session, type, (ssize_t (*)())FormPartGetBuffer, part, title, &sub, &meta) < 0) {
+		HTTPMessageSendStatus(msg, 500);
+		MultipartFormFree(&form);
+		EFSSessionFree(&session);
+		return true;
+	}
+
+	sqlite3 *db = EFSRepoDBConnect(blog->repo);
+	EXEC(QUERY(db, "SAVEPOINT addpair"));
+
+	bool_t const success =
+		EFSSubmissionStore(sub, db) >= 0 &&
+		EFSSubmissionStore(meta, db) >= 0;
+
+	if(!success) EXEC(QUERY(db, "ROLLBACK TO addpair"));
+	EXEC(QUERY(db, "RELEASE addpair"));
+	EFSRepoDBClose(blog->repo, &db);
+	EFSSubmissionFree(&sub);
+	EFSSubmissionFree(&meta);
+	MultipartFormFree(&form);
+	EFSSessionFree(&session);
+
+	if(success) {
 		HTTPMessageWriteResponse(msg, 303, "See Other");
 		HTTPMessageWriteHeader(msg, "Location", "/");
 		HTTPMessageBeginBody(msg);
 		HTTPMessageEnd(msg);
 	} else {
-		fprintf(stderr, "Blog submission error\n");
 		HTTPMessageSendStatus(msg, 500);
 	}
 
-	MultipartFormFree(&form);
-	EFSSessionFree(&session);
 	return true;
 }
 

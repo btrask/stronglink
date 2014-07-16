@@ -53,7 +53,7 @@ err_t EFSSubmissionAddFile(EFSSubmissionRef const sub);
 err_t EFSSubmissionStore(EFSSubmissionRef const sub, sqlite3 *const db);
 // Convenience methods
 EFSSubmissionRef EFSSubmissionCreateAndAdd(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context);
-EFSSubmissionRef EFSSubmissionCreateAndAddPair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title); // Automatically adds a basic meta-file too.
+err_t EFSSubmissionCreatePair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title, EFSSubmissionRef *const outSub, EFSSubmissionRef *const outMeta);
 
 EFSHasherRef EFSHasherCreate(strarg_t const type);
 void EFSHasherFree(EFSHasherRef *const hasherptr);

@@ -215,7 +215,7 @@ EFSSubmissionRef EFSSubmissionCreateAndAdd(EFSSessionRef const session, strarg_t
 	if(err < 0) EFSSubmissionFree(&sub);
 	return sub;
 }
-EFSSubmissionRef EFSSubmissionCreateAndAddPair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title) {
+err_t EFSSubmissionCreatePair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title, EFSSubmissionRef *const outSub, EFSSubmissionRef *const outMeta) {
 	EFSSubmissionRef sub = EFSSubmissionCreate(session, type);
 	EFSSubmissionRef meta = EFSSubmissionCreate(session, "text/efs-meta+json; charset=utf-8");
 	if(
@@ -225,7 +225,7 @@ EFSSubmissionRef EFSSubmissionCreateAndAddPair(EFSSessionRef const session, stra
 	) {
 		EFSSubmissionFree(&sub);
 		EFSSubmissionFree(&meta);
-		return NULL;
+		return -1;
 	}
 
 	yajl_gen const json = yajl_gen_alloc(NULL);
@@ -260,28 +260,11 @@ EFSSubmissionRef EFSSubmissionCreateAndAddPair(EFSSessionRef const session, stra
 	) {
 		EFSSubmissionFree(&sub);
 		EFSSubmissionFree(&meta);
-		return NULL;
+		return -1;
 	}
 
-	EFSRepoRef const repo = EFSSubmissionGetRepo(sub);
-	sqlite3 *db = EFSRepoDBConnect(repo);
-	EXEC(QUERY(db, "SAVEPOINT addpair"));
-
-	if(
-		EFSSubmissionStore(sub, db) < 0 ||
-		EFSSubmissionStore(meta, db) < 0
-	) {
-		EXEC(QUERY(db, "ROLLBACK TO addpair"));
-		EXEC(QUERY(db, "RELEASE addpair"));
-		EFSRepoDBClose(repo, &db);
-		EFSSubmissionFree(&sub);
-		EFSSubmissionFree(&meta);
-		return NULL;
-	}
-
-	EXEC(QUERY(db, "RELEASE addpair"));
-	EFSRepoDBClose(repo, &db);
-	EFSSubmissionFree(&meta);
-	return sub;
+	*outSub = sub;
+	*outMeta = meta;
+	return 0;
 }
 
