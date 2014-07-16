@@ -67,7 +67,7 @@ static void pull_thread(void) {
 		}
 
 		msg = HTTPMessageCreate(queryConn);
-		HTTPMessageWriteRequest(msg, HTTP_GET, "/api/query/latest?count=all", pull->host); // TODO: /efs/query
+		HTTPMessageWriteRequest(msg, HTTP_GET, "/efs/query?count=all", pull->host);
 		if(pull->cookie) HTTPMessageWriteHeader(msg, "Cookie", pull->cookie);
 		HTTPMessageBeginBody(msg);
 		HTTPMessageEnd(msg);
@@ -173,7 +173,7 @@ static err_t import(EFSPullRef const pull, HTTPConnectionRef const conn, strarg_
 	}
 
 	str_t *path;
-	asprintf(&path, "/api/file/best/%s/%s", algo, hash); // TODO: /efs/file
+	asprintf(&path, "/efs/file/%s/%s", algo, hash);
 	HTTPMessageWriteRequest(msg, HTTP_GET, path, pull->host);
 	FREE(&path);
 
