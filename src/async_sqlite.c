@@ -9,7 +9,7 @@
 
 #define MAXPATHNAME 512
 
-#define FILE_LOCK_MODE 3
+#define FILE_LOCK_MODE 4
 
 #if FILE_LOCK_MODE==2
 static async_mutex_t *lock;
@@ -512,7 +512,8 @@ static void async_unlock_notify_cb(cothread_t *threads, int const count) {
 int async_sqlite3_prepare_v2(sqlite3 *db, const char *zSql, int nSql, sqlite3_stmt **ppStmt, const char **pz) {
 	for(;;) {
 		int status = sqlite3_prepare_v2(db, zSql, nSql, ppStmt, pz);
-		if(SQLITE_LOCKED != status) return status;
+		if(SQLITE_LOCKED_SHAREDCACHE != status &&
+			SQLITE_LOCKED != status) return status;
 		if(!use_unlock_notify) return SQLITE_LOCKED;
 		status = sqlite3_unlock_notify(db, async_unlock_notify_cb, co_active());
 		if(SQLITE_OK != status) return status;
@@ -523,7 +524,8 @@ int async_sqlite3_prepare_v2(sqlite3 *db, const char *zSql, int nSql, sqlite3_st
 int async_sqlite3_step(sqlite3_stmt *const stmt) {
 	for(;;) {
 		int status = sqlite3_step(stmt);
-		if(SQLITE_LOCKED != status) return status;
+		if(SQLITE_LOCKED_SHAREDCACHE != status &&
+			SQLITE_LOCKED != status) return status;
 		if(!use_unlock_notify) return SQLITE_LOCKED;
 		sqlite3 *const db = sqlite3_db_handle(stmt);
 		status = sqlite3_unlock_notify(db, async_unlock_notify_cb, co_active());

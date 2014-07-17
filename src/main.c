@@ -7,8 +7,9 @@
 void sqlite3_init_sqllog(void);
 #endif
 
-static void sqlite_error(void *const ctx, int const err, char const *const msg){
-  fprintf(stderr, "sqlite: (%d) %s\n", err, msg);
+static void sqlite_error(void *const ctx, int const err, char const *const msg) {
+	if(SQLITE_LOCKED_SHAREDCACHE == err) return;
+	fprintf(stderr, "sqlite: (%d) %s\n", err, msg);
 }
 
 bool_t EFSServerDispatch(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI);
@@ -49,7 +50,7 @@ static void term(void) {
 int main(int const argc, char const *const *const argv) {
 	signal(SIGPIPE, SIG_IGN);
 
-	int const err = sqlite3_config(SQLITE_CONFIG_LOG, sqlite_error, NULL);
+	int err = sqlite3_config(SQLITE_CONFIG_LOG, sqlite_error, NULL);
 	assertf(SQLITE_OK == err, "Couldn't enable SQLite error log");
 #ifdef SQLITE_ENABLE_SQLLOG
 	setenv("SQLITE_SQLLOG_DIR", "/home/ben/Documents/testrepo", 1);

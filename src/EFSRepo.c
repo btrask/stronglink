@@ -67,15 +67,17 @@ sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	// TODO: Connection pooling.
 	sqlite3 *db = NULL;
-	int const status = sqlite3_open_v2(
+	int err = sqlite3_open_v2(
 		repo->DBPath,
 		&db,
 		SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX,
 		NULL
 	);
-	assertf(SQLITE_OK == status, "EFSRepo database connection error");
+	assertf(SQLITE_OK == err, "EFSRepo database connection error");
 	assertf(db, "EFSRepo database connection error");
 	// When we switch to connection pooling, it should be impossible for this method to fail because the connections will be already open and we will block until one is available.
+	err = sqlite3_extended_result_codes(db, 1);
+	assertf(SQLITE_OK == err, "Couldn't turn on extended results codes");
 	return db;
 }
 void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 **const dbptr) {
