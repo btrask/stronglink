@@ -11,16 +11,6 @@
 
 #define FILE_LOCK_MODE 3
 
-#if FILE_LOCK_MODE==2
-static async_mutex_t *lock;
-#elif FILE_LOCK_MODE==3
-static async_rwlock_t *lock;
-#elif FILE_LOCK_MODE==4
-// nothing
-#else
-#error "Invalid file lock mode"
-#endif
-
 #define DBG(status) ({ assert(0); status; })
 //#define DBG(status) ({ fprintf(stderr, "%s:%d\n", __FILE__, __LINE__); status; })
 
@@ -32,7 +22,17 @@ typedef struct async_shared {
 	char *path;
 	char **bufs;
 	int bufcount;
-	async_rwlock_t *lock[SQLITE_SHM_NLOCK];
+	async_rwlock_t *shm_lock[SQLITE_SHM_NLOCK];
+
+	#if FILE_LOCK_MODE==2
+	async_mutex_t *lock;
+	#elif FILE_LOCK_MODE==3
+	async_rwlock_t *lock;
+	#elif FILE_LOCK_MODE==4
+	// nothing
+	#else
+	#error "Invalid file lock mode"
+	#endif
 } async_shared;
 static async_shared *shared_list = NULL;
 
@@ -84,8 +84,15 @@ static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_fi
 			shared = calloc(1, sizeof(async_shared));
 			shared->path = strdup(inpath);
 			for(unsigned i = 0; i < SQLITE_SHM_NLOCK; ++i) {
-				shared->lock[i] = async_rwlock_create();
+				shared->shm_lock[i] = async_rwlock_create();
 			}
+#if FILE_LOCK_MODE==2
+			shared->lock = async_mutex_create();
+			assert(shared->lock && "File lock creation failed");
+#elif FILE_LOCK_MODE==3
+			shared->lock = async_rwlock_create();
+			assert(shared->lock && "File lock creation failed");
+#endif
 			shared->next = shared_list;
 			shared_list = shared;
 		}
@@ -260,28 +267,30 @@ static int async_fileSize(async_file *const file, sqlite3_int64 *const outSize) 
 }
 static int async_lock(async_file *const file, int const level) {
 #if FILE_LOCK_MODE==2
+	async_shared *const shared = file->shared;
 	if(level <= SQLITE_LOCK_NONE) return SQLITE_OK;
-	if(async_mutex_check(lock)) return SQLITE_OK;
-	async_mutex_lock(lock);
+	if(async_mutex_check(shared->lock)) return SQLITE_OK;
+	async_mutex_lock(shared->lock);
 	return SQLITE_OK;
 #elif FILE_LOCK_MODE==3
+	async_shared *const shared = file->shared;
 	switch(level) {
 		case SQLITE_LOCK_NONE:
 			return SQLITE_OK;
 		case SQLITE_LOCK_SHARED:
-			if(async_rwlock_wrcheck(lock)) return SQLITE_OK;
-			if(async_rwlock_rdcheck(lock)) return SQLITE_OK;
-			async_rwlock_rdlock(lock);
+			if(async_rwlock_wrcheck(shared->lock)) return SQLITE_OK;
+			if(async_rwlock_rdcheck(shared->lock)) return SQLITE_OK;
+			async_rwlock_rdlock(shared->lock);
 			return SQLITE_OK;
 		case SQLITE_LOCK_RESERVED:
 		case SQLITE_LOCK_PENDING:
 		case SQLITE_LOCK_EXCLUSIVE:
-			if(async_rwlock_wrcheck(lock)) return SQLITE_OK;
-			if(async_rwlock_rdcheck(lock)) {
-				if(async_rwlock_upgrade(lock) < 0) return SQLITE_BUSY;
+			if(async_rwlock_wrcheck(shared->lock)) return SQLITE_OK;
+			if(async_rwlock_rdcheck(shared->lock)) {
+				if(async_rwlock_upgrade(shared->lock) < 0) return SQLITE_BUSY;
 				return SQLITE_OK;
 			}
-			async_rwlock_wrlock(lock);
+			async_rwlock_wrlock(shared->lock);
 			return SQLITE_OK;
 		default:
 			assert(0 && "Unknown lock mode");
@@ -293,19 +302,21 @@ static int async_lock(async_file *const file, int const level) {
 }
 static int async_unlock(async_file *const file, int const level) {
 #if FILE_LOCK_MODE==2
+	async_shared *const shared = file->shared;
 	if(level > SQLITE_LOCK_NONE) return SQLITE_OK;
-	if(!async_mutex_check(lock)) return SQLITE_OK;
-	async_mutex_unlock(lock);
+	if(!async_mutex_check(shared->lock)) return SQLITE_OK;
+	async_mutex_unlock(shared->lock);
 	return SQLITE_OK;
 #elif FILE_LOCK_MODE==3
+	async_shared *const shared = file->shared;
 	switch(level) {
 		case SQLITE_LOCK_EXCLUSIVE:
 		case SQLITE_LOCK_PENDING:
 		case SQLITE_LOCK_RESERVED:
 			return SQLITE_OK;
 		case SQLITE_LOCK_SHARED:
-			if(async_rwlock_wrcheck(lock)) {
-				if(async_rwlock_downgrade(lock) < 0) {
+			if(async_rwlock_wrcheck(shared->lock)) {
+				if(async_rwlock_downgrade(shared->lock) < 0) {
 					assert(0 && "Non-recursive lock downgrade should always succeed");
 					return SQLITE_BUSY;
 				}
@@ -313,12 +324,12 @@ static int async_unlock(async_file *const file, int const level) {
 			}
 			return SQLITE_OK;
 		case SQLITE_LOCK_NONE:
-			if(async_rwlock_wrcheck(lock)) {
-				async_rwlock_wrunlock(lock);
+			if(async_rwlock_wrcheck(shared->lock)) {
+				async_rwlock_wrunlock(shared->lock);
 				return SQLITE_OK;
 			}
-			if(async_rwlock_rdcheck(lock)) {
-				async_rwlock_rdunlock(lock);
+			if(async_rwlock_rdcheck(shared->lock)) {
+				async_rwlock_rdunlock(shared->lock);
 				return SQLITE_OK;
 			}
 			return SQLITE_OK;
@@ -332,9 +343,11 @@ static int async_unlock(async_file *const file, int const level) {
 }
 static int async_checkReservedLock(async_file *const file, int *const outRes) {
 #if FILE_LOCK_MODE==2
-	*outRes = async_mutex_check(lock);
+	async_shared *const shared = file->shared;
+	*outRes = async_mutex_check(shared->lock);
 #elif FILE_LOCK_MODE==3
-	*outRes = async_rwlock_wrcheck(lock);
+	async_shared *const shared = file->shared;
+	*outRes = async_rwlock_wrcheck(shared->lock);
 #elif FILE_LOCK_MODE==4
 	*outRes = 1;
 #endif
@@ -375,15 +388,15 @@ int async_shmLock(async_file *const file, int offset, int n, int flags) {
 	for(int i = offset; i < n; ++i) {
 		if(SQLITE_SHM_LOCK & flags) {
 			if(SQLITE_SHM_SHARED & flags) {
-				async_rwlock_rdlock(file->shared->lock[i]);
+				async_rwlock_rdlock(file->shared->shm_lock[i]);
 			} else {
-				async_rwlock_wrlock(file->shared->lock[i]);
+				async_rwlock_wrlock(file->shared->shm_lock[i]);
 			}
 		} else {
 			if(SQLITE_SHM_SHARED & flags) {
-				async_rwlock_rdunlock(file->shared->lock[i]);
+				async_rwlock_rdunlock(file->shared->shm_lock[i]);
 			} else {
-				async_rwlock_wrunlock(file->shared->lock[i]);
+				async_rwlock_wrunlock(file->shared->shm_lock[i]);
 			}
 		}
 	}
@@ -489,13 +502,7 @@ void async_sqlite_register(void) {
 	int err = 0;
 	err = sqlite3_config(SQLITE_CONFIG_MUTEX, &async_mutex_methods);
 	assert(SQLITE_OK == err && "Couldn't enable async_sqlite mutex");
-#if FILE_LOCK_MODE==2
-	lock = async_mutex_create();
-	assert(lock && "File lock creation failed");
-#elif FILE_LOCK_MODE==3
-	lock = async_rwlock_create();
-	assert(lock && "File lock creation failed");
-#elif FILE_LOCK_MODE==4
+#if FILE_LOCK_MODE==4
 	err = sqlite3_enable_shared_cache(1);
 	assert(SQLITE_OK == err && "Couldn't enable SQLite shared cache");
 	use_unlock_notify = 1;
