@@ -132,7 +132,7 @@ static str_t *md_lookup(md_state const *const state, strarg_t const var) {
 		"AND value != '' LIMIT 1");
 	sqlite3_bind_text(select, 1, state->fileURI, -1, SQLITE_STATIC);
 	sqlite3_bind_text(select, 2, var, -1, SQLITE_STATIC);
-	if(SQLITE_ROW == sqlite3_step(select)) {
+	if(SQLITE_ROW == STEP(select)) {
 		unsafe = (strarg_t)sqlite3_column_text(select, 0);
 	}
 	if(!unsafe) {

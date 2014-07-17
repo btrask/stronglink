@@ -193,7 +193,7 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 	HTTPMessageWriteHeader(msg, "Content-Type", "text/uri-list; charset=utf-8");
 	HTTPMessageBeginBody(msg);
 
-	while(SQLITE_ROW == sqlite3_step(select)) {
+	while(SQLITE_ROW == STEP(select)) {
 		strarg_t const hash = (strarg_t)sqlite3_column_text(select, 0);
 		str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
 		uv_buf_t const parts[] = {

@@ -179,7 +179,7 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 
 	sqlite3_stmt *selectMax = QUERY(db,
 		"SELECT MAX(file_id) FROM files");
-	if(SQLITE_ROW != sqlite3_step(selectMax)) {
+	if(SQLITE_ROW != STEP(selectMax)) {
 		sqlite3_finalize(selectMax); selectMax = NULL;
 		EFSRepoDBClose(repo, &db);
 		return NULL;
@@ -198,7 +198,7 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 //			fprintf(stderr, "got match %lld of %lld, %lld\n", fileID, sortID, lastFileID);
 			if(match.fileID < 0) break;
 			sqlite3_bind_int64(selectHash, 1, match.fileID);
-			if(SQLITE_ROW == sqlite3_step(selectHash)) {
+			if(SQLITE_ROW == STEP(selectHash)) {
 				strarg_t const hash = (strarg_t)sqlite3_column_text(selectHash, 0);
 				str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
 				URIListAddURI(URIs, URI, -1);

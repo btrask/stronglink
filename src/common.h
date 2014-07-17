@@ -57,12 +57,12 @@ typedef int err_t;
 #define QUERY(db, str) ({ \
 	sqlite3_stmt *__stmt = NULL; \
 	str_t const __str[] = (str); \
-	int const __err = sqlite3_prepare_v2((db), __str, sizeof(__str), &__stmt, NULL); \
+	int const __err = async_sqlite3_prepare_v2((db), __str, sizeof(__str), &__stmt, NULL); \
 	if(SQLITE_OK != __err && SQLITE_DONE != __err && SQLITE_ROW != __err) fprintf(stderr, "%s:%d %s: %s (%d)\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, sqlite3_errstr(__err), __err); \
 	__stmt; \
 })
 #define STEP(stmt) ({ \
-	int const __err = sqlite3_step(stmt); \
+	int const __err = async_sqlite3_step(stmt); \
 	if(SQLITE_OK != __err && SQLITE_DONE != __err && SQLITE_ROW != __err) fprintf(stderr, "%s:%d %s: %s (%d)\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, sqlite3_errstr(__err), __err); \
 	__err; \
 })

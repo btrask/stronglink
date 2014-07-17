@@ -1,4 +1,5 @@
 #include "async.h"
+#include "async_sqlite.h"
 #include "EarthFS.h"
 #include "http/HTTPServer.h"
 

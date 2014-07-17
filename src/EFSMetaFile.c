@@ -110,7 +110,7 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 		strarg_t const value = (strarg_t)sqlite3_column_text(selectField, 1);
 		sqlite3_bind_text(insertField, 3, field, -1, SQLITE_STATIC);
 		sqlite3_bind_text(insertField, 4, value, -1, SQLITE_STATIC);
-		sqlite3_step(insertField);
+		STEP(insertField);
 		sqlite3_reset(insertField);
 	}
 	sqlite3_finalize(selectField); selectField = NULL;

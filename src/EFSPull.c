@@ -278,7 +278,7 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const res
 		"SELECT file_id FROM file_uris\n"
 		"WHERE uri = ? LIMIT 1");
 	sqlite3_bind_text(test, 1, URI, -1, SQLITE_STATIC);
-	bool_t exists = SQLITE_ROW == sqlite3_step(test);
+	bool_t exists = SQLITE_ROW == STEP(test);
 	sqlite3_finalize(test); test = NULL;
 	EFSRepoDBClose(repo, &db);
 	if(exists) goto enqueue;*/

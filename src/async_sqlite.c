@@ -5,16 +5,18 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include "../deps/sqlite/sqlite3.h"
-#include "async.h"
+#include "async_sqlite.h"
 
 #define MAXPATHNAME 512
 
-#define FILE_LOCK_MODE 3
+#define FILE_LOCK_MODE 4
 
 #if FILE_LOCK_MODE==2
 static async_mutex_t *lock;
 #elif FILE_LOCK_MODE==3
 static async_rwlock_t *lock;
+#elif FILE_LOCK_MODE==4
+// nothing
 #else
 #error "Invalid file lock mode"
 #endif
@@ -256,6 +258,8 @@ static int async_lock(async_file *const file, int const level) {
 			assert(0 && "Unknown lock mode");
 			return 0;
 	}
+#elif FILE_LOCK_MODE==4
+	return SQLITE_OK;
 #endif
 }
 static int async_unlock(async_file *const file, int const level) {
@@ -293,6 +297,8 @@ static int async_unlock(async_file *const file, int const level) {
 			assert(0 && "Unknown lock mode");
 			return 0;
 	}
+#elif FILE_LOCK_MODE==4
+	return SQLITE_OK;
 #endif
 }
 static int async_checkReservedLock(async_file *const file, int *const outRes) {
@@ -300,6 +306,8 @@ static int async_checkReservedLock(async_file *const file, int *const outRes) {
 	*outRes = async_mutex_check(lock);
 #elif FILE_LOCK_MODE==3
 	*outRes = async_rwlock_wrcheck(lock);
+#elif FILE_LOCK_MODE==4
+	*outRes = 1;
 #endif
 	return SQLITE_OK;
 }
@@ -392,17 +400,51 @@ static sqlite3_mutex_methods const async_mutex_methods = {
 	.xMutexNotheld = (int (*)(sqlite3_mutex *))async_mutex_notheld,
 };
 
+static int enabled = 0;
 void async_sqlite_register(void) {
-	int err = sqlite3_config(SQLITE_CONFIG_MUTEX, &async_mutex_methods);
-	assert(SQLITE_OK == err && "SQLite custom mutexes couldn't be set");
+	int err = 0;
+	err = sqlite3_config(SQLITE_CONFIG_MUTEX, &async_mutex_methods);
+	assert(SQLITE_OK == err && "Couldn't enable async_sqlite mutex");
 #if FILE_LOCK_MODE==2
 	lock = async_mutex_create();
 	assert(lock && "File lock creation failed");
 #elif FILE_LOCK_MODE==3
 	lock = async_rwlock_create();
 	assert(lock && "File lock creation failed");
+#elif FILE_LOCK_MODE==4
+	err = sqlite3_enable_shared_cache(1);
+	assert(SQLITE_OK == err && "Couldn't enable SQLite shared cache");
 #endif
 	err = sqlite3_vfs_register(&async_vfs, 1);
-	assert(SQLITE_OK == err && "SQLite custom VFS couldn't be registered");
+	assert(SQLITE_OK == err && "Couldn't register async_sqlite VFS");
+	enabled = 1;
+}
+
+static void async_unlock_notify_cb(cothread_t *threads, int const count) {
+	for(int i = 0; i < count; ++i) {
+		async_wakeup(threads[i]);
+	}
+}
+int async_sqlite3_prepare_v2(sqlite3 *db, const char *zSql, int nSql, sqlite3_stmt **ppStmt, const char **pz) {
+	for(;;) {
+		int status = sqlite3_prepare_v2(db, zSql, nSql, ppStmt, pz);
+		if(SQLITE_LOCKED != status) return status;
+		if(!enabled) return SQLITE_LOCKED;
+		status = sqlite3_unlock_notify(db, async_unlock_notify_cb, co_active());
+		if(SQLITE_OK != status) return status;
+		co_switch(yield);
+	}
+}
+int async_sqlite3_step(sqlite3_stmt *const stmt) {
+	for(;;) {
+		int status = sqlite3_step(stmt);
+		if(SQLITE_LOCKED != status) return status;
+		if(!enabled) return SQLITE_LOCKED;
+		sqlite3 *const db = sqlite3_db_handle(stmt);
+		status = sqlite3_unlock_notify(db, async_unlock_notify_cb, co_active());
+		if(SQLITE_OK != status) return status;
+		co_switch(yield);
+		sqlite3_reset(stmt);
+	}
 }
 

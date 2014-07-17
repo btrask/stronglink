@@ -194,7 +194,7 @@ EFSMatch EFSFilterMatchFile(EFSFilterRef const filter, int64_t const sortID, int
 			int64_t fileID = -1;
 			bool_t more = false;
 			if(
-				SQLITE_ROW == sqlite3_step(filter->matchFile) &&
+				SQLITE_ROW == STEP(filter->matchFile) &&
 				SQLITE_NULL != sqlite3_column_type(filter->matchFile, 0)
 			) {
 				fileID = sqlite3_column_int64(filter->matchFile, 0);
@@ -247,7 +247,7 @@ int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const fileID) {
 			sqlite3_bind_int64(filter->matchAge, filter->argc + 1, fileID);
 			int64_t age = INT64_MAX;
 			if(
-				SQLITE_ROW == sqlite3_step(filter->matchAge) &&
+				SQLITE_ROW == STEP(filter->matchAge) &&
 				SQLITE_NULL != sqlite3_column_type(filter->matchAge, 0)
 			) {
 				age = sqlite3_column_int64(filter->matchAge, 0);

@@ -63,9 +63,6 @@ strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->cacheDir;
 }
-static int handler(void *ctx, int count) {
-	return 1;
-}
 sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	// TODO: Connection pooling.
@@ -79,8 +76,6 @@ sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo) {
 	assertf(SQLITE_OK == status, "EFSRepo database connection error");
 	assertf(db, "EFSRepo database connection error");
 	// When we switch to connection pooling, it should be impossible for this method to fail because the connections will be already open and we will block until one is available.
-
-	sqlite3_busy_handler(db, handler, NULL); // TODO: Use unlock notify with shared cache.
 	return db;
 }
 void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 **const dbptr) {
@@ -96,7 +91,7 @@ void EFSRepoStartPulls(EFSRepoRef const repo) {
 		"SELECT\n"
 		"	pull_id, user_id, host, username, password, cookie, query\n"
 		"FROM pulls");
-	while(SQLITE_ROW == sqlite3_step(select)) {
+	while(SQLITE_ROW == STEP(select)) {
 		int col = 0;
 		int64_t const pullID = sqlite3_column_int64(select, col++);
 		int64_t const userID = sqlite3_column_int64(select, col++);

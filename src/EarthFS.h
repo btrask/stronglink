@@ -1,7 +1,8 @@
 #ifndef EARTHFS_H
 #define EARTHFS_H
 
-#include "../deps/sqlite/sqlite3.h"
+#include "async.h"
+#include "async_sqlite.h"
 #include "common.h"
 #include "URIList.h"
 
