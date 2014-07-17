@@ -400,7 +400,7 @@ static sqlite3_mutex_methods const async_mutex_methods = {
 	.xMutexNotheld = (int (*)(sqlite3_mutex *))async_mutex_notheld,
 };
 
-static int enabled = 0;
+static int use_unlock_notify = 0;
 void async_sqlite_register(void) {
 	int err = 0;
 	err = sqlite3_config(SQLITE_CONFIG_MUTEX, &async_mutex_methods);
@@ -414,10 +414,10 @@ void async_sqlite_register(void) {
 #elif FILE_LOCK_MODE==4
 	err = sqlite3_enable_shared_cache(1);
 	assert(SQLITE_OK == err && "Couldn't enable SQLite shared cache");
+	use_unlock_notify = 1;
 #endif
 	err = sqlite3_vfs_register(&async_vfs, 1);
 	assert(SQLITE_OK == err && "Couldn't register async_sqlite VFS");
-	enabled = 1;
 }
 
 static void async_unlock_notify_cb(cothread_t *threads, int const count) {
@@ -429,7 +429,7 @@ int async_sqlite3_prepare_v2(sqlite3 *db, const char *zSql, int nSql, sqlite3_st
 	for(;;) {
 		int status = sqlite3_prepare_v2(db, zSql, nSql, ppStmt, pz);
 		if(SQLITE_LOCKED != status) return status;
-		if(!enabled) return SQLITE_LOCKED;
+		if(!use_unlock_notify) return SQLITE_LOCKED;
 		status = sqlite3_unlock_notify(db, async_unlock_notify_cb, co_active());
 		if(SQLITE_OK != status) return status;
 		co_switch(yield);
@@ -439,7 +439,7 @@ int async_sqlite3_step(sqlite3_stmt *const stmt) {
 	for(;;) {
 		int status = sqlite3_step(stmt);
 		if(SQLITE_LOCKED != status) return status;
-		if(!enabled) return SQLITE_LOCKED;
+		if(!use_unlock_notify) return SQLITE_LOCKED;
 		sqlite3 *const db = sqlite3_db_handle(stmt);
 		status = sqlite3_unlock_notify(db, async_unlock_notify_cb, co_active());
 		if(SQLITE_OK != status) return status;
