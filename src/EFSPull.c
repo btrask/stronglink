@@ -274,12 +274,14 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 
 	// TODO: Figure out how to make this fast.
 	sqlite3 *db = EFSRepoDBConnect(repo);
+//	EXEC(QUERY(db, "PRAGMA read_uncommitted=1"));
 	sqlite3_stmt *test = QUERY(db,
 		"SELECT file_id FROM file_uris\n"
 		"WHERE uri = ? LIMIT 1");
 	sqlite3_bind_text(test, 1, URI, -1, SQLITE_STATIC);
 	bool_t exists = SQLITE_ROW == STEP(test);
 	sqlite3_finalize(test); test = NULL;
+//	EXEC(QUERY(db, "PRAGMA read_uncommitted=0"));
 	EFSRepoDBClose(repo, &db);
 	if(exists) goto enqueue;
 
