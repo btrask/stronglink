@@ -128,6 +128,9 @@ void EFSRepoStartPulls(EFSRepoRef const repo) {
 	EFSRepoDBClose(repo, &db);
 }
 
+static int retry(void *const ctx, int const count) {
+	return 1;
+}
 static sqlite3 *openDB(strarg_t const path) {
 	sqlite3 *db = NULL;
 	if(SQLITE_OK != sqlite3_open_v2(
@@ -140,6 +143,8 @@ static sqlite3 *openDB(strarg_t const path) {
 	err = sqlite3_extended_result_codes(db, 1);
 	assertf(SQLITE_OK == err, "Couldn't turn on extended results codes");
 	EXEC(QUERY(db, "PRAGMA synchronous=NORMAL"));
+	err = sqlite3_busy_handler(db, retry, NULL);
+	assertf(SQLITE_OK == err, "Couldn't set busy handler");
 	return db;
 }
 
