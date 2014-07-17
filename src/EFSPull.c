@@ -125,7 +125,6 @@ static void writer(void) {
 		count_t written = 0;
 		for(;;) {
 			sqlite3 *db = EFSRepoDBConnect(EFSSessionGetRepo(pull->session));
-			EXEC(QUERY(db, "PRAGMA synchronous=NORMAL"));
 			EXEC(QUERY(db, "SAVEPOINT store"));
 			err_t err = 0;
 			index_t i;

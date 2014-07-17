@@ -2,13 +2,22 @@
 #include "async.h"
 #include "EarthFS.h"
 
+#define CONNECTION_COUNT 12
+
 struct EFSRepo {
 	str_t *dir;
 	str_t *dataDir;
 	str_t *tempDir;
 	str_t *cacheDir;
 	str_t *DBPath;
+
+	sqlite3 *connections[CONNECTION_COUNT];
+	index_t cur;
+	count_t count;
+	cothread_t *thread_list;
 };
+
+static sqlite3 *openDB(strarg_t const path);
 
 EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 	assertf(dir, "EFSRepo dir required");
@@ -25,6 +34,14 @@ EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 		EFSRepoFree(&repo);
 		return NULL;
 	}
+	for(index_t i = 0; i < CONNECTION_COUNT; ++i) {
+		repo->connections[i] = openDB(repo->DBPath);
+		if(!repo->connections[i]) {
+			EFSRepoFree(&repo);
+			return NULL;
+		}
+	}
+	repo->count = CONNECTION_COUNT;
 	return repo;
 }
 void EFSRepoFree(EFSRepoRef *const repoptr) {
@@ -35,6 +52,10 @@ void EFSRepoFree(EFSRepoRef *const repoptr) {
 	FREE(&repo->tempDir);
 	FREE(&repo->cacheDir);
 	FREE(&repo->DBPath);
+	for(index_t i = 0; i < CONNECTION_COUNT; ++i) {
+		sqlite3_close(repo->connections[i]); repo->connections[i] = NULL;
+	}
+	repo->count = 0;
 	FREE(repoptr); repo = NULL;
 }
 strarg_t EFSRepoGetDir(EFSRepoRef const repo) {
@@ -65,24 +86,20 @@ strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo) {
 }
 sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo) {
 	if(!repo) return NULL;
-	// TODO: Connection pooling.
-	sqlite3 *db = NULL;
-	int err = sqlite3_open_v2(
-		repo->DBPath,
-		&db,
-		SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX,
-		NULL
-	);
-	assertf(SQLITE_OK == err, "EFSRepo database connection error");
-	assertf(db, "EFSRepo database connection error");
-	// When we switch to connection pooling, it should be impossible for this method to fail because the connections will be already open and we will block until one is available.
-	err = sqlite3_extended_result_codes(db, 1);
-	assertf(SQLITE_OK == err, "Couldn't turn on extended results codes");
+	if(!repo->count) {
+		assertf(0, "Blocking on DB connection not yet implemented");
+	}
+	sqlite3 *const db = repo->connections[repo->cur];
+	repo->cur = (repo->cur + 1) % CONNECTION_COUNT;
+	repo->count--;
 	return db;
 }
 void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 **const dbptr) {
 	if(!repo) return;
-	sqlite3_close(*dbptr); *dbptr = NULL;
+	index_t const pos = (repo->cur + repo->count) % CONNECTION_COUNT;
+	repo->connections[pos] = *dbptr;
+	repo->count++;
+	*dbptr = NULL;
 }
 
 void EFSRepoStartPulls(EFSRepoRef const repo) {
@@ -109,5 +126,20 @@ void EFSRepoStartPulls(EFSRepoRef const repo) {
 	sqlite3_finalize(select); select = NULL;
 
 	EFSRepoDBClose(repo, &db);
+}
+
+static sqlite3 *openDB(strarg_t const path) {
+	sqlite3 *db = NULL;
+	if(SQLITE_OK != sqlite3_open_v2(
+		path,
+		&db,
+		SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX,
+		NULL
+	)) return NULL;
+	int err = 0;
+	err = sqlite3_extended_result_codes(db, 1);
+	assertf(SQLITE_OK == err, "Couldn't turn on extended results codes");
+	EXEC(QUERY(db, "PRAGMA synchronous=NORMAL"));
+	return db;
 }
 
