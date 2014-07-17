@@ -30,6 +30,9 @@ struct EFSPull {
 	bool_t filled[QUEUE_SIZE];
 	index_t cur;
 	count_t count;
+
+	uv_timer_t profiler;
+	count_t written;
 };
 
 static err_t reconnect(EFSPullRef const pull);
@@ -149,6 +152,7 @@ static void writer(void) {
 		}
 		pull->cur = (pull->cur + written) % QUEUE_SIZE;
 		pull->count -= written;
+		pull->written += written; // Profiling
 
 		if(pull->blocked_reader) async_wakeup(pull->blocked_reader);
 
@@ -157,6 +161,11 @@ static void writer(void) {
 	assertf(pull->stop, "Writer ended early");
 	async_wakeup(pull->stop);
 	co_terminate();
+}
+static void profile(uv_timer_t *const timer) {
+	EFSPullRef const pull = timer->data;
+	if(pull->written) fprintf(stderr, "%f\n", pull->written / 10.0);
+	pull->written = 0;
 }
 err_t EFSPullStart(EFSPullRef const pull) {
 	if(!pull) return 0;
@@ -170,6 +179,12 @@ err_t EFSPullStart(EFSPullRef const pull) {
 	arg_pull = pull;
 	async_wakeup(co_create(STACK_DEFAULT, writer));
 	// TODO: It'd be even better to have one writer shared between all pulls...
+
+	pull->written = 0;
+	pull->profiler.data = pull;
+	uv_timer_init(loop, &pull->profiler);
+	uv_timer_start(&pull->profiler, profile, 1000 * 10, 1000 * 10);
+
 	return 0;
 }
 void EFSPullStop(EFSPullRef const pull) {
@@ -285,7 +300,8 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 	EFSRepoDBClose(repo, &db);
 	if(exists) goto enqueue;
 
-	fprintf(stderr, "Pulling %s\n", URI);
+	// TODO: We're logging out of order when we do it like this...
+//	fprintf(stderr, "Pulling %s\n", URI);
 
 	if(!*conn) *conn = HTTPConnectionCreateOutgoing(pull->host);
 	HTTPMessageRef msg = HTTPMessageCreate(*conn);
