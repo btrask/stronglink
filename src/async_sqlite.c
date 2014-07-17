@@ -9,7 +9,7 @@
 
 #define MAXPATHNAME 512
 
-#define FILE_LOCK_MODE 4
+#define FILE_LOCK_MODE 3
 
 #if FILE_LOCK_MODE==2
 static async_mutex_t *lock;

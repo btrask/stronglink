@@ -125,6 +125,7 @@ static void writer(void) {
 		count_t written = 0;
 		for(;;) {
 			sqlite3 *db = EFSRepoDBConnect(EFSSessionGetRepo(pull->session));
+			EXEC(QUERY(db, "PRAGMA synchronous=NORMAL"));
 			EXEC(QUERY(db, "SAVEPOINT store"));
 			err_t err = 0;
 			index_t i;
@@ -273,7 +274,7 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 
 	// TODO: Figure out how to make this fast.
-/*	sqlite3 *db = EFSRepoDBConnect(repo);
+	sqlite3 *db = EFSRepoDBConnect(repo);
 	sqlite3_stmt *test = QUERY(db,
 		"SELECT file_id FROM file_uris\n"
 		"WHERE uri = ? LIMIT 1");
@@ -281,7 +282,7 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 	bool_t exists = SQLITE_ROW == STEP(test);
 	sqlite3_finalize(test); test = NULL;
 	EFSRepoDBClose(repo, &db);
-	if(exists) goto enqueue;*/
+	if(exists) goto enqueue;
 
 	fprintf(stderr, "Pulling %s\n", URI);
 

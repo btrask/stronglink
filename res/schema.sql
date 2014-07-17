@@ -4,7 +4,6 @@
 PRAGMA application_id=9; -- TODO
 
 PRAGMA journal_mode=WAL;
-PRAGMA synchronous=NORMAL;
 
 
 CREATE TABLE users (
