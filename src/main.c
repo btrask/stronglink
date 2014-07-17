@@ -47,15 +47,17 @@ static void term(void) {
 	co_terminate();
 }
 int main(int const argc, char const *const *const argv) {
+	signal(SIGPIPE, SIG_IGN);
+
+	int const err = sqlite3_config(SQLITE_CONFIG_LOG, sqlite_error, NULL);
+	assertf(SQLITE_OK == err, "Couldn't enable SQLite error log");
 #ifdef SQLITE_ENABLE_SQLLOG
 	setenv("SQLITE_SQLLOG_DIR", "/home/ben/Documents/testrepo", 1);
 	sqlite3_init_sqllog();
 #endif
-	signal(SIGPIPE, SIG_IGN);
+
 	async_init();
 	async_sqlite_register();
-
-	sqlite3_config(SQLITE_CONFIG_LOG, sqlite_error, NULL);
 
 	// Even our init code wants to use async I/O.
 	async_wakeup(co_create(STACK_DEFAULT, init));

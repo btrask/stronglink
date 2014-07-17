@@ -272,7 +272,7 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 	EFSSessionRef const session = pull->session;
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 
-	// TODO: We want to keep downloading while submitting batches, but with SQLite in journaled mode, we can't read during a write. I think the most promising solution is to enable the write-ahead log... But there are some other ideas too.
+	// TODO: Figure out how to make this fast.
 /*	sqlite3 *db = EFSRepoDBConnect(repo);
 	sqlite3_stmt *test = QUERY(db,
 		"SELECT file_id FROM file_uris\n"

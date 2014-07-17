@@ -9,7 +9,7 @@
 
 #define MAXPATHNAME 512
 
-#define FILE_LOCK_MODE 4
+#define FILE_LOCK_MODE 3
 
 #if FILE_LOCK_MODE==2
 static async_mutex_t *lock;
@@ -26,9 +26,20 @@ static async_rwlock_t *lock;
 
 static sqlite3_io_methods const io_methods;
 
+typedef struct async_shared async_shared;
+typedef struct async_shared {
+	async_shared *next;
+	char *path;
+	char **bufs;
+	int bufcount;
+	async_rwlock_t *lock[SQLITE_SHM_NLOCK];
+} async_shared;
+static async_shared *shared_list = NULL;
+
 typedef struct {
 	sqlite3_io_methods const *methods;
 	uv_file file;
+	async_shared *shared;
 } async_file;
 
 static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_file *const file, int const sqflags, int *const outFlags) {
@@ -62,6 +73,24 @@ static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_fi
 		break;
 	}
 	file->methods = &io_methods;
+	file->shared = NULL;
+	if(inpath) {
+		async_shared *shared = shared_list;
+		while(shared) {
+			if(0 == strcmp(shared->path, inpath)) break;
+			shared = shared->next;
+		}
+		if(!shared) {
+			shared = calloc(1, sizeof(async_shared));
+			shared->path = strdup(inpath);
+			for(unsigned i = 0; i < SQLITE_SHM_NLOCK; ++i) {
+				shared->lock[i] = async_rwlock_create();
+			}
+			shared->next = shared_list;
+			shared_list = shared;
+		}
+		file->shared = shared;
+	}
 	return SQLITE_OK;
 }
 static int async_delete(sqlite3_vfs *const vfs, char const *const path, int const syncDir) {
@@ -322,8 +351,63 @@ static int async_deviceCharacteristics(async_file *const file) {
 }
 
 
+int async_shmMap(async_file *const file, int const page, int const pagesize, int const extend, void volatile **const buf) {
+	async_shared *const shared = file->shared;
+	if(page >= shared->bufcount) {
+		if(!extend) {
+			*buf = NULL;
+			return SQLITE_OK;
+		}
+		unsigned const old = shared->bufcount;
+		shared->bufcount = page+1;
+		shared->bufs = realloc(shared->bufs, sizeof(char *) * shared->bufcount);
+		if(!shared->bufs) return SQLITE_IOERR_NOMEM;
+		memset(&shared->bufs[old], 0, sizeof(char *) * shared->bufcount - old);
+	}
+	if(!shared->bufs[page]) {
+		shared->bufs[page] = calloc(1, pagesize);
+		if(!shared->bufs[page]) return SQLITE_IOERR_NOMEM;
+	}
+	*buf = shared->bufs[page];
+	return SQLITE_OK;
+}
+int async_shmLock(async_file *const file, int offset, int n, int flags) {
+	for(int i = offset; i < n; ++i) {
+		if(SQLITE_SHM_LOCK & flags) {
+			if(SQLITE_SHM_SHARED & flags) {
+				async_rwlock_rdlock(file->shared->lock[i]);
+			} else {
+				async_rwlock_wrlock(file->shared->lock[i]);
+			}
+		} else {
+			if(SQLITE_SHM_SHARED & flags) {
+				async_rwlock_rdunlock(file->shared->lock[i]);
+			} else {
+				async_rwlock_wrunlock(file->shared->lock[i]);
+			}
+		}
+	}
+	return SQLITE_OK;
+}
+void async_shmBarrier(async_file *const file) {
+	// Do nothing.
+}
+int async_shmUnmap(async_file *const file, int const delete) {
+	if(!delete) return SQLITE_OK;
+	if(!file->shared) return SQLITE_OK;
+	for(unsigned i = 0; i < file->shared->bufcount; ++i) {
+		free(file->shared->bufs[i]);
+		file->shared->bufs[i] = NULL;
+	}
+	free(file->shared->bufs);
+	file->shared->bufs = NULL;
+	file->shared->bufcount = 0;
+	return SQLITE_OK;
+}
+
+
 static sqlite3_io_methods const io_methods = {
-	.iVersion = 1,
+	.iVersion = 2,
 	.xClose = (int (*)())async_close,
 	.xRead = (int (*)())async_read,
 	.xWrite = (int (*)())async_write,
@@ -337,10 +421,10 @@ static sqlite3_io_methods const io_methods = {
 	.xSectorSize = (int (*)())async_sectorSize,
 	.xDeviceCharacteristics = (int (*)())async_deviceCharacteristics,
 	/* Methods above are valid for version 1 */
-//	int (*xShmMap)(sqlite3_file*, int iPg, int pgsz, int, void volatile**);
-//	int (*xShmLock)(sqlite3_file*, int offset, int n, int flags);
-//	void (*xShmBarrier)(sqlite3_file*);
-//	int (*xShmUnmap)(sqlite3_file*, int deleteFlag);
+	.xShmMap = (int (*)())async_shmMap,
+	.xShmLock = (int (*)())async_shmLock,
+	.xShmBarrier = (void (*)())async_shmBarrier,
+	.xShmUnmap = (int (*)())async_shmUnmap,
 	/* Methods above are valid for version 2 */
 //	int (*xFetch)(sqlite3_file*, sqlite3_int64 iOfst, int iAmt, void **pp);
 //	int (*xUnfetch)(sqlite3_file*, sqlite3_int64 iOfst, void *p);
@@ -433,6 +517,7 @@ int async_sqlite3_prepare_v2(sqlite3 *db, const char *zSql, int nSql, sqlite3_st
 		status = sqlite3_unlock_notify(db, async_unlock_notify_cb, co_active());
 		if(SQLITE_OK != status) return status;
 		co_switch(yield);
+		sqlite3_unlock_notify(db, NULL, NULL);
 	}
 }
 int async_sqlite3_step(sqlite3_stmt *const stmt) {
@@ -444,6 +529,7 @@ int async_sqlite3_step(sqlite3_stmt *const stmt) {
 		status = sqlite3_unlock_notify(db, async_unlock_notify_cb, co_active());
 		if(SQLITE_OK != status) return status;
 		co_switch(yield);
+		sqlite3_unlock_notify(db, NULL, NULL);
 		sqlite3_reset(stmt);
 	}
 }
