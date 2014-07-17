@@ -4,14 +4,8 @@
 #include "http/HTTPMessage.h"
 
 #define URI_MAX 1024
-#define CONNECTION_COUNT 4
-
-typedef enum {
-	t_run,
-	t_wait,
-	t_stop,
-	t_done,
-} thread_state;
+#define READER_COUNT 4
+#define BATCH_SIZE 10
 
 struct EFSPull {
 	int64_t pullID;
@@ -22,18 +16,23 @@ struct EFSPull {
 	str_t *cookie;
 	str_t *query;
 
-	async_mutex_t *lock;
+	cothread_t stop;
+	cothread_t blocked_reader;
+	cothread_t blocked_writer;
+
+	async_mutex_t *connlock;
 	HTTPConnectionRef conn;
 	HTTPMessageRef msg;
 
-	cothread_t threads[CONNECTION_COUNT];
-	thread_state states[CONNECTION_COUNT];
-	index_t next;
-	cothread_t master;
+	// Lock omitted due to cooperative multitasking.
+	// async_mutex_t *batchlock;
+	EFSSubmissionRef batch[BATCH_SIZE];
+	count_t reserved;
+	count_t fulfilled;
 };
 
 static err_t reconnect(EFSPullRef const pull);
-static err_t import(EFSPullRef const pull, index_t const thread, strarg_t const URI, HTTPConnectionRef *const conn);
+static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const reserved, HTTPConnectionRef *const conn);
 
 EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, int64_t const pullID, int64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query) {
 	EFSPullRef pull = calloc(1, sizeof(struct EFSPull));
@@ -60,105 +59,135 @@ void EFSPullFree(EFSPullRef *const pullptr) {
 }
 
 static EFSPullRef arg_pull;
-static index_t arg_thread;
-static void pull_thread(void) {
+static void reader(void) {
 	EFSPullRef const pull = arg_pull;
-	index_t const thread = arg_thread;
 	HTTPConnectionRef conn = NULL;
 
 	for(;;) {
-		if(t_stop == pull->states[thread]) break;
-		assertf(t_run == pull->states[thread], "Pull thread running in invalid state %d", pull->states[thread]);
+		if(pull->stop) break;
 
 		str_t URI[URI_MAX+1];
 
-		async_mutex_lock(pull->lock);
+		async_mutex_lock(pull->connlock);
+
 		if(HTTPMessageReadLine(pull->msg, URI, URI_MAX) < 0) {
 			for(;;) {
 				if(reconnect(pull) >= 0) break;
-				if(t_stop == pull->states[thread]) break;
+				if(pull->stop) break;
 				async_sleep(1000 * 5);
 			}
-			async_mutex_unlock(pull->lock);
+			async_mutex_unlock(pull->connlock);
 			continue;
 		}
-		async_mutex_unlock(pull->lock);
+
+		assertf(!pull->blocked_reader, "Reader already waiting");
+		if(pull->reserved + 2 >= BATCH_SIZE) {
+			assertf(!pull->blocked_writer, "Deadlock");
+			pull->blocked_reader = co_active();
+			co_switch(yield);
+			pull->blocked_reader = NULL;
+			if(pull->stop) continue;
+			assertf(pull->reserved + 2 < BATCH_SIZE, "Reader didn't wait long enough");
+		}
+		index_t reserved = pull->reserved;
+		pull->reserved += 2;
+
+		async_mutex_unlock(pull->connlock);
 
 		for(;;) {
-			if(import(pull, thread, URI, &conn) >= 0) break;
-			if(t_stop == pull->states[thread]) break;
+			if(import(pull, URI, reserved, &conn) >= 0) break;
+			if(pull->stop) break;
 			async_sleep(1000 * 5);
 		}
+
 	}
 
 	HTTPConnectionFree(&conn);
-	pull->threads[thread] = NULL;
-	pull->states[thread] = t_done;
-	if(pull->master) async_wakeup(pull->master);
+	assertf(pull->stop, "Reader ended early");
+	async_wakeup(pull->stop);
+	co_terminate();
+}
+static void writer(void) {
+	EFSPullRef const pull = arg_pull;
+	for(;;) {
+		if(pull->stop) break;
+
+		// lock (just don't yield)
+		if(0 == pull->fulfilled) {
+			// unlock
+			assertf(!pull->blocked_reader, "Deadlock");
+			pull->blocked_writer = co_active();
+			co_switch(yield);
+			pull->blocked_writer = NULL;
+			if(pull->stop) continue;
+			assertf(pull->fulfilled > 0, "Writer woke up early");
+			continue;
+		}
+		EFSSubmissionRef batch[BATCH_SIZE];
+		count_t count = pull->fulfilled;
+		memcpy(batch, pull->batch, sizeof(pull->batch));
+		memset(pull->batch, 0, sizeof(pull->batch));
+		pull->reserved = 0;
+		pull->fulfilled = 0;
+		// unlock
+
+		if(pull->blocked_reader) async_wakeup(pull->blocked_reader);
+
+		for(;;) {
+			sqlite3 *db = EFSRepoDBConnect(EFSSessionGetRepo(pull->session));
+			EXEC(QUERY(db, "SAVEPOINT store"));
+			err_t err = 0;
+			for(index_t i = 0; i < count; ++i) {
+				if(!batch[i]) continue; // Empty submissions enqueued for various reasons.
+				err = EFSSubmissionStore(batch[i], db);
+				if(err < 0) break;
+			}
+			if(err < 0) EXEC(QUERY(db, "ROLLBACK TO store"));
+			EXEC(QUERY(db, "RELEASE store"));
+			EFSRepoDBClose(EFSSessionGetRepo(pull->session), &db);
+			if(err >= 0) break;
+			async_sleep(1000 * 5);
+		}
+		for(index_t i = 0; i < count; ++i) {
+			EFSSubmissionFree(&batch[i]);
+		}
+
+	}
+
+	assertf(pull->stop, "Writer ended early");
+	async_wakeup(pull->stop);
 	co_terminate();
 }
 err_t EFSPullStart(EFSPullRef const pull) {
 	if(!pull) return 0;
-	assertf(!pull->lock, "Pull already running");
-	pull->lock = async_mutex_create();
-	if(!pull->lock) return -1;
-	pull->next = 0;
-	for(index_t i = 0; i < CONNECTION_COUNT; ++i) {
+	assertf(!pull->connlock, "Pull already running");
+	pull->connlock = async_mutex_create();
+	if(!pull->connlock) return -1;
+	for(index_t i = 0; i < READER_COUNT; ++i) {
 		arg_pull = pull;
-		arg_thread = i;
-		pull->threads[i] = co_create(STACK_DEFAULT, pull_thread);
-		assertf(pull->threads[i], "co_create() failed"); // TODO: Handle failure.
-		pull->states[i] = t_run;
-		async_wakeup(pull->threads[i]);
+		async_wakeup(co_create(STACK_DEFAULT, reader));
 	}
+	arg_pull = pull;
+	async_wakeup(co_create(STACK_DEFAULT, writer));
+	// TODO: It'd be even better to have one writer shared between all pulls...
 	return 0;
 }
 void EFSPullStop(EFSPullRef const pull) {
 	if(!pull) return;
-	if(!pull->lock) return;
-	count_t wait = 0;
+	if(!pull->connlock) return;
 
-	for(index_t i = 0; i < CONNECTION_COUNT; ++i) {
-		switch(pull->states[i]) {
-			case t_run:
-				pull->states[i] = t_stop;
-				wait++;
-				break;
-			case t_wait:
-				pull->states[i] = t_stop;
-				async_wakeup(pull->threads[i]);
-				switch(pull->states[i]) {
-					case t_run:
-					case t_wait:
-						assertf(0, "Thread entered invalid state %d instead of stopping", pull->states[i]);
-						break;
-					case t_stop:
-						wait++;
-						break;
-					case t_done:
-						break;
-				}
-				break;
-			case t_stop:
-				assertf(0, "Thread already stopped");
-				break;
-			case t_done:
-				break;
-		}
-	}
+	pull->stop = co_active();
+	if(pull->blocked_reader) async_wakeup(pull->blocked_reader);
+	if(pull->blocked_writer) async_wakeup(pull->blocked_writer);
 
-	pull->master = co_active();
+	count_t wait = READER_COUNT + 1;
 	while(wait) {
 		co_switch(yield);
-		--wait;
-	}
-	pull->master = NULL;
-
-	for(index_t i = 0; i < CONNECTION_COUNT; ++i) {
-		assertf(t_done == pull->states[i], "Pull thread ended in invalid state %d", pull->states[i]);
+		wait--;
 	}
 
-	async_mutex_free(pull->lock); pull->lock = NULL;
+	pull->stop = NULL;
+	async_mutex_free(pull->connlock); pull->connlock = NULL;
 }
 
 static err_t auth(EFSPullRef const pull);
@@ -226,18 +255,25 @@ static HeaderField const EFSImportFields[] = {
 	{"content-type", 100},
 	{"content-length", 100},
 };
-static err_t import(EFSPullRef const pull, index_t const thread, strarg_t const URI, HTTPConnectionRef *const conn) {
+static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const reserved, HTTPConnectionRef *const conn) {
 	if(!pull) return 0;
-	if(!URI) return 0;
+
+	// TODO: Even if there's nothing to do, we have to enqueue something to fill up our reserved slots. I guess it's better than doing a lot of work inside the connection lock, but there's got to be a better way.
+	EFSSubmissionRef sub = NULL;
+	EFSSubmissionRef meta = NULL;
+
+	if(!URI) goto enqueue;
 
 	str_t algo[EFS_ALGO_SIZE];
 	str_t hash[EFS_HASH_SIZE];
-	if(!EFSParseURI(URI, algo, hash)) return 0;
+	if(!EFSParseURI(URI, algo, hash)) goto enqueue;
 
 	// TODO: Have a public API for testing whether a file exists without actually loading the file info with EFSSessionCopyFileInfo(). Even once we have a smarter fast-forward algorithm, this will still be useful.
 	EFSSessionRef const session = pull->session;
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
-	sqlite3 *db = EFSRepoDBConnect(repo);
+
+	// TODO: We want to keep downloading while submitting batches, but with SQLite in journaled mode, we can't read during a write. I think the most promising solution is to enable the write-ahead log... But there are some other ideas too.
+/*	sqlite3 *db = EFSRepoDBConnect(repo);
 	sqlite3_stmt *test = QUERY(db,
 		"SELECT file_id FROM file_uris\n"
 		"WHERE uri = ? LIMIT 1");
@@ -245,7 +281,7 @@ static err_t import(EFSPullRef const pull, index_t const thread, strarg_t const 
 	bool_t exists = SQLITE_ROW == sqlite3_step(test);
 	sqlite3_finalize(test); test = NULL;
 	EFSRepoDBClose(repo, &db);
-	if(exists) return 0;
+	if(exists) goto enqueue;*/
 
 	fprintf(stderr, "Pulling %s\n", URI);
 
@@ -274,49 +310,22 @@ static err_t import(EFSPullRef const pull, index_t const thread, strarg_t const 
 	}
 
 	EFSImportHeaders const *const headers = HTTPMessageGetHeaders(msg, EFSImportFields, numberof(EFSImportFields));
-	EFSSubmissionRef sub = NULL;
-	EFSSubmissionRef meta = NULL;
 	if(EFSSubmissionCreatePair(session, headers->content_type, (ssize_t (*)())HTTPMessageGetBuffer, msg, NULL, &sub, &meta) < 0) {
 		fprintf(stderr, "Pull import submission error\n");
 		goto fail;
 	}
-	// TODO: Call EFSSubmissionWrite() in a loop so we can also check whether our thread was stopped.
 
-	if(t_stop == pull->states[thread]) goto fail2;
-	assertf(t_run == pull->states[thread], "Pull thread in invalid state %d", pull->states[thread]);
-
-	if(thread != pull->next) {
-		pull->states[thread] = t_wait;
-		co_switch(yield);
-		if(t_stop == pull->states[thread]) goto fail2;
-		assertf(t_run == pull->states[thread], "Pull thread in invalid state %d", pull->states[thread]);
-	}
-
-	for(;;) {
-		sqlite3 *db = EFSRepoDBConnect(EFSSessionGetRepo(pull->session));
-		EXEC(QUERY(db, "SAVEPOINT store"));
-		err_t err = 0;
-		if(err >= 0) err = EFSSubmissionStore(sub, db);
-		if(err >= 0) err = EFSSubmissionStore(meta, db);
-		if(err < 0) EXEC(QUERY(db, "ROLLBACK TO store"));
-		EXEC(QUERY(db, "RELEASE store"));
-		EFSRepoDBClose(EFSSessionGetRepo(pull->session), &db);
-		if(err >= 0) break;
-		async_sleep(1000 * 5);
-	}
-
-	assertf(thread == pull->next, "Pull submission order error");
-	pull->next = (pull->next + 1) % CONNECTION_COUNT;
-	if(t_wait == pull->states[pull->next]) {
-		pull->states[pull->next] = t_run;
-		async_wakeup(pull->threads[pull->next]);
-	}
-
-	EFSSubmissionFree(&sub);
-	EFSSubmissionFree(&meta);
+	if(pull->stop) goto fail2;
+	// TODO: Call EFSSubmissionWrite() in a loop so we can also check whether our thread was stopped. There really is no point in checking after the submission has been fully read.
 
 	HTTPMessageDrain(msg);
 	HTTPMessageFree(&msg);
+
+enqueue:
+	pull->batch[reserved+0] = sub; sub = NULL;
+	pull->batch[reserved+1] = meta; meta = NULL;
+	pull->fulfilled += 2;
+	if(pull->blocked_writer) async_wakeup(pull->blocked_writer);
 
 	return 0;
 
