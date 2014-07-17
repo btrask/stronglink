@@ -117,7 +117,6 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 	sqlite3_finalize(insertField); insertField = NULL;
 
 	EXEC(QUERY(db, "RELEASE metafile"));
-	cleanup(meta);
 	return 0;
 }
 

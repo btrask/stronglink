@@ -5,7 +5,7 @@
 
 #define URI_MAX 1024
 #define READER_COUNT 4
-#define BATCH_SIZE 10
+#define QUEUE_SIZE 10
 
 struct EFSPull {
 	int64_t pullID;
@@ -25,14 +25,15 @@ struct EFSPull {
 	HTTPMessageRef msg;
 
 	// Lock omitted due to cooperative multitasking.
-	// async_mutex_t *batchlock;
-	EFSSubmissionRef batch[BATCH_SIZE];
-	count_t reserved;
-	count_t fulfilled;
+	// async_mutex_t *queuelock;
+	EFSSubmissionRef queue[QUEUE_SIZE];
+	bool_t filled[QUEUE_SIZE];
+	index_t cur;
+	count_t count;
 };
 
 static err_t reconnect(EFSPullRef const pull);
-static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const reserved, HTTPConnectionRef *const conn);
+static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn);
 
 EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, int64_t const pullID, int64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query) {
 	EFSPullRef pull = calloc(1, sizeof(struct EFSPull));
@@ -81,21 +82,21 @@ static void reader(void) {
 		}
 
 		assertf(!pull->blocked_reader, "Reader already waiting");
-		if(pull->reserved + 2 >= BATCH_SIZE) {
-			assertf(!pull->blocked_writer, "Deadlock");
+		if(pull->count + 2 >= QUEUE_SIZE) {
 			pull->blocked_reader = co_active();
 			co_switch(yield);
 			pull->blocked_reader = NULL;
 			if(pull->stop) continue;
-			assertf(pull->reserved + 2 < BATCH_SIZE, "Reader didn't wait long enough");
+			assertf(pull->count < QUEUE_SIZE, "Reader didn't wait long enough");
+			// We still might not be unblocked, but the writer did its job.
 		}
-		index_t reserved = pull->reserved;
-		pull->reserved += 2;
+		index_t pos = (pull->cur + pull->count) % QUEUE_SIZE;
+		pull->count += 2;
 
 		async_mutex_unlock(pull->connlock);
 
 		for(;;) {
-			if(import(pull, URI, reserved, &conn) >= 0) break;
+			if(import(pull, URI, pos, &conn) >= 0) break;
 			if(pull->stop) break;
 			async_sleep(1000 * 5);
 		}
@@ -112,45 +113,44 @@ static void writer(void) {
 	for(;;) {
 		if(pull->stop) break;
 
-		// lock (just don't yield)
-		if(0 == pull->fulfilled) {
-			// unlock
-			assertf(!pull->blocked_reader, "Deadlock");
+		if(!pull->count || !pull->filled[pull->cur]) {
 			pull->blocked_writer = co_active();
 			co_switch(yield);
 			pull->blocked_writer = NULL;
 			if(pull->stop) continue;
-			assertf(pull->fulfilled > 0, "Writer woke up early");
+			assertf(pull->filled[pull->cur], "Writer woke up early");
 			continue;
 		}
-		EFSSubmissionRef batch[BATCH_SIZE];
-		count_t count = pull->fulfilled;
-		memcpy(batch, pull->batch, sizeof(pull->batch));
-		memset(pull->batch, 0, sizeof(pull->batch));
-		pull->reserved = 0;
-		pull->fulfilled = 0;
-		// unlock
 
-		if(pull->blocked_reader) async_wakeup(pull->blocked_reader);
-
+		count_t written = 0;
 		for(;;) {
 			sqlite3 *db = EFSRepoDBConnect(EFSSessionGetRepo(pull->session));
 			EXEC(QUERY(db, "SAVEPOINT store"));
 			err_t err = 0;
-			for(index_t i = 0; i < count; ++i) {
-				if(!batch[i]) continue; // Empty submissions enqueued for various reasons.
-				err = EFSSubmissionStore(batch[i], db);
+			index_t i;
+			for(i = 0; i < pull->count; ++i) {
+				index_t const pos = (pull->cur + i) % QUEUE_SIZE;
+				if(!pull->filled[pos]) break;
+				if(!pull->queue[pos]) continue; // Empty submissions enqueued for various reasons.
+				err = EFSSubmissionStore(pull->queue[pos], db);
 				if(err < 0) break;
 			}
+			written = i;
 			if(err < 0) EXEC(QUERY(db, "ROLLBACK TO store"));
 			EXEC(QUERY(db, "RELEASE store"));
 			EFSRepoDBClose(EFSSessionGetRepo(pull->session), &db);
 			if(err >= 0) break;
 			async_sleep(1000 * 5);
 		}
-		for(index_t i = 0; i < count; ++i) {
-			EFSSubmissionFree(&batch[i]);
+		for(index_t i = 0; i < written; ++i) {
+			index_t const pos = (pull->cur + i) % QUEUE_SIZE;
+			EFSSubmissionFree(&pull->queue[pos]);
+			pull->filled[pos] = false;
 		}
+		pull->cur = (pull->cur + written) % QUEUE_SIZE;
+		pull->count -= written;
+
+		if(pull->blocked_reader) async_wakeup(pull->blocked_reader);
 
 	}
 
@@ -255,7 +255,7 @@ static HeaderField const EFSImportFields[] = {
 	{"content-type", 100},
 	{"content-length", 100},
 };
-static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const reserved, HTTPConnectionRef *const conn) {
+static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn) {
 	if(!pull) return 0;
 
 	// TODO: Even if there's nothing to do, we have to enqueue something to fill up our reserved slots. I guess it's better than doing a lot of work inside the connection lock, but there's got to be a better way.
@@ -322,10 +322,13 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const res
 	HTTPMessageFree(&msg);
 
 enqueue:
-	pull->batch[reserved+0] = sub; sub = NULL;
-	pull->batch[reserved+1] = meta; meta = NULL;
-	pull->fulfilled += 2;
-	if(pull->blocked_writer) async_wakeup(pull->blocked_writer);
+	pull->queue[(pos+0) % QUEUE_SIZE] = sub; sub = NULL;
+	pull->queue[(pos+1) % QUEUE_SIZE] = meta; meta = NULL;
+	pull->filled[(pos+0) % QUEUE_SIZE] = true;
+	pull->filled[(pos+1) % QUEUE_SIZE] = true;
+	if(pos == pull->cur) {
+		if(pull->blocked_writer) async_wakeup(pull->blocked_writer);
+	}
 
 	return 0;
 
