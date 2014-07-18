@@ -5,9 +5,9 @@ CFLAGS := -std=gnu99
 LIBCO_VER := libco
 # Use sjlj for clang on x86
 
-#CFLAGS += -Os -Wno-unused-result
-CFLAGS += -g -O0
-CFLAGS += -DSQLITE_DEBUG -DHTTP_PARSER_DEBUG
+CFLAGS += -g -O2 -Wno-unused-result
+#CFLAGS += -g -O0
+#CFLAGS += -DSQLITE_DEBUG -DHTTP_PARSER_DEBUG
 #CFLAGS += -DSQLITE_ENABLE_SQLLOG
 
 BUILD_DIR := $(ROOT_DIR)/build
