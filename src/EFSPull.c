@@ -5,7 +5,8 @@
 
 #define URI_MAX 1024
 #define READER_COUNT 4
-#define QUEUE_SIZE 8
+#define QUEUE_SIZE 32
+#define BATCH_MIN 16
 
 struct EFSPull {
 	int64_t pullID;
@@ -115,13 +116,13 @@ static void reader(void) {
 }
 static void writer(void) {
 	EFSPullRef const pull = arg_pull;
+	EFSSubmissionRef queue[QUEUE_SIZE];
+	count_t count = 0;
 	for(;;) {
 		if(pull->stop) break;
 
 		// lock
-		EFSSubmissionRef queue[QUEUE_SIZE];
-		count_t count = 0;
-		for(index_t i = 0; i < pull->count; ++i) {
+		for(index_t i = count; i < pull->count; ++i) {
 			index_t const pos = (pull->cur + i) % QUEUE_SIZE;
 			if(!pull->filled[pos]) break;
 			queue[i] = pull->queue[pos];
@@ -129,18 +130,20 @@ static void writer(void) {
 			pull->filled[pos] = false;
 			count++;
 		}
-		if(0 == count) {
+		if(0 == count || (count < BATCH_MIN && count < pull->count)) {
 			// unlock
 			pull->blocked_writer = co_active();
 			co_switch(yield);
 			pull->blocked_writer = NULL;
 			if(pull->stop) continue;
-			assertf(pull->filled[pull->cur], "Writer woke up early");
+//			assertf(pull->filled[pull->cur], "Writer woke up early");
 			continue;
 		}
 		pull->cur = (pull->cur + count) % QUEUE_SIZE;
 		pull->count -= count;
 		// unlock
+
+		fprintf(stderr, "committing %u\n", count);
 
 		if(pull->blocked_reader) async_wakeup(pull->blocked_reader);
 
@@ -164,6 +167,7 @@ static void writer(void) {
 			EFSSubmissionFree(&queue[i]);
 		}
 //		pull->written += count; // Profiling
+		count = 0;
 
 	}
 
@@ -354,9 +358,7 @@ enqueue:
 	pull->queue[(pos+1) % QUEUE_SIZE] = meta; meta = NULL;
 	pull->filled[(pos+0) % QUEUE_SIZE] = true;
 	pull->filled[(pos+1) % QUEUE_SIZE] = true;
-	if(pos == pull->cur) {
-		if(pull->blocked_writer) async_wakeup(pull->blocked_writer);
-	}
+	if(pull->blocked_writer) async_wakeup(pull->blocked_writer);
 
 	return 0;
 
