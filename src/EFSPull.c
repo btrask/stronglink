@@ -227,7 +227,10 @@ static err_t reconnect(EFSPullRef const pull) {
 	// TODO: Pagination...
 	if(pull->cookie) HTTPMessageWriteHeader(pull->msg, "Cookie", pull->cookie);
 	HTTPMessageBeginBody(pull->msg);
-	HTTPMessageEnd(pull->msg);
+	if(HTTPMessageEnd(pull->msg) < 0) {
+		fprintf(stderr, "Pull couldn't connect to %s\n", pull->host);
+		return -1;
+	}
 	uint16_t const status = HTTPMessageGetResponseStatus(pull->msg);
 	if(403 == status) {
 		auth(pull);
