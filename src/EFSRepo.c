@@ -142,9 +142,9 @@ static sqlite3 *openDB(strarg_t const path) {
 	int err = 0;
 	err = sqlite3_extended_result_codes(db, 1);
 	assertf(SQLITE_OK == err, "Couldn't turn on extended results codes");
-	EXEC(QUERY(db, "PRAGMA synchronous=NORMAL"));
 	err = sqlite3_busy_handler(db, retry, NULL);
 	assertf(SQLITE_OK == err, "Couldn't set busy handler");
+	EXEC(QUERY(db, "PRAGMA synchronous=NORMAL"));
 	return db;
 }
 
