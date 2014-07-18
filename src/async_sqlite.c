@@ -354,7 +354,7 @@ static int async_checkReservedLock(async_file *const file, int *const outRes) {
 	return SQLITE_OK;
 }
 static int async_fileControl(async_file *const file, int op, void *pArg) {
-	return SQLITE_OK;
+	return SQLITE_NOTFOUND;
 }
 static int async_sectorSize(async_file *const file) {
 	return 0;
