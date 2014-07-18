@@ -5,7 +5,7 @@
 
 #define URI_MAX 1024
 #define READER_COUNT 4
-#define QUEUE_SIZE 10
+#define QUEUE_SIZE 8
 
 struct EFSPull {
 	int64_t pullID;
@@ -85,12 +85,12 @@ static void reader(void) {
 		}
 
 		assertf(!pull->blocked_reader, "Reader already waiting");
-		if(pull->count + 2 >= QUEUE_SIZE) {
+		if(pull->count + 2 > QUEUE_SIZE) {
 			pull->blocked_reader = co_active();
 			co_switch(yield);
 			pull->blocked_reader = NULL;
 			if(pull->stop) continue;
-			assertf(pull->count < QUEUE_SIZE, "Reader didn't wait long enough");
+			assertf(pull->count + 2 <= QUEUE_SIZE, "Reader didn't wait long enough");
 			// We still might not be unblocked, but the writer did its job.
 		}
 		index_t pos = (pull->cur + pull->count) % QUEUE_SIZE;
@@ -116,7 +116,19 @@ static void writer(void) {
 	for(;;) {
 		if(pull->stop) break;
 
-		if(!pull->count || !pull->filled[pull->cur]) {
+		// lock
+		EFSSubmissionRef queue[QUEUE_SIZE];
+		count_t count = 0;
+		for(index_t i = 0; i < pull->count; ++i) {
+			index_t const pos = (pull->cur + i) % QUEUE_SIZE;
+			if(!pull->filled[pos]) break;
+			queue[i] = pull->queue[pos];
+			pull->queue[pos] = NULL;
+			pull->filled[pos] = false;
+			count++;
+		}
+		if(0 == count) {
+			// unlock
 			pull->blocked_writer = co_active();
 			co_switch(yield);
 			pull->blocked_writer = NULL;
@@ -124,37 +136,32 @@ static void writer(void) {
 			assertf(pull->filled[pull->cur], "Writer woke up early");
 			continue;
 		}
+		pull->cur = (pull->cur + count) % QUEUE_SIZE;
+		pull->count -= count;
+		// unlock
 
-		count_t written = 0;
+		if(pull->blocked_reader) async_wakeup(pull->blocked_reader);
+
 		for(;;) {
 			sqlite3 *db = EFSRepoDBConnect(EFSSessionGetRepo(pull->session));
 			EXEC(QUERY(db, "SAVEPOINT store"));
 			err_t err = 0;
 			index_t i;
-			for(i = 0; i < pull->count; ++i) {
-				index_t const pos = (pull->cur + i) % QUEUE_SIZE;
-				if(!pull->filled[pos]) break;
-				if(!pull->queue[pos]) continue; // Empty submissions enqueued for various reasons.
-				err = EFSSubmissionStore(pull->queue[pos], db);
+			for(i = 0; i < count; ++i) {
+				if(!queue[i]) continue; // Empty submissions enqueued for various reasons.
+				err = EFSSubmissionStore(queue[i], db);
 				if(err < 0) break;
 			}
-			written = i;
 			if(err < 0) EXEC(QUERY(db, "ROLLBACK TO store"));
 			EXEC(QUERY(db, "RELEASE store"));
 			EFSRepoDBClose(EFSSessionGetRepo(pull->session), &db);
 			if(err >= 0) break;
 			async_sleep(1000 * 5);
 		}
-		for(index_t i = 0; i < written; ++i) {
-			index_t const pos = (pull->cur + i) % QUEUE_SIZE;
-			EFSSubmissionFree(&pull->queue[pos]);
-			pull->filled[pos] = false;
+		for(index_t i = 0; i < count; ++i) {
+			EFSSubmissionFree(&queue[i]);
 		}
-		pull->cur = (pull->cur + written) % QUEUE_SIZE;
-		pull->count -= written;
-		pull->written += written; // Profiling
-
-		if(pull->blocked_reader) async_wakeup(pull->blocked_reader);
+//		pull->written += count; // Profiling
 
 	}
 
@@ -180,10 +187,10 @@ err_t EFSPullStart(EFSPullRef const pull) {
 	async_wakeup(co_create(STACK_DEFAULT, writer));
 	// TODO: It'd be even better to have one writer shared between all pulls...
 
-	pull->written = 0;
+/*	pull->written = 0;
 	pull->profiler.data = pull;
 	uv_timer_init(loop, &pull->profiler);
-	uv_timer_start(&pull->profiler, profile, 1000 * 10, 1000 * 10);
+	uv_timer_start(&pull->profiler, profile, 1000 * 10, 1000 * 10);*/
 
 	return 0;
 }
@@ -299,7 +306,7 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 	if(exists) goto enqueue;
 
 	// TODO: We're logging out of order when we do it like this...
-//	fprintf(stderr, "Pulling %s\n", URI);
+	fprintf(stderr, "Pulling %s\n", URI);
 
 	if(!*conn) *conn = HTTPConnectionCreateOutgoing(pull->host);
 	HTTPMessageRef msg = HTTPMessageCreate(*conn);
