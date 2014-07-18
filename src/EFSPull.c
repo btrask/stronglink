@@ -89,7 +89,10 @@ static void reader(void) {
 			pull->blocked_reader = co_active();
 			co_switch(yield);
 			pull->blocked_reader = NULL;
-			if(pull->stop) continue;
+			if(pull->stop) {
+				async_mutex_unlock(pull->connlock);
+				continue;
+			}
 			assertf(pull->count + 2 <= QUEUE_SIZE, "Reader didn't wait long enough");
 		}
 		index_t pos = (pull->cur + pull->count) % QUEUE_SIZE;
