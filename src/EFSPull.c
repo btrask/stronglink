@@ -91,7 +91,6 @@ static void reader(void) {
 			pull->blocked_reader = NULL;
 			if(pull->stop) continue;
 			assertf(pull->count + 2 <= QUEUE_SIZE, "Reader didn't wait long enough");
-			// We still might not be unblocked, but the writer did its job.
 		}
 		index_t pos = (pull->cur + pull->count) % QUEUE_SIZE;
 		pull->count += 2;
