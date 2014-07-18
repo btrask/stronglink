@@ -9,7 +9,7 @@
 
 #define MAXPATHNAME 512
 
-#define FILE_LOCK_MODE 4
+#define FILE_LOCK_MODE 3
 
 #define DBG(status) ({ assert(0); status; })
 //#define DBG(status) ({ fprintf(stderr, "%s:%d\n", __FILE__, __LINE__); status; })
