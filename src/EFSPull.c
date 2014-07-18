@@ -143,8 +143,6 @@ static void writer(void) {
 		pull->count -= count;
 		// unlock
 
-		fprintf(stderr, "committing %u\n", count);
-
 		if(pull->blocked_reader) async_wakeup(pull->blocked_reader);
 
 		for(;;) {
