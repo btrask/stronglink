@@ -5,7 +5,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include "../deps/sqlite/sqlite3.h"
-#include "async_sqlite.h"
+#include "async.h"
 
 #define MAXPATHNAME 512
 
@@ -511,6 +511,7 @@ void async_sqlite_register(void) {
 	assert(SQLITE_OK == err && "Couldn't register async_sqlite VFS");
 }
 
+#if FILE_LOCK_MODE==4
 static void async_unlock_notify_cb(cothread_t *threads, int const count) {
 	for(int i = 0; i < count; ++i) {
 		async_wakeup(threads[i]);
@@ -542,4 +543,5 @@ int async_sqlite3_step(sqlite3_stmt *const stmt) {
 		sqlite3_reset(stmt);
 	}
 }
+#endif
 
