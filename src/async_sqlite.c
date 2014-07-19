@@ -375,7 +375,7 @@ int async_shmMap(async_file *const file, int const page, int const pagesize, int
 		shared->bufcount = page+1;
 		shared->bufs = realloc(shared->bufs, sizeof(char *) * shared->bufcount);
 		if(!shared->bufs) return SQLITE_IOERR_NOMEM;
-		memset(&shared->bufs[old], 0, sizeof(char *) * shared->bufcount - old);
+		memset(&shared->bufs[old], 0, sizeof(char *) * (shared->bufcount - old));
 	}
 	if(!shared->bufs[page]) {
 		shared->bufs[page] = calloc(1, pagesize);
