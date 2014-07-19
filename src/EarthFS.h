@@ -39,8 +39,8 @@ void EFSSessionFree(EFSSessionRef *const sessionptr);
 EFSRepoRef EFSSessionGetRepo(EFSSessionRef const session);
 int64_t EFSSessionGetUserID(EFSSessionRef const session);
 URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilterRef const filter, count_t const max); // TODO: Public API?
-EFSFileInfo *EFSSessionCopyFileInfo(EFSSessionRef const session, strarg_t const URI);
-void EFSFileInfoFree(EFSFileInfo **const infoptr);
+err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFSFileInfo *const info);
+void EFSFileInfoCleanup(EFSFileInfo *const info);
 
 EFSSubmissionRef EFSSubmissionCreate(EFSSessionRef const session, strarg_t const type);
 void EFSSubmissionFree(EFSSubmissionRef *const subptr);

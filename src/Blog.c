@@ -60,26 +60,26 @@ static str_t *BlogCopyPreviewPath(BlogRef const blog, strarg_t const hash) {
 
 static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {
 
-	EFSFileInfo *info = EFSSessionCopyFileInfo(session, URI);
-	if(!info) return -1;
+	EFSFileInfo info;
+	if(EFSSessionGetFileInfo(session, URI, &info) < 0) return -1;
 
 	if(
-		0 != strcasecmp("text/markdown; charset=utf-8", info->type) &&
-		0 != strcasecmp("text/markdown", info->type)
+		0 != strcasecmp("text/markdown; charset=utf-8", info.type) &&
+		0 != strcasecmp("text/markdown", info.type)
 	) {
-		EFSFileInfoFree(&info);
+		EFSFileInfoCleanup(&info);
 		return -1; // TODO: Other types, plugins, w/e.
 	}
 
 	if(async_fs_mkdirp_dirname(previewPath, 0700) < 0) {
-		EFSFileInfoFree(&info);
+		EFSFileInfoCleanup(&info);
 		return -1;
 	}
 
 	str_t *tmpPath = EFSRepoCopyTempPath(EFSSessionGetRepo(session));
 	if(async_fs_mkdirp_dirname(tmpPath, 0700) < 0) {
 		FREE(&tmpPath);
-		EFSFileInfoFree(&info);
+		EFSFileInfoCleanup(&info);
 		return -1;
 	}
 
@@ -91,7 +91,7 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 		"-f", "autolink",
 		"-G",
 		"-o", tmpPath,
-		info->path,
+		info.path,
 		NULL
 	};
 	uv_process_options_t const opts = {
@@ -104,7 +104,7 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 
 	if(state.status < 0) {
 		FREE(&tmpPath);
-		EFSFileInfoFree(&info);
+		EFSFileInfoCleanup(&info);
 		return -1;
 	}
 
@@ -112,7 +112,7 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 
 	async_fs_unlink(tmpPath);
 	FREE(&tmpPath);
-	EFSFileInfoFree(&info);
+	EFSFileInfoCleanup(&info);
 
 	if(err < 0) return -1;
 	return 0;

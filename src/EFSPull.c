@@ -297,20 +297,7 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 	str_t hash[EFS_HASH_SIZE];
 	if(!EFSParseURI(URI, algo, hash)) goto enqueue;
 
-	// TODO: Have a public API for testing whether a file exists without actually loading the file info with EFSSessionCopyFileInfo(). Even once we have a smarter fast-forward algorithm, this will still be useful.
-	EFSSessionRef const session = pull->session;
-	EFSRepoRef const repo = EFSSessionGetRepo(session);
-
-	// TODO: Figure out how to make this fast.
-	sqlite3 *db = EFSRepoDBConnect(repo);
-	sqlite3_stmt *test = QUERY(db,
-		"SELECT file_id FROM file_uris\n"
-		"WHERE uri = ? LIMIT 1");
-	sqlite3_bind_text(test, 1, URI, -1, SQLITE_STATIC);
-	bool_t exists = SQLITE_ROW == STEP(test);
-	sqlite3_finalize(test); test = NULL;
-	EFSRepoDBClose(repo, &db);
-	if(exists) goto enqueue;
+	if(EFSSessionGetFileInfo(pull->session, URI, NULL) < 0) goto enqueue;
 
 	// TODO: We're logging out of order when we do it like this...
 	fprintf(stderr, "Pulling %s\n", URI);
@@ -340,7 +327,7 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 	}
 
 	EFSImportHeaders const *const headers = HTTPMessageGetHeaders(msg, EFSImportFields, numberof(EFSImportFields));
-	if(EFSSubmissionCreatePair(session, headers->content_type, (ssize_t (*)())HTTPMessageGetBuffer, msg, NULL, &sub, &meta) < 0) {
+	if(EFSSubmissionCreatePair(pull->session, headers->content_type, (ssize_t (*)())HTTPMessageGetBuffer, msg, NULL, &sub, &meta) < 0) {
 		fprintf(stderr, "Pull import submission error\n");
 		goto fail;
 	}

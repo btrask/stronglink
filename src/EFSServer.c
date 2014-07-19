@@ -72,8 +72,8 @@ static bool_t getFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMetho
 	}
 
 	str_t *fileURI = EFSFormatURI(algo, hash);
-	EFSFileInfo *info = EFSSessionCopyFileInfo(session, fileURI);
-	if(!info) {
+	EFSFileInfo info;
+	if(EFSSessionGetFileInfo(session, fileURI, &info) < 0) {
 		fprintf(stderr, "Couldn't find %s", fileURI);
 		FREE(&fileURI);
 		HTTPMessageSendStatus(msg, 404);
@@ -83,9 +83,9 @@ static bool_t getFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMetho
 	FREE(&fileURI);
 
 	// TODO: Do we need to send other headers?
-	HTTPMessageSendFile(msg, info->path, info->type, info->size);
+	HTTPMessageSendFile(msg, info.path, info.type, info.size);
 
-	EFSFileInfoFree(&info);
+	EFSFileInfoCleanup(&info);
 	EFSSessionFree(&session);
 	return true;
 }
