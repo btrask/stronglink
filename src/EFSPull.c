@@ -297,7 +297,7 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 	str_t hash[EFS_HASH_SIZE];
 	if(!EFSParseURI(URI, algo, hash)) goto enqueue;
 
-	if(EFSSessionGetFileInfo(pull->session, URI, NULL) < 0) goto enqueue;
+	if(EFSSessionGetFileInfo(pull->session, URI, NULL) >= 0) goto enqueue;
 
 	// TODO: We're logging out of order when we do it like this...
 	fprintf(stderr, "Pulling %s\n", URI);
