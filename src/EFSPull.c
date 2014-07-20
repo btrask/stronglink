@@ -8,6 +8,8 @@
 #define QUEUE_SIZE 32
 #define BATCH_MIN 16
 
+#define PROFILE 1
+
 struct EFSPull {
 	int64_t pullID;
 	EFSSessionRef session;
@@ -32,9 +34,19 @@ struct EFSPull {
 	index_t cur;
 	count_t count;
 
+#ifdef PROFILE
 	uv_timer_t profiler;
 	count_t written;
+#endif
 };
+
+#if PROFILE
+static void profile(uv_timer_t *const timer) {
+	EFSPullRef const pull = timer->data;
+	if(pull->written) fprintf(stderr, "%f\n", pull->written / 30.0);
+	pull->written = 0;
+}
+#endif
 
 static err_t reconnect(EFSPullRef const pull);
 static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn);
@@ -149,8 +161,7 @@ static void writer(void) {
 			sqlite3 *db = EFSRepoDBConnect(EFSSessionGetRepo(pull->session));
 			EXEC(QUERY(db, "SAVEPOINT store"));
 			err_t err = 0;
-			index_t i;
-			for(i = 0; i < count; ++i) {
+			for(index_t i = 0; i < count; ++i) {
 				if(!queue[i]) continue; // Empty submissions enqueued for various reasons.
 				err = EFSSubmissionStore(queue[i], db);
 				if(err < 0) break;
@@ -164,7 +175,11 @@ static void writer(void) {
 		for(index_t i = 0; i < count; ++i) {
 			EFSSubmissionFree(&queue[i]);
 		}
-//		pull->written += count; // Profiling
+
+#if PROFILE
+		pull->written += count;
+#endif
+
 		count = 0;
 
 	}
@@ -172,11 +187,6 @@ static void writer(void) {
 	assertf(pull->stop, "Writer ended early");
 	async_wakeup(pull->stop);
 	co_terminate();
-}
-static void profile(uv_timer_t *const timer) {
-	EFSPullRef const pull = timer->data;
-	if(pull->written) fprintf(stderr, "%f\n", pull->written / 10.0);
-	pull->written = 0;
 }
 err_t EFSPullStart(EFSPullRef const pull) {
 	if(!pull) return 0;
@@ -191,10 +201,12 @@ err_t EFSPullStart(EFSPullRef const pull) {
 	async_wakeup(co_create(STACK_DEFAULT, writer));
 	// TODO: It'd be even better to have one writer shared between all pulls...
 
-/*	pull->written = 0;
+#if PROFILE
+	pull->written = 0;
 	pull->profiler.data = pull;
 	uv_timer_init(loop, &pull->profiler);
-	uv_timer_start(&pull->profiler, profile, 1000 * 10, 1000 * 10);*/
+	uv_timer_start(&pull->profiler, profile, 1000 * 30, 1000 * 30);
+#endif
 
 	return 0;
 }
@@ -299,8 +311,10 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 
 	if(EFSSessionGetFileInfo(pull->session, URI, NULL) >= 0) goto enqueue;
 
+#if !PROFILE
 	// TODO: We're logging out of order when we do it like this...
 	fprintf(stderr, "Pulling %s\n", URI);
+#endif
 
 	if(!*conn) *conn = HTTPConnectionCreateOutgoing(pull->host);
 	HTTPMessageRef msg = HTTPMessageCreate(*conn);
