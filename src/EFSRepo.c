@@ -146,6 +146,7 @@ static sqlite3 *openDB(strarg_t const path) {
 	assertf(SQLITE_OK == err, "Couldn't set busy handler");
 	EXEC(QUERY(db, "PRAGMA synchronous=NORMAL"));
 	EXEC(QUERY(db, "PRAGMA wal_autocheckpoint=10000"));
+	EXEC(QUERY(db, "PRAGMA cache_size=8000"));
 	return db;
 }
 
