@@ -5,8 +5,8 @@
 
 #define URI_MAX 1024
 #define READER_COUNT 4
-#define QUEUE_SIZE 32
-#define BATCH_MIN 16
+#define QUEUE_SIZE 64
+#define BATCH_MIN 32
 
 #define PROFILE 1
 
