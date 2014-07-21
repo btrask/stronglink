@@ -43,7 +43,7 @@ OBJECTS := \
 	$(BUILD_DIR)/EFSHasher.o \
 	$(BUILD_DIR)/EFSMetaFile.o \
 	$(BUILD_DIR)/EFSFilter.o \
-	$(BUILD_DIR)/EFSJSONFilterBuilder.o \
+	$(BUILD_DIR)/EFSJSONFilterParser.o \
 	$(BUILD_DIR)/EFSUserFilterParser.o \
 	$(BUILD_DIR)/EFSPull.o \
 	$(BUILD_DIR)/EFSServer.o \
