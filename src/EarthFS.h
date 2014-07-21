@@ -100,6 +100,8 @@ void EFSJSONFilterBuilderParse(EFSJSONFilterBuilderRef const builder, strarg_t c
 EFSFilterRef EFSJSONFilterBuilderDone(EFSJSONFilterBuilderRef const builder);
 EFSFilterType EFSFilterTypeFromString(strarg_t const type, size_t const len);
 
+EFSFilterRef EFSUserFilterParse(strarg_t const query);
+
 EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, int64_t const pullID, int64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query);
 void EFSPullFree(EFSPullRef *const pullptr);
 err_t EFSPullStart(EFSPullRef const pull);

@@ -214,9 +214,13 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 		return true;
 	}
 
+	EFSFilterRef filter = EFSFilterCreate(EFSIntersectionFilter);
+	EFSFilterRef const visibility = EFSFilterCreate(EFSLinksToFilter);
+	EFSFilterAddStringArg(visibility, "efs://user", -1);
+	EFSFilterAddFilterArg(filter, visibility);
 	// TODO: Parse querystring `q` parameter
-	EFSFilterRef filter = EFSFilterCreate(EFSLinksToFilter);
-	EFSFilterAddStringArg(filter, "efs://user", -1);
+	EFSFilterRef const query = EFSUserFilterParse(NULL);
+	if(query) EFSFilterAddFilterArg(filter, query);
 
 	URIListRef URIs = EFSSessionCreateFilteredURIList(session, filter, RESULTS_MAX); // TODO: We should be able to specify a specific algorithm here.
 
