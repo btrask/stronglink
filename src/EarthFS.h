@@ -11,7 +11,7 @@ typedef struct EFSSubmission* EFSSubmissionRef;
 typedef struct EFSHasher* EFSHasherRef;
 typedef struct EFSMetaFile* EFSMetaFileRef;
 typedef struct EFSFilter* EFSFilterRef;
-typedef struct EFSJSONFilterBuilder* EFSJSONFilterBuilderRef;
+typedef struct EFSJSONFilterParser* EFSJSONFilterParserRef;
 typedef struct EFSPull* EFSPullRef;
 
 EFSRepoRef EFSRepoCreate(strarg_t const dir);
@@ -94,10 +94,10 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3 *const db);
 EFSMatch EFSFilterMatchFile(EFSFilterRef const filter, int64_t const sortID, int64_t const lastFileID);
 int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const fileID);
 
-EFSJSONFilterBuilderRef EFSJSONFilterBuilderCreate(void);
-void EFSJSONFilterBuilderFree(EFSJSONFilterBuilderRef *const builderptr);
-void EFSJSONFilterBuilderParse(EFSJSONFilterBuilderRef const builder, strarg_t const json, size_t const len);
-EFSFilterRef EFSJSONFilterBuilderDone(EFSJSONFilterBuilderRef const builder);
+EFSJSONFilterParserRef EFSJSONFilterParserCreate(void);
+void EFSJSONFilterParserFree(EFSJSONFilterParserRef *const parserptr);
+void EFSJSONFilterParserWrite(EFSJSONFilterParserRef const parser, strarg_t const json, size_t const len);
+EFSFilterRef EFSJSONFilterParserEnd(EFSJSONFilterParserRef const parser);
 EFSFilterType EFSFilterTypeFromString(strarg_t const type, size_t const len);
 
 EFSFilterRef EFSUserFilterParse(strarg_t const query);

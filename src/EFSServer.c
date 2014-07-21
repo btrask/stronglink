@@ -153,12 +153,12 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 		return true;
 	}
 
-	EFSJSONFilterBuilderRef builder = NULL;
+	EFSJSONFilterParserRef parser = NULL;
 	EFSFilterRef filter = NULL;
 
 	if(HTTP_POST == method) {
 		// TODO: Check Content-Type header for JSON.
-		builder = EFSJSONFilterBuilderCreate();
+		parser = EFSJSONFilterParserCreate();
 		for(;;) {
 			byte_t const *buf = NULL;
 			ssize_t const len = HTTPMessageGetBuffer(msg, &buf);
@@ -169,9 +169,9 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 			}
 			if(!len) break;
 
-			EFSJSONFilterBuilderParse(builder, (str_t const *)buf, len);
+			EFSJSONFilterParserWrite(parser, (str_t const *)buf, len);
 		}
-		filter = EFSJSONFilterBuilderDone(builder);
+		filter = EFSJSONFilterParserEnd(parser);
 	} else {
 		filter = EFSFilterCreate(EFSNoFilter);
 	}
@@ -212,7 +212,7 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 	EFSRepoDBClose(repo, &db);*/
 
 	EFSFilterFree(&filter);
-	EFSJSONFilterBuilderFree(&builder);
+	EFSJSONFilterParserFree(&parser);
 	EFSSessionFree(&session);
 	return true;
 }

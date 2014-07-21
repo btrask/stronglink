@@ -3,45 +3,45 @@
 
 #define DEPTH_MAX 5
 
-struct EFSJSONFilterBuilder {
-	yajl_handle parser;
+struct EFSJSONFilterParser {
+	yajl_handle JSONParser;
 	EFSFilterRef stack[DEPTH_MAX];
 	int depth;
 };
 
 static yajl_callbacks const callbacks;
 
-EFSJSONFilterBuilderRef EFSJSONFilterBuilderCreate(void) {
-	EFSJSONFilterBuilderRef builder = calloc(1, sizeof(struct EFSJSONFilterBuilder));
-	if(!builder) return NULL;
-	builder->parser = yajl_alloc(&callbacks, NULL, builder);
-	builder->depth = -1;
-	return builder;
+EFSJSONFilterParserRef EFSJSONFilterParserCreate(void) {
+	EFSJSONFilterParserRef parser = calloc(1, sizeof(struct EFSJSONFilterParser));
+	if(!parser) return NULL;
+	parser->JSONParser = yajl_alloc(&callbacks, NULL, parser);
+	parser->depth = -1;
+	return parser;
 }
-void EFSJSONFilterBuilderFree(EFSJSONFilterBuilderRef *const builderptr) {
-	EFSJSONFilterBuilderRef builder = *builderptr;
-	if(!builder) return;
-	if(builder->parser) {
-		yajl_free(builder->parser); builder->parser = NULL;
+void EFSJSONFilterParserFree(EFSJSONFilterParserRef *const parserptr) {
+	EFSJSONFilterParserRef parser = *parserptr;
+	if(!parser) return;
+	if(parser->JSONParser) {
+		yajl_free(parser->JSONParser); parser->JSONParser = NULL;
 	}
 	for(index_t i = 0; i < DEPTH_MAX; ++i) {
-		EFSFilterFree(&builder->stack[i]);
+		EFSFilterFree(&parser->stack[i]);
 	}
-	FREE(builderptr); builder = NULL;
+	FREE(parserptr); parser = NULL;
 }
-void EFSJSONFilterBuilderParse(EFSJSONFilterBuilderRef const builder, strarg_t const json, size_t const len) {
-	if(!builder) return;
-	assertf(builder->parser, "Builder in invalid state");
-	(void)yajl_parse(builder->parser, (unsigned char const *)json, len);
+void EFSJSONFilterParserWrite(EFSJSONFilterParserRef const parser, strarg_t const json, size_t const len) {
+	if(!parser) return;
+	assertf(parser->JSONParser, "Parser in invalid state");
+	(void)yajl_parse(parser->JSONParser, (unsigned char const *)json, len);
 }
-EFSFilterRef EFSJSONFilterBuilderDone(EFSJSONFilterBuilderRef const builder) {
-	if(!builder) return NULL;
-	assertf(builder->parser, "Builder in invalid state");
-	yajl_status const err = yajl_complete_parse(builder->parser);
-	yajl_free(builder->parser); builder->parser = NULL;
-	assertf(-1 == builder->depth, "Builder ended at invalid depth %d", builder->depth);
-	EFSFilterRef const filter = builder->stack[0];
-	builder->stack[0] = NULL;
+EFSFilterRef EFSJSONFilterParserEnd(EFSJSONFilterParserRef const parser) {
+	if(!parser) return NULL;
+	assertf(parser->JSONParser, "Parser in invalid state");
+	yajl_status const err = yajl_complete_parse(parser->JSONParser);
+	yajl_free(parser->JSONParser); parser->JSONParser = NULL;
+	assertf(-1 == parser->depth, "Parser ended at invalid depth %d", parser->depth);
+	EFSFilterRef const filter = parser->stack[0];
+	parser->stack[0] = NULL;
 	return yajl_status_ok == err ? filter : NULL;
 }
 
@@ -58,38 +58,38 @@ EFSFilterType EFSFilterTypeFromString(strarg_t const type, size_t const len) {
 
 // INTERNAL
 
-static int yajl_string(EFSJSONFilterBuilderRef const builder, strarg_t const  str, size_t const len) {
-	int const depth = builder->depth;
+static int yajl_string(EFSJSONFilterParserRef const parser, strarg_t const  str, size_t const len) {
+	int const depth = parser->depth;
 	if(depth < 0) return false;
-	EFSFilterRef filter = builder->stack[depth];
+	EFSFilterRef filter = parser->stack[depth];
 	if(filter) {
 		err_t const err = EFSFilterAddStringArg(filter, str, len);
 		if(err) return false;
 	} else {
 		filter = EFSFilterCreate(EFSFilterTypeFromString(str, len));
 		if(!filter) return false;
-		builder->stack[depth] = filter;
+		parser->stack[depth] = filter;
 		if(depth) {
-			err_t const err = EFSFilterAddFilterArg(builder->stack[depth-1], filter);
+			err_t const err = EFSFilterAddFilterArg(parser->stack[depth-1], filter);
 			if(err) return false;
 		}
 	}
 	return true;
 }
-static int yajl_start_array(EFSJSONFilterBuilderRef const builder) {
-	if(builder->depth >= 0 && !builder->stack[builder->depth]) return false; // Filter where type string was expected.
-	++builder->depth;
-	assertf(!builder->stack[builder->depth], "Can't re-open last filter");
-	if(builder->depth > DEPTH_MAX) return false;
+static int yajl_start_array(EFSJSONFilterParserRef const parser) {
+	if(parser->depth >= 0 && !parser->stack[parser->depth]) return false; // Filter where type string was expected.
+	++parser->depth;
+	assertf(!parser->stack[parser->depth], "Can't re-open last filter");
+	if(parser->depth > DEPTH_MAX) return false;
 	return true;
 }
-static int yajl_end_array(EFSJSONFilterBuilderRef const builder) {
-	assertf(builder->depth >= 0, "Parser ended too many arrays");
-	EFSFilterRef const filter = builder->stack[builder->depth];
+static int yajl_end_array(EFSJSONFilterParserRef const parser) {
+	assertf(parser->depth >= 0, "Parser ended too many arrays");
+	EFSFilterRef const filter = parser->stack[parser->depth];
 	if(!filter) return false; // Empty array.
 	// TODO: Validate args.
-	if(builder->depth > 0) builder->stack[builder->depth] = NULL;
-	--builder->depth;
+	if(parser->depth > 0) parser->stack[parser->depth] = NULL;
+	--parser->depth;
 	return true;
 }
 static yajl_callbacks const callbacks = {
