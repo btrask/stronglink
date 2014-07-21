@@ -9,17 +9,17 @@ typedef struct {
 	strarg_t cookie;
 	strarg_t content_type;
 } EFSHTTPHeaders;
-static HeaderField const EFSHTTPFields[] = {
-	{"cookie", 100},
-	{"content-type", 100},
+static strarg_t const EFSHTTPFields[] = {
+	"cookie",
+	"content-type",
 };
 typedef struct {
 	strarg_t content_type;
 	strarg_t content_disposition;
 } EFSFormHeaders;
-static HeaderField const EFSFormFields[] = {
-	{"content-type", 100},
-	{"content-disposition", 100},
+static strarg_t const EFSFormFields[] = {
+	"content-type",
+	"content-disposition",
 };
 
 // TODO: Put this somewhere.

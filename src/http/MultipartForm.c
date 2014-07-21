@@ -24,7 +24,7 @@ static multipart_parser_settings const callbacks;
 
 static err_t readOnce(FormPartRef const part);
 
-MultipartFormRef MultipartFormCreate(HTTPMessageRef const msg, strarg_t const type, HeaderField const *const fields, count_t const count) {
+MultipartFormRef MultipartFormCreate(HTTPMessageRef const msg, strarg_t const type, strarg_t const *const fields, count_t const count) {
 	if(!msg) return NULL;
 	if(!type) return NULL;
 	// TODO: More robust content-type parsing.

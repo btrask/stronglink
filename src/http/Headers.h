@@ -3,14 +3,12 @@
 
 #include "../common.h"
 
-typedef struct {
-	strarg_t const name;
-	size_t const size;
-} HeaderField;
+#define HEADER_FIELD_MAX 80
+#define HEADER_VALUE_MAX 1024
 
 typedef struct Headers* HeadersRef;
 
-HeadersRef HeadersCreate(HeaderField const fields[], count_t const count);
+HeadersRef HeadersCreate(strarg_t const fields[], count_t const count);
 void HeadersFree(HeadersRef *const headersptr);
 err_t HeadersAppendFieldChunk(HeadersRef const headers, strarg_t const chunk, size_t const len);
 err_t HeadersAppendValueChunk(HeadersRef const headers, strarg_t const chunk, size_t const len);

@@ -16,17 +16,17 @@ typedef struct {
 	strarg_t cookie;
 	strarg_t content_type;
 } BlogHTTPHeaders;
-static HeaderField const BlogHTTPFields[] = {
-	{"cookie", 100},
-	{"content-type", 100},
+static strarg_t const BlogHTTPFields[] = {
+	"cookie",
+	"content-type",
 };
 typedef struct {
 	strarg_t content_type;
 	strarg_t content_disposition;
 } BlogSubmissionHeaders;
-static HeaderField const BlogSubmissionFields[] = {
-	{"content-type", 100},
-	{"content-disposition", 100},
+static strarg_t const BlogSubmissionFields[] = {
+	"content-type",
+	"content-disposition",
 };
 
 typedef struct Blog* BlogRef;

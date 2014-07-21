@@ -1,20 +1,18 @@
 #include "Headers.h"
 
-#define FIELD_MAX 80
-
 struct Headers {
 	str_t *field;
-	HeaderField const *fields;
+	strarg_t const *fields;
 	count_t count;
 	index_t current;
 	str_t **data;
 };
 
-HeadersRef HeadersCreate(HeaderField const fields[], count_t const count) {
+HeadersRef HeadersCreate(strarg_t const fields[], count_t const count) {
 	HeadersRef headers = calloc(1, sizeof(struct Headers));
 	if(!headers) return NULL;
 	headers->fields = fields;
-	headers->field = malloc(FIELD_MAX+1);
+	headers->field = malloc(HEADER_FIELD_MAX+1);
 	if(!headers->field) {
 		HeadersFree(&headers);
 		return NULL;
@@ -41,19 +39,19 @@ void HeadersFree(HeadersRef *const headersptr) {
 }
 err_t HeadersAppendFieldChunk(HeadersRef const headers, strarg_t const chunk, size_t const len) {
 	if(!headers) return 0;
-	append(headers->field, FIELD_MAX, chunk, len);
+	append(headers->field, HEADER_FIELD_MAX, chunk, len);
 	return 0;
 }
 err_t HeadersAppendValueChunk(HeadersRef const headers, strarg_t const chunk, size_t const len) {
 	if(!headers) return 0;
-	HeaderField const *const fields = headers->fields;
+	strarg_t const *const fields = headers->fields;
 	if(headers->field[0]) {
 		headers->current = headers->count; // Mark as invalid.
 		for(index_t i = 0; i < headers->count; ++i) {
-			if(0 != strcasecmp(headers->field, fields[i].name)) continue;
+			if(0 != strcasecmp(headers->field, fields[i])) continue;
 			if(headers->data[i]) continue; // Use separate slots for duplicate headers, if available.
 			headers->current = i;
-			headers->data[i] = malloc(fields[i].size+1);
+			headers->data[i] = malloc(HEADER_VALUE_MAX+1);
 			if(!headers->data[i]) return -1;
 			headers->data[i][0] = '\0';
 			break;
@@ -62,7 +60,7 @@ err_t HeadersAppendValueChunk(HeadersRef const headers, strarg_t const chunk, si
 	}
 	if(headers->current < headers->count) {
 		index_t const i = headers->current;
-		append(headers->data[i], fields[i].size, chunk, len);
+		append(headers->data[i], HEADER_VALUE_MAX, chunk, len);
 	}
 	return 0;
 }

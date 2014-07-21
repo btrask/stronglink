@@ -155,7 +155,7 @@ uint16_t HTTPMessageGetResponseStatus(HTTPMessageRef const msg) {
 	if(!msg) return 0;
 	return msg->conn->parser.status_code;
 }
-void *HTTPMessageGetHeaders(HTTPMessageRef const msg, HeaderField const fields[], count_t const count) {
+void *HTTPMessageGetHeaders(HTTPMessageRef const msg, strarg_t const fields[], count_t const count) {
 	if(!msg) return NULL;
 	assertf(!msg->headers, "Message headers already read");
 	msg->headers = HeadersCreate(fields, count);

@@ -260,8 +260,8 @@ static err_t reconnect(EFSPullRef const pull) {
 typedef struct {
 	strarg_t set_cookie;
 } EFSAuthHeaders;
-static HeaderField const EFSAuthFields[] = {
-	{"set-cookie", 100},
+static strarg_t const EFSAuthFields[] = {
+	"set-cookie",
 };
 static err_t auth(EFSPullRef const pull) {
 	if(!pull) return 0;
@@ -292,9 +292,9 @@ typedef struct {
 	strarg_t content_type;
 	strarg_t content_length;
 } EFSImportHeaders;
-static HeaderField const EFSImportFields[] = {
-	{"content-type", 100},
-	{"content-length", 100},
+static strarg_t const EFSImportFields[] = {
+	"content-type",
+	"content-length",
 };
 static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn) {
 	if(!pull) return 0;
