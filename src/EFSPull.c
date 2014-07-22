@@ -8,7 +8,7 @@
 #define QUEUE_SIZE 64
 #define BATCH_MIN 32
 
-#define PROFILE 1
+#define PROFILE 0
 
 struct EFSPull {
 	int64_t pullID;
