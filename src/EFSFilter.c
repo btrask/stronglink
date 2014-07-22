@@ -165,15 +165,17 @@ void EFSFilterPrint(EFSFilterRef const filter, count_t const indent) {
 
 // It's fine if COUNT() overcounts (e.g duplicates) because it's just an optimization. Not sure whether using DISTINCT makes any difference.
 #define MATCH_FILE(str) \
-	"SELECT MIN(f.file_id),\n" \
-	"	COUNT(f.file_id) > 1\n" \
+	"SELECT f.file_id\n" \
 	str "\n" \
-	"AND (md.meta_file_id = ? AND f.file_id > ?)"
+	"AND (md.meta_file_id = ? AND f.file_id > ?)\n" \
+	"ORDER BY md.meta_file_id ASC, f.file_id ASC\n" \
+	"LIMIT 1"
 
 #define MATCH_AGE(str) \
-	"SELECT MIN(md.meta_file_id)\n" \
+	"SELECT md.meta_file_id\n" \
 	str "\n" \
-	"AND (f.file_id = ?)"
+	"AND (f.file_id = ?)\n" \
+	"ORDER BY md.meta_file_id ASC LIMIT 1"
 
 
 #define LINKED_FROM \
@@ -249,7 +251,7 @@ EFSMatch EFSFilterMatchFile(EFSFilterRef const filter, int64_t const sortID, int
 				SQLITE_NULL != sqlite3_column_type(filter->matchFile, 0)
 			) {
 				fileID = sqlite3_column_int64(filter->matchFile, 0);
-				more = sqlite3_column_int(filter->matchFile, 1);
+				more = true;
 			}
 			sqlite3_reset(filter->matchFile);
 			if(fileID < 0) return (EFSMatch){-1, false};
