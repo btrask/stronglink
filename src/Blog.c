@@ -203,12 +203,21 @@ static void sendPreview(BlogRef const blog, HTTPMessageRef const msg, EFSSession
 	FREE(&URIEncoded_HTMLSafe);
 }
 
+typedef struct {
+	str_t *query;
+	str_t *file; // It'd be nice if we didn't need a separate parameter for this.
+} BlogQueryValues;
+static strarg_t const BlogQueryFields[] = {
+	"q",
+	"f",
+};
 static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_GET != method) return false;
-	if(!URIPath(URI, "/", NULL)) return false;
+	strarg_t qs = NULL;
+	if(!URIPath(URI, "/", &qs)) return false;
 
 	BlogHTTPHeaders const *const headers = HTTPMessageGetHeaders(msg, BlogHTTPFields, numberof(BlogHTTPFields));
-	EFSSessionRef const session = EFSRepoCreateSession(blog->repo, headers->cookie);
+	EFSSessionRef session = EFSRepoCreateSession(blog->repo, headers->cookie);
 	if(!session) {
 		HTTPMessageSendStatus(msg, 403);
 		return true;
@@ -218,9 +227,13 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	EFSFilterRef const visibility = EFSFilterCreate(EFSLinksToFilter);
 	EFSFilterAddStringArg(visibility, "efs://user", -1);
 	EFSFilterAddFilterArg(filter, visibility);
-	// TODO: Parse querystring `q` parameter
-	EFSFilterRef const query = EFSUserFilterParse(NULL);
+
+	BlogQueryValues *params = QSValuesCopy(qs, BlogQueryFields, numberof(BlogQueryFields));
+	fprintf(stderr, "parsing %s\n", params->query);
+	EFSFilterRef const query = EFSUserFilterParse(params->query);
 	if(query) EFSFilterAddFilterArg(filter, query);
+	QSValuesFree((QSValues *)&params, numberof(BlogQueryFields));
+	fprintf(stderr, "parsed\n");
 
 	URIListRef URIs = EFSSessionCreateFilteredURIList(session, filter, RESULTS_MAX); // TODO: We should be able to specify a specific algorithm here.
 
@@ -251,6 +264,7 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 
 	URIListFree(&URIs);
 	EFSFilterFree(&filter);
+	EFSSessionFree(&session);
 	return true;
 }
 static bool_t getCompose(BlogRef const blog, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {

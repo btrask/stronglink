@@ -38,10 +38,11 @@ void *QSValuesCopy(strarg_t const qs, strarg_t const fields[], count_t const cou
 	}
 	return values;
 }
-void QSValuesFree(str_t ***const values, count_t const count) {
+void QSValuesFree(QSValues *const valuesptr, count_t const count) {
+	str_t **values = *valuesptr;
 	for(index_t i = 0; i < count; ++i) {
-		FREE(&(*values)[i]);
+		FREE(&values[i]);
 	}
-	FREE(values);
+	FREE((void **)valuesptr); values = NULL;
 }
 
