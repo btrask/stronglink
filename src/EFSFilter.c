@@ -166,14 +166,14 @@ void EFSFilterPrint(EFSFilterRef const filter, count_t const indent) {
 // It's fine if COUNT() overcounts (e.g duplicates) because it's just an optimization. Not sure whether using DISTINCT makes any difference.
 #define MATCH_FILE(str) \
 	str "\n" \
-	"AND (md.meta_file_id = ? AND f.file_id > ?)\n" \
-	"ORDER BY md.meta_file_id ASC, f.file_id ASC\n" \
+	"AND (sort_id = ? AND file_id > ?)\n" \
+	"ORDER BY sort_id ASC, file_id ASC\n" \
 	"LIMIT 1"
 
 #define MATCH_AGE(str) \
 	str "\n" \
-	"AND (f.file_id = ?)\n" \
-	"ORDER BY md.meta_file_id ASC LIMIT 1"
+	"AND (file_id = ?)\n" \
+	"ORDER BY sort_id ASC LIMIT 1"
 
 
 #define LINKED_FROM \
