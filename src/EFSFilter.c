@@ -165,20 +165,20 @@ void EFSFilterPrint(EFSFilterRef const filter, count_t const indent) {
 
 // It's fine if COUNT() overcounts (e.g duplicates) because it's just an optimization. Not sure whether using DISTINCT makes any difference.
 #define MATCH_FILE(str) \
-	"SELECT f.file_id\n" \
 	str "\n" \
 	"AND (md.meta_file_id = ? AND f.file_id > ?)\n" \
 	"ORDER BY md.meta_file_id ASC, f.file_id ASC\n" \
 	"LIMIT 1"
 
 #define MATCH_AGE(str) \
-	"SELECT md.meta_file_id\n" \
 	str "\n" \
 	"AND (f.file_id = ?)\n" \
 	"ORDER BY md.meta_file_id ASC LIMIT 1"
 
 
 #define LINKED_FROM \
+	"SELECT md.meta_file_id AS sort_id,\n" \
+	"	f.file_id AS file_id\n" \
 	"FROM file_uris AS f\n" \
 	"INNER JOIN meta_data AS md\n" \
 	"	ON (f.uri = md.value)\n" \
@@ -188,6 +188,8 @@ void EFSFilterPrint(EFSFilterRef const filter, count_t const indent) {
 	")"
 
 #define LINKS_TO \
+	"SELECT md.meta_file_id AS sort_id,\n" \
+	"	f.file_id AS file_id\n" \
 	"FROM file_uris AS f\n" \
 	"INNER JOIN meta_data AS md\n" \
 	"	ON (f.uri = md.uri)\n" \
@@ -246,11 +248,8 @@ EFSMatch EFSFilterMatchFile(EFSFilterRef const filter, int64_t const sortID, int
 			sqlite3_bind_int64(filter->matchFile, filter->argc + 2, lastFileID);
 			int64_t fileID = -1;
 			bool_t more = false;
-			if(
-				SQLITE_ROW == STEP(filter->matchFile) &&
-				SQLITE_NULL != sqlite3_column_type(filter->matchFile, 0)
-			) {
-				fileID = sqlite3_column_int64(filter->matchFile, 0);
+			if(SQLITE_ROW == STEP(filter->matchFile)) {
+				fileID = sqlite3_column_int64(filter->matchFile, 1);
 				more = true;
 			}
 			sqlite3_reset(filter->matchFile);
@@ -299,10 +298,7 @@ int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const fileID) {
 		case EFSLinksToFilter: {
 			sqlite3_bind_int64(filter->matchAge, filter->argc + 1, fileID);
 			int64_t age = INT64_MAX;
-			if(
-				SQLITE_ROW == STEP(filter->matchAge) &&
-				SQLITE_NULL != sqlite3_column_type(filter->matchAge, 0)
-			) {
+			if(SQLITE_ROW == STEP(filter->matchAge)) {
 				age = sqlite3_column_int64(filter->matchAge, 0);
 			}
 			sqlite3_reset(filter->matchAge);
