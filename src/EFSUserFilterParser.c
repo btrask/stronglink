@@ -24,10 +24,11 @@ EFSFilterRef EFSUserFilterParse(strarg_t const query) {
 }
 
 static EFSFilterRef parse_and(strarg_t *const query) {
-	EFSFilterRef const and = EFSFilterCreate(EFSIntersectionFilter);
+	EFSFilterRef and = NULL;
 	for(;;) {
 		EFSFilterRef const or = parse_or(query);
 		if(!or) break;
+		if(!and) and = EFSFilterCreate(EFSIntersectionFilter);
 		EFSFilterAddFilterArg(and, or);
 
 		// Optional, ignored
@@ -37,10 +38,11 @@ static EFSFilterRef parse_and(strarg_t *const query) {
 	return and;
 }
 static EFSFilterRef parse_or(strarg_t *const query) {
-	EFSFilterRef const or = EFSFilterCreate(EFSUnionFilter);
+	EFSFilterRef or = NULL;
 	for(;;) {
 		EFSFilterRef const exp = parse_exp(query);
 		if(!exp) break;
+		if(!or) or = EFSFilterCreate(EFSUnionFilter);
 		EFSFilterAddFilterArg(or, exp);
 		if(!parse_space(query)) break;
 		if(!parse_token(query, "or")) break;
