@@ -42,6 +42,9 @@ int async_fs_fdatasync(uv_file file) {
 int async_fs_mkdir(const char* path, int mode) {
 	ASYNC_FS_WRAP(mkdir, path, mode)
 }
+int async_fs_ftruncate(uv_file file, int64_t offset) {
+	ASYNC_FS_WRAP(ftruncate, file, offset)
+}
 
 int async_fs_fstat(uv_file file, uv_stat_t *stats) {
 	uv_fs_t req = { .data = co_active() };
@@ -49,6 +52,24 @@ int async_fs_fstat(uv_file file, uv_stat_t *stats) {
 	if(err < 0) return err;
 	co_switch(yield);
 	if(req.result >= 0) memcpy(stats, &req.statbuf, sizeof(uv_stat_t));
+	uv_fs_req_cleanup(&req);
+	return req.result;
+}
+int async_fs_fstat_size(uv_file file, uint64_t *size) {
+	uv_fs_t req = { .data = co_active() };
+	int const err = uv_fs_fstat(loop, &req, file, async_fs_cb);
+	if(err < 0) return err;
+	co_switch(yield);
+	*size = req.statbuf.st_size;
+	uv_fs_req_cleanup(&req);
+	return req.result;
+}
+int async_fs_stat_mode(const char* path, uint64_t *mode) {
+	uv_fs_t req = { .data = co_active() };
+	int const err = uv_fs_stat(loop, &req, path, async_fs_cb);
+	if(err < 0) return err;
+	co_switch(yield);
+	*mode = req.statbuf.st_mode;
 	uv_fs_req_cleanup(&req);
 	return req.result;
 }

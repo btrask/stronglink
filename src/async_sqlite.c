@@ -120,21 +120,21 @@ static int async_delete(sqlite3_vfs *const vfs, char const *const path, int cons
 	return SQLITE_OK;
 }
 static int async_access(sqlite3_vfs *const vfs, char const *const path, int const flags, int *const outRes) {
-	uv_fs_t req = { .data = co_active() };
-	uv_fs_stat(loop, &req, path, async_fs_cb);
-	co_switch(yield);
+	uint64_t mode = 0;
+	int const result = async_fs_stat_mode(path, &mode);
 	switch(flags) {
 		case SQLITE_ACCESS_EXISTS:
-			*outRes = req.result >= 0;
+			*outRes = result >= 0;
 			break;
 		case SQLITE_ACCESS_READWRITE:
-			*outRes = 0600 == (req.statbuf.st_mode & 0600);
+			if(result < 0) return DBG(SQLITE_IOERR);
+			*outRes = 0600 == (mode & 0600);
 			break;
 		case SQLITE_ACCESS_READ:
-			*outRes = 0400 == (req.statbuf.st_mode & 0400);
+			if(result < 0) return DBG(SQLITE_IOERR);
+			*outRes = 0400 == (mode & 0400);
 			break;
 	}
-	uv_fs_req_cleanup(&req);
 	return SQLITE_OK;
 }
 static int async_fullPathname(sqlite3_vfs *const vfs, char const *const path, int const size, char *const outPath) {
@@ -237,12 +237,7 @@ static int async_write(async_file *const file, void const *const buf, int const 
 	return SQLITE_OK;
 }
 static int async_truncate(async_file *const file, sqlite3_int64 const size) {
-	uv_fs_t req = { .data = co_active() };
-	uv_fs_ftruncate(loop, &req, file->file, size, async_fs_cb);
-	co_switch(yield);
-	int const result = req.result;
-	uv_fs_req_cleanup(&req);
-	if(result < 0) return DBG(SQLITE_IOERR_TRUNCATE);
+	if(async_fs_ftruncate(file->file, size) < 0) return DBG(SQLITE_IOERR_TRUNCATE);
 	return SQLITE_OK;
 }
 static int async_sync(async_file *const file, int const flags) {
@@ -256,13 +251,9 @@ static int async_sync(async_file *const file, int const flags) {
 	return SQLITE_OK;
 }
 static int async_fileSize(async_file *const file, sqlite3_int64 *const outSize) {
-	uv_fs_t req = { .data = co_active() };
-	uv_fs_fstat(loop, &req, file->file, async_fs_cb);
-	co_switch(yield);
-	*outSize = req.statbuf.st_size;
-	int const result = req.result;
-	uv_fs_req_cleanup(&req);
-	if(result < 0) return DBG(SQLITE_IOERR);
+	uint64_t size = 0;
+	if(async_fs_fstat_size(file->file, &size) < 0) return DBG(SQLITE_IOERR);
+	*outSize = size;
 	return SQLITE_OK;
 }
 static int async_lock(async_file *const file, int const level) {
