@@ -175,7 +175,7 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	sqlite3 *db = EFSRepoDBConnect(repo);
 	if(!db) return NULL;
-	EFSFilterPrepare(filter, db);
+	EFSFilterPrepare(filter, db, EFS_DESC);
 
 	sqlite3_stmt *selectMax = QUERY(db,
 		"SELECT MAX(file_id) FROM files");
@@ -192,7 +192,7 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 		"FROM files WHERE file_id = ? LIMIT 1");
 	URIListRef const URIs = URIListCreate();
 	while(sortID > 0 && URIListGetCount(URIs) < max) {
-		int64_t lastFileID = 0;
+		int64_t lastFileID = INT64_MAX;
 		while(URIListGetCount(URIs) < max) {
 			EFSMatch const match = EFSFilterMatchFile(filter, sortID, lastFileID);
 //			fprintf(stderr, "got match %lld of %lld, %lld\n", fileID, sortID, lastFileID);

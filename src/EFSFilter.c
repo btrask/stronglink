@@ -163,10 +163,14 @@ void EFSFilterPrint(EFSFilterRef const filter, count_t const indent) {
 	}
 }
 
-// It's fine if COUNT() overcounts (e.g duplicates) because it's just an optimization. Not sure whether using DISTINCT makes any difference.
-#define MATCH_FILE(str) \
+#define MATCH_FILE_ASC(str) \
 	str "\n" \
 	"AND (sort_id = ? AND file_id > ?)\n" \
+	"ORDER BY sort_id ASC, file_id ASC\n" \
+	"LIMIT 1"
+#define MATCH_FILE_DESC(str) \
+	str "\n" \
+	"AND (sort_id = ? AND file_id < ?)\n" \
 	"ORDER BY sort_id ASC, file_id ASC\n" \
 	"LIMIT 1"
 
@@ -198,13 +202,14 @@ void EFSFilterPrint(EFSFilterRef const filter, count_t const indent) {
 	"	AND md.value = ?\n" \
 	")"
 
-err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3 *const db) {
+err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3 *const db, EFSSortOrder const order) {
 	assertf(!filter->matchFile, "Filter already prepared");
 	assertf(!filter->matchAge, "Filter already prepared");
 	assertf(0 == filter->argc, "Filter already prepared");
+	assertf(EFS_DESC == order, "Filter ascending order not yet supported");
 	switch(filter->type) {
 		case EFSLinkedFromFilter: {
-			filter->matchFile = QUERY(db, MATCH_FILE(LINKED_FROM));
+			filter->matchFile = QUERY(db, MATCH_FILE_DESC(LINKED_FROM));
 			sqlite3_bind_text(filter->matchFile, 1, filter->data.string, -1, SQLITE_STATIC);
 			filter->matchAge = QUERY(db, MATCH_AGE(LINKED_FROM));
 			sqlite3_bind_text(filter->matchAge, 1, filter->data.string, -1, SQLITE_STATIC);
@@ -212,7 +217,7 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3 *const db) {
 			return 0;
 		}
 		case EFSLinksToFilter: {
-			filter->matchFile = QUERY(db, MATCH_FILE(LINKS_TO));
+			filter->matchFile = QUERY(db, MATCH_FILE_DESC(LINKS_TO));
 			sqlite3_bind_text(filter->matchFile, 1, filter->data.string, -1, SQLITE_STATIC);
 			filter->matchAge = QUERY(db, MATCH_AGE(LINKS_TO));
 			sqlite3_bind_text(filter->matchAge, 1, filter->data.string, -1, SQLITE_STATIC);
@@ -223,7 +228,7 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3 *const db) {
 		case EFSUnionFilter: {
 			EFSFilterList const *const list = filter->data.filters;
 			for(index_t i = 0; i < list->count; ++i) {
-				if(EFSFilterPrepare(list->items[i], db) < 0) return -1;
+				if(EFSFilterPrepare(list->items[i], db, order) < 0) return -1;
 			}
 			return 0;
 		}

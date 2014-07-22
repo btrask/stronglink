@@ -83,6 +83,10 @@ typedef struct {
 	int64_t fileID;
 	bool_t more;
 } EFSMatch;
+typedef enum {
+	EFS_ASC,
+	EFS_DESC,
+} EFSSortOrder;
 
 EFSFilterRef EFSFilterCreate(EFSFilterType const type);
 EFSFilterRef EFSPermissionFilterCreate(int64_t const userID);
@@ -91,7 +95,7 @@ err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
 void EFSFilterPrint(EFSFilterRef const filter, count_t const indent);
 sqlite3_stmt *EFSFilterCreateQuery(EFSFilterRef const filter);
-err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3 *const db);
+err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3 *const db, EFSSortOrder const order);
 EFSMatch EFSFilterMatchFile(EFSFilterRef const filter, int64_t const sortID, int64_t const lastFileID);
 int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const fileID);
 
