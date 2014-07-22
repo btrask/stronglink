@@ -166,12 +166,12 @@ void EFSFilterPrint(EFSFilterRef const filter, count_t const indent) {
 #define MATCH_FILE_ASC(str) \
 	str "\n" \
 	"AND (sort_id = ? AND file_id > ?)\n" \
-	"ORDER BY sort_id ASC, file_id ASC\n" \
+	"ORDER BY file_id ASC\n" \
 	"LIMIT 1"
 #define MATCH_FILE_DESC(str) \
 	str "\n" \
 	"AND (sort_id = ? AND file_id < ?)\n" \
-	"ORDER BY sort_id ASC, file_id ASC\n" \
+	"ORDER BY file_id DESC\n" \
 	"LIMIT 1"
 
 #define MATCH_AGE(str) \
