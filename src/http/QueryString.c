@@ -1,30 +1,47 @@
 #include "QueryString.h"
 
-size_t QSReadField(strarg_t const qs) {
-	char const x = qs[0];
-	if('?' != x && '&' != x) return 0;
-	off_t i = 1;
+void *QSValuesCopy(strarg_t const qs, strarg_t const fields[], count_t const count) {
+	str_t **const values = calloc(count, sizeof(str_t *));
+	if(!values) return NULL;
+	strarg_t pos = qs;
 	for(;;) {
-		char const y = qs[i];
-		if('=' == y || '\0' == y || '&' == y || '#' == y) return i;
-		++i;
+		if('\0' == pos[0]) break;
+		if('?' == pos[0] || '&' == pos[0]) ++pos;
+
+		size_t flen = 0, sep = 0;
+		for(;;) {
+			char const x = pos[flen];
+			if('\0' == x) break;
+			if('=' == x) { ++sep; break; }
+			if('&' == x) break;
+			++flen;
+		}
+		size_t vlen = 0;
+		if(sep) for(;;) {
+			char const x = pos[flen+sep+vlen];
+			if('\0' == x) break;
+			if('&' == x) break;
+			++vlen;
+		}
+
+		for(index_t i = 0; i < count; ++i) {
+			if(!substr(fields[i], pos, flen)) continue;
+			if(values[i]) continue;
+			if(vlen > 0) {
+				// TODO: Decode.
+				values[i] = strndup(pos+flen+sep, vlen);
+			} else {
+				values[i] = strdup("true");
+			}
+		}
+		pos += flen+sep+vlen;
 	}
+	return values;
 }
-size_t QSReadValue(strarg_t const qs) {
-	char const x = qs[0];
-	if('=' != x) return 0;
-	off_t i = 1;
-	for(;;) {
-		char const y = qs[i];
-		if('&' == y || '\0' == y || '#' == y) return i;
-		++i;
+void QSValuesFree(str_t ***const values, count_t const count) {
+	for(index_t i = 0; i < count; ++i) {
+		FREE(&(*values)[i]);
 	}
-}
-size_t QSRead(strarg_t const qs, size_t *const flen, size_t *const vlen) {
-	size_t const a = QSReadField(qs);
-	size_t const b = a ? QSReadValue(qs+a) : 0;
-	*flen = a;
-	*vlen = b;
-	return a+b;
+	FREE(values);
 }
 
