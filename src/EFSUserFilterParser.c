@@ -70,12 +70,12 @@ static EFSFilterRef parse_parens(strarg_t *const query) {
 static EFSFilterRef parse_link(strarg_t *const query) {
 	off_t i = 0;
 	bool_t has_scheme = false;
-	while(isalpha((*query)[i++])) has_scheme = true;
+	while(isalpha((*query)[i])) { ++i; has_scheme = true; }
 	if(!has_scheme) return NULL;
 	if(':' != (*query)[i++]) return NULL;
 	if('/' != (*query)[i++]) return NULL;
 	if('/' != (*query)[i++]) return NULL;
-	while(!isspace((*query)[i++]));
+	while('\0' != (*query)[i] && !isspace((*query)[i])) ++i;
 	EFSFilterRef const filter = EFSFilterCreate(EFSLinksToFilter);
 	EFSFilterAddStringArg(filter, *query, i);
 	*query += i;

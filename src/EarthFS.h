@@ -89,6 +89,7 @@ EFSFilterRef EFSPermissionFilterCreate(int64_t const userID);
 void EFSFilterFree(EFSFilterRef *const filterptr);
 err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len);
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
+void EFSFilterPrint(EFSFilterRef const filter, count_t const indent);
 sqlite3_stmt *EFSFilterCreateQuery(EFSFilterRef const filter);
 err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3 *const db);
 EFSMatch EFSFilterMatchFile(EFSFilterRef const filter, int64_t const sortID, int64_t const lastFileID);

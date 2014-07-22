@@ -111,6 +111,57 @@ err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfil
 	filters->items[count-1] = subfilter;
 	return 0;
 }
+void EFSFilterPrint(EFSFilterRef const filter, count_t const indent) {
+	if(!filter) {
+		fprintf(stderr, "(null-filter)");
+		return;
+	}
+	// TODO: Copy and paste is bad.
+	for(index_t i = 0; i < indent; ++i) fprintf(stderr, "\t");
+	switch(filter->type) {
+		case EFSNoFilter:
+			fprintf(stderr, "(all)\n");
+			break;
+		case EFSPermissionFilter:
+			fprintf(stderr, "(permission %lld)\n", filter->data.userID);
+			break;
+		case EFSFileTypeFilter:
+			fprintf(stderr, "(file-type %s)\n", filter->data.string);
+			break;
+		case EFSFullTextFilter:
+			fprintf(stderr, "(full-text %s)\n", filter->data.string);
+			break;
+		case EFSLinkedFromFilter:
+			fprintf(stderr, "(linked-from %s)\n", filter->data.string);
+			break;
+		case EFSLinksToFilter:
+			fprintf(stderr, "(links-to %s)\n", filter->data.string);
+			break;
+		case EFSIntersectionFilter: {
+			fprintf(stderr, "(intersection\n");
+			EFSFilterList const *const list = filter->data.filters;
+			for(index_t i = 0; i < list->count; ++i) {
+				EFSFilterPrint(list->items[i], indent+1);
+			}
+			for(index_t i = 0; i < indent; ++i) fprintf(stderr, "\t");
+			fprintf(stderr, ")\n");
+			break;
+		}
+		case EFSUnionFilter: {
+			fprintf(stderr, "(union\n");
+			EFSFilterList const *const list = filter->data.filters;
+			for(index_t i = 0; i < list->count; ++i) {
+				EFSFilterPrint(list->items[i], indent+1);
+			}
+			for(index_t i = 0; i < indent; ++i) fprintf(stderr, "\t");
+			fprintf(stderr, ")\n");
+			break;
+		}
+		default:
+			fprintf(stderr, "(unknown-%d)\n", filter->type);
+			break;
+	}
+}
 
 // It's fine if COUNT() overcounts (e.g duplicates) because it's just an optimization. Not sure whether using DISTINCT makes any difference.
 #define MATCH_FILE(str) \

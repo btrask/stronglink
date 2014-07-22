@@ -229,11 +229,11 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	EFSFilterAddFilterArg(filter, visibility);
 
 	BlogQueryValues *params = QSValuesCopy(qs, BlogQueryFields, numberof(BlogQueryFields));
-	fprintf(stderr, "parsing %s\n", params->query);
 	EFSFilterRef const query = EFSUserFilterParse(params->query);
 	if(query) EFSFilterAddFilterArg(filter, query);
 	QSValuesFree((QSValues *)&params, numberof(BlogQueryFields));
-	fprintf(stderr, "parsed\n");
+
+	EFSFilterPrint(query, 0); // DEBUG
 
 	URIListRef URIs = EFSSessionCreateFilteredURIList(session, filter, RESULTS_MAX); // TODO: We should be able to specify a specific algorithm here.
 
