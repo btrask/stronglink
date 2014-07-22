@@ -113,7 +113,7 @@ err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfil
 }
 void EFSFilterPrint(EFSFilterRef const filter, count_t const indent) {
 	if(!filter) {
-		fprintf(stderr, "(null-filter)");
+		fprintf(stderr, "(null-filter)\n");
 		return;
 	}
 	// TODO: Copy and paste is bad.
