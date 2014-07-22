@@ -27,7 +27,7 @@ void *QSValuesCopy(strarg_t const qs, strarg_t const fields[], count_t const cou
 		for(index_t i = 0; i < count; ++i) {
 			if(!substr(fields[i], pos, flen)) continue;
 			if(values[i]) continue;
-			if(vlen > 0) {
+			if(sep) {
 				// TODO: Decode.
 				values[i] = strndup(pos+flen+sep, vlen);
 			} else {
