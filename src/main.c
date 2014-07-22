@@ -8,6 +8,7 @@ void sqlite3_init_sqllog(void);
 
 static void sqlite_error(void *const ctx, int const err, char const *const msg) {
 	if(SQLITE_LOCKED_SHAREDCACHE == err) return;
+	if(SQLITE_NOTICE_RECOVER_WAL == err) return;
 	fprintf(stderr, "sqlite: (%d) %s\n", err, msg);
 }
 
