@@ -12,6 +12,7 @@
 .clear { clear: both; }
 .light { color: #555; }
 .block { display: block; }
+.wrapper > input { width: 100%; height: 100%; }
 
 a:link {
 	text-decoration: none;
@@ -36,7 +37,22 @@ input {
 	margin: 14px;
 }
 .search {
-	float: right;
+	position: relative;
+	height: 30px;
+}
+.search .field {
+	position: absolute;
+	left: 0;
+	right: 84px;
+	top: 0;
+	bottom: 0;
+}
+.search .button {
+	position: absolute;
+	right: 0;
+	width: 80px;
+	top: 0;
+	bottom: 0;
 }
 
 .entry {
