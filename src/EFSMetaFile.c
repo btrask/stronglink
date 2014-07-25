@@ -2,6 +2,8 @@
 #include "async.h"
 #include "EarthFS.h"
 
+#define META_MAX (1024 * 100)
+
 typedef enum {
 	s_start = 0,
 	s_top,
@@ -12,6 +14,7 @@ typedef enum {
 } meta_state;
 
 struct EFSMetaFile {
+	size_t length;
 	yajl_handle parser;
 	sqlite3 *tmpdb;
 
@@ -36,8 +39,9 @@ EFSMetaFileRef EFSMetaFileCreate(strarg_t const type) {
 		EFSMetaFileFree(&meta);
 		return NULL;
 	}
+	yajl_config(meta->parser, yajl_allow_partial_values, (int)true);
 	if(SQLITE_OK != sqlite3_open_v2(
-		NULL,
+		":memory:",
 		&meta->tmpdb,
 		SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE,
 		NULL)
@@ -62,7 +66,9 @@ void EFSMetaFileFree(EFSMetaFileRef *const metaptr) {
 err_t EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len) {
 	if(!meta) return 0;
 	if(!meta->parser) return -1;
-	yajl_status const status = yajl_parse(meta->parser, buf, len);
+	if(meta->length > META_MAX) return -1;
+	meta->length += META_MAX;
+	yajl_status const status = yajl_parse(meta->parser, buf, MIN(len, META_MAX - meta->length));
 	if(yajl_status_ok != status) {
 		parse_error(meta, buf, len);
 		return -1;
