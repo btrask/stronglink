@@ -3,7 +3,7 @@
 
 PRAGMA application_id=9; -- TODO
 
-PRAGMA page_size=2048;
+PRAGMA page_size=4096;
 PRAGMA journal_mode=WAL;
 
 
