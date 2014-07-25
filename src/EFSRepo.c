@@ -2,7 +2,7 @@
 #include "async.h"
 #include "EarthFS.h"
 
-#define CONNECTION_COUNT 12
+#define CONNECTION_COUNT 24
 
 struct EFSRepo {
 	str_t *dir;

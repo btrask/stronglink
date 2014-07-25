@@ -4,11 +4,11 @@
 #include "http/HTTPMessage.h"
 
 #define URI_MAX 1024
-#define READER_COUNT 4
+#define READER_COUNT 16
 #define QUEUE_SIZE 64
 #define BATCH_MIN 32
 
-#define PROFILE 0
+#define PROFILE 1
 
 struct EFSPull {
 	int64_t pullID;
