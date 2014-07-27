@@ -38,6 +38,9 @@ typedef int err_t;
 	__a > __b ? __a - __b : 0; \
 })
 
+#ifdef NDEBUG
+#define assertf(x, fmt, ...) ((void)(x))
+#else
 #define assertf(x, fmt, ...) ({ \
 	if(0 == (x)) { \
 		fprintf(stderr, "%s:%d %s: assertion '%s' failed\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, #x); \
@@ -46,6 +49,7 @@ typedef int err_t;
 		abort(); \
 	} \
 })
+#endif
 
 #define FREE(ptrptr) ({ \
 	__typeof__(ptrptr) const __x = (ptrptr); \
