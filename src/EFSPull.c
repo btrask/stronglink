@@ -158,7 +158,7 @@ static void writer(void) {
 		if(pull->blocked_reader) async_wakeup(pull->blocked_reader);
 
 		for(;;) {
-			sqlite3 *db = EFSRepoDBConnect(EFSSessionGetRepo(pull->session));
+			sqlite3f *db = EFSRepoDBConnect(EFSSessionGetRepo(pull->session));
 			EXEC(QUERY(db, "BEGIN IMMEDIATE TRANSACTION"));
 			err_t err = 0;
 			for(index_t i = 0; i < count; ++i) {

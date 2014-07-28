@@ -11,13 +11,13 @@ struct EFSRepo {
 	str_t *cacheDir;
 	str_t *DBPath;
 
-	sqlite3 *connections[CONNECTION_COUNT];
+	sqlite3f *connections[CONNECTION_COUNT];
 	index_t cur;
 	count_t count;
 	cothread_t *thread_list;
 };
 
-static sqlite3 *openDB(strarg_t const path);
+static sqlite3f *openDB(strarg_t const path);
 
 EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 	assertf(dir, "EFSRepo dir required");
@@ -53,7 +53,7 @@ void EFSRepoFree(EFSRepoRef *const repoptr) {
 	FREE(&repo->cacheDir);
 	FREE(&repo->DBPath);
 	for(index_t i = 0; i < CONNECTION_COUNT; ++i) {
-		sqlite3_close(repo->connections[i]); repo->connections[i] = NULL;
+		sqlite3f_close(repo->connections[i]); repo->connections[i] = NULL;
 	}
 	repo->count = 0;
 	FREE(repoptr); repo = NULL;
@@ -84,17 +84,17 @@ strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->cacheDir;
 }
-sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo) {
+sqlite3f *EFSRepoDBConnect(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	if(!repo->count) {
 		assertf(0, "Blocking on DB connection not yet implemented");
 	}
-	sqlite3 *const db = repo->connections[repo->cur];
+	sqlite3f *const db = repo->connections[repo->cur];
 	repo->cur = (repo->cur + 1) % CONNECTION_COUNT;
 	repo->count--;
 	return db;
 }
-void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 **const dbptr) {
+void EFSRepoDBClose(EFSRepoRef const repo, sqlite3f **const dbptr) {
 	if(!repo) return;
 	index_t const pos = (repo->cur + repo->count) % CONNECTION_COUNT;
 	repo->connections[pos] = *dbptr;
@@ -104,7 +104,7 @@ void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 **const dbptr) {
 
 void EFSRepoStartPulls(EFSRepoRef const repo) {
 	if(!repo) return;
-	sqlite3 *db = EFSRepoDBConnect(repo);
+	sqlite3f *db = EFSRepoDBConnect(repo);
 
 	sqlite3_stmt *select = QUERY(db,
 		"SELECT\n"
@@ -123,7 +123,7 @@ void EFSRepoStartPulls(EFSRepoRef const repo) {
 		EFSPullStart(pull);
 		// TODO: Keep a list?
 	}
-	sqlite3_finalize(select); select = NULL;
+	sqlite3f_finalize(select); select = NULL;
 
 	EFSRepoDBClose(repo, &db);
 }
@@ -131,18 +131,23 @@ void EFSRepoStartPulls(EFSRepoRef const repo) {
 static int retry(void *const ctx, int const count) {
 	return 1;
 }
-static sqlite3 *openDB(strarg_t const path) {
-	sqlite3 *db = NULL;
+static sqlite3f *openDB(strarg_t const path) {
+	sqlite3 *conn = NULL;
 	if(SQLITE_OK != sqlite3_open_v2(
 		path,
-		&db,
+		&conn,
 		SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX,
 		NULL
 	)) return NULL;
+	sqlite3f *db = sqlite3f_create(conn);
+	if(!db) {
+		sqlite3_close(conn); conn = NULL;
+		return NULL;
+	}
 	int err = 0;
-	err = sqlite3_extended_result_codes(db, 1);
+	err = sqlite3_extended_result_codes(conn, 1);
 	assertf(SQLITE_OK == err, "Couldn't turn on extended results codes");
-	err = sqlite3_busy_handler(db, retry, NULL);
+	err = sqlite3_busy_handler(conn, retry, NULL);
 	assertf(SQLITE_OK == err, "Couldn't set busy handler");
 	EXEC(QUERY(db, "PRAGMA synchronous=NORMAL"));
 	EXEC(QUERY(db, "PRAGMA wal_autocheckpoint=5000"));

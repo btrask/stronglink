@@ -39,7 +39,7 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	if(!username) return NULL;
 	if(!password) return NULL;
 
-	sqlite3 *db = EFSRepoDBConnect(repo);
+	sqlite3f *db = EFSRepoDBConnect(repo);
 	if(!db) return NULL;
 
 	sqlite3_stmt *select = QUERY(db,
@@ -47,13 +47,13 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 		"FROM users WHERE username = ?");
 	sqlite3_bind_text(select, 1, username, -1, SQLITE_STATIC);
 	if(SQLITE_ROW != STEP(select)) {
-		sqlite3_finalize(select);
+		sqlite3f_finalize(select);
 		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
 	int64_t const userID = sqlite3_column_int64(select, 0);
 	str_t *passhash = strdup((char const *)sqlite3_column_text(select, 1));
-	sqlite3_finalize(select); select = NULL;
+	sqlite3f_finalize(select); select = NULL;
 	if(userID <= 0 && !checkpass(password, passhash)) {
 		FREE(&passhash);
 		EFSRepoDBClose(repo, &db);
@@ -81,10 +81,10 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	sqlite3_bind_int64(insert, 2, userID);
 	int const status = STEP(insert);
 	FREE(&sessionHash);
-	sqlite3_finalize(insert); insert = NULL;
+	sqlite3f_finalize(insert); insert = NULL;
 	str_t *cookie = NULL;
 	if(SQLITE_DONE == status) {
-		long long const sessionID = sqlite3_last_insert_rowid(db);
+		long long const sessionID = sqlite3_last_insert_rowid(db->conn);
 		if(asprintf(&cookie, "%lld:%s", sessionID, sessionKey) < 0) cookie = NULL;
 	}
 
@@ -105,7 +105,7 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 		return NULL;
 	}
 
-	sqlite3 *db = EFSRepoDBConnect(repo);
+	sqlite3f *db = EFSRepoDBConnect(repo);
 	if(!db) {
 		FREE(&sessionKey);
 		return NULL;
@@ -117,7 +117,7 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 	sqlite3_bind_int64(select, 1, sessionID);
 	if(SQLITE_ROW != STEP(select)) {
 		FREE(&sessionKey);
-		sqlite3_finalize(select); select = NULL;
+		sqlite3f_finalize(select); select = NULL;
 		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
@@ -125,7 +125,7 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 	int64_t const userID = sqlite3_column_int64(select, 0);
 	if(userID <= 0) {
 		FREE(&sessionKey);
-		sqlite3_finalize(select); select = NULL;
+		sqlite3f_finalize(select); select = NULL;
 		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
@@ -134,14 +134,14 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 	if(!cookie_cache_lookup(sessionID, sessionKey)) {
 		if(!checkpass(sessionKey, sessionHash)) {
 			FREE(&sessionKey);
-			sqlite3_finalize(select); select = NULL;
+			sqlite3f_finalize(select); select = NULL;
 			EFSRepoDBClose(repo, &db);
 			return NULL;
 		}
 		cookie_cache_store(sessionID, sessionKey);
 	}
 	FREE(&sessionKey);
-	sqlite3_finalize(select); select = NULL;
+	sqlite3f_finalize(select); select = NULL;
 	EFSRepoDBClose(repo, &db);
 
 	return EFSRepoCreateSessionInternal(repo, userID);
@@ -173,19 +173,19 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 	if(!session) return NULL;
 	// TODO: Check session mode.
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
-	sqlite3 *db = EFSRepoDBConnect(repo);
+	sqlite3f *db = EFSRepoDBConnect(repo);
 	if(!db) return NULL;
 	EFSFilterPrepare(filter, db, EFS_DESC);
 
 	sqlite3_stmt *selectMax = QUERY(db,
 		"SELECT MAX(file_id) FROM files");
 	if(SQLITE_ROW != STEP(selectMax)) {
-		sqlite3_finalize(selectMax); selectMax = NULL;
+		sqlite3f_finalize(selectMax); selectMax = NULL;
 		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
 	int64_t sortID = sqlite3_column_int64(selectMax, 0);
-	sqlite3_finalize(selectMax); selectMax = NULL;
+	sqlite3f_finalize(selectMax); selectMax = NULL;
 
 	sqlite3_stmt *selectHash = QUERY(db,
 		"SELECT internal_hash\n"
@@ -210,7 +210,7 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 		}
 		--sortID;
 	}
-	sqlite3_finalize(selectHash); selectHash = NULL;
+	sqlite3f_finalize(selectHash); selectHash = NULL;
 	EFSRepoDBClose(repo, &db);
 	return URIs;
 }
@@ -219,7 +219,7 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 	if(!URI) return -1;
 	// TODO: Check session mode.
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
-	sqlite3 *db = EFSRepoDBConnect(repo);
+	sqlite3f *db = EFSRepoDBConnect(repo);
 	sqlite3_stmt *const select = QUERY(db,
 		"SELECT f.internal_hash, f.file_type, f.file_size\n"
 		"FROM files AS f\n"
@@ -227,7 +227,7 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 		"WHERE f2.uri = ? LIMIT 1");
 	sqlite3_bind_text(select, 1, URI, -1, SQLITE_STATIC);
 	if(SQLITE_ROW != STEP(select)) {
-		sqlite3_finalize(select);
+		sqlite3f_finalize(select);
 		EFSRepoDBClose(repo, &db);
 		return -1;
 	}
@@ -236,7 +236,7 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 		info->type = strdup((strarg_t)sqlite3_column_text(select, 1));
 		info->size = sqlite3_column_int64(select, 2);
 	}
-	sqlite3_finalize(select);
+	sqlite3f_finalize(select);
 	EFSRepoDBClose(repo, &db);
 	return 0;
 }

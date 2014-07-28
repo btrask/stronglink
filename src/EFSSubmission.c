@@ -136,7 +136,7 @@ err_t EFSSubmissionAddFile(EFSSubmissionRef const sub) {
 	FREE(&sub->tmppath);
 	return 0;
 }
-err_t EFSSubmissionStore(EFSSubmissionRef const sub, sqlite3 *const db) {
+err_t EFSSubmissionStore(EFSSubmissionRef const sub, sqlite3f *const db) {
 	if(!sub) return -1;
 	assertf(db, "EFSSubmissionStore DB required");
 	if(sub->tmppath) return -1;
@@ -162,7 +162,7 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, sqlite3 *const db) {
 	sqlite3_bind_text(selectFile, 2, sub->type, -1, SQLITE_STATIC);
 	STEP(selectFile);
 	int64_t const fileID = sqlite3_column_int64(selectFile, 0);
-	sqlite3_finalize(selectFile); selectFile = NULL;
+	sqlite3f_finalize(selectFile); selectFile = NULL;
 
 	sqlite3_stmt *insertFileURI = QUERY(db,
 		"INSERT OR IGNORE INTO file_uris (file_id, uri)\n"
@@ -173,7 +173,7 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, sqlite3 *const db) {
 		sqlite3_bind_text(insertFileURI, 2, URI, -1, SQLITE_STATIC);
 		STEP(insertFileURI); sqlite3_reset(insertFileURI);
 	}
-	sqlite3_finalize(insertFileURI); insertFileURI = NULL;
+	sqlite3f_finalize(insertFileURI); insertFileURI = NULL;
 
 
 	// TODO: Add permissions for other specified users too.
@@ -208,7 +208,7 @@ EFSSubmissionRef EFSSubmissionCreateAndAdd(EFSSessionRef const session, strarg_t
 	err = err < 0 ? err : EFSSubmissionAddFile(sub);
 	if(err >= 0) {
 		EFSRepoRef const repo = EFSSubmissionGetRepo(sub);
-		sqlite3 *db = EFSRepoDBConnect(repo);
+		sqlite3f *db = EFSRepoDBConnect(repo);
 		err = err < 0 ? err : EFSSubmissionStore(sub, db);
 		EFSRepoDBClose(repo, &db);
 	}

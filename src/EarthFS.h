@@ -1,7 +1,7 @@
 #ifndef EARTHFS_H
 #define EARTHFS_H
 
-#include "../deps/sqlite/sqlite3.h"
+#include "sqlite3f.h"
 #include "common.h"
 #include "URIList.h"
 
@@ -22,8 +22,8 @@ str_t *EFSRepoCopyInternalPath(EFSRepoRef const repo, strarg_t const internalHas
 strarg_t EFSRepoGetTempDir(EFSRepoRef const repo);
 str_t *EFSRepoCopyTempPath(EFSRepoRef const repo);
 strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo);
-sqlite3 *EFSRepoDBConnect(EFSRepoRef const repo);
-void EFSRepoDBClose(EFSRepoRef const repo, sqlite3 **const dbptr);
+sqlite3f *EFSRepoDBConnect(EFSRepoRef const repo);
+void EFSRepoDBClose(EFSRepoRef const repo, sqlite3f **const dbptr);
 void EFSRepoStartPulls(EFSRepoRef const repo);
 
 typedef struct {
@@ -50,7 +50,7 @@ err_t EFSSubmissionEnd(EFSSubmissionRef const sub);
 err_t EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context);
 strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub);
 err_t EFSSubmissionAddFile(EFSSubmissionRef const sub);
-err_t EFSSubmissionStore(EFSSubmissionRef const sub, sqlite3 *const db);
+err_t EFSSubmissionStore(EFSSubmissionRef const sub, sqlite3f *const db);
 // Convenience methods
 EFSSubmissionRef EFSSubmissionCreateAndAdd(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context);
 err_t EFSSubmissionCreatePair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title, EFSSubmissionRef *const outSub, EFSSubmissionRef *const outMeta);
@@ -65,7 +65,7 @@ EFSMetaFileRef EFSMetaFileCreate(strarg_t const type);
 void EFSMetaFileFree(EFSMetaFileRef *const metaptr);
 err_t EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len);
 err_t EFSMetaFileEnd(EFSMetaFileRef const meta);
-err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t const URI, sqlite3 *const db);
+err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t const URI, sqlite3f *const db);
 
 typedef enum {
 	EFSFilterInvalid,
@@ -94,8 +94,7 @@ void EFSFilterFree(EFSFilterRef *const filterptr);
 err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len);
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
 void EFSFilterPrint(EFSFilterRef const filter, count_t const indent);
-sqlite3_stmt *EFSFilterCreateQuery(EFSFilterRef const filter);
-err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3 *const db, EFSSortOrder const order);
+err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3f *const db, EFSSortOrder const order);
 EFSMatch EFSFilterMatchFile(EFSFilterRef const filter, int64_t const sortID, int64_t const lastFileID);
 int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const fileID);
 

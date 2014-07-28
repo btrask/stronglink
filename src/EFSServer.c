@@ -178,7 +178,7 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 
 	// TODO: Use EFSSessionCreateFilteredURIList? Streaming version?
 	HTTPMessageSendStatus(msg, 500);
-/*	sqlite3 *db = EFSRepoDBConnect(repo);
+/*	sqlite3f *db = EFSRepoDBConnect(repo);
 	EFSFilterCreateTempTables(db);
 	EFSFilterExec(filter, db, 0);
 	sqlite3_stmt *const select = QUERY(db,
@@ -203,7 +203,7 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 		};
 		HTTPMessageWritev(msg, parts, numberof(parts));
 	}
-	sqlite3_finalize(select);
+	sqlite3f_finalize(select);
 
 	HTTPMessageWriteChunkLength(msg, 0);
 	HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);

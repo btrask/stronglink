@@ -55,8 +55,8 @@ void EFSFilterFree(EFSFilterRef *const filterptr) {
 		case EFSFullTextFilter:
 		case EFSLinkedFromFilter:
 		case EFSLinksToFilter: {
-			sqlite3_finalize(filter->matchFile); filter->matchFile = NULL;
-			sqlite3_finalize(filter->matchAge); filter->matchAge = NULL;
+			sqlite3f_finalize(filter->matchFile); filter->matchFile = NULL;
+			sqlite3f_finalize(filter->matchAge); filter->matchAge = NULL;
 			FREE(&filter->data.string);
 			break;
 		}
@@ -202,7 +202,7 @@ void EFSFilterPrint(EFSFilterRef const filter, count_t const indent) {
 	"	AND md.value = ?\n" \
 	")"
 
-err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3 *const db, EFSSortOrder const order) {
+err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3f *const db, EFSSortOrder const order) {
 	assertf(!filter->matchFile, "Filter already prepared");
 	assertf(!filter->matchAge, "Filter already prepared");
 	assertf(0 == filter->argc, "Filter already prepared");

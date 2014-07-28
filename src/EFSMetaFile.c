@@ -16,7 +16,7 @@ typedef enum {
 struct EFSMetaFile {
 	size_t length;
 	yajl_handle parser;
-	sqlite3 *tmpdb;
+	sqlite3f *tmpdb;
 
 	meta_state state;
 	str_t *metaURI;
@@ -40,12 +40,19 @@ EFSMetaFileRef EFSMetaFileCreate(strarg_t const type) {
 		return NULL;
 	}
 	yajl_config(meta->parser, yajl_allow_partial_values, (int)true);
+	sqlite3 *db = NULL;
 	if(SQLITE_OK != sqlite3_open_v2(
 		":memory:",
-		&meta->tmpdb,
+		&db,
 		SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE,
 		NULL)
 	) {
+		EFSMetaFileFree(&meta);
+		return NULL;
+	}
+	meta->tmpdb = sqlite3f_create(db);
+	if(!db) {
+		sqlite3_close(db); db = NULL;
 		EFSMetaFileFree(&meta);
 		return NULL;
 	}
@@ -87,7 +94,7 @@ err_t EFSMetaFileEnd(EFSMetaFileRef const meta) {
 }
 
 
-err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t const fileURI, sqlite3 *const db) {
+err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t const fileURI, sqlite3f *const db) {
 	if(!meta) return 0;
 	if(!meta->parser) return -1;
 	EXEC(QUERY(db, "SAVEPOINT metafile"));
@@ -119,8 +126,8 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 		STEP(insertField);
 		sqlite3_reset(insertField);
 	}
-	sqlite3_finalize(selectField); selectField = NULL;
-	sqlite3_finalize(insertField); insertField = NULL;
+	sqlite3f_finalize(selectField); selectField = NULL;
+	sqlite3f_finalize(insertField); insertField = NULL;
 
 	EXEC(QUERY(db, "RELEASE metafile"));
 	return 0;
@@ -129,7 +136,7 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 
 static void cleanup(EFSMetaFileRef const meta) {
 	if(meta->parser) { yajl_free(meta->parser); meta->parser = NULL; }
-	sqlite3_close(meta->tmpdb); meta->tmpdb = NULL;
+	sqlite3f_close(meta->tmpdb); meta->tmpdb = NULL;
 }
 static void parse_error(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len) {
 	unsigned char *msg = yajl_get_error(meta->parser, true, buf, len);

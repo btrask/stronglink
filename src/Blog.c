@@ -125,7 +125,7 @@ static str_t *md_lookup(md_state const *const state, strarg_t const var) {
 	strarg_t unsafe = NULL;
 	if(0 == strcmp(var, "rawURI")) unsafe = state->fileURI; // TODO
 	if(unsafe) return htmlenc(unsafe);
-	sqlite3 *db = EFSRepoDBConnect(state->blog->repo);
+	sqlite3f *db = EFSRepoDBConnect(state->blog->repo);
 	sqlite3_stmt *select = QUERY(db,
 		"SELECT value FROM meta_data\n"
 		"WHERE uri = ? AND field = ?\n"
@@ -141,7 +141,7 @@ static str_t *md_lookup(md_state const *const state, strarg_t const var) {
 		if(0 == strcmp(var, "description")) unsafe = "(no description)";
 	}
 	str_t *result = htmlenc(unsafe);
-	sqlite3_finalize(select); select = NULL;
+	sqlite3f_finalize(select); select = NULL;
 	EFSRepoDBClose(state->blog->repo, &db);
 	return result;
 }
@@ -324,7 +324,7 @@ static bool_t postSubmission(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 		return true;
 	}
 
-	sqlite3 *db = EFSRepoDBConnect(blog->repo);
+	sqlite3f *db = EFSRepoDBConnect(blog->repo);
 	EXEC(QUERY(db, "SAVEPOINT addpair"));
 
 	bool_t const success =
