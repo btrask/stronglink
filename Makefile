@@ -85,13 +85,18 @@ TEST_OBJECTS := \
 	$(BUILD_DIR)/libco.o \
 	$(BUILD_DIR)/sqlite3.o
 
+LIBUV_DIR := $(DEPS_DIR)/uv/out/Debug/obj.target
+
 .DEFAULT_GOAL := all
 
 all: $(BUILD_DIR)/earthfs
 
-$(BUILD_DIR)/earthfs: $(OBJECTS)
+$(LIBUV_DIR)/libuv.a:
+	cd $(DEPS_DIR)/uv && ./gyp_uv.py -f make && make -C out
+
+$(BUILD_DIR)/earthfs: $(OBJECTS) $(LIBUV_DIR)/libuv.a
 	@-mkdir -p $(dir $@)
-	$(CC) -o $@ $^ $(CFLAGS) -lcrypto -luv -lyajl
+	$(CC) -o $@ $^ $(CFLAGS) -L$(LIBUV_DIR) -luv -lcrypto -lyajl -lpthread -lrt
 
 $(BUILD_DIR)/crypt/%.S.o: $(DEPS_DIR)/crypt_blowfish-1.0.4/%.S
 	@-mkdir -p $(dir $@)
@@ -130,7 +135,8 @@ $(BUILD_DIR)/test/sqlite_async: $(ROOT_DIR)/test/test_sqlite_async.c $(TEST_OBJE
 	$(CC) -o $@ $@.o $(TEST_OBJECTS) $(CFLAGS) -luv
 
 clean:
-	-rm -rf $(BUILD_DIR)/
+	-rm -rf $(BUILD_DIR)
+	-rm -rf $(DEPS_DIR)/uv/out
 
-.PHONY: all clean test
+.PHONY: all clean test libuv
 
