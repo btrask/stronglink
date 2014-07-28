@@ -8,7 +8,7 @@
 #define QUEUE_SIZE 64
 #define BATCH_MIN 32
 
-#define PROFILE 1
+#define PROFILE_INTERVAL 10
 
 struct EFSPull {
 	int64_t pullID;
@@ -34,16 +34,16 @@ struct EFSPull {
 	index_t cur;
 	count_t count;
 
-#ifdef PROFILE
+#if PROFILE_INTERVAL>0
 	uv_timer_t profiler;
 	count_t written;
 #endif
 };
 
-#if PROFILE
+#if PROFILE_INTERVAL>0
 static void profile(uv_timer_t *const timer) {
 	EFSPullRef const pull = timer->data;
-	if(pull->written) fprintf(stderr, "%f\n", pull->written / 30.0);
+	if(pull->written) fprintf(stderr, "%f\n", pull->written / (double)PROFILE_INTERVAL);
 	pull->written = 0;
 }
 #endif
@@ -176,7 +176,7 @@ static void writer(void) {
 			EFSSubmissionFree(&queue[i]);
 		}
 
-#if PROFILE
+#if PROFILE_INTERVAL>0
 		pull->written += count;
 #endif
 
@@ -201,11 +201,11 @@ err_t EFSPullStart(EFSPullRef const pull) {
 	async_wakeup(co_create(STACK_DEFAULT, writer));
 	// TODO: It'd be even better to have one writer shared between all pulls...
 
-#if PROFILE
+#if PROFILE_INTERVAL>0
 	pull->written = 0;
 	pull->profiler.data = pull;
 	uv_timer_init(loop, &pull->profiler);
-	uv_timer_start(&pull->profiler, profile, 1000 * 30, 1000 * 30);
+	uv_timer_start(&pull->profiler, profile, 1000 * PROFILE_INTERVAL, 1000 * PROFILE_INTERVAL);
 #endif
 
 	return 0;
@@ -311,7 +311,7 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 
 	if(EFSSessionGetFileInfo(pull->session, URI, NULL) >= 0) goto enqueue;
 
-#if !PROFILE
+#if PROFILE_INTERVAL<=0
 	// TODO: We're logging out of order when we do it like this...
 	fprintf(stderr, "Pulling %s\n", URI);
 #endif
