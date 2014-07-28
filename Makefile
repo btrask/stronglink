@@ -1,9 +1,9 @@
 
 ROOT_DIR := .
 
-CC := clang
+CC := gcc
 CFLAGS := -std=gnu99
-LIBCO_VER := sjlj
+LIBCO_VER := libco
 # Use sjlj for clang on x86
 
 #CFLAGS += -arch i386
