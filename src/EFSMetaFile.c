@@ -75,7 +75,7 @@ err_t EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_
 	if(!meta) return 0;
 	if(!meta->parser) return -1;
 	if(meta->length > META_MAX) return -1;
-	meta->length += META_MAX;
+	meta->length += len;
 	yajl_status const status = yajl_parse(meta->parser, buf, MIN(len, META_MAX - meta->length));
 	if(yajl_status_ok != status) {
 		parse_error(meta, buf, len);
