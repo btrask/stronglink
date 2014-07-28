@@ -56,7 +56,7 @@ static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_fi
 		char const *const path = usetmp ? tmp : inpath;
 		uv_file const result = async_fs_open(path, uvflags, 0600);
 		if(!usetmp) {
-			if(result < 0) return DBG(SQLITE_CANTOPEN);
+			if(result < 0) return SQLITE_CANTOPEN;
 			file->file = result;
 			break;
 		}
