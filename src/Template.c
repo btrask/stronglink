@@ -1,4 +1,5 @@
 #include <regex.h>
+#include "strndup.h"
 #include "Template.h"
 
 #define TEMPLATE_MAX (1024 * 512)
@@ -123,7 +124,7 @@ err_t TemplateWriteHTTPChunk(TemplateRef const t, TemplateArgCBs const *const cb
 	return TemplateWrite(t, cbs, actx, (TemplateWritev)HTTPMessageWriteChunkv, msg);
 }
 err_t TemplateWriteFile(TemplateRef const t, TemplateArgCBs const *const cbs, void const *const actx, uv_file const file) {
-	assertf(sizeof(void *) >= sizeof(file), "Can't cast uv_file (%d) to void * (%d)", sizeof(file), sizeof(void *));
+	assertf(sizeof(void *) >= sizeof(file), "Can't cast uv_file (%ld) to void * (%ld)", (long)sizeof(file), (long)sizeof(void *));
 	return TemplateWrite(t, cbs, actx, (TemplateWritev)async_fs_write, (void *)file);
 }
 

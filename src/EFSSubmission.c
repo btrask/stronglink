@@ -73,7 +73,7 @@ err_t EFSSubmissionWrite(EFSSubmissionRef const sub, byte_t const *const buf, si
 	uv_buf_t info = uv_buf_init((char *)buf, len);
 	ssize_t const result = async_fs_write(sub->tmpfile, &info, 1, sub->size);
 	if(result < 0) {
-		fprintf(stderr, "EFSSubmission write error %d\n", result);
+		fprintf(stderr, "EFSSubmission write error %ld\n", (long)result);
 		return -1;
 	}
 

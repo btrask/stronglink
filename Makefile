@@ -1,14 +1,16 @@
+
 ROOT_DIR := .
 
-CC := gcc
+CC := clang
 CFLAGS := -std=gnu99
-LIBCO_VER := libco
+LIBCO_VER := sjlj
 # Use sjlj for clang on x86
 
-CFLAGS += -g -O2 -Wno-unused-result
-#CFLAGS += -g -O0
-CFLAGS += -DNDEBUG -Wno-unused-but-set-variable
-#CFLAGS += -DSQLITE_DEBUG -DHTTP_PARSER_DEBUG
+#CFLAGS += -arch i386
+#CFLAGS += -g -O2 -Wno-unused-result
+CFLAGS += -g -O0
+#CFLAGS += -DNDEBUG -Wno-unused-but-set-variable
+CFLAGS += -DSQLITE_DEBUG -DHTTP_PARSER_DEBUG
 #CFLAGS += -DSQLITE_ENABLE_SQLLOG
 
 BUILD_DIR := $(ROOT_DIR)/build
@@ -85,7 +87,11 @@ TEST_OBJECTS := \
 	$(BUILD_DIR)/libco.o \
 	$(BUILD_DIR)/sqlite3.o
 
-LIBUV_DIR := $(DEPS_DIR)/uv/out/Debug/obj.target
+#LIBUV_DIR := $(DEPS_DIR)/uv/out/Debug/obj.target
+LIBUV_DIR := $(DEPS_DIR)/uv/build/Release
+
+LIBRARIES := -luv -lcrypto -lyajl -lpthread
+#LIBRARIES += -lrt
 
 .DEFAULT_GOAL := all
 
@@ -96,7 +102,7 @@ $(LIBUV_DIR)/libuv.a:
 
 $(BUILD_DIR)/earthfs: $(OBJECTS) $(LIBUV_DIR)/libuv.a
 	@-mkdir -p $(dir $@)
-	$(CC) -o $@ $^ $(CFLAGS) -L$(LIBUV_DIR) -luv -lcrypto -lyajl -lpthread -lrt
+	$(CC) -o $@ $^ $(CFLAGS) -L$(LIBUV_DIR) $(LIBRARIES)
 
 $(BUILD_DIR)/crypt/%.S.o: $(DEPS_DIR)/crypt_blowfish-1.0.4/%.S
 	@-mkdir -p $(dir $@)
@@ -120,11 +126,11 @@ $(BUILD_DIR)/multipart_parser.o: $(DEPS_DIR)/multipart-parser-c/multipart_parser
 
 $(BUILD_DIR)/sqlite/%.o: $(DEPS_DIR)/sqlite/%.c $(DEPS_DIR)/sqlite/sqlite3.h
 	@-mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS) -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -Wno-unused-value
+	$(CC) -c -o $@ $< $(CFLAGS) -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -Wno-unused-value -Wno-constant-conversion
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c $(HEADERS)
 	@-mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS) -Werror -Wall -Wno-unused-function -Wno-unused-variable -Wno-unused-parameter
+	$(CC) -c -o $@ $< $(CFLAGS) -Werror -Wall -Wno-unused-function -Wno-unused-variable -Wno-unused-parameter -Wno-unused-value
 
 test: $(BUILD_DIR)/test/sqlite_async
 	./$(BUILD_DIR)/test/sqlite_async

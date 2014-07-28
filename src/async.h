@@ -1,13 +1,15 @@
 #ifndef ASYNC_H
 #define ASYNC_H
 
-#include <uv.h>
+#include "../deps/uv/include/uv.h"
 #include "../deps/libco/libco.h"
 
 // TODO: Get page size at runtime?
 #define STACK_SIZE(kb) (1024 * (kb) * sizeof(void *) / 4)
 #define STACK_DEFAULT STACK_SIZE(48)
-#define STACK_MINIMUM STACK_SIZE(4)
+#define STACK_MINIMUM STACK_SIZE(16)
+// 4K on sjlj/32
+// 16K on sjlj/64?
 
 extern uv_loop_t *loop;
 extern cothread_t yield;

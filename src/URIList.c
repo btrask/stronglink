@@ -1,3 +1,4 @@
+#include "strndup.h"
 #include "URIList.h"
 
 #define LINE_MAX 1024

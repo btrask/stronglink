@@ -509,7 +509,7 @@ static void read_cb(uv_stream_t *const stream, ssize_t const nread, const uv_buf
 	state->nread = nread;
 	co_switch(state->thread);
 }
-static ssize_t readOnce(HTTPMessageRef const msg) {
+static err_t readOnce(HTTPMessageRef const msg) {
 	assertf(0 == msg->next.len, "Existing unused chunk");
 	if(msg->eof) return -1;
 	if(!msg->remaining) {

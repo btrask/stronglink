@@ -1,3 +1,4 @@
+#include "strndup.h"
 #include "EarthFS.h"
 
 typedef struct {

@@ -1,5 +1,5 @@
 #define _GNU_SOURCE
-#include <uv.h>
+#include "../../deps/uv/include/uv.h"
 #include "../async.h"
 #include "HTTPServer.h"
 

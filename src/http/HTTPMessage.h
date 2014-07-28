@@ -1,7 +1,7 @@
 #ifndef HTTPMESSAGE_H
 #define HTTPMESSAGE_H
 
-#include <uv.h>
+#include "../../deps/uv/include/uv.h"
 #include "../../deps/http_parser/http_parser.h"
 #include "../common.h"
 #include "Headers.h"

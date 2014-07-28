@@ -17,7 +17,7 @@
 static sqlite3_io_methods const io_methods;
 
 typedef struct async_shared async_shared;
-typedef struct async_shared {
+struct async_shared {
 	async_shared *next;
 	char *path;
 	char **bufs;
@@ -33,7 +33,7 @@ typedef struct async_shared {
 	#else
 	#error "Invalid file lock mode"
 	#endif
-} async_shared;
+};
 static async_shared *shared_list = NULL;
 
 typedef struct {
