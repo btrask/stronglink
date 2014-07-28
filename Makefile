@@ -27,6 +27,7 @@ HEADERS := \
 	$(SRC_DIR)/URIList.h \
 	$(SRC_DIR)/Template.h \
 	$(SRC_DIR)/sqlite3f.h \
+	$(SRC_DIR)/strndup.h \
 	$(SRC_DIR)/http/status.h \
 	$(SRC_DIR)/http/Headers.h \
 	$(SRC_DIR)/http/HTTPMessage.h \
@@ -54,6 +55,7 @@ OBJECTS := \
 	$(BUILD_DIR)/Template.o \
 	$(BUILD_DIR)/URIList.o \
 	$(BUILD_DIR)/sqlite3f.o \
+	$(BUILD_DIR)/strndup.o \
 	$(BUILD_DIR)/async.o \
 	$(BUILD_DIR)/async_fs.o \
 	$(BUILD_DIR)/async_mutex.o \
@@ -87,11 +89,11 @@ TEST_OBJECTS := \
 	$(BUILD_DIR)/libco.o \
 	$(BUILD_DIR)/sqlite3.o
 
-#LIBUV_DIR := $(DEPS_DIR)/uv/out/Debug/obj.target
-LIBUV_DIR := $(DEPS_DIR)/uv/build/Release
+LIBUV_DIR := $(DEPS_DIR)/uv/out/Debug/obj.target
+#LIBUV_DIR := $(DEPS_DIR)/uv/build/Release
 
 LIBRARIES := -luv -lcrypto -lyajl -lpthread
-#LIBRARIES += -lrt
+LIBRARIES += -lrt
 
 .DEFAULT_GOAL := all
 
