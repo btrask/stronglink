@@ -34,9 +34,9 @@ HEADERS := \
 	$(SRC_DIR)/http/HTTPServer.h \
 	$(SRC_DIR)/http/MultipartForm.h \
 	$(SRC_DIR)/http/QueryString.h \
+	$(DEPS_DIR)/libco/libco.h \
 	$(DEPS_DIR)/crypt_blowfish-1.0.4/ow-crypt.h \
 	$(DEPS_DIR)/http_parser/http_parser.h \
-	$(DEPS_DIR)/libco/libco.h \
 	$(DEPS_DIR)/multipart-parser-c/multipart_parser.h \
 	$(DEPS_DIR)/sqlite/sqlite3.h
 
@@ -72,9 +72,13 @@ OBJECTS := \
 	$(BUILD_DIR)/crypt/wrapper.o \
 	$(BUILD_DIR)/crypt/x86.S.o \
 	$(BUILD_DIR)/http_parser.o \
-	$(BUILD_DIR)/libco/$(LIBCO_VER).o \
 	$(BUILD_DIR)/multipart_parser.o \
 	$(BUILD_DIR)/sqlite/sqlite3.o
+
+#OBJECTS += $(BUILD_DIR)/libco/$(LIBCO_VER).o
+HEADERS += $(DEPS_DIR)/libcoro/coro.h
+OBJECTS += $(BUILD_DIR)/libcoro/coro.o $(BUILD_DIR)/libco_coro.o
+CFLAGS += -DCORO_USE_VALGRIND
 
 # DEBUG
 #OBJECTS += \
@@ -121,6 +125,11 @@ $(BUILD_DIR)/http_parser.o: $(DEPS_DIR)/http_parser/http_parser.c $(DEPS_DIR)/ht
 $(BUILD_DIR)/libco/%.o: $(DEPS_DIR)/libco/%.c $(DEPS_DIR)/libco/libco.h
 	@-mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) -Wno-parentheses
+
+$(BUILD_DIR)/libcoro/%.o: $(DEPS_DIR)/libcoro/%.c $(DEPS_DIR)/libcoro/coro.h
+	@-mkdir -p $(dir $@)
+	$(CC) -c -o $@ $< $(CFLAGS)
+	# GPL build
 
 $(BUILD_DIR)/multipart_parser.o: $(DEPS_DIR)/multipart-parser-c/multipart_parser.c $(DEPS_DIR)/multipart-parser-c/multipart_parser.h
 	@-mkdir -p $(dir $@)
