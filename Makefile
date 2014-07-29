@@ -104,12 +104,14 @@ LIBS += -lrt
 .PHONY: all
 all: $(BUILD_DIR)/earthfs
 
-.PHONY: libuv
-libuv:
-	@ cd $(DEPS_DIR)/uv && ./gyp_uv.py -f make -Dtarget_arch=i686 > /dev/null
-	@ make -C $(DEPS_DIR)/uv/out -s
+#.PHONY: libuv
+#libuv:
+#	@ cd $(DEPS_DIR)/uv && ./gyp_uv.py -f make -Dtarget_arch=i686 > /dev/null
+#	@ make -C $(DEPS_DIR)/uv/out -s
 
-$(BUILD_DIR)/earthfs: $(OBJECTS) | libuv
+$(LIBUV_DIR)/libuv.a: UNUSED := $(shell cd $(DEPS_DIR)/uv; ./gyp_uv.py -f make -Dtarget_arch=i686; make -C out)
+
+$(BUILD_DIR)/earthfs: $(OBJECTS) $(LIBUV_DIR)/libuv.a
 	@- mkdir -p $(dir $@)
 	$(CC) -o $@ $(OBJECTS) $(CFLAGS) -L$(LIBUV_DIR) $(LIBS)
 
