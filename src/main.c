@@ -33,21 +33,19 @@ static void listener(void *ctx, HTTPMessageRef const msg) {
 	if(BlogDispatch(blog, msg, method, URI)) return;
 	HTTPMessageSendStatus(msg, 400);
 }
-static void init(void) {
+static void init(void *const unused) {
 	repo = EFSRepoCreate(path);
 	blog = BlogCreate(repo);
 	server = HTTPServerCreate((HTTPListener)listener, blog);
 	HTTPServerListen(server, "8000", INADDR_ANY); //INADDR_LOOPBACK);
 	EFSRepoStartPulls(repo);
-	co_terminate();
 }
-static void term(void) {
+static void term(void *const unused) {
 	// TODO: EFSRepoStopPulls(repo);
 	HTTPServerClose(server);
 	HTTPServerFree(&server);
 	BlogFree(&blog);
 	EFSRepoFree(&repo);
-	co_terminate();
 }
 int main(int const argc, char const *const *const argv) {
 	signal(SIGPIPE, SIG_IGN);
@@ -73,10 +71,10 @@ int main(int const argc, char const *const *const argv) {
 	}
 
 	// Even our init code wants to use async I/O.
-	async_wakeup(co_create(STACK_DEFAULT, init));
+	async_thread(STACK_DEFAULT, init, NULL);
 	uv_run(loop, UV_RUN_DEFAULT);
 
-	async_wakeup(co_create(STACK_DEFAULT, term));
+	async_thread(STACK_DEFAULT, term, NULL);
 	uv_run(loop, UV_RUN_DEFAULT); // Allows term() to execute.
 
 	FREE(&path);

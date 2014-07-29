@@ -75,9 +75,7 @@ void EFSPullFree(EFSPullRef *const pullptr) {
 	FREE(pullptr); pull = NULL;
 }
 
-static EFSPullRef arg_pull;
-static void reader(void) {
-	EFSPullRef const pull = arg_pull;
+static void reader(EFSPullRef const pull) {
 	HTTPConnectionRef conn = NULL;
 
 	for(;;) {
@@ -124,10 +122,8 @@ static void reader(void) {
 	HTTPConnectionFree(&conn);
 	assertf(pull->stop, "Reader ended early");
 	async_wakeup(pull->stop);
-	co_terminate();
 }
-static void writer(void) {
-	EFSPullRef const pull = arg_pull;
+static void writer(EFSPullRef const pull) {
 	EFSSubmissionRef queue[QUEUE_SIZE];
 	count_t count = 0;
 	for(;;) {
@@ -186,7 +182,6 @@ static void writer(void) {
 
 	assertf(pull->stop, "Writer ended early");
 	async_wakeup(pull->stop);
-	co_terminate();
 }
 err_t EFSPullStart(EFSPullRef const pull) {
 	if(!pull) return 0;
@@ -194,11 +189,9 @@ err_t EFSPullStart(EFSPullRef const pull) {
 	pull->connlock = async_mutex_create();
 	if(!pull->connlock) return -1;
 	for(index_t i = 0; i < READER_COUNT; ++i) {
-		arg_pull = pull;
-		async_wakeup(co_create(STACK_DEFAULT, reader));
+		async_thread(STACK_DEFAULT, (void (*)())reader, pull);
 	}
-	arg_pull = pull;
-	async_wakeup(co_create(STACK_DEFAULT, writer));
+	async_thread(STACK_DEFAULT, (void (*)())writer, pull);
 	// TODO: It'd be even better to have one writer shared between all pulls...
 
 #if PROFILE_INTERVAL>0

@@ -69,12 +69,10 @@ void HTTPServerClose(HTTPServerRef const server) {
 	FREE(&server->socket);
 }
 
-static uv_stream_t *connection_socket;
-static void connection(void) {
-	uv_stream_t *const socket = connection_socket;
+static void connection(uv_stream_t *const socket) {
 	HTTPServerRef const server = socket->data;
 	HTTPConnectionRef conn = HTTPConnectionCreateIncoming(socket);
-	if(!conn) return co_terminate();
+	if(!conn) return;
 
 	for(;;) {
 		HTTPMessageRef msg = HTTPMessageCreate(conn);
@@ -86,10 +84,8 @@ static void connection(void) {
 	}
 
 	HTTPConnectionFree(&conn);
-	co_terminate();
 }
 static void connection_cb(uv_stream_t *const socket, int const status) {
-	connection_socket = socket;
-	async_wakeup(co_create(STACK_DEFAULT, connection));
+	async_thread(STACK_DEFAULT, (void (*)())connection, socket);
 }
 

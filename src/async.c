@@ -2,6 +2,7 @@
 #include <stdio.h> /* For debugging */
 #include <string.h>
 #include <openssl/rand.h>
+#include <valgrind/valgrind.h>
 #include "async.h"
 
 uv_loop_t *loop = NULL;
@@ -22,9 +23,23 @@ void async_init(void) {
 	reap = co_create(STACK_MINIMUM, reaper);
 	assert(reap && "async_init() thread creation failed");
 }
-void co_terminate(void) {
+
+static void (*arg_func)(void *) = NULL;
+static void *arg_arg = NULL;
+static void async_start(void) {
+	void (*const func)(void *) = arg_func;
+	void *const arg = arg_arg;
+	func(arg);
 	zombie = co_active();
 	co_switch(reap);
+}
+int async_thread(size_t const stack, void (*const func)(void *), void *const arg) {
+	cothread_t const thread = co_create(stack, async_start);
+	if(!thread) return -1;
+	arg_func = func;
+	arg_arg = arg;
+	async_wakeup(thread);
+	return 0;
 }
 
 void async_wakeup(cothread_t const thread) {

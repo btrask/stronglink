@@ -46,9 +46,8 @@ static void async_connect_cb(uv_connect_t *const req, int const status) {
 }
 
 void async_init(void);
+int async_thread(size_t const stack, void (*const func)(void *), void *const arg);
 void async_wakeup(cothread_t const thread);
-
-void co_terminate(void);
 
 int async_random(unsigned char *const buf, size_t const len);
 int async_getaddrinfo(char const *const node, char const *const service, struct addrinfo const *const hints, struct addrinfo **const res);
