@@ -2,7 +2,6 @@
 #include <stdio.h> /* For debugging */
 #include <string.h>
 #include <openssl/rand.h>
-#include <valgrind/valgrind.h>
 #include "async.h"
 
 uv_loop_t *loop = NULL;
