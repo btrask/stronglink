@@ -75,10 +75,10 @@ OBJECTS := \
 	$(BUILD_DIR)/multipart_parser.o \
 	$(BUILD_DIR)/sqlite/sqlite3.o
 
-#OBJECTS += $(BUILD_DIR)/libco/$(LIBCO_VER).o
-HEADERS += $(DEPS_DIR)/libcoro/coro.h
-OBJECTS += $(BUILD_DIR)/libcoro/coro.o $(BUILD_DIR)/libco_coro.o
-CFLAGS += -DCORO_USE_VALGRIND
+OBJECTS += $(BUILD_DIR)/libco/$(LIBCO_VER).o
+#HEADERS += $(DEPS_DIR)/libcoro/coro.h
+#OBJECTS += $(BUILD_DIR)/libcoro/coro.o $(BUILD_DIR)/libco_coro.o
+#CFLAGS += -DCORO_USE_VALGRIND
 
 # DEBUG
 #OBJECTS += \
@@ -106,9 +106,9 @@ all: $(BUILD_DIR)/earthfs
 $(LIBUV_DIR)/libuv.a:
 	cd $(DEPS_DIR)/uv && ./gyp_uv.py -f make && make -C out
 
-$(BUILD_DIR)/earthfs: $(OBJECTS) $(LIBUV_DIR)/libuv.a
+$(BUILD_DIR)/earthfs: $(OBJECTS) $(LIBUV_DIR)/libuv.a Makefile
 	@-mkdir -p $(dir $@)
-	$(CC) -o $@ $^ $(CFLAGS) -L$(LIBUV_DIR) $(LIBRARIES)
+	$(CC) -o $@ $(OBJECTS) $(CFLAGS) -L$(LIBUV_DIR) $(LIBRARIES)
 
 $(BUILD_DIR)/crypt/%.S.o: $(DEPS_DIR)/crypt_blowfish-1.0.4/%.S
 	@-mkdir -p $(dir $@)
