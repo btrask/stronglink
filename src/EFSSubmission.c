@@ -29,17 +29,17 @@ EFSSubmissionRef EFSSubmissionCreate(EFSSessionRef const session, strarg_t const
 	sub->type = strdup(type);
 
 	sub->tmppath = EFSRepoCopyTempPath(EFSSessionGetRepo(session));
-	if(async_fs_mkdirp_dirname(sub->tmppath, 0700) < 0) {
-		fprintf(stderr, "Error: couldn't create temp dir %s\n", sub->tmppath);
-		EFSSubmissionFree(&sub);
-		return NULL;
-	}
-
 	sub->tmpfile = async_fs_open(sub->tmppath, O_CREAT | O_EXCL | O_TRUNC | O_WRONLY, 0400);
 	if(sub->tmpfile < 0) {
-		fprintf(stderr, "Error: couldn't create temp file %s\n", sub->tmppath);
-		EFSSubmissionFree(&sub);
-		return NULL;
+		if(-ENOENT == sub->tmpfile) {
+			async_fs_mkdirp_dirname(sub->tmppath, 0700);
+			sub->tmpfile = async_fs_open(sub->tmppath, O_CREAT | O_EXCL | O_TRUNC | O_WRONLY, 0400);
+		}
+		if(sub->tmpfile < 0) {
+			fprintf(stderr, "Error: couldn't create temp file %s\n", sub->tmppath);
+			EFSSubmissionFree(&sub);
+			return NULL;
+		}
 	}
 
 	sub->hasher = EFSHasherCreate(sub->type);
@@ -120,16 +120,18 @@ err_t EFSSubmissionAddFile(EFSSubmissionRef const sub) {
 	if(!sub->size) return -1;
 	EFSRepoRef const repo = EFSSubmissionGetRepo(sub);
 	str_t *internalPath = EFSRepoCopyInternalPath(repo, sub->internalHash);
-	if(async_fs_mkdirp_dirname(internalPath, 0700) < 0) {
-		fprintf(stderr, "Couldn't mkdir -p %s\n", internalPath);
-		FREE(&internalPath);
-		return -1;
-	}
-	err_t const result = async_fs_link(sub->tmppath, internalPath);
+	err_t result = 0;
+	result = async_fs_link(sub->tmppath, internalPath);
 	if(result < 0 && -EEXIST != result) {
-		fprintf(stderr, "Couldn't move %s to %s\n", sub->tmppath, internalPath);
-		FREE(&internalPath);
-		return -1;
+		if(-ENOENT == result) {
+			async_fs_mkdirp_dirname(internalPath, 0700);
+			result = async_fs_link(sub->tmppath, internalPath);
+		}
+		if(result < 0 && -EEXIST != result) {
+			fprintf(stderr, "Couldn't move %s to %s\n", sub->tmppath, internalPath);
+			FREE(&internalPath);
+			return -1;
+		}
 	}
 	FREE(&internalPath);
 	async_fs_unlink(sub->tmppath);
