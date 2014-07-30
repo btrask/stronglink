@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "strndup.h"
+
+#define ASYNC_DEBUG
 #include "async.h"
 
 #define ENTROPY_BYTES 8
@@ -13,7 +15,7 @@
 	req.data = thread; \
 	int const err = uv_fs_##name(loop, &req, ##args, async_fs_cb); \
 	if(err < 0) return err; \
-	co_switch(yield); \
+	async_yield(); \
 	uv_fs_req_cleanup(&req); \
 	return req.result;
 
@@ -53,7 +55,7 @@ int async_fs_fstat(uv_file file, uv_stat_t *stats) {
 	req.data = co_active();
 	int const err = uv_fs_fstat(loop, &req, file, async_fs_cb);
 	if(err < 0) return err;
-	co_switch(yield);
+	async_yield();
 	if(req.result >= 0) memcpy(stats, &req.statbuf, sizeof(uv_stat_t));
 	uv_fs_req_cleanup(&req);
 	return req.result;
@@ -63,7 +65,7 @@ int async_fs_fstat_size(uv_file file, uint64_t *size) {
 	req.data = co_active();
 	int const err = uv_fs_fstat(loop, &req, file, async_fs_cb);
 	if(err < 0) return err;
-	co_switch(yield);
+	async_yield();
 	*size = req.statbuf.st_size;
 	uv_fs_req_cleanup(&req);
 	return req.result;
@@ -73,7 +75,7 @@ int async_fs_stat_mode(const char* path, uint64_t *mode) {
 	req.data = co_active();
 	int const err = uv_fs_stat(loop, &req, path, async_fs_cb);
 	if(err < 0) return err;
-	co_switch(yield);
+	async_yield();
 	*mode = req.statbuf.st_mode;
 	uv_fs_req_cleanup(&req);
 	return req.result;

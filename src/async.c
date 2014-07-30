@@ -76,7 +76,7 @@ int async_random(unsigned char *const buf, size_t const len) {
 	req.data = &state;
 	int const err = uv_queue_work(loop, &req, random_cb, after_random_cb);
 	if(err < 0) return err;
-	co_switch(yield);
+	async_yield();
 	return state.status;
 }
 
@@ -97,7 +97,7 @@ int async_getaddrinfo(char const *const node, char const *const service, struct 
 	req.data = &state;
 	int const err = uv_getaddrinfo(loop, &req, getaddrinfo_cb, node, service, hints);
 	if(err < 0) return err;
-	co_switch(yield);
+	async_yield();
 	if(res) *res = state.res;
 	return state.status;
 }
@@ -112,10 +112,10 @@ int async_sleep(uint64_t const milliseconds) {
 	if(milliseconds > 0) {
 		err = uv_timer_start(&timer, async_timer_cb, milliseconds, 0);
 		if(err < 0) return err;
-		co_switch(yield);
+		async_yield();
 	}
 	uv_close((uv_handle_t *)&timer, async_close_cb);
-	co_switch(yield);
+	async_yield();
 	return 0;
 }
 

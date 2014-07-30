@@ -101,7 +101,7 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 		.exit_cb = async_exit_cb,
 	};
 	uv_spawn(loop, &proc, &opts);
-	co_switch(yield);
+	async_yield();
 
 	if(state.status < 0) {
 		FREE(&tmpPath);

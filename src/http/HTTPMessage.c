@@ -63,7 +63,7 @@ HTTPConnectionRef HTTPConnectionCreateOutgoing(strarg_t const domain) {
 		HTTPConnectionFree(&conn);
 		return NULL;
 	}
-	co_switch(yield);
+	async_yield();
 	uv_freeaddrinfo(info);
 
 	http_parser_init(&conn->parser, HTTP_RESPONSE);
@@ -79,7 +79,7 @@ void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
 	if(!conn) return;
 	conn->stream.data = co_active();
 	uv_close((uv_handle_t *)&conn->stream, async_close_cb);
-	co_switch(yield);
+	async_yield();
 	conn->stream.data = NULL;
 	FREE(&conn->buf);
 	FREE(connptr); conn = NULL;
@@ -241,7 +241,7 @@ ssize_t HTTPMessageWrite(HTTPMessageRef const msg, byte_t const *const buf, size
 	uv_write_t req;
 	req.data = &state;
 	uv_write(&req, (uv_stream_t *)&msg->conn->stream, &obj, 1, async_write_cb);
-	co_switch(yield);
+	async_yield();
 	return state.status;
 }
 ssize_t HTTPMessageWritev(HTTPMessageRef const msg, uv_buf_t const parts[], unsigned int const count) {
@@ -250,7 +250,7 @@ ssize_t HTTPMessageWritev(HTTPMessageRef const msg, uv_buf_t const parts[], unsi
 	uv_write_t req;
 	req.data = &state;
 	uv_write(&req, (uv_stream_t *)&msg->conn->stream, parts, count, async_write_cb);
-	co_switch(yield);
+	async_yield();
 	return state.status;
 }
 err_t HTTPMessageWriteRequest(HTTPMessageRef const msg, HTTPMethod const method, strarg_t const requestURI, strarg_t const host) {
@@ -334,7 +334,7 @@ err_t HTTPMessageWriteFile(HTTPMessageRef const msg, uv_file const file) {
 		pos += len;
 		uv_buf_t const write = uv_buf_init((char *)buf, len);
 		uv_write(&wreq, (uv_stream_t *)&msg->conn->stream, &write, 1, async_write_cb);
-		co_switch(yield);
+		async_yield();
 		if(state.status < 0) {
 			FREE(&buf);
 			return state.status;
@@ -361,7 +361,7 @@ ssize_t HTTPMessageWriteChunkv(HTTPMessageRef const msg, uv_buf_t const parts[],
 	uv_write_t req;
 	req.data = &state;
 	uv_write(&req, (uv_stream_t *)&msg->conn->stream, parts, count, async_write_cb);
-	co_switch(yield);
+	async_yield();
 	// TODO: We have to ensure that uv_write() really wrote everything or else we're messing up the chunked encoding. Returning partial writes doesn't cut it.
 	HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
 	return total;//state.status;
@@ -525,7 +525,7 @@ static err_t readOnce(HTTPMessageRef const msg) {
 		msg->conn->stream.data = &state;
 		for(;;) {
 			uv_read_start((uv_stream_t *)&msg->conn->stream, alloc_cb, read_cb);
-			co_switch(yield);
+			async_yield();
 			uv_read_stop((uv_stream_t *)&msg->conn->stream);
 			if(state.nread) break;
 		}

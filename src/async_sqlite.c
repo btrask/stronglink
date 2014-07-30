@@ -628,7 +628,7 @@ int async_sqlite3_prepare_v2(sqlite3 *db, const char *zSql, int nSql, sqlite3_st
 			SQLITE_LOCKED != status) return status;
 		status = sqlite3_unlock_notify(db, async_unlock_notify_cb, co_active());
 		if(SQLITE_OK != status) return status;
-		co_switch(yield);
+		async_yield();
 		sqlite3_unlock_notify(db, NULL, NULL);
 	}
 }
@@ -640,7 +640,7 @@ int async_sqlite3_step(sqlite3_stmt *const stmt) {
 		sqlite3 *const db = sqlite3_db_handle(stmt);
 		status = sqlite3_unlock_notify(db, async_unlock_notify_cb, co_active());
 		if(SQLITE_OK != status) return status;
-		co_switch(yield);
+		async_yield();
 		sqlite3_unlock_notify(db, NULL, NULL);
 		sqlite3_reset(stmt);
 	}

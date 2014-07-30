@@ -46,7 +46,7 @@ void async_mutex_lock(async_mutex_t *const mutex) {
 		};
 		mutex->tail->next = &us;
 		mutex->tail = &us;
-		co_switch(yield);
+		async_yield();
 		assert(thread == mutex->active.thread && "Mutex wrong thread obtained lock");
 	}
 }

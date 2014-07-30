@@ -98,7 +98,7 @@ static void reader(EFSPullRef const pull) {
 		assertf(!pull->blocked_reader, "Reader already waiting");
 		if(pull->count + 2 > QUEUE_SIZE) {
 			pull->blocked_reader = co_active();
-			co_switch(yield);
+			async_yield();
 			pull->blocked_reader = NULL;
 			if(pull->stop) {
 				async_mutex_unlock(pull->connlock);
@@ -141,7 +141,7 @@ static void writer(EFSPullRef const pull) {
 		if(0 == count || (count < BATCH_MIN && count < pull->count)) {
 			// unlock
 			pull->blocked_writer = co_active();
-			co_switch(yield);
+			async_yield();
 			pull->blocked_writer = NULL;
 			if(pull->stop) continue;
 //			assertf(pull->filled[pull->cur], "Writer woke up early");
@@ -213,7 +213,7 @@ void EFSPullStop(EFSPullRef const pull) {
 
 	count_t wait = READER_COUNT + 1;
 	while(wait) {
-		co_switch(yield);
+		async_yield();
 		wait--;
 	}
 

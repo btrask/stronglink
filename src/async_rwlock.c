@@ -90,7 +90,7 @@ void async_rwlock_rdlock(async_rwlock_t *const lock) {
 		}
 		lock->rdqueue[(lock->rdcur + lock->rdcount) % lock->rdsize] = co_active();
 		lock->rdcount++;
-		co_switch(yield);
+		async_yield();
 		assert(!lock->upgrade && "Write lock acquired while upgrade is pending");
 	} else {
 		assert(!lock->upgrade && "Read lock acquired while upgrade pending");
@@ -133,7 +133,7 @@ void async_rwlock_wrlock(async_rwlock_t *const lock) {
 		}
 		lock->wrqueue[(lock->wrcur + lock->wrcount) % lock->wrsize] = co_active();
 		lock->wrcount++;
-		co_switch(yield);
+		async_yield();
 	} else {
 		assert(!lock->upgrade && "Write lock acquired with pending upgrade");
 		lock->wractive = co_active();
@@ -180,7 +180,7 @@ int async_rwlock_upgrade(async_rwlock_t *const lock) {
 	lock->rdactive[i] = NULL;
 	if(has_active_readers(lock)) {
 		lock->upgrade = thread;
-		co_switch(yield);
+		async_yield();
 		assert(!lock->upgrade && "Upgrade not cleared");
 		assert(thread == lock->wractive && "Wrong upgrade woken");
 	} else {

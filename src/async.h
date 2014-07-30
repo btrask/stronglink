@@ -1,6 +1,7 @@
 #ifndef ASYNC_H
 #define ASYNC_H
 
+#include <stdio.h> /* Debugging */
 #include "../deps/uv/include/uv.h"
 #include "../deps/libco/libco.h"
 
@@ -10,6 +11,17 @@
 #define STACK_MINIMUM STACK_SIZE(16)
 // 4K on sjlj/32
 // 16K on sjlj/64?
+
+#ifndef ASYNC_DEBUG
+#define async_yield() (co_switch(yield))
+#else
+#define async_yield() ({ \
+	double const x = uv_now(loop) / 1000.0; \
+	co_switch(yield); \
+	double const y = uv_now(loop) / 1000.0; \
+	if(y - x > 1.0) fprintf(stderr, "%s blocked for %f s\n", __PRETTY_FUNCTION__, y-x); \
+})
+#endif
 
 extern uv_loop_t *loop;
 extern cothread_t yield;
