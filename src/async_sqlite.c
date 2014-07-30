@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+//#include <sys/mman.h>
 #include <unistd.h>
 #include "../deps/sqlite/sqlite3.h"
 #include "async.h"
@@ -18,86 +19,117 @@ static sqlite3_io_methods const io_methods;
 
 typedef struct async_shared async_shared;
 struct async_shared {
+	async_shared *prev;
 	async_shared *next;
-	char *path;
-	char **bufs;
-	int bufcount;
-	async_rwlock_t *shm_lock[SQLITE_SHM_NLOCK];
 
-	#if FILE_LOCK_MODE==2
-	async_mutex_t *lock;
-	#elif FILE_LOCK_MODE==3
-	async_rwlock_t *lock;
-	#elif FILE_LOCK_MODE==4
+	int refcount;
+	char *path;
+	uv_file file;
+
+#if FILE_LOCK_MODE==2
+	async_mutex_t *flock;
+#elif FILE_LOCK_MODE==3
+	async_rwlock_t *flock;
+#elif FILE_LOCK_MODE==4
 	// nothing
-	#else
-	#error "Invalid file lock mode"
-	#endif
+#else
+#error "Invalid file lock mode"
+#endif
+
+/*	char *mmap_buf;
+	sqlite3_int64 mmap_len;
+	sqlite3_int64 mmap_size;
+	int mmap_refcount;*/
+
+	char **shm_bufs;
+	int shm_count;
+	async_rwlock_t *shm_lock[SQLITE_SHM_NLOCK];
 };
 static async_shared *shared_list = NULL;
 
 typedef struct {
 	sqlite3_io_methods const *methods;
-	uv_file file;
 	async_shared *shared;
+	uv_file file;
 } async_file;
 
-static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_file *const file, int const sqflags, int *const outFlags) {
+static uv_file open_temp(int const flags) {
+	for(;;) {
+		char *path = async_fs_tempnam(NULL, "async-sqlite");
+		uv_file const file = async_fs_open(path, O_EXCL | O_CREAT | O_TRUNC | flags, 0600);
+		if(file >= 0) async_fs_unlink(path); // TODO: Is this safe on Windows?
+		free(path); path = NULL;
+		if(UV_EEXIST == file) continue;
+		return file;
+	}
+}
+
+static int async_open(sqlite3_vfs *const vfs, char const *const path, async_file *const file, int const sqflags, int *const outFlags) {
 	int uvflags = 0;
-	int const usetmp = !inpath;
-	if(sqflags & SQLITE_OPEN_EXCLUSIVE || usetmp) uvflags |= O_EXCL;
-	if(sqflags & SQLITE_OPEN_CREATE || usetmp) uvflags |= O_CREAT;
+	if(sqflags & SQLITE_OPEN_EXCLUSIVE) uvflags |= O_EXCL;
+	if(sqflags & SQLITE_OPEN_CREATE) uvflags |= O_CREAT;
 	if(sqflags & SQLITE_OPEN_READWRITE) uvflags |= O_RDWR;
 	if(sqflags & SQLITE_OPEN_READONLY) uvflags |= O_RDONLY;
-	if(usetmp) uvflags |= O_TRUNC;
 
-	for(;;) {
-		char *tmp = usetmp ? async_fs_tempnam(NULL, "async-sqlite") : NULL;
-		char const *const path = usetmp ? tmp : inpath;
-		uv_file const result = async_fs_open(path, uvflags, 0600);
-		if(!usetmp) {
-			if(result < 0) return SQLITE_CANTOPEN;
-			file->file = result;
-			break;
-		}
-		if(UV_EEXIST == result) {
-			free(tmp); tmp = NULL;
-			continue;
-		} else if(result < 0) {
-			free(tmp); tmp = NULL;
-			return DBG(SQLITE_CANTOPEN);
-		}
-		file->file = result;
-		async_fs_unlink(path); // TODO: Is this safe on Windows?
-		free(tmp); tmp = NULL;
-		break;
+	file->methods = NULL;
+
+	if(!path) {
+		file->shared = NULL;
+		file->file = open_temp(uvflags);
+		if(file->file < 0) return SQLITE_CANTOPEN;
+		file->methods = &io_methods;
+		return SQLITE_OK;
 	}
-	file->methods = &io_methods;
-	file->shared = NULL;
-	if(inpath) {
-		async_shared *shared = shared_list;
-		while(shared) {
-			if(0 == strcmp(shared->path, inpath)) break;
-			shared = shared->next;
-		}
-		if(!shared) {
-			shared = calloc(1, sizeof(async_shared));
-			shared->path = strdup(inpath);
-			for(unsigned i = 0; i < SQLITE_SHM_NLOCK; ++i) {
-				shared->shm_lock[i] = async_rwlock_create();
-			}
-#if FILE_LOCK_MODE==2
-			shared->lock = async_mutex_create();
-			assert(shared->lock && "File lock creation failed");
-#elif FILE_LOCK_MODE==3
-			shared->lock = async_rwlock_create();
-			assert(shared->lock && "File lock creation failed");
-#endif
-			shared->next = shared_list;
-			shared_list = shared;
-		}
+
+	// TODO: Instead of comparing file names, stat the file and get its inode (on Unix)
+	async_shared *shared = shared_list;
+	while(shared) {
+		if(0 == strcmp(shared->path, path)) break;
+		shared = shared->next;
+	}
+	if(shared) {
+		shared->refcount++;
+		file->methods = &io_methods;
 		file->shared = shared;
+		file->file = shared->file;
+		return SQLITE_OK;
 	}
+
+	shared = calloc(1, sizeof(async_shared));
+	if(!shared) return SQLITE_NOMEM;
+	shared->path = strdup(path);
+	if(!shared->path) {
+		free(shared);
+		return SQLITE_NOMEM;
+	}
+	shared->file = async_fs_open(path, uvflags, 0600);
+	if(shared->file < 0) {
+		free(shared->path); shared->path = NULL;
+		free(shared);
+		return SQLITE_CANTOPEN;
+	}
+
+#if FILE_LOCK_MODE==2
+	shared->flock = async_mutex_create();
+	assert(shared->flock && "File lock creation failed");
+#elif FILE_LOCK_MODE==3
+	shared->flock = async_rwlock_create();
+	assert(shared->flock && "File lock creation failed");
+#endif
+
+	for(unsigned i = 0; i < SQLITE_SHM_NLOCK; ++i) {
+		shared->shm_lock[i] = async_rwlock_create();
+	}
+
+	shared->prev = NULL;
+	shared->next = shared_list;
+	if(shared->next) shared->next->prev = shared;
+	shared_list = shared;
+
+	shared->refcount = 1;
+	file->methods = &io_methods;
+	file->shared = shared;
+	file->file = shared->file;
 	return SQLITE_OK;
 }
 static int async_delete(sqlite3_vfs *const vfs, char const *const path, int const syncDir) {
@@ -217,10 +249,43 @@ static sqlite3_vfs async_vfs = {
 };
 
 static int async_close(async_file *const file) {
-	if(async_fs_close(file->file) < 0) return DBG(SQLITE_IOERR);
+	uv_file const f = file->file;
+	file->file = -1;
+	async_shared *const shared = file->shared;
+	file->shared = NULL;
+	if(!shared) {
+		if(async_fs_close(f) < 0) return DBG(SQLITE_IOERR);
+		return SQLITE_OK;
+	}
+	if(--shared->refcount) return SQLITE_OK;
+	free(shared->path); shared->path = NULL;
+	shared->file = -1;
+//	assert(0 == shared->mmap_refcount && "Didn't unfetch");
+//	assert(!shared->mmap_buf && "Didn't unfetch");
+	assert(!shared->shm_bufs && "Didn't unmap shared memory");
+	for(int i = 0; i < SQLITE_SHM_NLOCK; ++i) {
+		async_rwlock_free(shared->shm_lock[i]); shared->shm_lock[i] = NULL;
+	}
+	// TODO: Free shared memory and other stuff.
+	if(shared->prev) {
+		shared->prev = shared->next;
+		shared->next = shared->prev;
+	} else {
+		shared_list = shared->next;
+	}
+	shared->prev = NULL;
+	shared->next = NULL;
+	free(shared);
+	if(async_fs_close(f) < 0) return DBG(SQLITE_IOERR);
 	return SQLITE_OK;
 }
 static int async_read(async_file *const file, void *const buf, int const len, sqlite3_int64 const offset) {
+/*	async_shared *const shared = file->shared;
+	if(shared && offset+len <= shared->mmap_len) {
+		memcpy(buf, shared->mmap_buf+offset, len);
+		return SQLITE_OK;
+	}*/
+
 	uv_buf_t info = uv_buf_init((char *)buf, len);
 	ssize_t const result = async_fs_read(file->file, &info, 1, offset);
 	if(result < 0) return DBG(SQLITE_IOERR_READ);
@@ -231,6 +296,12 @@ static int async_read(async_file *const file, void *const buf, int const len, sq
 	return SQLITE_OK;
 }
 static int async_write(async_file *const file, void const *const buf, int const len, sqlite3_int64 const offset) {
+/*	async_shared *const shared = file->shared;
+	if(shared && offset+len <= shared->mmap_len) {
+		memcpy(shared->mmap_buf+offset, buf, len);
+		return SQLITE_OK;
+	}*/
+
 	uv_buf_t info = uv_buf_init((char *)buf, len);
 	ssize_t const result = async_fs_write(file->file, &info, 1, offset);
 	if(result != len) return DBG(SQLITE_IOERR_WRITE);
@@ -238,6 +309,8 @@ static int async_write(async_file *const file, void const *const buf, int const 
 }
 static int async_truncate(async_file *const file, sqlite3_int64 const size) {
 	if(async_fs_ftruncate(file->file, size) < 0) return DBG(SQLITE_IOERR_TRUNCATE);
+	async_shared *const shared = file->shared;
+//	if(shared && size < shared->mmap_len) shared->mmap_len = size; // TODO
 	return SQLITE_OK;
 }
 static int async_sync(async_file *const file, int const flags) {
@@ -247,6 +320,7 @@ static int async_sync(async_file *const file, int const flags) {
 	} else {
 		result = async_fs_fsync(file->file);
 	}
+	// TODO: msync for mmaped memory?
 	if(result < 0) return DBG(SQLITE_IOERR_FSYNC);
 	return SQLITE_OK;
 }
@@ -260,8 +334,8 @@ static int async_lock(async_file *const file, int const level) {
 #if FILE_LOCK_MODE==2
 	async_shared *const shared = file->shared;
 	if(level <= SQLITE_LOCK_NONE) return SQLITE_OK;
-	if(async_mutex_check(shared->lock)) return SQLITE_OK;
-	async_mutex_lock(shared->lock);
+	if(async_mutex_check(shared->flock)) return SQLITE_OK;
+	async_mutex_lock(shared->flock);
 	return SQLITE_OK;
 #elif FILE_LOCK_MODE==3
 	async_shared *const shared = file->shared;
@@ -269,19 +343,19 @@ static int async_lock(async_file *const file, int const level) {
 		case SQLITE_LOCK_NONE:
 			return SQLITE_OK;
 		case SQLITE_LOCK_SHARED:
-			if(async_rwlock_wrcheck(shared->lock)) return SQLITE_OK;
-			if(async_rwlock_rdcheck(shared->lock)) return SQLITE_OK;
-			async_rwlock_rdlock(shared->lock);
+			if(async_rwlock_wrcheck(shared->flock)) return SQLITE_OK;
+			if(async_rwlock_rdcheck(shared->flock)) return SQLITE_OK;
+			async_rwlock_rdlock(shared->flock);
 			return SQLITE_OK;
 		case SQLITE_LOCK_RESERVED:
 		case SQLITE_LOCK_PENDING:
 		case SQLITE_LOCK_EXCLUSIVE:
-			if(async_rwlock_wrcheck(shared->lock)) return SQLITE_OK;
-			if(async_rwlock_rdcheck(shared->lock)) {
-				if(async_rwlock_upgrade(shared->lock) < 0) return SQLITE_BUSY;
+			if(async_rwlock_wrcheck(shared->flock)) return SQLITE_OK;
+			if(async_rwlock_rdcheck(shared->flock)) {
+				if(async_rwlock_upgrade(shared->flock) < 0) return SQLITE_BUSY;
 				return SQLITE_OK;
 			}
-			async_rwlock_wrlock(shared->lock);
+			async_rwlock_wrlock(shared->flock);
 			return SQLITE_OK;
 		default:
 			assert(0 && "Unknown lock mode");
@@ -295,8 +369,8 @@ static int async_unlock(async_file *const file, int const level) {
 #if FILE_LOCK_MODE==2
 	async_shared *const shared = file->shared;
 	if(level > SQLITE_LOCK_NONE) return SQLITE_OK;
-	if(!async_mutex_check(shared->lock)) return SQLITE_OK;
-	async_mutex_unlock(shared->lock);
+	if(!async_mutex_check(shared->flock)) return SQLITE_OK;
+	async_mutex_unlock(shared->flock);
 	return SQLITE_OK;
 #elif FILE_LOCK_MODE==3
 	async_shared *const shared = file->shared;
@@ -306,8 +380,8 @@ static int async_unlock(async_file *const file, int const level) {
 		case SQLITE_LOCK_RESERVED:
 			return SQLITE_OK;
 		case SQLITE_LOCK_SHARED:
-			if(async_rwlock_wrcheck(shared->lock)) {
-				if(async_rwlock_downgrade(shared->lock) < 0) {
+			if(async_rwlock_wrcheck(shared->flock)) {
+				if(async_rwlock_downgrade(shared->flock) < 0) {
 					assert(0 && "Non-recursive lock downgrade should always succeed");
 					return SQLITE_BUSY;
 				}
@@ -315,12 +389,12 @@ static int async_unlock(async_file *const file, int const level) {
 			}
 			return SQLITE_OK;
 		case SQLITE_LOCK_NONE:
-			if(async_rwlock_wrcheck(shared->lock)) {
-				async_rwlock_wrunlock(shared->lock);
+			if(async_rwlock_wrcheck(shared->flock)) {
+				async_rwlock_wrunlock(shared->flock);
 				return SQLITE_OK;
 			}
-			if(async_rwlock_rdcheck(shared->lock)) {
-				async_rwlock_rdunlock(shared->lock);
+			if(async_rwlock_rdcheck(shared->flock)) {
+				async_rwlock_rdunlock(shared->flock);
 				return SQLITE_OK;
 			}
 			return SQLITE_OK;
@@ -335,10 +409,10 @@ static int async_unlock(async_file *const file, int const level) {
 static int async_checkReservedLock(async_file *const file, int *const outRes) {
 #if FILE_LOCK_MODE==2
 	async_shared *const shared = file->shared;
-	*outRes = async_mutex_check(shared->lock);
+	*outRes = async_mutex_check(shared->flock);
 #elif FILE_LOCK_MODE==3
 	async_shared *const shared = file->shared;
-	*outRes = async_rwlock_wrcheck(shared->lock);
+	*outRes = async_rwlock_wrcheck(shared->flock);
 #elif FILE_LOCK_MODE==4
 	*outRes = 1;
 #endif
@@ -357,22 +431,22 @@ static int async_deviceCharacteristics(async_file *const file) {
 
 int async_shmMap(async_file *const file, int const page, int const pagesize, int const extend, void volatile **const buf) {
 	async_shared *const shared = file->shared;
-	if(page >= shared->bufcount) {
+	if(page >= shared->shm_count) {
 		if(!extend) {
 			*buf = NULL;
 			return SQLITE_OK;
 		}
-		unsigned const old = shared->bufcount;
-		shared->bufcount = page+1;
-		shared->bufs = realloc(shared->bufs, sizeof(char *) * shared->bufcount);
-		if(!shared->bufs) return SQLITE_IOERR_NOMEM;
-		memset(&shared->bufs[old], 0, sizeof(char *) * (shared->bufcount - old));
+		unsigned const old = shared->shm_count;
+		shared->shm_count = page+1;
+		shared->shm_bufs = realloc(shared->shm_bufs, sizeof(char *) * shared->shm_count);
+		if(!shared->shm_bufs) return SQLITE_IOERR_NOMEM;
+		memset(&shared->shm_bufs[old], 0, sizeof(char *) * (shared->shm_count - old));
 	}
-	if(!shared->bufs[page]) {
-		shared->bufs[page] = calloc(1, pagesize);
-		if(!shared->bufs[page]) return SQLITE_IOERR_NOMEM;
+	if(!shared->shm_bufs[page]) {
+		shared->shm_bufs[page] = calloc(1, pagesize);
+		if(!shared->shm_bufs[page]) return SQLITE_IOERR_NOMEM;
 	}
-	*buf = shared->bufs[page];
+	*buf = shared->shm_bufs[page];
 	return SQLITE_OK;
 }
 int async_shmLock(async_file *const file, int offset, int n, int flags) {
@@ -399,16 +473,57 @@ void async_shmBarrier(async_file *const file) {
 int async_shmUnmap(async_file *const file, int const delete) {
 	if(!delete) return SQLITE_OK;
 	if(!file->shared) return SQLITE_OK;
-	for(unsigned i = 0; i < file->shared->bufcount; ++i) {
-		free(file->shared->bufs[i]);
-		file->shared->bufs[i] = NULL;
+	for(unsigned i = 0; i < file->shared->shm_count; ++i) {
+		free(file->shared->shm_bufs[i]);
+		file->shared->shm_bufs[i] = NULL;
 	}
-	free(file->shared->bufs);
-	file->shared->bufs = NULL;
-	file->shared->bufcount = 0;
+	free(file->shared->shm_bufs);
+	file->shared->shm_bufs = NULL;
+	file->shared->shm_count = 0;
 	return SQLITE_OK;
 }
 
+/*int async_fetch(async_file *const file, sqlite3_int64 const offset, int const len, void **const outbuf) {
+	*outbuf = NULL;
+	async_shared *const shared = file->shared;
+	if(!shared) return SQLITE_OK;
+	if(!shared->mmap_buf) {
+		// TODO: Worker thread
+		long const pagesize = sysconf(_SC_PAGE_SIZE);
+		uint64_t filesize;
+		async_fs_fstat_size(shared->file, &filesize);
+		shared->mmap_len = filesize;
+		shared->mmap_size = (filesize / pagesize + 1) * pagesize;
+		shared->mmap_buf = mmap(NULL, shared->mmap_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, shared->file, 0);
+		if(!shared->mmap_buf) {
+			shared->mmap_len = 0;
+			shared->mmap_size = 0;
+			return SQLITE_OK;
+		}
+		mlock(shared->mmap_buf, shared->mmap_size);
+	}
+
+	if(offset+len > shared->mmap_len) return SQLITE_OK;
+	shared->mmap_refcount++;
+	*outbuf = shared->mmap_buf + offset;
+	return SQLITE_OK;
+}
+int async_unfetch(async_file *const file, sqlite3_int64 const offset, void *const buf) {
+	async_shared *const shared = file->shared;
+	if(!shared) return SQLITE_OK;
+	if(buf) {
+		--shared->mmap_refcount;
+		return SQLITE_OK;
+	}
+	assert(0 == shared->mmap_refcount);
+	munlock(shared->mmap_buf, shared->mmap_size);
+	munmap(shared->mmap_buf, shared->mmap_size);
+	shared->mmap_buf = NULL;
+	shared->mmap_len = 0;
+	shared->mmap_size = 0;
+	shared->mmap_refcount = 0;
+	return SQLITE_OK;
+}*/
 
 static sqlite3_io_methods const io_methods = {
 	.iVersion = 2,
@@ -430,8 +545,8 @@ static sqlite3_io_methods const io_methods = {
 	.xShmBarrier = (void (*)())async_shmBarrier,
 	.xShmUnmap = (int (*)())async_shmUnmap,
 	/* Methods above are valid for version 2 */
-//	int (*xFetch)(sqlite3_file*, sqlite3_int64 iOfst, int iAmt, void **pp);
-//	int (*xUnfetch)(sqlite3_file*, sqlite3_int64 iOfst, void *p);
+//	.xFetch = (int (*)())async_fetch,
+//	.xUnfetch = (int (*)())async_unfetch,
 	/* Methods above are valid for version 3 */
 	/* Additional methods may be added in future releases */
 };

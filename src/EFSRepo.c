@@ -152,6 +152,7 @@ static sqlite3f *openDB(strarg_t const path) {
 	EXEC(QUERY(db, "PRAGMA synchronous=NORMAL"));
 	EXEC(QUERY(db, "PRAGMA wal_autocheckpoint=5000"));
 	EXEC(QUERY(db, "PRAGMA cache_size=-8000"));
+	EXEC(QUERY(db, "PRAGMA mmap_size=268435456")); // 256MB, as recommended.
 	return db;
 }
 
