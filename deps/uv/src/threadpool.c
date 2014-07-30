@@ -42,7 +42,7 @@ static void uv__req_init(uv_loop_t* loop,
 #define MAX_THREADPOOL_SIZE 128
 
 static uv_once_t once = UV_ONCE_INIT;
-static uv_cond_t cond;
+static uv_sem_t sem;
 static uv_mutex_t mutex;
 static unsigned int nthreads;
 static uv_thread_t* threads;
@@ -67,15 +67,18 @@ static void worker(void* arg) {
   (void) arg;
 
   for (;;) {
+    uv_sem_wait(&sem);
     uv_mutex_lock(&mutex);
 
-    while (QUEUE_EMPTY(&wq))
-      uv_cond_wait(&cond, &mutex);
+    if (QUEUE_EMPTY(&wq)) {
+      uv_mutex_unlock(&mutex);
+      continue;
+    }
 
     q = QUEUE_HEAD(&wq);
 
     if (q == &exit_message)
-      uv_cond_signal(&cond);
+      uv_sem_post(&sem);
     else {
       QUEUE_REMOVE(q);
       QUEUE_INIT(q);  /* Signal uv_cancel() that the work req is
@@ -103,8 +106,8 @@ static void worker(void* arg) {
 static void post(QUEUE* q) {
   uv_mutex_lock(&mutex);
   QUEUE_INSERT_TAIL(&wq, q);
-  uv_cond_signal(&cond);
   uv_mutex_unlock(&mutex);
+  uv_sem_post(&sem);
 }
 
 
@@ -124,7 +127,7 @@ static void cleanup(void) {
     free(threads);
 
   uv_mutex_destroy(&mutex);
-  uv_cond_destroy(&cond);
+  uv_sem_destroy(&sem);
 
   threads = NULL;
   nthreads = 0;
@@ -154,7 +157,7 @@ static void init_once(void) {
     }
   }
 
-  if (uv_cond_init(&cond))
+  if (uv_sem_init(&sem, 0))
     abort();
 
   if (uv_mutex_init(&mutex))
