@@ -109,8 +109,8 @@ int async_fs_mkdirp_fast(char *const path, size_t const len, int const mode) {
 	result = async_fs_mkdir(path, mode);
 	path[len] = old;
 	if(result >= 0) return 0;
-	if(-UV_EEXIST == result) return 0;
-	if(-UV_ENOENT != result) return -1;
+	if(UV_EEXIST == result) return 0;
+	if(UV_ENOENT != result) return -1;
 	ssize_t const dlen = dirlen(path, len);
 	if(dlen < 0) return -1;
 	if(async_fs_mkdirp_fast(path, dlen, mode) < 0) return -1;
