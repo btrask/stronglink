@@ -60,7 +60,7 @@ static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_fi
 			file->file = result;
 			break;
 		}
-		if(-EEXIST == result) {
+		if(-UV_EEXIST == result) {
 			free(tmp); tmp = NULL;
 			continue;
 		} else if(result < 0) {
@@ -102,7 +102,7 @@ static int async_open(sqlite3_vfs *const vfs, char const *const inpath, async_fi
 }
 static int async_delete(sqlite3_vfs *const vfs, char const *const path, int const syncDir) {
 	int const unlinkresult = async_fs_unlink(path);
-	if(-ENOENT == unlinkresult) return SQLITE_OK;
+	if(-UV_ENOENT == unlinkresult) return SQLITE_OK;
 	if(unlinkresult < 0) return DBG(SQLITE_IOERR_DELETE);
 	if(syncDir) {
 		char dirname[MAXPATHNAME+1];

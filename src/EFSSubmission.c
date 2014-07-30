@@ -31,7 +31,7 @@ EFSSubmissionRef EFSSubmissionCreate(EFSSessionRef const session, strarg_t const
 	sub->tmppath = EFSRepoCopyTempPath(EFSSessionGetRepo(session));
 	sub->tmpfile = async_fs_open(sub->tmppath, O_CREAT | O_EXCL | O_TRUNC | O_WRONLY, 0400);
 	if(sub->tmpfile < 0) {
-		if(-ENOENT == sub->tmpfile) {
+		if(-UV_ENOENT == sub->tmpfile) {
 			async_fs_mkdirp_dirname(sub->tmppath, 0700);
 			sub->tmpfile = async_fs_open(sub->tmppath, O_CREAT | O_EXCL | O_TRUNC | O_WRONLY, 0400);
 		}
@@ -122,12 +122,12 @@ err_t EFSSubmissionAddFile(EFSSubmissionRef const sub) {
 	str_t *internalPath = EFSRepoCopyInternalPath(repo, sub->internalHash);
 	err_t result = 0;
 	result = async_fs_link(sub->tmppath, internalPath);
-	if(result < 0 && -EEXIST != result) {
-		if(-ENOENT == result) {
+	if(result < 0 && -UV_EEXIST != result) {
+		if(-UV_ENOENT == result) {
 			async_fs_mkdirp_dirname(internalPath, 0700);
 			result = async_fs_link(sub->tmppath, internalPath);
 		}
-		if(result < 0 && -EEXIST != result) {
+		if(result < 0 && -UV_EEXIST != result) {
 			fprintf(stderr, "Couldn't move %s to %s\n", sub->tmppath, internalPath);
 			FREE(&internalPath);
 			return -1;
