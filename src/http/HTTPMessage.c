@@ -56,7 +56,8 @@ HTTPConnectionRef HTTPConnectionCreateOutgoing(strarg_t const domain) {
 		return NULL;
 	}
 	async_state state = { .thread = co_active() };
-	uv_connect_t req = { .data = &state };
+	uv_connect_t req;
+	req.data = &state;
 	if(uv_tcp_connect(&req, &conn->stream, info->ai_addr, async_connect_cb) < 0) {
 		uv_freeaddrinfo(info);
 		HTTPConnectionFree(&conn);
@@ -237,7 +238,8 @@ ssize_t HTTPMessageWrite(HTTPMessageRef const msg, byte_t const *const buf, size
 	if(!msg) return 0;
 	uv_buf_t obj = uv_buf_init((char *)buf, len);
 	async_state state = { .thread = co_active() };
-	uv_write_t req = { .data = &state };
+	uv_write_t req;
+	req.data = &state;
 	uv_write(&req, (uv_stream_t *)&msg->conn->stream, &obj, 1, async_write_cb);
 	co_switch(yield);
 	return state.status;
@@ -245,7 +247,8 @@ ssize_t HTTPMessageWrite(HTTPMessageRef const msg, byte_t const *const buf, size
 ssize_t HTTPMessageWritev(HTTPMessageRef const msg, uv_buf_t const parts[], unsigned int const count) {
 	if(!msg) return 0;
 	async_state state = { .thread = co_active() };
-	uv_write_t req = { .data = &state };
+	uv_write_t req;
+	req.data = &state;
 	uv_write(&req, (uv_stream_t *)&msg->conn->stream, parts, count, async_write_cb);
 	co_switch(yield);
 	return state.status;
@@ -316,7 +319,8 @@ err_t HTTPMessageBeginBody(HTTPMessageRef const msg) {
 err_t HTTPMessageWriteFile(HTTPMessageRef const msg, uv_file const file) {
 	// TODO: How do we use uv_fs_sendfile to a TCP stream? Is it impossible?
 	async_state state = { .thread = co_active() };
-	uv_write_t wreq = { .data = &state };
+	uv_write_t wreq;
+	wreq.data = &state;
 	byte_t *buf = malloc(BUFFER_SIZE);
 	int64_t pos = 0;
 	for(;;) {
@@ -354,7 +358,8 @@ ssize_t HTTPMessageWriteChunkv(HTTPMessageRef const msg, uv_buf_t const parts[],
 	for(index_t i = 0; i < count; ++i) total += parts[i].len;
 	HTTPMessageWriteChunkLength(msg, total);
 	async_state state = { .thread = co_active() };
-	uv_write_t req = { .data = &state };
+	uv_write_t req;
+	req.data = &state;
 	uv_write(&req, (uv_stream_t *)&msg->conn->stream, parts, count, async_write_cb);
 	co_switch(yield);
 	// TODO: We have to ensure that uv_write() really wrote everything or else we're messing up the chunked encoding. Returning partial writes doesn't cut it.

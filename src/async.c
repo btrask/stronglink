@@ -72,7 +72,8 @@ int async_random(unsigned char *const buf, size_t const len) {
 		.len = len,
 		.status = 0,
 	};
-	uv_work_t req = { .data = &state };
+	uv_work_t req;
+	req.data = &state;
 	int const err = uv_queue_work(loop, &req, random_cb, after_random_cb);
 	if(err < 0) return err;
 	co_switch(yield);
@@ -92,7 +93,8 @@ static void getaddrinfo_cb(uv_getaddrinfo_t *const req, int const status, struct
 }
 int async_getaddrinfo(char const *const node, char const *const service, struct addrinfo const *const hints, struct addrinfo **const res) {
 	getaddrinfo_state state = { .thread = co_active() };
-	uv_getaddrinfo_t req = { .data = &state };
+	uv_getaddrinfo_t req;
+	req.data = &state;
 	int const err = uv_getaddrinfo(loop, &req, getaddrinfo_cb, node, service, hints);
 	if(err < 0) return err;
 	co_switch(yield);
@@ -102,7 +104,8 @@ int async_getaddrinfo(char const *const node, char const *const service, struct 
 
 int async_sleep(uint64_t const milliseconds) {
 	// TODO: Pool timers together.
-	uv_timer_t timer = { .data = co_active() };
+	uv_timer_t timer;
+	timer.data = co_active();
 	int err;
 	err = uv_timer_init(loop, &timer);
 	if(err < 0) return err;

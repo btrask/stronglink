@@ -85,7 +85,8 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 
 	cothread_t const thread = co_active();
 	async_state state = { .thread = thread };
-	uv_process_t proc = { .data = &state };
+	uv_process_t proc;
+	proc.data = &state;
 	str_t *args[] = {
 		"markdown",
 		"-f", "autolink",

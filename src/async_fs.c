@@ -9,7 +9,8 @@
 
 #define ASYNC_FS_WRAP(name, args...) \
 	cothread_t const thread = co_active(); \
-	uv_fs_t req = { .data = thread }; \
+	uv_fs_t req; \
+	req.data = thread; \
 	int const err = uv_fs_##name(loop, &req, ##args, async_fs_cb); \
 	if(err < 0) return err; \
 	co_switch(yield); \
@@ -48,7 +49,8 @@ int async_fs_ftruncate(uv_file file, int64_t offset) {
 }
 
 int async_fs_fstat(uv_file file, uv_stat_t *stats) {
-	uv_fs_t req = { .data = co_active() };
+	uv_fs_t req;
+	req.data = co_active();
 	int const err = uv_fs_fstat(loop, &req, file, async_fs_cb);
 	if(err < 0) return err;
 	co_switch(yield);
@@ -57,7 +59,8 @@ int async_fs_fstat(uv_file file, uv_stat_t *stats) {
 	return req.result;
 }
 int async_fs_fstat_size(uv_file file, uint64_t *size) {
-	uv_fs_t req = { .data = co_active() };
+	uv_fs_t req;
+	req.data = co_active();
 	int const err = uv_fs_fstat(loop, &req, file, async_fs_cb);
 	if(err < 0) return err;
 	co_switch(yield);
@@ -66,7 +69,8 @@ int async_fs_fstat_size(uv_file file, uint64_t *size) {
 	return req.result;
 }
 int async_fs_stat_mode(const char* path, uint64_t *mode) {
-	uv_fs_t req = { .data = co_active() };
+	uv_fs_t req;
+	req.data = co_active();
 	int const err = uv_fs_stat(loop, &req, path, async_fs_cb);
 	if(err < 0) return err;
 	co_switch(yield);
