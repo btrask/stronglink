@@ -36,7 +36,7 @@ EFSSubmissionRef EFSSubmissionCreate(EFSSessionRef const session, strarg_t const
 			sub->tmpfile = async_fs_open(sub->tmppath, O_CREAT | O_EXCL | O_TRUNC | O_WRONLY, 0400);
 		}
 		if(sub->tmpfile < 0) {
-			fprintf(stderr, "Error: couldn't create temp file %s\n", sub->tmppath);
+			fprintf(stderr, "Error: couldn't create temp file %s (%s)\n", sub->tmppath, uv_err_name(sub->tmpfile));
 			EFSSubmissionFree(&sub);
 			return NULL;
 		}
@@ -128,7 +128,7 @@ err_t EFSSubmissionAddFile(EFSSubmissionRef const sub) {
 			result = async_fs_link(sub->tmppath, internalPath);
 		}
 		if(result < 0 && UV_EEXIST != result) {
-			fprintf(stderr, "Couldn't move %s to %s\n", sub->tmppath, internalPath);
+			fprintf(stderr, "Couldn't move %s to %s (%s)\n", sub->tmppath, internalPath, uv_err_name(result));
 			FREE(&internalPath);
 			return -1;
 		}
