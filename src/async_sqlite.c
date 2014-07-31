@@ -55,7 +55,7 @@ typedef struct {
 
 static uv_file open_temp(int const flags) {
 	for(;;) {
-		char *path = async_fs_tempnam(NULL, "async-sqlite");
+		char *path = async_fs_tempnam(sqlite3_temp_directory, "async-sqlite");
 		uv_file const file = async_fs_open(path, O_EXCL | O_CREAT | O_TRUNC | flags, 0600);
 		if(file >= 0) async_fs_unlink(path); // TODO: Is this safe on Windows?
 		free(path); path = NULL;
