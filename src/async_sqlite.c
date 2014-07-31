@@ -302,9 +302,13 @@ static int async_write(async_file *const file, void const *const buf, int const 
 		return SQLITE_OK;
 	}*/
 
-	uv_buf_t info = uv_buf_init((char *)buf, len);
-	ssize_t const result = async_fs_write(file->file, &info, 1, offset);
-	if(result != len) return DBG(SQLITE_IOERR_WRITE);
+	int pos = 0;
+	while(pos < len) {
+		uv_buf_t info = uv_buf_init((char *)buf + pos, len - pos);
+		ssize_t const result = async_fs_write(file->file, &info, 1, offset);
+		if(result < 0) return DBG(SQLITE_IOERR_WRITE);
+		pos += result;
+	}
 	return SQLITE_OK;
 }
 static int async_truncate(async_file *const file, sqlite3_int64 const size) {
