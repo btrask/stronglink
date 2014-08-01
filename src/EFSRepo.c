@@ -1,4 +1,5 @@
-#define _GNU_SOURCE
+#define _GNU_SOURCE /* asprintf() */
+#include <assert.h>
 #include "async.h"
 #include "EarthFS.h"
 
@@ -12,9 +13,8 @@ struct EFSRepo {
 	str_t *DBPath;
 
 	sqlite3f *connections[CONNECTION_COUNT];
-	index_t cur;
-	count_t count;
-	cothread_t *thread_list;
+	index_t conn_count;
+	async_sem_t *conn_sem;
 };
 
 static sqlite3f *openDB(strarg_t const path);
@@ -41,7 +41,12 @@ EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 			return NULL;
 		}
 	}
-	repo->count = CONNECTION_COUNT;
+	repo->conn_count = CONNECTION_COUNT;
+	repo->conn_sem = async_sem_create(CONNECTION_COUNT);
+	if(!repo->conn_sem) {
+		EFSRepoFree(&repo);
+		return NULL;
+	}
 	return repo;
 }
 void EFSRepoFree(EFSRepoRef *const repoptr) {
@@ -55,7 +60,8 @@ void EFSRepoFree(EFSRepoRef *const repoptr) {
 	for(index_t i = 0; i < CONNECTION_COUNT; ++i) {
 		sqlite3f_close(repo->connections[i]); repo->connections[i] = NULL;
 	}
-	repo->count = 0;
+	repo->conn_count = 0;
+	async_sem_free(repo->conn_sem); repo->conn_sem = NULL;
 	FREE(repoptr); repo = NULL;
 }
 strarg_t EFSRepoGetDir(EFSRepoRef const repo) {
@@ -86,19 +92,18 @@ strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo) {
 }
 sqlite3f *EFSRepoDBConnect(EFSRepoRef const repo) {
 	if(!repo) return NULL;
-	if(!repo->count) {
-		assertf(0, "Blocking on DB connection not yet implemented");
-	}
-	sqlite3f *const db = repo->connections[repo->cur];
-	repo->cur = (repo->cur + 1) % CONNECTION_COUNT;
-	repo->count--;
+	async_sem_wait(repo->conn_sem);
+	assert(repo->conn_count > 0);
+	--repo->conn_count;
+	sqlite3f *const db = repo->connections[repo->conn_count];
+	repo->connections[repo->conn_count] = NULL;
 	return db;
 }
 void EFSRepoDBClose(EFSRepoRef const repo, sqlite3f **const dbptr) {
 	if(!repo) return;
-	index_t const pos = (repo->cur + repo->count) % CONNECTION_COUNT;
-	repo->connections[pos] = *dbptr;
-	repo->count++;
+	assert(repo->conn_count < CONNECTION_COUNT);
+	repo->connections[repo->conn_count++] = *dbptr;
+	async_sem_post(repo->conn_sem);
 	*dbptr = NULL;
 }
 
