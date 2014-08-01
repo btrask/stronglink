@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include "../deps/libco/libco.h"
 
-// GPL, slower, and uglier. Good for CORO_USE_VALGRIND.
+// Good for CORO_USE_VALGRIND.
 #include "../deps/libcoro/coro.h"
 
 typedef struct {
@@ -15,7 +15,6 @@ static cothread_t _co_active;
 
 static int init = 0;
 static void co_init(void) {
-	fprintf(stderr, "Using libcoro under GPL\n");
 	coro_thread *const t = calloc(1, sizeof(coro_thread));
 	assert(t && "libco_coro couldn't init");
 	coro_create(&t->context, NULL, NULL, NULL, 0);
