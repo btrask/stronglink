@@ -14,6 +14,10 @@ async_mutex_t *async_mutex_create(void) {
 	mutex->sem = async_sem_create(1);
 	mutex->active = NULL;
 	mutex->depth = 0;
+	if(!mutex->sem) {
+		async_mutex_free(mutex);
+		return NULL;
+	}
 	return mutex;
 }
 void async_mutex_free(async_mutex_t *const mutex) {
