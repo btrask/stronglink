@@ -1,203 +1,156 @@
 #include <assert.h>
 #include <stdio.h> /* For debugging */
 #include <stdlib.h>
+#include <limits.h>
 #include "async.h"
 
-#define READERS_MAX 16
-// This number can't scale too much, because we use linear search to find the current reader when locking and unlocking. We also use linear search to find available reader slots and to check whether we have any unused readers, but those could be replaced with another ring buffer. This should be good for now.
+#define READERS_MAX 512
+
+enum {
+	s_write = INT_MAX,
+};
+
+typedef struct thread_list thread_list;
+struct thread_list {
+	cothread_t thread;
+	thread_list *next;
+};
 
 struct async_rwlock_s {
-	cothread_t *rdactive;
-	unsigned rdsize;
-	cothread_t *rdqueue;
-	unsigned rdcur;
-	unsigned rdcount;
+	int state;
 
-	cothread_t wractive;
-	unsigned wrsize;
-	cothread_t *wrqueue;
-	unsigned wrcur;
-	unsigned wrcount;
+	thread_list *rdhead;
+	thread_list *rdtail;
+
+	thread_list *wrhead;
+	thread_list *wrtail;
 
 	cothread_t upgrade;
 };
 
-static unsigned active_reader_index(async_rwlock_t *const lock, cothread_t const thread) {
-	unsigned i = 0;
-	for(; i < READERS_MAX; ++i) if(thread == lock->rdactive[i]) break;
-	return i;
-}
-static unsigned unused_reader_index(async_rwlock_t *const lock) {
-	unsigned i = 0;
-	for(; i < READERS_MAX; ++i) if(!lock->rdactive[i]) break;
-	return i;
-}
-static int has_active_readers(async_rwlock_t *const lock) {
-	unsigned i = 0;
-	for(; i < READERS_MAX; ++i) if(lock->rdactive[i]) return 1;
-	return 0;
-}
-static int lock_next(async_rwlock_t *const lock, unsigned const i) {
-	assert(i < READERS_MAX && "Invalid unused reader");
-	assert(!lock->rdactive[i] && "Reader in use");
-	if(lock->wrcount) {
-		if(has_active_readers(lock)) return 0;
-		lock->wractive = lock->wrqueue[lock->wrcur];
-		lock->wrcur = (lock->wrcur + 1) % lock->wrsize;
-		lock->wrcount--;
-		async_wakeup(lock->wractive);
-		return 0;
-	} else if(lock->rdcount) {
-		lock->rdactive[i] = lock->rdqueue[lock->rdcur];
-		lock->rdcur = (lock->rdcur + 1) % lock->rdsize;
-		lock->rdcount--;
-		async_wakeup(lock->rdactive[i]);
-	}
-	return 1;
-}
+static void wake_next(async_rwlock_t *const lock);
 
 async_rwlock_t *async_rwlock_create(void) {
-	async_rwlock_t *lock = calloc(1, sizeof(struct async_rwlock_s));
+	async_rwlock_t *lock = calloc(1, sizeof(async_rwlock_t));
 	if(!lock) return NULL;
-	lock->rdactive = calloc(READERS_MAX, sizeof(cothread_t));
-	lock->rdsize = 50;
-	lock->rdqueue = calloc(lock->rdsize, sizeof(cothread_t));
-	lock->wrsize = 10;
-	lock->wrqueue = calloc(lock->wrsize, sizeof(cothread_t));
-	if(!lock->rdactive || !lock->rdqueue || !lock->wrqueue) {
-		async_rwlock_free(lock); lock = NULL;
-		return NULL;
-	}
 	return lock;
 }
 void async_rwlock_free(async_rwlock_t *const lock) {
 	if(!lock) return;
-	free(lock->rdactive); lock->rdactive = NULL;
-	free(lock->rdqueue); lock->rdqueue = NULL;
-	free(lock->wrqueue); lock->wrqueue = NULL;
+	assert(0 == lock->state);
+	assert(!lock->rdhead);
+	assert(!lock->rdtail);
+	assert(!lock->wrhead);
+	assert(!lock->wrtail);
+	assert(!lock->upgrade);
 	free(lock);
 }
 void async_rwlock_rdlock(async_rwlock_t *const lock) {
-	assert(lock && "Lock object required");
-	assert(!async_rwlock_rdcheck(lock) && "Recursive lock");
-	assert(!async_rwlock_wrcheck(lock) && "Recursive lock");
-	unsigned const i = lock->rdcount || lock->wractive || lock->upgrade ?
-		READERS_MAX :
-		unused_reader_index(lock);
-	if(i >= READERS_MAX) {
-		if(lock->rdcount >= lock->rdsize) {
-			assert(0 && "Read queue growth not yet implemented");
-		}
-		lock->rdqueue[(lock->rdcur + lock->rdcount) % lock->rdsize] = co_active();
-		lock->rdcount++;
-		async_yield();
-		assert(!lock->upgrade && "Write lock acquired while upgrade is pending");
-	} else {
-		assert(!lock->upgrade && "Read lock acquired while upgrade pending");
-		lock->rdactive[i] = co_active();
-	}
+	assert(lock);
+	if(async_rwlock_tryrdlock(lock) >= 0) return;
+	thread_list us = {
+		.thread = co_active(),
+		.next = NULL,
+	};
+	if(!lock->rdhead) lock->rdhead = &us;
+	if(lock->rdtail) lock->rdtail->next = &us;
+	lock->rdtail = &us;
+	async_yield();
+	assert(lock->state > 0);
+	assert(lock->state <= READERS_MAX);
+	assert(!lock->wrhead);
+	assert(!lock->upgrade);
 }
 int async_rwlock_tryrdlock(async_rwlock_t *const lock) {
-	assert(lock && "Lock object required");
-	assert(!async_rwlock_rdcheck(lock) && "Recursive lock");
-	assert(!async_rwlock_wrcheck(lock) && "Recursive lock");
-	if(lock->rdcount) return -1;
-	if(lock->wractive) return -1;
-	if(unused_reader_index(lock) >= READERS_MAX) return -1;
-	async_rwlock_rdlock(lock);
-	return 0;
+	assert(lock);
+	if(!lock->upgrade && !lock->wrhead && lock->state < READERS_MAX) {
+		++lock->state;
+		return 0;
+	}
+	return -1;
 }
 void async_rwlock_rdunlock(async_rwlock_t *const lock) {
-	assert(lock && "Lock object required");
-	assert(async_rwlock_rdcheck(lock) && "Not locked");
-	assert(!async_rwlock_wrcheck(lock) && "Wrong unlock");
-	unsigned const i = active_reader_index(lock, co_active());
-	lock->rdactive[i] = NULL;
-
-	if(lock->upgrade) {
-		if(has_active_readers(lock)) return;
-		lock->wractive = lock->upgrade;
-		lock->upgrade = NULL;
-		async_wakeup(lock->wractive);
-	} else {
-		lock_next(lock, i);
-	}
+	assert(lock);
+	assert(lock->state > 0);
+	assert(lock->state <= READERS_MAX);
+	--lock->state;
+	wake_next(lock);
 }
 void async_rwlock_wrlock(async_rwlock_t *const lock) {
-	assert(lock && "Lock object required");
-	assert(!async_rwlock_rdcheck(lock) && "Recursive lock");
-	assert(!async_rwlock_wrcheck(lock) && "Recursive lock");
-	if(lock->rdcount || lock->wractive || has_active_readers(lock)) {
-		if(lock->wrcount >= lock->wrsize) {
-			assert(0 && "Write queue growth not yet implemented");
-		}
-		lock->wrqueue[(lock->wrcur + lock->wrcount) % lock->wrsize] = co_active();
-		lock->wrcount++;
-		async_yield();
-	} else {
-		assert(!lock->upgrade && "Write lock acquired with pending upgrade");
-		lock->wractive = co_active();
-	}
+	assert(lock);
+	if(async_rwlock_trywrlock(lock) >= 0) return;
+	thread_list us = {
+		.thread = co_active(),
+		.next = NULL,
+	};
+	if(!lock->wrhead) lock->wrhead = &us;
+	if(lock->wrtail) lock->wrtail->next = &us;
+	lock->wrtail = &us;
+	async_yield();
+	assert(s_write == lock->state);
+	assert(!lock->upgrade);
 }
 int async_rwlock_trywrlock(async_rwlock_t *const lock) {
-	assert(lock && "Lock object required");
-	assert(!async_rwlock_rdcheck(lock) && "Recursive lock");
-	assert(!async_rwlock_wrcheck(lock) && "Recursive lock");
-	if(lock->rdcount) return -1;
-	if(lock->wractive) return -1;
-	if(lock->upgrade) return -1;
-	if(has_active_readers(lock)) return -1;
-	async_rwlock_wrlock(lock);
-	return 0;
+	assert(lock);
+	if(!lock->upgrade && 0 == lock->state) {
+		lock->state = s_write;
+		return 0;
+	}
+	return -1;
 }
 void async_rwlock_wrunlock(async_rwlock_t *const lock) {
-	assert(lock && "Lock object required");
-	assert(!async_rwlock_rdcheck(lock) && "Wrong unlock");
-	assert(async_rwlock_wrcheck(lock) && "Not locked");
-	lock->wractive = NULL;
-
-	assert(!lock->upgrade && "Upgrade pending during write lock");
-	for(unsigned i = 0; i < READERS_MAX; ++i) if(!lock_next(lock, i)) break;
-}
-
-int async_rwlock_rdcheck(async_rwlock_t *const lock) {
-	assert(lock && "Lock object required");
-	unsigned const i = active_reader_index(lock, co_active());
-	return i < READERS_MAX;
-}
-int async_rwlock_wrcheck(async_rwlock_t *const lock) {
-	assert(lock && "Lock object required");
-	return co_active() == lock->wractive;
+	assert(lock);
+	assert(s_write == lock->state);
+	assert(!lock->upgrade && "Upgrade pending during write");
+	lock->state = 0;
+	wake_next(lock);
 }
 
 int async_rwlock_upgrade(async_rwlock_t *const lock) {
-	assert(lock && "Lock object required");
-	assert(async_rwlock_rdcheck(lock) && "Not locked");
-	assert(!async_rwlock_wrcheck(lock) && "Already locked");
-	cothread_t const thread = co_active();
+	assert(lock);
+	assert(lock->state > 0);
+	assert(lock->state <= READERS_MAX);
 	if(lock->upgrade) return -1;
-	unsigned const i = active_reader_index(lock, thread);
-	lock->rdactive[i] = NULL;
-	if(has_active_readers(lock)) {
-		lock->upgrade = thread;
+	--lock->state;
+	if(lock->state > 0) {
+		lock->upgrade = co_active();
 		async_yield();
 		assert(!lock->upgrade && "Upgrade not cleared");
-		assert(thread == lock->wractive && "Wrong upgrade woken");
+		assert(s_write == lock->state && "Wrong upgrade woken");
 	} else {
-		lock->wractive = thread;
+		lock->state = s_write;
 	}
 	return 0;
 }
-int async_rwlock_downgrade(async_rwlock_t *const lock) {
-	assert(lock && "Lock object required");
-	assert(!async_rwlock_rdcheck(lock) && "Wrong lock");
-	assert(async_rwlock_wrcheck(lock) && "Not locked");
-	lock->wractive = NULL;
-	unsigned i = unused_reader_index(lock);
-	assert(0 == i && "Downgraded write lock should have no active readers");
-	lock->rdactive[i++] = co_active();
+void async_rwlock_downgrade(async_rwlock_t *const lock) {
+	assert(lock);
+	assert(s_write == lock->state);
+	assert(!lock->upgrade && "Upgrade pending during write");
+	lock->state = 1;
+	wake_next(lock);
+}
 
-	for(; i < READERS_MAX; ++i) if(!lock_next(lock, i)) break;
-	return 0;
+static void wake_next(async_rwlock_t *const lock) {
+	if(lock->upgrade) {
+		if(lock->state > 0) return;
+		lock->state = s_write;
+		cothread_t const next = lock->upgrade;
+		lock->upgrade = NULL;
+		async_wakeup(next);
+	} else if(lock->wrhead) {
+		if(lock->state > 0) return;
+		lock->state = s_write;
+		thread_list *const next = lock->wrhead;
+		lock->wrhead = next->next;
+		if(!lock->wrhead) lock->wrtail = NULL;
+		async_wakeup(next->thread);
+	} else while(lock->rdhead) {
+		if(lock->state >= READERS_MAX) return;
+		++lock->state;
+		thread_list *const next = lock->rdhead;
+		lock->rdhead = next->next;
+		if(!lock->rdhead) lock->rdtail = NULL;
+		async_wakeup(next->thread);
+	}
 }
 

@@ -51,6 +51,9 @@ typedef struct {
 	sqlite3_io_methods const *methods;
 	async_shared *shared;
 	uv_file file;
+#if FILE_LOCK_MODE==3
+	int flock_state;
+#endif
 } async_file;
 
 static uv_file open_temp(int const flags) {
@@ -72,6 +75,9 @@ static int async_open(sqlite3_vfs *const vfs, char const *const path, async_file
 	if(sqflags & SQLITE_OPEN_READONLY) uvflags |= O_RDONLY;
 
 	file->methods = NULL;
+#if FILE_LOCK_MODE==3
+	file->flock_state = SQLITE_LOCK_NONE;
+#endif
 
 	if(!path) {
 		file->shared = NULL;
@@ -249,6 +255,9 @@ static sqlite3_vfs async_vfs = {
 };
 
 static int async_close(async_file *const file) {
+#if FILE_LOCK_MODE==3
+	assert(SQLITE_LOCK_NONE == file->flock_state);
+#endif
 	uv_file const f = file->file;
 	file->file = -1;
 	async_shared *const shared = file->shared;
@@ -347,19 +356,22 @@ static int async_lock(async_file *const file, int const level) {
 		case SQLITE_LOCK_NONE:
 			return SQLITE_OK;
 		case SQLITE_LOCK_SHARED:
-			if(async_rwlock_wrcheck(shared->flock)) return SQLITE_OK;
-			if(async_rwlock_rdcheck(shared->flock)) return SQLITE_OK;
+			if(SQLITE_LOCK_EXCLUSIVE == file->flock_state) return SQLITE_OK;
+			if(SQLITE_LOCK_SHARED == file->flock_state) return SQLITE_OK;
 			async_rwlock_rdlock(shared->flock);
+			file->flock_state = SQLITE_LOCK_SHARED;
 			return SQLITE_OK;
 		case SQLITE_LOCK_RESERVED:
 		case SQLITE_LOCK_PENDING:
 		case SQLITE_LOCK_EXCLUSIVE:
-			if(async_rwlock_wrcheck(shared->flock)) return SQLITE_OK;
-			if(async_rwlock_rdcheck(shared->flock)) {
+			if(SQLITE_LOCK_EXCLUSIVE == file->flock_state) return SQLITE_OK;
+			if(SQLITE_LOCK_SHARED == file->flock_state) {
 				if(async_rwlock_upgrade(shared->flock) < 0) return SQLITE_BUSY;
+				file->flock_state = SQLITE_LOCK_EXCLUSIVE;
 				return SQLITE_OK;
 			}
 			async_rwlock_wrlock(shared->flock);
+			file->flock_state = SQLITE_LOCK_EXCLUSIVE;
 			return SQLITE_OK;
 		default:
 			assert(0 && "Unknown lock mode");
@@ -384,21 +396,21 @@ static int async_unlock(async_file *const file, int const level) {
 		case SQLITE_LOCK_RESERVED:
 			return SQLITE_OK;
 		case SQLITE_LOCK_SHARED:
-			if(async_rwlock_wrcheck(shared->flock)) {
-				if(async_rwlock_downgrade(shared->flock) < 0) {
-					assert(0 && "Non-recursive lock downgrade should always succeed");
-					return SQLITE_BUSY;
-				}
+			if(SQLITE_LOCK_EXCLUSIVE == file->flock_state) {
+				async_rwlock_downgrade(shared->flock);
+				file->flock_state = SQLITE_LOCK_SHARED;
 				return SQLITE_OK;
 			}
 			return SQLITE_OK;
 		case SQLITE_LOCK_NONE:
-			if(async_rwlock_wrcheck(shared->flock)) {
+			if(SQLITE_LOCK_EXCLUSIVE == file->flock_state) {
 				async_rwlock_wrunlock(shared->flock);
+				file->flock_state = SQLITE_LOCK_NONE;
 				return SQLITE_OK;
 			}
-			if(async_rwlock_rdcheck(shared->flock)) {
+			if(SQLITE_LOCK_SHARED == file->flock_state) {
 				async_rwlock_rdunlock(shared->flock);
+				file->flock_state = SQLITE_LOCK_NONE;
 				return SQLITE_OK;
 			}
 			return SQLITE_OK;
@@ -415,8 +427,7 @@ static int async_checkReservedLock(async_file *const file, int *const outRes) {
 	async_shared *const shared = file->shared;
 	*outRes = async_mutex_check(shared->flock);
 #elif FILE_LOCK_MODE==3
-	async_shared *const shared = file->shared;
-	*outRes = async_rwlock_wrcheck(shared->flock);
+	*outRes = (file->flock_state >= SQLITE_LOCK_RESERVED);
 #elif FILE_LOCK_MODE==4
 	*outRes = 1;
 #endif
