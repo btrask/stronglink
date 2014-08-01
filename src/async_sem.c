@@ -29,7 +29,7 @@ void async_sem_free(async_sem_t *const sem) {
 	free(sem);
 }
 void async_sem_post(async_sem_t *const sem) {
-	assert(sem && "Semaphore required");
+	assert(sem);
 	if(!sem->head) {
 		++sem->value;
 		return;
@@ -43,7 +43,7 @@ void async_sem_post(async_sem_t *const sem) {
 	async_wakeup(next->thread);
 }
 void async_sem_wait(async_sem_t *const sem) {
-	assert(sem && "Semaphore required");
+	assert(sem);
 	if(sem->value) {
 		--sem->value;
 		return;
@@ -59,7 +59,7 @@ void async_sem_wait(async_sem_t *const sem) {
 	assert(!us.next && "Woke up in wrong order");
 }
 int async_sem_trywait(async_sem_t *const sem) {
-	assert(sem && "Semaphore required");
+	assert(sem);
 	if(0 == sem->value) return -1;
 	--sem->value;
 	return 0;

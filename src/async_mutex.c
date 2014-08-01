@@ -22,15 +22,13 @@ async_mutex_t *async_mutex_create(void) {
 }
 void async_mutex_free(async_mutex_t *const mutex) {
 	if(!mutex) return;
-	assert(
-		!mutex->active &&
-		0 == mutex->depth &&
-		"Mutex freed while held");
+	assert(!mutex->active);
+	assert(0 == mutex->depth);
 	async_sem_free(mutex->sem); mutex->sem = NULL;
 	free(mutex);
 }
 void async_mutex_lock(async_mutex_t *const mutex) {
-	assert(mutex && "Mutex must not be null");
+	assert(mutex);
 	cothread_t const thread = co_active();
 	if(thread != mutex->active) {
 		async_sem_wait(mutex->sem);
@@ -41,7 +39,7 @@ void async_mutex_lock(async_mutex_t *const mutex) {
 	}
 }
 int async_mutex_trylock(async_mutex_t *const mutex) {
-	assert(mutex && "Mutex must not be null");
+	assert(mutex);
 	cothread_t const thread = co_active();
 	if(thread != mutex->active) {
 		if(async_sem_trywait(mutex->sem) < 0) return -1;
@@ -53,7 +51,7 @@ int async_mutex_trylock(async_mutex_t *const mutex) {
 	return 0;
 }
 void async_mutex_unlock(async_mutex_t *const mutex) {
-	assert(mutex && "Mutex must not be null");
+	assert(mutex);
 	cothread_t const thread = co_active();
 	assert(thread == mutex->active && "Leaving someone else's mutex");
 	assert(mutex->depth > 0 && "Mutex recursion depth going negative");
@@ -62,7 +60,7 @@ void async_mutex_unlock(async_mutex_t *const mutex) {
 	async_sem_post(mutex->sem);
 }
 int async_mutex_check(async_mutex_t *const mutex) {
-	assert(mutex && "Mutex must not be null");
+	assert(mutex);
 	return co_active() == mutex->active;
 }
 
