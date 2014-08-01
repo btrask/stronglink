@@ -2,80 +2,63 @@
 #include <stdlib.h>
 #include "async.h"
 
-typedef struct list_entry list_entry;
-struct list_entry {
-	cothread_t thread;
-	list_entry *next;
-};
-
 struct async_mutex_s {
-	list_entry active;
-	list_entry *tail;
+	async_sem_t *sem;
+	cothread_t active;
 	int depth;
 };
 
 async_mutex_t *async_mutex_create(void) {
 	async_mutex_t *mutex = calloc(1, sizeof(struct async_mutex_s));
 	if(!mutex) return NULL;
-	mutex->tail = &mutex->active;
+	mutex->sem = async_sem_create(1);
+	mutex->active = NULL;
+	mutex->depth = 0;
 	return mutex;
 }
 void async_mutex_free(async_mutex_t *const mutex) {
 	if(!mutex) return;
 	assert(
-		!mutex->active.thread &&
-		!mutex->active.next &&
-		!mutex->depth &&
+		!mutex->active &&
+		0 == mutex->depth &&
 		"Mutex freed while held");
+	async_sem_free(mutex->sem); mutex->sem = NULL;
 	free(mutex);
 }
 void async_mutex_lock(async_mutex_t *const mutex) {
 	assert(mutex && "Mutex must not be null");
 	cothread_t const thread = co_active();
-	if(!mutex->active.thread) {
-		mutex->active.thread = thread;
+	if(thread != mutex->active) {
+		async_sem_wait(mutex->sem);
+		mutex->active = thread;
 		mutex->depth = 1;
-	} else if(thread == mutex->active.thread) {
-		mutex->depth++;
 	} else {
-		assert(mutex->tail && "Mutex has no tail");
-		assert(mutex->tail->thread && "Mutex tail has no thread");
-		list_entry us = {
-			.thread = thread,
-			.next = NULL,
-		};
-		mutex->tail->next = &us;
-		mutex->tail = &us;
-		async_yield();
-		assert(thread == mutex->active.thread && "Mutex wrong thread obtained lock");
+		++mutex->depth;
 	}
 }
 int async_mutex_trylock(async_mutex_t *const mutex) {
 	assert(mutex && "Mutex must not be null");
 	cothread_t const thread = co_active();
-	if(mutex->active.thread && thread != mutex->active.thread) return -1;
-	async_mutex_lock(mutex);
+	if(thread != mutex->active) {
+		if(async_sem_trywait(mutex->sem) < 0) return -1;
+		mutex->active = co_active();
+		mutex->depth = 1;
+	} else {
+		++mutex->depth;
+	}
 	return 0;
 }
 void async_mutex_unlock(async_mutex_t *const mutex) {
 	assert(mutex && "Mutex must not be null");
 	cothread_t const thread = co_active();
-	assert(mutex->active.thread && "Leaving empty mutex");
-	assert(thread == mutex->active.thread && "Leaving someone else's mutex");
+	assert(thread == mutex->active && "Leaving someone else's mutex");
 	assert(mutex->depth > 0 && "Mutex recursion depth going negative");
 	if(--mutex->depth) return;
-	mutex->active.thread = NULL;
-	if(!mutex->active.next) return;
-	list_entry *const next = mutex->active.next;
-	if(!next->next) mutex->tail = &mutex->active;
-	mutex->active.thread = next->thread;
-	mutex->active.next = next->next;
-	mutex->depth = 1;
-	async_wakeup(next->thread);
-	// Set everything up ahead of time so we aren't dependent on whether the wakeup is synchronous or not.
+	mutex->active = NULL;
+	async_sem_post(mutex->sem);
 }
 int async_mutex_check(async_mutex_t *const mutex) {
 	assert(mutex && "Mutex must not be null");
-	return co_active() == mutex->active.thread;
+	return co_active() == mutex->active;
 }
 

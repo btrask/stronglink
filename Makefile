@@ -58,6 +58,7 @@ OBJECTS := \
 	$(BUILD_DIR)/strndup.o \
 	$(BUILD_DIR)/async.o \
 	$(BUILD_DIR)/async_fs.o \
+	$(BUILD_DIR)/async_sem.o \
 	$(BUILD_DIR)/async_mutex.o \
 	$(BUILD_DIR)/async_rwlock.o \
 	$(BUILD_DIR)/async_sqlite.o \

@@ -87,6 +87,14 @@ int async_fs_mkdirp_dirname(char const *const path, int const mode);
 
 char *async_fs_tempnam(char const *dir, char const *prefix);
 
+// async_sem.c
+typedef struct async_sem_s async_sem_t;
+async_sem_t *async_sem_create(unsigned int const value);
+void async_sem_free(async_sem_t *const sem);
+void async_sem_post(async_sem_t *const sem);
+void async_sem_wait(async_sem_t *const sem);
+int async_sem_trywait(async_sem_t *const sem);
+
 // async_mutex.c
 typedef struct async_mutex_s async_mutex_t;
 async_mutex_t *async_mutex_create(void);
