@@ -1,12 +1,12 @@
 #define _GNU_SOURCE
+#include <assert.h>
 #include "EarthFS.h"
 #include "async.h"
 #include "http/HTTPMessage.h"
 
 #define URI_MAX 1024
 #define READER_COUNT 16
-#define QUEUE_SIZE 64
-#define BATCH_MIN 32
+#define QUEUE_SIZE 32
 
 #define PROFILE_INTERVAL 10
 
@@ -79,7 +79,7 @@ static void reader(EFSPullRef const pull) {
 	HTTPConnectionRef conn = NULL;
 
 	for(;;) {
-		if(pull->stop) break;
+		if(pull->stop) goto stop;
 
 		str_t URI[URI_MAX+1];
 
@@ -96,15 +96,14 @@ static void reader(EFSPullRef const pull) {
 		}
 
 		assertf(!pull->blocked_reader, "Reader already waiting");
-		if(pull->count + 2 > QUEUE_SIZE) {
+		while(pull->count + 2 > QUEUE_SIZE) {
 			pull->blocked_reader = co_active();
 			async_yield();
 			pull->blocked_reader = NULL;
 			if(pull->stop) {
 				async_mutex_unlock(pull->connlock);
-				continue;
+				goto stop;
 			}
-			assertf(pull->count + 2 <= QUEUE_SIZE, "Reader didn't wait long enough");
 		}
 		index_t pos = (pull->cur + pull->count) % QUEUE_SIZE;
 		pull->count += 2;
@@ -113,12 +112,13 @@ static void reader(EFSPullRef const pull) {
 
 		for(;;) {
 			if(import(pull, URI, pos, &conn) >= 0) break;
-			if(pull->stop) break;
+			if(pull->stop) goto stop;
 			async_sleep(1000 * 5);
 		}
 
 	}
 
+stop:
 	HTTPConnectionFree(&conn);
 	assertf(pull->stop, "Reader ended early");
 	async_wakeup(pull->stop);
@@ -126,39 +126,36 @@ static void reader(EFSPullRef const pull) {
 static void writer(EFSPullRef const pull) {
 	EFSSubmissionRef queue[QUEUE_SIZE];
 	count_t count = 0;
+	count_t skipped = 0;
 	for(;;) {
-		if(pull->stop) break;
+		if(pull->stop) goto stop;
 
-		// lock
-		for(index_t i = count; i < pull->count; ++i) {
-			index_t const pos = (pull->cur + i) % QUEUE_SIZE;
-			if(!pull->filled[pos]) break;
-			queue[i] = pull->queue[pos];
+		while(0 == count || (count < QUEUE_SIZE && pull->count > 0)) {
+			index_t const pos = pull->cur;
+			while(!pull->filled[pos]) {
+				pull->blocked_writer = co_active();
+				async_yield();
+				pull->blocked_writer = NULL;
+				if(pull->stop) goto stop;
+			}
+			assert(pull->filled[pos]);
+			// Skip any bubbles in the queue.
+			if(pull->queue[pos]) queue[count++] = pull->queue[pos];
+			else skipped++;
 			pull->queue[pos] = NULL;
 			pull->filled[pos] = false;
-			count++;
+			pull->cur = (pull->cur + 1) % QUEUE_SIZE;
+			pull->count--;
+			if(pull->blocked_reader) async_wakeup(pull->blocked_reader);
 		}
-		if(0 == count || (count < BATCH_MIN && count < pull->count)) {
-			// unlock
-			pull->blocked_writer = co_active();
-			async_yield();
-			pull->blocked_writer = NULL;
-			if(pull->stop) continue;
-//			assertf(pull->filled[pull->cur], "Writer woke up early");
-			continue;
-		}
-		pull->cur = (pull->cur + count) % QUEUE_SIZE;
-		pull->count -= count;
-		// unlock
-
-		if(pull->blocked_reader) async_wakeup(pull->blocked_reader);
+		assert(count <= QUEUE_SIZE);
 
 		for(;;) {
 			sqlite3f *db = EFSRepoDBConnect(EFSSessionGetRepo(pull->session));
 			EXEC(QUERY(db, "BEGIN IMMEDIATE TRANSACTION"));
 			err_t err = 0;
 			for(index_t i = 0; i < count; ++i) {
-				if(!queue[i]) continue; // Empty submissions enqueued for various reasons.
+				assert(queue[i]);
 				err = EFSSubmissionStore(queue[i], db);
 				if(err < 0) break;
 			}
@@ -173,13 +170,15 @@ static void writer(EFSPullRef const pull) {
 		}
 
 #if PROFILE_INTERVAL>0
-		pull->written += count;
+		pull->written += count + skipped;
 #endif
 
 		count = 0;
+		skipped = 0;
 
 	}
 
+stop:
 	assertf(pull->stop, "Writer ended early");
 	async_wakeup(pull->stop);
 }
