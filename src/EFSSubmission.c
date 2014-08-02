@@ -230,7 +230,7 @@ err_t EFSSubmissionCreatePair(EFSSessionRef const session, strarg_t const type, 
 		return -1;
 	}
 
-	yajl_gen const json = yajl_gen_alloc(NULL);
+	yajl_gen json = yajl_gen_alloc(NULL);
 	yajl_gen_config(json, yajl_gen_print_callback, (void (*)())EFSSubmissionWrite, meta);
 	yajl_gen_config(json, yajl_gen_beautify, (int)true);
 
@@ -255,6 +255,7 @@ err_t EFSSubmissionCreatePair(EFSSessionRef const session, strarg_t const type, 
 	// TODO: Full text indexing, determine links, etc.
 
 	yajl_gen_map_close(json);
+	yajl_gen_free(json); json = NULL;
 
 	if(
 		EFSSubmissionEnd(meta) < 0 ||
