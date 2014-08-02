@@ -13,9 +13,11 @@ struct sqlite3f_stmt {
 
 typedef struct {
 	sqlite3 *conn;
+#if STATEMENT_CACHE_SIZE > 0
 	sqlite3f_stmt *head;
 	sqlite3f_stmt *tail;
 	sqlite3f_stmt cache[STATEMENT_CACHE_SIZE];
+#endif
 } sqlite3f;
 
 sqlite3f *sqlite3f_create(sqlite3 *const conn);
