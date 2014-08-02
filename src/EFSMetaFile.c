@@ -138,6 +138,9 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 static void cleanup(EFSMetaFileRef const meta) {
 	if(meta->parser) { yajl_free(meta->parser); meta->parser = NULL; }
 	sqlite3f_close(meta->tmpdb); meta->tmpdb = NULL;
+	meta->state = s_start;
+	FREE(&meta->metaURI);
+	FREE(&meta->field);
 }
 static void parse_error(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len) {
 	unsigned char *msg = yajl_get_error(meta->parser, true, buf, len);
