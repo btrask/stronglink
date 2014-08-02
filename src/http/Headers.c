@@ -34,7 +34,7 @@ void HeadersFree(HeadersRef *const headersptr) {
 	for(index_t i = 0; i < headers->count; ++i) {
 		FREE(&headers->data[i]);
 	}
-	FREE(headers->data);
+	FREE(&headers->data);
 	FREE(headersptr); headers = NULL;
 }
 err_t HeadersAppendFieldChunk(HeadersRef const headers, strarg_t const chunk, size_t const len) {
