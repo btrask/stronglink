@@ -224,8 +224,8 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 		return true;
 	}
 
-	EFSFilterRef filter = EFSFilterCreate(EFSIntersectionFilter);
-	EFSFilterRef const visibility = EFSFilterCreate(EFSLinksToFilter);
+	EFSFilterRef filter = EFSFilterCreate(EFSIntersectionFilterType);
+	EFSFilterRef const visibility = EFSFilterCreate(EFSLinksToFilterType);
 	EFSFilterAddStringArg(visibility, "efs://user", -1);
 	EFSFilterAddFilterArg(filter, visibility);
 

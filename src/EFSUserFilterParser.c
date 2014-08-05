@@ -28,7 +28,7 @@ static EFSFilterRef parse_and(strarg_t *const query) {
 	for(;;) {
 		EFSFilterRef const or = parse_or(query);
 		if(!or) break;
-		if(!and) and = EFSFilterCreate(EFSIntersectionFilter);
+		if(!and) and = EFSFilterCreate(EFSIntersectionFilterType);
 		EFSFilterAddFilterArg(and, or);
 
 		// Optional, ignored
@@ -42,7 +42,7 @@ static EFSFilterRef parse_or(strarg_t *const query) {
 	for(;;) {
 		EFSFilterRef const exp = parse_exp(query);
 		if(!exp) break;
-		if(!or) or = EFSFilterCreate(EFSUnionFilter);
+		if(!or) or = EFSFilterCreate(EFSUnionFilterType);
 		EFSFilterAddFilterArg(or, exp);
 		if(!parse_space(query)) break;
 		if(!parse_token(query, "or")) break;
@@ -76,7 +76,7 @@ static EFSFilterRef parse_link(strarg_t *const query) {
 	if('/' != (*query)[i++]) return NULL;
 	if('/' != (*query)[i++]) return NULL;
 	while('\0' != (*query)[i] && !isspace((*query)[i])) ++i;
-	EFSFilterRef const filter = EFSFilterCreate(EFSLinksToFilter);
+	EFSFilterRef const filter = EFSFilterCreate(EFSLinksToFilterType);
 	EFSFilterAddStringArg(filter, *query, i);
 	*query += i;
 	return filter;
@@ -92,7 +92,7 @@ static EFSFilterRef parse_term(strarg_t *const query) {
 	if(0 == i) return NULL;
 	if(substr("or", *query, i)) return NULL;
 	if(substr("and", *query, i)) return NULL;
-	EFSFilterRef const filter = EFSFilterCreate(EFSFullTextFilter);
+	EFSFilterRef const filter = EFSFilterCreate(EFSFullTextFilterType);
 	EFSFilterAddStringArg(filter, *query, i);
 	*query += i;
 	return filter;

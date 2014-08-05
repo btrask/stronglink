@@ -175,40 +175,26 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	sqlite3f *db = EFSRepoDBConnect(repo);
 	if(!db) return NULL;
-	EFSFilterPrepare(filter, db, EFS_DESC);
-
-	sqlite3_stmt *selectMax = QUERY(db,
-		"SELECT MAX(file_id) FROM files");
-	if(SQLITE_ROW != STEP(selectMax)) {
-		sqlite3f_finalize(selectMax); selectMax = NULL;
-		EFSRepoDBClose(repo, &db);
-		return NULL;
-	}
-	int64_t sortID = sqlite3_column_int64(selectMax, 0);
-	sqlite3f_finalize(selectMax); selectMax = NULL;
+	EFSMatch const start = {INT64_MAX, INT64_MAX};
+	EFSFilterPrepare(filter, start, EFS_DESC, db);
 
 	sqlite3_stmt *selectHash = QUERY(db,
 		"SELECT internal_hash\n"
 		"FROM files WHERE file_id = ? LIMIT 1");
 	URIListRef const URIs = URIListCreate();
-	while(sortID > 0 && URIListGetCount(URIs) < max) {
-		int64_t lastFileID = INT64_MAX;
-		while(URIListGetCount(URIs) < max) {
-			EFSMatch const match = EFSFilterMatchFile(filter, sortID, lastFileID);
-//			fprintf(stderr, "got match %lld of %lld, %lld\n", fileID, sortID, lastFileID);
-			if(match.fileID < 0) break;
-			sqlite3_bind_int64(selectHash, 1, match.fileID);
-			if(SQLITE_ROW == STEP(selectHash)) {
-				strarg_t const hash = (strarg_t)sqlite3_column_text(selectHash, 0);
-				str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
-				URIListAddURI(URIs, URI, -1);
-				FREE(&URI);
-			}
-			sqlite3_reset(selectHash);
-			if(!match.more) break;
-			lastFileID = match.fileID;
+	while(URIListGetCount(URIs) < max) {
+		EFSMatch const match = EFSFilterMatch(filter);
+//		fprintf(stderr, "got match %lld of %lld, %lld\n", fileID, sortID, lastFileID);
+		if(match.fileID < 0) break;
+		sqlite3_bind_int64(selectHash, 1, match.fileID);
+		if(SQLITE_ROW == STEP(selectHash)) {
+			strarg_t const hash = (strarg_t)sqlite3_column_text(selectHash, 0);
+			str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
+			URIListAddURI(URIs, URI, -1);
+			FREE(&URI);
 		}
-		--sortID;
+		sqlite3_reset(selectHash);
+		EFSFilterAdvance(filter);
 	}
 	sqlite3f_finalize(selectHash); selectHash = NULL;
 	EFSRepoDBClose(repo, &db);

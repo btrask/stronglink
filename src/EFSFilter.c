@@ -1,3 +1,4 @@
+#include <assert.h>
 #include "strndup.h"
 #include "EarthFS.h"
 
@@ -7,67 +8,103 @@ typedef struct {
 	EFSFilterRef items[0];
 } EFSFilterList;
 
-struct EFSFilter {
-	EFSFilterType type;
-	sqlite3_stmt *matchFile;
-	sqlite3_stmt *matchAge;
+typedef struct EFSQueryFilter* EFSQueryFilterRef;
+typedef struct EFSPermissionFilter* EFSPermissionFilterRef;
+typedef struct EFSStringFilter* EFSStringFilterRef;
+typedef struct EFSCollectionFilter* EFSCollectionFilterRef;
+
+#define EFS_FILTER_BASE \
+	EFSFilterType type; \
+	EFSSortDirection dir;
+#define EFS_FILTER_QUERY \
+	EFSMatch state; \
+	sqlite3_stmt *advance; \
+	sqlite3_stmt *age; \
 	int argc;
-	union {
-		str_t *string;
-		EFSFilterList *filters;
-		int64_t userID;
-	} data;
+
+struct EFSFilter {
+	EFS_FILTER_BASE
+};
+struct EFSQueryFilter {
+	EFS_FILTER_BASE
+	EFS_FILTER_QUERY
+};
+struct EFSPermissionFilter {
+	EFS_FILTER_BASE
+	EFS_FILTER_QUERY
+	int64_t userID;
+};
+struct EFSStringFilter {
+	EFS_FILTER_BASE
+	EFS_FILTER_QUERY
+	str_t *string;
+};
+struct EFSCollectionFilter {
+	EFS_FILTER_BASE
+	EFSFilterList *filters;
+	EFSFilterList *advance;
 };
 
 EFSFilterRef EFSFilterCreate(EFSFilterType const type) {
+	EFSFilterRef filter = NULL;
 	switch(type) {
-		case EFSNoFilter:
-		case EFSFileTypeFilter:
-		case EFSIntersectionFilter:
-		case EFSUnionFilter:
-		case EFSFullTextFilter:
-		case EFSLinkedFromFilter:
-		case EFSLinksToFilter:
+		case EFSNoFilterType:
+			filter = calloc(1, sizeof(struct EFSQueryFilter));
+			break;
+		case EFSFileTypeFilterType:
+		case EFSFullTextFilterType:
+		case EFSLinkedFromFilterType:
+		case EFSLinksToFilterType:
+			filter = calloc(1, sizeof(struct EFSStringFilter));
+			break;
+		case EFSIntersectionFilterType:
+		case EFSUnionFilterType:
+			filter = calloc(1, sizeof(struct EFSCollectionFilter));
 			break;
 		default:
-			return NULL;
+			assertf(0, "Invalid filter type %d", (int)type);
 	}
-	EFSFilterRef filter = calloc(1, sizeof(struct EFSFilter));
 	if(!filter) return NULL;
 	filter->type = type;
 	return filter;
 }
 EFSFilterRef EFSPermissionFilterCreate(int64_t const userID) {
-	EFSFilterRef filter = calloc(1, sizeof(struct EFSFilter));
+	EFSPermissionFilterRef filter = calloc(1, sizeof(struct EFSPermissionFilter));
 	if(!filter) return NULL;
-	filter->type = EFSPermissionFilter;
-	filter->data.userID = userID;
-	return filter;
+	filter->type = EFSPermissionFilterType;
+	filter->userID = userID;
+	return (EFSFilterRef)filter;
 }
 void EFSFilterFree(EFSFilterRef *const filterptr) {
 	EFSFilterRef filter = *filterptr;
 	if(!filter) return;
 	switch(filter->type) {
-		case EFSNoFilter:
-		case EFSPermissionFilter: {
+		case EFSNoFilterType:
+		case EFSPermissionFilterType: {
+			EFSQueryFilterRef const f = (EFSQueryFilterRef)filter;
+			sqlite3f_finalize(f->advance); f->advance = NULL;
+			sqlite3f_finalize(f->age); f->age = NULL;
 			break;
 		}
-		case EFSFileTypeFilter:
-		case EFSFullTextFilter:
-		case EFSLinkedFromFilter:
-		case EFSLinksToFilter: {
-			sqlite3f_finalize(filter->matchFile); filter->matchFile = NULL;
-			sqlite3f_finalize(filter->matchAge); filter->matchAge = NULL;
-			FREE(&filter->data.string);
+		case EFSFileTypeFilterType:
+		case EFSFullTextFilterType:
+		case EFSLinkedFromFilterType:
+		case EFSLinksToFilterType: {
+			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
+			sqlite3f_finalize(f->advance); f->advance = NULL;
+			sqlite3f_finalize(f->age); f->age = NULL;
+			FREE(&f->string);
 			break;
 		}
-		case EFSIntersectionFilter:
-		case EFSUnionFilter: {
-			EFSFilterList *const list = filter->data.filters;
+		case EFSIntersectionFilterType:
+		case EFSUnionFilterType: {
+			EFSCollectionFilterRef const f = (EFSCollectionFilterRef)filter;
+			EFSFilterList *const list = f->filters;
 			if(list) for(index_t i = 0; i < list->count; ++i) {
 				EFSFilterFree(&list->items[i]);
 			}
-			FREE(&filter->data.filters);
+			FREE(&f->filters);
+			FREE(&f->advance);
 			break;
 		}
 		default: {
@@ -79,37 +116,46 @@ void EFSFilterFree(EFSFilterRef *const filterptr) {
 err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len) {
 	if(!filter) return 0;
 	switch(filter->type) {
-		case EFSFileTypeFilter:
-		case EFSFullTextFilter:
-		case EFSLinkedFromFilter:
-		case EFSLinksToFilter:
+		case EFSFileTypeFilterType:
+		case EFSFullTextFilterType:
+		case EFSLinkedFromFilterType:
+		case EFSLinksToFilterType:
 			break;
 		default: return -1;
 	}
-	if(filter->data.string) return -1;
-	filter->data.string = strndup(str, len < 0 ? SIZE_MAX : len);
+	EFSStringFilterRef const f = (EFSStringFilterRef)filter;
+	if(f->string) return -1;
+	f->string = strndup(str, len < 0 ? SIZE_MAX : len);
 	return 0;
 }
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter) {
 	if(!filter) return 0;
 	switch(filter->type) {
-		case EFSIntersectionFilter:
-		case EFSUnionFilter:
+		case EFSIntersectionFilterType:
+		case EFSUnionFilterType:
 			break;
 		default: return -1;
 	}
-	EFSFilterList *filters = filter->data.filters;
-	count_t size = filters ? filters->size : 0;
-	count_t count = filters ? filters->count : 0;
-	if(++count > size) {
-		size = MAX(10, size * 2);
-		filters = realloc(filters,  sizeof(EFSFilterList) + (sizeof(EFSFilterRef) * size));
-		filter->data.filters = filters;
-		if(!filters) return -1;
-		filters->size = size;
+	EFSCollectionFilterRef const f = (EFSCollectionFilterRef)filter;
+	EFSFilterList *list = f->filters;
+	if(!list || list->count+1 > list->size) {
+		count_t const size = list ? list->size*2 : 10;
+		size_t const bytes = sizeof(EFSFilterList) + (sizeof(EFSFilterRef) * size);
+		f->filters = realloc(f->filters, bytes);
+		f->advance = realloc(f->advance, bytes);
+		if(!f->filters || !f->advance) {
+			FREE(&f->filters);
+			FREE(&f->advance);
+			return -1;
+		}
+		f->filters->size = size;
+		f->advance->size = size;
+		if(!list) {
+			list = f->filters;
+			list->count = 0;
+		}
 	}
-	filters->count = count;
-	filters->items[count-1] = subfilter;
+	list->items[list->count++] = subfilter;
 	return 0;
 }
 void EFSFilterPrint(EFSFilterRef const filter, count_t const indent) {
@@ -120,27 +166,28 @@ void EFSFilterPrint(EFSFilterRef const filter, count_t const indent) {
 	// TODO: Copy and paste is bad.
 	for(index_t i = 0; i < indent; ++i) fprintf(stderr, "\t");
 	switch(filter->type) {
-		case EFSNoFilter:
+		case EFSNoFilterType:
 			fprintf(stderr, "(all)\n");
 			break;
-		case EFSPermissionFilter:
-			fprintf(stderr, "(permission %lld)\n", filter->data.userID);
+		case EFSPermissionFilterType:
+			fprintf(stderr, "(permission %lld)\n", ((EFSPermissionFilterRef)filter)->userID);
 			break;
-		case EFSFileTypeFilter:
-			fprintf(stderr, "(file-type %s)\n", filter->data.string);
+		case EFSFileTypeFilterType:
+			fprintf(stderr, "(file-type %s)\n", ((EFSStringFilterRef)filter)->string);
 			break;
-		case EFSFullTextFilter:
-			fprintf(stderr, "(full-text %s)\n", filter->data.string);
+		case EFSFullTextFilterType:
+			fprintf(stderr, "(full-text %s)\n", ((EFSStringFilterRef)filter)->string);
 			break;
-		case EFSLinkedFromFilter:
-			fprintf(stderr, "(linked-from %s)\n", filter->data.string);
+		case EFSLinkedFromFilterType:
+			fprintf(stderr, "(linked-from %s)\n", ((EFSStringFilterRef)filter)->string);
 			break;
-		case EFSLinksToFilter:
-			fprintf(stderr, "(links-to %s)\n", filter->data.string);
+		case EFSLinksToFilterType:
+			fprintf(stderr, "(links-to %s)\n", ((EFSStringFilterRef)filter)->string);
 			break;
-		case EFSIntersectionFilter: {
+		case EFSIntersectionFilterType: {
 			fprintf(stderr, "(intersection\n");
-			EFSFilterList const *const list = filter->data.filters;
+			EFSCollectionFilterRef const f = (EFSCollectionFilterRef)filter;
+			EFSFilterList const *const list = f->filters;
 			for(index_t i = 0; i < list->count; ++i) {
 				EFSFilterPrint(list->items[i], indent+1);
 			}
@@ -148,9 +195,10 @@ void EFSFilterPrint(EFSFilterRef const filter, count_t const indent) {
 			fprintf(stderr, ")\n");
 			break;
 		}
-		case EFSUnionFilter: {
+		case EFSUnionFilterType: {
 			fprintf(stderr, "(union\n");
-			EFSFilterList const *const list = filter->data.filters;
+			EFSCollectionFilterRef const f = (EFSCollectionFilterRef)filter;
+			EFSFilterList const *const list = f->filters;
 			for(index_t i = 0; i < list->count; ++i) {
 				EFSFilterPrint(list->items[i], indent+1);
 			}
@@ -164,23 +212,50 @@ void EFSFilterPrint(EFSFilterRef const filter, count_t const indent) {
 	}
 }
 
-#define MATCH_FILE_ASC(str) \
-	str "\n" \
-	"AND (sort_id = ? AND file_id > ?)\n" \
-	"ORDER BY file_id ASC\n" \
-	"LIMIT 1"
-#define MATCH_FILE_DESC(str) \
-	str "\n" \
-	"AND (sort_id = ? AND file_id < ?)\n" \
-	"ORDER BY file_id DESC\n" \
-	"LIMIT 1"
 
-#define MATCH_AGE(str) \
+static bool_t EFSMatchInvalid(EFSMatch const *const a) {
+	return a->sortID < 0 || a->fileID < 0
+		|| INT64_MAX == a->sortID || INT64_MAX == a->fileID;
+}
+static bool_t EFSMatchEQ(EFSMatch const *const a, EFSMatch const *const b) {
+	return a->sortID == b->sortID && a->fileID == b->fileID;
+}
+static bool_t EFSMatchLT(EFSMatch const *const a, EFSMatch const *const b) {
+	return (a->sortID == b->sortID && a->fileID < b->fileID)
+		|| a->sortID < b->sortID;
+}
+static bool_t EFSMatchGT(EFSMatch const *const a, EFSMatch const *const b) {
+	return (a->sortID == b->sortID && a->fileID > b->fileID)
+		|| a->sortID > b->sortID;
+}
+static bool_t EFSMatchLTE(EFSMatch const *const a, EFSMatch const *const b) {
+	return (a->sortID == b->sortID && a->fileID <= b->fileID)
+		|| a->sortID <= b->sortID;
+}
+static bool_t EFSMatchGTE(EFSMatch const *const a, EFSMatch const *const b) {
+	return (a->sortID == b->sortID && a->fileID >= b->fileID)
+		|| a->sortID >= b->sortID;
+}
+
+#define ADVANCE_ASC(str) \
+	str "\n" \
+	"AND ((sort_id = ? AND file_id > ?)\n" \
+	"	OR sort_id > ?)\n" \
+	"ORDER BY file_id ASC LIMIT 1"
+#define ADVANCE_DESC(str) \
+	str "\n" \
+	"AND ((sort_id = ? AND file_id < ?)\n" \
+	"	OR sort_id < ?)\n" \
+	"ORDER BY file_id DESC LIMIT 1"
+#define AGE(str) \
 	str "\n" \
 	"AND (file_id = ?)\n" \
 	"ORDER BY sort_id ASC LIMIT 1"
 
-
+#define ALL \
+	"SELECT file_id AS sort_id,\n" \
+	"	file_id AS file_id\n" \
+	"FROM files WHERE 1"
 #define LINKED_FROM \
 	"SELECT md.meta_file_id AS sort_id,\n" \
 	"	f.file_id AS file_id\n" \
@@ -191,7 +266,6 @@ void EFSFilterPrint(EFSFilterRef const filter, count_t const indent) {
 	"	md.field = 'link'\n" \
 	"	AND md.value = ?\n" \
 	")"
-
 #define LINKS_TO \
 	"SELECT md.meta_file_id AS sort_id,\n" \
 	"	f.file_id AS file_id\n" \
@@ -203,34 +277,49 @@ void EFSFilterPrint(EFSFilterRef const filter, count_t const indent) {
 	"	AND md.value = ?\n" \
 	")"
 
-err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3f *const db, EFSSortOrder const order) {
-	assertf(!filter->matchFile, "Filter already prepared");
-	assertf(!filter->matchAge, "Filter already prepared");
-	assertf(0 == filter->argc, "Filter already prepared");
-	assertf(EFS_DESC == order, "Filter ascending order not yet supported");
+err_t EFSFilterPrepare(EFSFilterRef const filter, EFSMatch const pos, EFSSortDirection const dir, sqlite3f *const db) {
+	assert(filter);
+	filter->dir = dir;
 	switch(filter->type) {
-		case EFSLinkedFromFilter: {
-			filter->matchFile = QUERY(db, MATCH_FILE_DESC(LINKED_FROM));
-			sqlite3_bind_text(filter->matchFile, 1, filter->data.string, -1, SQLITE_STATIC);
-			filter->matchAge = QUERY(db, MATCH_AGE(LINKED_FROM));
-			sqlite3_bind_text(filter->matchAge, 1, filter->data.string, -1, SQLITE_STATIC);
-			filter->argc = 1;
+		case EFSNoFilterType: {
+			EFSQueryFilterRef const f = (EFSQueryFilterRef)filter;
+			f->state = pos;
+			f->advance = QUERY(db, ADVANCE_DESC(ALL));
+			f->age = QUERY(db, AGE(ALL));
+			f->argc = 0;
+			EFSFilterAdvance(filter);
 			return 0;
 		}
-		case EFSLinksToFilter: {
-			filter->matchFile = QUERY(db, MATCH_FILE_DESC(LINKS_TO));
-			sqlite3_bind_text(filter->matchFile, 1, filter->data.string, -1, SQLITE_STATIC);
-			filter->matchAge = QUERY(db, MATCH_AGE(LINKS_TO));
-			sqlite3_bind_text(filter->matchAge, 1, filter->data.string, -1, SQLITE_STATIC);
-			filter->argc = 1;
+		case EFSLinkedFromFilterType: {
+			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
+			f->state = pos;
+			f->advance = QUERY(db, ADVANCE_DESC(LINKED_FROM));
+			sqlite3_bind_text(f->advance, 1, f->string, -1, SQLITE_STATIC);
+			f->age = QUERY(db, AGE(LINKED_FROM));
+			sqlite3_bind_text(f->age, 1, f->string, -1, SQLITE_STATIC);
+			f->argc = 1;
+			EFSFilterAdvance(filter);
 			return 0;
 		}
-		case EFSIntersectionFilter:
-		case EFSUnionFilter: {
-			EFSFilterList const *const list = filter->data.filters;
+		case EFSLinksToFilterType: {
+			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
+			f->state = pos;
+			f->advance = QUERY(db, ADVANCE_DESC(LINKS_TO));
+			sqlite3_bind_text(f->advance, 1, f->string, -1, SQLITE_STATIC);
+			f->age = QUERY(db, AGE(LINKS_TO));
+			sqlite3_bind_text(f->age, 1, f->string, -1, SQLITE_STATIC);
+			f->argc = 1;
+			EFSFilterAdvance(filter);
+			return 0;
+		}
+		case EFSIntersectionFilterType:
+		case EFSUnionFilterType: {
+			EFSCollectionFilterRef const f = (EFSCollectionFilterRef)filter;
+			EFSFilterList const *const list = f->filters;
 			for(index_t i = 0; i < list->count; ++i) {
-				if(EFSFilterPrepare(list->items[i], db, order) < 0) return -1;
+				EFSFilterPrepare(list->items[i], pos, dir, db);
 			}
+			f->advance->count = 0;
 			return 0;
 		}
 		default: {
@@ -239,80 +328,130 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3f *const db, EFSSortOrd
 		}
 	}
 }
-EFSMatch EFSFilterMatchFile(EFSFilterRef const filter, int64_t const sortID, int64_t const lastFileID) {
+static EFSMatch EFSCollectionFilterMatch(EFSCollectionFilterRef const filter);
+EFSMatch EFSFilterMatch(EFSFilterRef const filter) {
+	assert(filter);
 	switch(filter->type) {
-		case EFSNoFilter:
-		case EFSPermissionFilter: {
-			if(lastFileID < sortID) return (EFSMatch){sortID, false};
-			return (EFSMatch){-1, false};
+		case EFSNoFilterType:
+		case EFSPermissionFilterType:
+		case EFSFileTypeFilterType:
+		case EFSFullTextFilterType:
+		case EFSLinkedFromFilterType:
+		case EFSLinksToFilterType: {
+			EFSQueryFilterRef const f = (EFSQueryFilterRef)filter;
+			return f->state;
 		}
-		case EFSFileTypeFilter:
-		case EFSFullTextFilter:
-		case EFSLinkedFromFilter:
-		case EFSLinksToFilter: {
-			sqlite3_bind_int64(filter->matchFile, filter->argc + 1, sortID);
-			sqlite3_bind_int64(filter->matchFile, filter->argc + 2, lastFileID);
-			int64_t fileID = -1;
-			bool_t more = false;
-			if(SQLITE_ROW == STEP(filter->matchFile)) {
-				fileID = sqlite3_column_int64(filter->matchFile, 1);
-				more = true;
-			}
-			sqlite3_reset(filter->matchFile);
-			if(fileID < 0) return (EFSMatch){-1, false};
-			return (EFSMatch){fileID, more};
-		}
-		case EFSIntersectionFilter:
-		case EFSUnionFilter: {
-			EFSFilterList const *const list = filter->data.filters;
-			int64_t firstFileID = INT64_MAX;
-			bool_t more = false;
-			for(index_t i = 0; i < list->count; ++i) {
-				EFSMatch const match = EFSFilterMatchFile(list->items[i], sortID, lastFileID);
-				if(match.fileID < 0) continue;
-				if(INT64_MAX != firstFileID || match.more) more = true;
-				if(match.fileID < firstFileID) firstFileID = match.fileID;
-			}
-			if(INT64_MAX == firstFileID) return (EFSMatch){-1, false};
-
-			for(index_t i = 0; i < list->count; ++i) {
-				int64_t const age = EFSFilterMatchAge(list->items[i], firstFileID);
-				if(EFSIntersectionFilter == filter->type) {
-					if(age <= sortID) continue;
-				} else {
-					if(age >= sortID) continue;
-				}
-				if(more) return EFSFilterMatchFile(filter, sortID, firstFileID);
-				return (EFSMatch){-1, false};
-			}
-			return (EFSMatch){firstFileID, more};
+		case EFSIntersectionFilterType:
+		case EFSUnionFilterType: {
+			return EFSCollectionFilterMatch((EFSCollectionFilterRef)filter);
 		}
 		default: {
 			assertf(0, "Unknown filter type %d\n", filter->type);
-			return (EFSMatch){-1, false};
+			return (EFSMatch){-1, -1};
+		}
+	}
+}
+static EFSMatch EFSCollectionFilterMatch(EFSCollectionFilterRef const filter) {
+	assert(filter);
+	EFSFilterList const *const list = filter->filters;
+	EFSFilterList *const advance = filter->advance;
+	assert(0 == advance->count);
+
+	for(;;) {
+		EFSMatch next = {-1, -1};
+
+		for(index_t i = 0; i < list->count; ++i) {
+			EFSMatch const match = EFSFilterMatch(list->items[i]);
+			if(EFSMatchInvalid(&match)) continue;
+			if(EFSMatchGT(&match, &next)) {
+				next = match;
+				advance->count = 0;
+			}
+			if(EFSMatchGTE(&match, &next)) {
+				assert(!EFSMatchInvalid(&next));
+				advance->items[advance->count++] = list->items[i];
+			}
+		}
+		if(EFSMatchInvalid(&next)) return (EFSMatch){-1, -1};
+
+		bool_t old = false;
+		for(index_t i = 0; i < list->count; ++i) {
+			int64_t const age = EFSFilterMatchAge(list->items[i], next.fileID);
+			if(EFSIntersectionFilterType == filter->type) {
+				if(age <= next.sortID) continue;
+			} else if(EFSUnionFilterType == filter->type) {
+				if(age >= next.sortID) continue;
+			}
+			old = true;
+			break;
+		}
+		if(!old) return next;
+		EFSFilterAdvance((EFSFilterRef)filter);
+		assert(0 == advance->count);
+	}
+}
+void EFSFilterAdvance(EFSFilterRef const filter) {
+	assert(filter);
+	switch(filter->type) {
+		case EFSNoFilterType:
+		case EFSPermissionFilterType:
+		case EFSFileTypeFilterType:
+		case EFSFullTextFilterType:
+		case EFSLinkedFromFilterType:
+		case EFSLinksToFilterType: {
+			EFSQueryFilterRef const f = (EFSQueryFilterRef)filter;
+			EFSMatch *const state = &f->state;
+			sqlite3_bind_int64(f->advance, f->argc+1, state->sortID);
+			sqlite3_bind_int64(f->advance, f->argc+2, state->fileID);
+			sqlite3_bind_int64(f->advance, f->argc+3, state->sortID);
+			if(SQLITE_ROW == STEP(f->advance)) {
+				state->sortID = sqlite3_column_int64(f->advance, 0);
+				state->fileID = sqlite3_column_int64(f->advance, 1);
+			} else {
+				state->sortID = -1;
+				state->fileID = -1;
+			}
+			sqlite3_reset(f->advance);
+			return;
+		}
+		case EFSIntersectionFilterType:
+		case EFSUnionFilterType: {
+			EFSCollectionFilterRef const f = (EFSCollectionFilterRef)filter;
+			EFSFilterList *const advance = f->advance;
+			for(index_t i = 0; i < advance->count; ++i) {
+				EFSFilterAdvance(advance->items[i]);
+			}
+			advance->count = 0;
+			break;
+		}
+		default: {
+			assertf(0, "Unknown filter type %d\n", filter->type);
+			break;
 		}
 	}
 }
 int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const fileID) {
 	switch(filter->type) {
-		case EFSNoFilter:
-		case EFSPermissionFilter:
+		case EFSNoFilterType:
+		case EFSPermissionFilterType:
 			return fileID;
-		case EFSFileTypeFilter:
-		case EFSFullTextFilter:
-		case EFSLinkedFromFilter:
-		case EFSLinksToFilter: {
-			sqlite3_bind_int64(filter->matchAge, filter->argc + 1, fileID);
+		case EFSFileTypeFilterType:
+		case EFSFullTextFilterType:
+		case EFSLinkedFromFilterType:
+		case EFSLinksToFilterType: {
+			EFSQueryFilterRef const f = (EFSQueryFilterRef)filter;
+			sqlite3_bind_int64(f->age, f->argc+1, fileID);
 			int64_t age = INT64_MAX;
-			if(SQLITE_ROW == STEP(filter->matchAge)) {
-				age = sqlite3_column_int64(filter->matchAge, 0);
+			if(SQLITE_ROW == STEP(f->age)) {
+				age = sqlite3_column_int64(f->age, 0);
 			}
-			sqlite3_reset(filter->matchAge);
+			sqlite3_reset(f->age);
 			return age;
 		}
-		case EFSIntersectionFilter:
-		case EFSUnionFilter: {
-			EFSFilterList const *const list = filter->data.filters;
+		case EFSIntersectionFilterType:
+		case EFSUnionFilterType: {
+			EFSCollectionFilterRef const f = (EFSCollectionFilterRef)filter;
+			EFSFilterList const *const list = f->filters;
 			int64_t minAge = INT64_MAX;
 			for(index_t i = 0; i < list->count; ++i) {
 				int64_t age = EFSFilterMatchAge(list->items[i], fileID);

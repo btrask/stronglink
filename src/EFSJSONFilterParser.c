@@ -46,13 +46,13 @@ EFSFilterRef EFSJSONFilterParserEnd(EFSJSONFilterParserRef const parser) {
 }
 
 EFSFilterType EFSFilterTypeFromString(strarg_t const type, size_t const len) {
-	if(substr("all", type, len)) return EFSNoFilter;
-	if(substr("intersection", type, len)) return EFSIntersectionFilter;
-	if(substr("union", type, len)) return EFSUnionFilter;
-	if(substr("fulltext", type, len)) return EFSFullTextFilter;
-	if(substr("linked-from", type, len)) return EFSLinkedFromFilter;
-	if(substr("links-to", type, len)) return EFSLinksToFilter;
-	return EFSFilterInvalid;
+	if(substr("all", type, len)) return EFSNoFilterType;
+	if(substr("intersection", type, len)) return EFSIntersectionFilterType;
+	if(substr("union", type, len)) return EFSUnionFilterType;
+	if(substr("fulltext", type, len)) return EFSFullTextFilterType;
+	if(substr("linked-from", type, len)) return EFSLinkedFromFilterType;
+	if(substr("links-to", type, len)) return EFSLinksToFilterType;
+	return EFSFilterTypeInvalid;
 }
 
 

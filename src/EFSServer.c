@@ -173,7 +173,7 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 		}
 		filter = EFSJSONFilterParserEnd(parser);
 	} else {
-		filter = EFSFilterCreate(EFSNoFilter);
+		filter = EFSFilterCreate(EFSNoFilterType);
 	}
 
 	// TODO: Use EFSSessionCreateFilteredURIList? Streaming version?
