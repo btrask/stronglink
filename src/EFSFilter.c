@@ -256,6 +256,10 @@ static bool_t EFSMatchGTE(EFSMatch const *const a, EFSMatch const *const b) {
 	"SELECT file_id AS sort_id,\n" \
 	"	file_id AS file_id\n" \
 	"FROM files WHERE 1"
+#define FILE_TYPE \
+	"SELECT file_id AS sort_id,\n" \
+	"	file_id AS file_id\n" \
+	"FROM files WHERE file_type = ?"
 #define LINKED_FROM \
 	"SELECT md.meta_file_id AS sort_id,\n" \
 	"	f.file_id AS file_id\n" \
@@ -283,30 +287,34 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, EFSMatch const pos, EFSSortDir
 	switch(filter->type) {
 		case EFSNoFilterType: {
 			EFSQueryFilterRef const f = (EFSQueryFilterRef)filter;
-			f->state = pos;
 			f->advance = QUERY(db, ADVANCE_DESC(ALL));
 			f->age = QUERY(db, AGE(ALL));
+			f->state = pos;
 			f->argc = 0;
 			EFSFilterAdvance(filter);
 			return 0;
 		}
-		case EFSLinkedFromFilterType: {
-			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
-			f->state = pos;
-			f->advance = QUERY(db, ADVANCE_DESC(LINKED_FROM));
-			sqlite3_bind_text(f->advance, 1, f->string, -1, SQLITE_STATIC);
-			f->age = QUERY(db, AGE(LINKED_FROM));
-			sqlite3_bind_text(f->age, 1, f->string, -1, SQLITE_STATIC);
-			f->argc = 1;
-			EFSFilterAdvance(filter);
-			return 0;
-		}
+		case EFSFileTypeFilterType:
+		case EFSLinkedFromFilterType:
 		case EFSLinksToFilterType: {
 			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
+			switch(filter->type) {
+				case EFSFileTypeFilterType:
+					f->advance = QUERY(db, ADVANCE_DESC(FILE_TYPE));
+					f->age = QUERY(db, AGE(FILE_TYPE));
+					break;
+				case EFSLinkedFromFilterType:
+					f->advance = QUERY(db, ADVANCE_DESC(LINKED_FROM));
+					f->age = QUERY(db, AGE(LINKED_FROM));
+					break;
+				case EFSLinksToFilterType:
+					f->advance = QUERY(db, ADVANCE_DESC(LINKS_TO));
+					f->age = QUERY(db, AGE(LINKS_TO));
+					break;
+				default: assert(0);
+			}
 			f->state = pos;
-			f->advance = QUERY(db, ADVANCE_DESC(LINKS_TO));
 			sqlite3_bind_text(f->advance, 1, f->string, -1, SQLITE_STATIC);
-			f->age = QUERY(db, AGE(LINKS_TO));
 			sqlite3_bind_text(f->age, 1, f->string, -1, SQLITE_STATIC);
 			f->argc = 1;
 			EFSFilterAdvance(filter);
@@ -355,7 +363,7 @@ static EFSMatch EFSCollectionFilterMatch(EFSCollectionFilterRef const filter) {
 	assert(filter);
 	EFSFilterList const *const list = filter->filters;
 	EFSFilterList *const advance = filter->advance;
-	assert(0 == advance->count);
+	advance->count = 0;
 
 	for(;;) {
 		EFSMatch next = {-1, -1};
