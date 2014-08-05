@@ -363,7 +363,7 @@ static EFSMatch EFSCollectionFilterMatch(EFSCollectionFilterRef const filter) {
 	assert(filter);
 	EFSFilterList const *const list = filter->filters;
 	EFSFilterList *const advance = filter->advance;
-	advance->count = 0;
+	if(advance->count) return EFSFilterMatch(advance->items[0]);
 
 	for(;;) {
 		EFSMatch next = {-1, -1};
