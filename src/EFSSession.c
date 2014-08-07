@@ -184,12 +184,13 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 
 	EFSFilterPrepare(filter, db);
 
-	// It'd be nice to combine these two into one query, but the query optimizer was being stupid. Basically, we're just doing a manual JOIN with `WHERE (meta_file_id = ?1 AND file_id < ?2) OR meta_file_id < ?1` and `ORDER BY meta_file_id DESC, file_id DESC`.
+	// It'd be nice to combine these two into one query, but the query optimizer was being stupid. Basically, we're just doing a manual JOIN with `WHERE (sort_id = ?1 AND file_id < ?2) OR sort_id < ?1` and `ORDER BY sort_id DESC, file_id DESC`.
+	// The problems with the query optimizer are: 1. it doesn't like SELECT DISTINCT (or GROUP BY) with two args, even if it's sorted on both of them, and 2. we have to use a temp b-tree for the second ORDER BY either way, but I think it's slower in a larger query...
 	sqlite3_stmt *selectMetaFiles = QUERY(db,
-		"SELECT DISTINCT file_id\n"
+		"SELECT DISTINCT file_id AS sort_id\n"
 		"FROM meta_files\n"
-		"WHERE file_id <= ?\n"
-		"ORDER BY file_id DESC");
+		"WHERE sort_id <= ?\n"
+		"ORDER BY sort_id DESC");
 	sqlite3_bind_int64(selectMetaFiles, 1, initialSortID);
 	sqlite3_stmt *selectFiles = QUERY(db,
 		"SELECT f.file_id\n"
