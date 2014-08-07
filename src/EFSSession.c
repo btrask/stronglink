@@ -179,25 +179,24 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 	URIListRef const URIs = URIListCreate(); // TODO: Just preallocate a regular array, since we know the maximum size. Get rid of URILists all together.
 
 	// TODO: Pagination
-	int64_t initialSortID = INT64_MAX;
-	int64_t initialFileID = INT64_MAX;
-	int64_t sortID = initialSortID;
-	int64_t fileID = initialFileID;
+	int64_t const initialSortID = INT64_MAX;
+	int64_t const initialFileID = INT64_MAX;
 
 	EFSFilterPrepare(filter, db);
 
 	// It'd be nice to combine these two into one query, but the query optimizer was being stupid. Basically, we're just doing a manual JOIN with `WHERE (meta_file_id = ?1 AND file_id < ?2) OR meta_file_id < ?1` and `ORDER BY meta_file_id DESC, file_id DESC`.
 	sqlite3_stmt *selectMetaFiles = QUERY(db,
-		"SELECT file_id, target_uri\n"
+		"SELECT DISTINCT file_id\n"
 		"FROM meta_files\n"
 		"WHERE file_id <= ?\n"
 		"ORDER BY file_id DESC");
-	sqlite3_bind_int64(selectMetaFiles, 1, sortID);
+	sqlite3_bind_int64(selectMetaFiles, 1, initialSortID);
 	sqlite3_stmt *selectFiles = QUERY(db,
-		"SELECT file_id\n"
-		"FROM file_uris\n"
-		"WHERE uri = ? AND file_id < ?\n"
-		"ORDER BY file_id DESC");
+		"SELECT f.file_id\n"
+		"FROM meta_files AS mf\n"
+		"INNER JOIN file_uris AS f ON (f.uri = mf.target_uri)\n"
+		"WHERE mf.file_id = ? AND f.file_id < ?\n"
+		"ORDER BY f.file_id DESC");
 
 	sqlite3_stmt *selectHash = QUERY(db,
 		"SELECT internal_hash\n"
@@ -205,15 +204,14 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 
 	EXEC(QUERY(db, "BEGIN DEFERRED TRANSACTION"));
 	while(SQLITE_ROW == STEP(selectMetaFiles)) {
-		sortID = sqlite3_column_int64(selectMetaFiles, 0);
-		strarg_t const URI = (strarg_t)sqlite3_column_text(selectMetaFiles, 1);
+		int64_t const sortID = sqlite3_column_int64(selectMetaFiles, 0);
 
-		sqlite3_bind_text(selectFiles, 1, URI, -1, SQLITE_STATIC);
+		sqlite3_bind_int64(selectFiles, 1, sortID);
 		sqlite3_bind_int64(selectFiles, 2, initialSortID == sortID ? initialFileID : INT64_MAX);
 		while(SQLITE_ROW == STEP(selectFiles)) {
-			fileID = sqlite3_column_int64(selectFiles, 0);
+			int64_t const fileID = sqlite3_column_int64(selectFiles, 0);
 			int64_t const age = EFSFilterMatchAge(filter, sortID, fileID);
-//			fprintf(stderr, "{%lld, %lld} -> %lld\n", sortID, fileID, age);
+			fprintf(stderr, "{%lld, %lld} -> %lld\n", sortID, fileID, age);
 			if(age != sortID) continue;
 			sqlite3_bind_int64(selectHash, 1, fileID);
 			if(SQLITE_ROW == STEP(selectHash)) {
