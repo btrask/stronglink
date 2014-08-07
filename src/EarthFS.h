@@ -79,26 +79,14 @@ typedef enum {
 	EFSPermissionFilterType,
 } EFSFilterType;
 
-typedef enum {
-	EFS_ASC,
-	EFS_DESC,
-} EFSSortDirection;
-
-typedef struct {
-	int64_t sortID;
-	int64_t fileID;
-} EFSMatch;
-
 EFSFilterRef EFSFilterCreate(EFSFilterType const type);
 EFSFilterRef EFSPermissionFilterCreate(int64_t const userID);
 void EFSFilterFree(EFSFilterRef *const filterptr);
 err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len);
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
 void EFSFilterPrint(EFSFilterRef const filter, count_t const indent);
-err_t EFSFilterPrepare(EFSFilterRef const filter, EFSMatch const pos, EFSSortDirection const dir, sqlite3f *const db);
-EFSMatch EFSFilterMatch(EFSFilterRef const filter);
-void EFSFilterAdvance(EFSFilterRef const filter);
-int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const fileID);
+err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3f *const db);
+int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const sortID, int64_t const fileID);
 
 EFSJSONFilterParserRef EFSJSONFilterParserCreate(void);
 void EFSJSONFilterParserFree(EFSJSONFilterParserRef *const parserptr);
