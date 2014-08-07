@@ -20,7 +20,7 @@ struct EFSMetaFile {
 	sqlite3f *tmpdb;
 
 	meta_state state;
-	str_t *metaURI;
+	str_t *targetURI;
 	str_t *field;
 };
 
@@ -100,35 +100,41 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 	if(!meta->parser) return -1;
 	EXEC(QUERY(db, "SAVEPOINT metafile"));
 
-	sqlite3_stmt *insertMetaLink = QUERY(db,
-		"INSERT OR IGNORE INTO meta_data\n"
-		"	(meta_file_id, uri, field, value)\n"
-		"VALUES (?, ?, 'link', ?)");
-	sqlite3_bind_int64(insertMetaLink, 1, fileID);
-	sqlite3_bind_text(insertMetaLink, 2, fileURI, -1, SQLITE_STATIC);
-	sqlite3_bind_text(insertMetaLink, 3, meta->metaURI, -1, SQLITE_STATIC);
-	EXEC(insertMetaLink); insertMetaLink = NULL;
+	sqlite3_stmt *insertMetaFile = QUERY(db,
+		"INSERT INTO meta_files (file_id, target_uri) VALUES (?, ?)");
+	sqlite3_bind_int64(insertMetaFile, 1, fileID);
+	sqlite3_bind_text(insertMetaFile, 2, fileURI, -1, SQLITE_STATIC);
+	sqlite3_step(insertMetaFile);
+	sqlite3_reset(insertMetaFile);
+	int64_t const self = sqlite3_last_insert_rowid(db->conn);
 
+	sqlite3_stmt *insertMetaData = QUERY(db,
+		"INSERT INTO meta_data (meta_file_id, field, value) VALUES (?, ?, ?)");
+	sqlite3_bind_int64(insertMetaData, 1, self);
+	sqlite3_bind_text(insertMetaData, 2, "link", -1, SQLITE_STATIC);
+	sqlite3_bind_text(insertMetaData, 3, meta->targetURI, -1, SQLITE_STATIC);
+	sqlite3_step(insertMetaData);
+	sqlite3_reset(insertMetaData);
 
-	// Would've been nice if we could ATTACH inside a transaction so we could INSERT SELECT. Although in practice this is probably just as fast because SQLite would have to do pretty much the same thing internally.
-	sqlite3_stmt *insertField = QUERY(db,
-		"INSERT OR IGNORE INTO meta_data\n"
-		"	(meta_file_id, uri, field, value)\n"
-		"VALUES (?, ?, ?, ?)");
-	sqlite3_bind_int64(insertField, 1, fileID);
-	sqlite3_bind_text(insertField, 2, meta->metaURI, -1, SQLITE_STATIC);
-	sqlite3_stmt *selectField = QUERY(meta->tmpdb,
+	sqlite3_bind_text(insertMetaFile, 2, meta->targetURI, -1, SQLITE_STATIC);
+	sqlite3_step(insertMetaFile);
+	sqlite3_reset(insertMetaFile);
+	sqlite3f_finalize(insertMetaFile); insertMetaFile = NULL;
+	int64_t const metaFileID = sqlite3_last_insert_rowid(db->conn);
+
+	sqlite3_bind_int64(insertMetaData, 1, metaFileID);
+	sqlite3_stmt *selectMetaData = QUERY(meta->tmpdb,
 		"SELECT field, value FROM fields");
-	while(SQLITE_ROW == STEP(selectField)) {
-		strarg_t const field = (strarg_t)sqlite3_column_text(selectField, 0);
-		strarg_t const value = (strarg_t)sqlite3_column_text(selectField, 1);
-		sqlite3_bind_text(insertField, 3, field, -1, SQLITE_STATIC);
-		sqlite3_bind_text(insertField, 4, value, -1, SQLITE_STATIC);
-		STEP(insertField);
-		sqlite3_reset(insertField);
+	while(SQLITE_ROW == STEP(selectMetaData)) {
+		strarg_t const field = (strarg_t)sqlite3_column_text(selectMetaData, 0);
+		strarg_t const value = (strarg_t)sqlite3_column_text(selectMetaData, 1);
+		sqlite3_bind_text(insertMetaData, 2, field, -1, SQLITE_STATIC);
+		sqlite3_bind_text(insertMetaData, 3, value, -1, SQLITE_STATIC);
+		STEP(insertMetaData);
+		sqlite3_reset(insertMetaData);
 	}
-	sqlite3f_finalize(selectField); selectField = NULL;
-	sqlite3f_finalize(insertField); insertField = NULL;
+	sqlite3f_finalize(selectMetaData); selectMetaData = NULL;
+	sqlite3f_finalize(insertMetaData); insertMetaData = NULL;
 
 	EXEC(QUERY(db, "RELEASE metafile"));
 	return 0;
@@ -139,7 +145,7 @@ static void cleanup(EFSMetaFileRef const meta) {
 	if(meta->parser) { yajl_free(meta->parser); meta->parser = NULL; }
 	sqlite3f_close(meta->tmpdb); meta->tmpdb = NULL;
 	meta->state = s_start;
-	FREE(&meta->metaURI);
+	FREE(&meta->targetURI);
 	FREE(&meta->field);
 }
 static void parse_error(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len) {
@@ -161,8 +167,8 @@ static int yajl_number(EFSMetaFileRef const meta, strarg_t const str, size_t con
 static int yajl_string(EFSMetaFileRef const meta, strarg_t const str, size_t const len) {
 	switch(meta->state) {
 		case s_meta_uri: {
-			if(meta->metaURI) return false;
-			meta->metaURI = strndup(str, len);
+			if(meta->targetURI) return false;
+			meta->targetURI = strndup(str, len);
 			meta->state = s_top;
 			return true;
 		} case s_field_value: {
@@ -197,6 +203,7 @@ static int yajl_map_key(EFSMetaFileRef const meta, strarg_t const key, size_t co
 	switch(meta->state) {
 		case s_top:
 			assertf(!meta->field, "Already parsing field");
+			// TODO: Rename this field targetURI since it's ambiguous, but also we want to move it out of the JSON object so that it is guaranteed to be at the beginning of the file and our whole parser can be single-pass.
 			if(substr("metaURI", key, len)) meta->state = s_meta_uri;
 			else {
 				meta->field = strndup(key, len);

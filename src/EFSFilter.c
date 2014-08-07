@@ -223,20 +223,24 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3f *const db) {
 					break;
 				case EFSLinkedFromFilterType:
 					f->age = QUERY(db,
-						"SELECT MIN(md.meta_file_id) AS age\n"
+						"SELECT MIN(mf.file_id) AS age\n"
 						"FROM file_uris AS f\n"
 						"INNER JOIN meta_data AS md\n"
-						"	ON (f.uri = md.value)\n"
+						"	ON (md.value = f.uri)\n"
+						"INNER JOIN meta_files AS mf\n"
+						"	ON (mf.meta_file_id = md.meta_file_id)\n"
 						"WHERE md.field = 'link'\n"
-						"AND md.value = ?\n"
+						"AND f.uri = ?\n"
 						"AND f.file_id = ?");
 					break;
 				case EFSLinksToFilterType:
 					f->age = QUERY(db,
-						"SELECT MIN(md.meta_file_id) AS age\n"
+						"SELECT MIN(mf.file_id) AS age\n"
 						"FROM file_uris AS f\n"
+						"INNER JOIN meta_files AS mf\n"
+						"	ON (mf.target_uri = f.uri)\n"
 						"INNER JOIN meta_data AS md\n"
-						"	ON (f.uri = md.uri)\n"
+						"	ON (md.meta_file_id = mf.meta_file_id)\n"
 						"WHERE md.field = 'link'\n"
 						"AND md.value = ?\n"
 						"AND f.file_id = ?");

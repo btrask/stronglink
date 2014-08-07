@@ -33,16 +33,22 @@ CREATE UNIQUE INDEX files_hash_unique ON files (internal_hash, file_type);
 CREATE INDEX file_type_index ON files (file_type);
 CREATE INDEX file_size_index ON files (file_size);
 
+CREATE TABLE meta_files (
+	meta_file_id INTEGER PRIMARY KEY NOT NULL,
+	file_id INTEGER NOT NULL,
+	target_uri TEXT NOT NULL
+);
+CREATE UNIQUE INDEX meta_files_index ON meta_files (file_id, target_uri);
+CREATE INDEX meta_files_reverse_index ON meta_files (target_uri, file_id);
+
 CREATE TABLE meta_data (
 	meta_data_id INTEGER PRIMARY KEY NOT NULL,
 	meta_file_id INTEGER NOT NULL,
-	uri TEXT NOT NULL,
 	field TEXT NOT NULL,
 	value TEXT NOT NULL
 );
-CREATE UNIQUE INDEX meta_data_preview_index ON meta_data (uri, field, value);
-CREATE INDEX meta_data_file_index ON meta_data (meta_file_id, value, uri, field);
-CREATE INDEX meta_data_age_index ON meta_data (uri, value, field, meta_file_id);
+CREATE UNIQUE INDEX meta_data_index ON meta_data (meta_file_id, field, value);
+CREATE INDEX meta_data_reverse_index ON meta_data (meta_file_id, value, field);
 
 CREATE TABLE file_uris (
 	file_uri_id INTEGER PRIMARY KEY NOT NULL,

@@ -128,9 +128,12 @@ static str_t *md_lookup(md_state const *const state, strarg_t const var) {
 	if(unsafe) return htmlenc(unsafe);
 	sqlite3f *db = EFSRepoDBConnect(state->blog->repo);
 	sqlite3_stmt *select = QUERY(db,
-		"SELECT value FROM meta_data\n"
-		"WHERE uri = ? AND field = ?\n"
-		"AND value != '' LIMIT 1");
+		"SELECT md.value\n"
+		"FROM meta_data AS md\n"
+		"INNER JOIN meta_files AS mf\n"
+		"	ON (md.meta_file_id = mf.meta_file_id)\n"
+		"WHERE mf.target_uri = ? AND md.field = ?\n"
+		"AND md.value != '' LIMIT 1");
 	sqlite3_bind_text(select, 1, state->fileURI, -1, SQLITE_STATIC);
 	sqlite3_bind_text(select, 2, var, -1, SQLITE_STATIC);
 	if(SQLITE_ROW == STEP(select)) {

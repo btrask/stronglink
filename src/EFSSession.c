@@ -188,10 +188,10 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 
 	// It'd be nice to combine these two into one query, but the query optimizer was being stupid. Basically, we're just doing a manual JOIN with `WHERE (meta_file_id = ?1 AND file_id < ?2) OR meta_file_id < ?1` and `ORDER BY meta_file_id DESC, file_id DESC`.
 	sqlite3_stmt *selectMetaFiles = QUERY(db,
-		"SELECT meta_file_id, uri\n"
-		"FROM meta_data\n"
-		"WHERE meta_file_id <= ?\n"
-		"ORDER BY meta_file_id DESC");
+		"SELECT file_id, target_uri\n"
+		"FROM meta_files\n"
+		"WHERE file_id <= ?\n"
+		"ORDER BY file_id DESC");
 	sqlite3_bind_int64(selectMetaFiles, 1, sortID);
 	sqlite3_stmt *selectFiles = QUERY(db,
 		"SELECT file_id\n"
