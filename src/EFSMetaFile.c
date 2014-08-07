@@ -101,15 +101,18 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 	EXEC(QUERY(db, "SAVEPOINT metafile"));
 
 	sqlite3_stmt *insertMetaFile = QUERY(db,
-		"INSERT INTO meta_files (file_id, target_uri) VALUES (?, ?)");
+		"INSERT INTO meta_files (file_id, target_uri)\n"
+		"VALUES (?, ?)");
+	sqlite3_stmt *insertMetaData = QUERY(db,
+		"INSERT INTO meta_data (meta_file_id, field, value)\n"
+		"VALUES (?, ?, ?)");
+
 	sqlite3_bind_int64(insertMetaFile, 1, fileID);
 	sqlite3_bind_text(insertMetaFile, 2, fileURI, -1, SQLITE_STATIC);
 	sqlite3_step(insertMetaFile);
 	sqlite3_reset(insertMetaFile);
 	int64_t const self = sqlite3_last_insert_rowid(db->conn);
 
-	sqlite3_stmt *insertMetaData = QUERY(db,
-		"INSERT INTO meta_data (meta_file_id, field, value) VALUES (?, ?, ?)");
 	sqlite3_bind_int64(insertMetaData, 1, self);
 	sqlite3_bind_text(insertMetaData, 2, "link", -1, SQLITE_STATIC);
 	sqlite3_bind_text(insertMetaData, 3, meta->targetURI, -1, SQLITE_STATIC);
@@ -133,8 +136,10 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 		STEP(insertMetaData);
 		sqlite3_reset(insertMetaData);
 	}
+
 	sqlite3f_finalize(selectMetaData); selectMetaData = NULL;
 	sqlite3f_finalize(insertMetaData); insertMetaData = NULL;
+	sqlite3f_finalize(insertMetaFile); insertMetaFile = NULL;
 
 	EXEC(QUERY(db, "RELEASE metafile"));
 	return 0;
