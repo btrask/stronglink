@@ -180,18 +180,24 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 
 	// TODO: Pagination
 	int64_t initialSortID = INT64_MAX;
+	int64_t initialFileID = INT64_MAX;
+	int64_t sortID = initialSortID;
+	int64_t fileID = initialFileID;
 
 	EFSFilterPrepare(filter, db);
 
+	// It'd be nice to combine these two into one query, but the query optimizer was being stupid. Basically, we're just doing a manual JOIN with `WHERE (meta_file_id = ?1 AND file_id < ?2) OR meta_file_id < ?1` and `ORDER BY meta_file_id DESC, file_id DESC`.
 	sqlite3_stmt *selectMetaFiles = QUERY(db,
-		"SELECT mf.file_id AS sort_id,\n"
-		"	f.file_id AS file_id\n"
-		"FROM meta_files AS mf\n"
-		"INNER JOIN file_uris AS f\n"
-		"	ON (f.uri = mf.target_uri)\n"
-		"WHERE mf.file_id < ?\n"
-		"ORDER BY mf.file_id DESC");
-	sqlite3_bind_int64(selectMetaFiles, 1, initialSortID);
+		"SELECT file_id, target_uri\n"
+		"FROM meta_files\n"
+		"WHERE file_id <= ?\n"
+		"ORDER BY file_id DESC");
+	sqlite3_bind_int64(selectMetaFiles, 1, sortID);
+	sqlite3_stmt *selectFiles = QUERY(db,
+		"SELECT file_id\n"
+		"FROM file_uris\n"
+		"WHERE uri = ? AND file_id < ?\n"
+		"ORDER BY file_id DESC");
 
 	sqlite3_stmt *selectHash = QUERY(db,
 		"SELECT internal_hash\n"
@@ -199,24 +205,33 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 
 	EXEC(QUERY(db, "BEGIN DEFERRED TRANSACTION"));
 	while(SQLITE_ROW == STEP(selectMetaFiles)) {
-		int64_t const sortID = sqlite3_column_int64(selectMetaFiles, 0);
-		int64_t const fileID = sqlite3_column_int64(selectMetaFiles, 1);
-		int64_t const age = EFSFilterMatchAge(filter, sortID, fileID);
-//		fprintf(stderr, "{%lld, %lld} -> %lld\n", sortID, fileID, age);
-		if(age != sortID) continue;
-		sqlite3_bind_int64(selectHash, 1, fileID);
-		if(SQLITE_ROW == STEP(selectHash)) {
-			strarg_t const hash = (strarg_t)sqlite3_column_text(selectHash, 0);
-			str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
-			URIListAddURI(URIs, URI, -1);
-			FREE(&URI);
+		sortID = sqlite3_column_int64(selectMetaFiles, 0);
+		strarg_t const URI = (strarg_t)sqlite3_column_text(selectMetaFiles, 1);
+
+		sqlite3_bind_text(selectFiles, 1, URI, -1, SQLITE_STATIC);
+		sqlite3_bind_int64(selectFiles, 2, initialSortID == sortID ? initialFileID : INT64_MAX);
+		while(SQLITE_ROW == STEP(selectFiles)) {
+			fileID = sqlite3_column_int64(selectFiles, 0);
+			int64_t const age = EFSFilterMatchAge(filter, sortID, fileID);
+//			fprintf(stderr, "{%lld, %lld} -> %lld\n", sortID, fileID, age);
+			if(age != sortID) continue;
+			sqlite3_bind_int64(selectHash, 1, fileID);
+			if(SQLITE_ROW == STEP(selectHash)) {
+				strarg_t const hash = (strarg_t)sqlite3_column_text(selectHash, 0);
+				str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
+				URIListAddURI(URIs, URI, -1);
+				FREE(&URI);
+			}
+			sqlite3_reset(selectHash);
+			if(URIListGetCount(URIs) >= max) break;
 		}
-		sqlite3_reset(selectHash);
+		sqlite3_reset(selectFiles);
 		if(URIListGetCount(URIs) >= max) break;
 	}
 	EXEC(QUERY(db, "COMMIT"));
 
 	sqlite3f_finalize(selectHash); selectHash = NULL;
+	sqlite3f_finalize(selectFiles); selectFiles = NULL;
 	sqlite3f_finalize(selectMetaFiles); selectMetaFiles = NULL;
 
 	EFSRepoDBClose(repo, &db);
