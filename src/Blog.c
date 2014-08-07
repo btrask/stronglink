@@ -228,14 +228,15 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	}
 
 	EFSFilterRef filter = EFSFilterCreate(EFSIntersectionFilterType);
-	EFSFilterRef const visibility = EFSFilterCreate(EFSLinksToFilterType);
-	EFSFilterAddStringArg(visibility, "efs://user", -1);
-	EFSFilterAddFilterArg(filter, visibility);
 
 	BlogQueryValues *params = QSValuesCopy(qs, BlogQueryFields, numberof(BlogQueryFields));
 	EFSFilterRef const query = EFSUserFilterParse(params->query);
 	if(query) EFSFilterAddFilterArg(filter, query);
 	QSValuesFree((QSValues *)&params, numberof(BlogQueryFields));
+
+	EFSFilterRef const visibility = EFSFilterCreate(EFSLinksToFilterType);
+	EFSFilterAddStringArg(visibility, "efs://user", -1);
+	EFSFilterAddFilterArg(filter, visibility);
 
 	EFSFilterPrint(query, 0); // DEBUG
 
