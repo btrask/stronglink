@@ -122,7 +122,6 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 	sqlite3_bind_text(insertMetaFile, 2, meta->targetURI, -1, SQLITE_STATIC);
 	sqlite3_step(insertMetaFile);
 	sqlite3_reset(insertMetaFile);
-	sqlite3f_finalize(insertMetaFile); insertMetaFile = NULL;
 	int64_t const metaFileID = sqlite3_last_insert_rowid(db->conn);
 
 	sqlite3_bind_int64(insertMetaData, 1, metaFileID);
