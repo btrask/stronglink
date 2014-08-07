@@ -210,43 +210,44 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3f *const db) {
 		case EFSNoFilterType: {
 			return 0;
 		}
-		case EFSFileTypeFilterType:
-		case EFSLinkedFromFilterType:
+		case EFSFileTypeFilterType: {
+			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
+			f->age = QUERY(db,
+				"SELECT MIN(file_id) AS age\n"
+				"FROM files\n"
+				"WHERE file_type = ? AND file_id = ?");
+			sqlite3_bind_text(f->age, 1, f->string, -1, SQLITE_STATIC);
+			f->arg = 2;
+			return 0;
+		}
+		case EFSLinkedFromFilterType: {
+			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
+			f->age = QUERY(db,
+				"SELECT MIN(mf.file_id) AS age\n"
+				"FROM file_uris AS f\n"
+				"INNER JOIN meta_data AS md\n"
+				"	ON (md.value = f.uri)\n"
+				"INNER JOIN meta_files AS mf\n"
+				"	ON (mf.meta_file_id = md.meta_file_id)\n"
+				"WHERE md.field = 'link'\n"
+				"AND f.uri = ?\n"
+				"AND f.file_id = ?");
+			sqlite3_bind_text(f->age, 1, f->string, -1, SQLITE_STATIC);
+			f->arg = 2;
+			return 0;
+		}
 		case EFSLinksToFilterType: {
 			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
-			switch(filter->type) {
-				case EFSFileTypeFilterType:
-					f->age = QUERY(db,
-						"SELECT MIN(file_id) AS age\n"
-						"FROM files\n"
-						"WHERE file_type = ? AND file_id = ?");
-					break;
-				case EFSLinkedFromFilterType:
-					f->age = QUERY(db,
-						"SELECT MIN(mf.file_id) AS age\n"
-						"FROM file_uris AS f\n"
-						"INNER JOIN meta_data AS md\n"
-						"	ON (md.value = f.uri)\n"
-						"INNER JOIN meta_files AS mf\n"
-						"	ON (mf.meta_file_id = md.meta_file_id)\n"
-						"WHERE md.field = 'link'\n"
-						"AND f.uri = ?\n"
-						"AND f.file_id = ?");
-					break;
-				case EFSLinksToFilterType:
-					f->age = QUERY(db,
-						"SELECT MIN(mf.file_id) AS age\n"
-						"FROM file_uris AS f\n"
-						"INNER JOIN meta_files AS mf\n"
-						"	ON (mf.target_uri = f.uri)\n"
-						"INNER JOIN meta_data AS md\n"
-						"	ON (md.meta_file_id = mf.meta_file_id)\n"
-						"WHERE md.field = 'link'\n"
-						"AND md.value = ?\n"
-						"AND f.file_id = ?");
-					break;
-				default: assert(0);
-			}
+			f->age = QUERY(db,
+				"SELECT MIN(mf.file_id) AS age\n"
+				"FROM file_uris AS f\n"
+				"INNER JOIN meta_files AS mf\n"
+				"	ON (mf.target_uri = f.uri)\n"
+				"INNER JOIN meta_data AS md\n"
+				"	ON (md.meta_file_id = mf.meta_file_id)\n"
+				"WHERE md.field = 'link'\n"
+				"AND md.value = ?\n"
+				"AND f.file_id = ?");
 			sqlite3_bind_text(f->age, 1, f->string, -1, SQLITE_STATIC);
 			f->arg = 2;
 			return 0;
@@ -288,6 +289,7 @@ static int64_t EFSCollectionFilterMatchAge(EFSCollectionFilterRef const filter, 
 	return sortID;
 }
 int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const sortID, int64_t const fileID) {
+	assert(filter);
 	switch(filter->type) {
 		case EFSNoFilterType:
 			return fileID;
