@@ -80,7 +80,7 @@ void EFSFilterFree(EFSFilterRef *const filterptr) {
 		}
 		case EFSPermissionFilterType: {
 			EFSQueryFilterRef const f = (EFSQueryFilterRef)filter;
-			sqlite3f_finalize(f->age); f->age = NULL;
+			sqlite3_finalize(f->age); f->age = NULL;
 			break;
 		}
 		case EFSFileTypeFilterType:
@@ -88,7 +88,7 @@ void EFSFilterFree(EFSFilterRef *const filterptr) {
 		case EFSLinkedFromFilterType:
 		case EFSLinksToFilterType: {
 			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
-			sqlite3f_finalize(f->age); f->age = NULL;
+			sqlite3_finalize(f->age); f->age = NULL;
 			FREE(&f->string);
 			break;
 		}
@@ -212,7 +212,7 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3f *const db) {
 		}
 		case EFSFileTypeFilterType: {
 			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
-			f->age = QUERY(db,
+			f->age = QUERY_UNCACHED(db,
 				"SELECT MIN(file_id) AS age\n"
 				"FROM files\n"
 				"WHERE file_type = ? AND file_id = ?");
@@ -222,7 +222,7 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3f *const db) {
 		}
 		case EFSLinkedFromFilterType: {
 			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
-			f->age = QUERY(db,
+			f->age = QUERY_UNCACHED(db,
 				"SELECT MIN(mf.file_id) AS age\n"
 				"FROM file_uris AS f\n"
 				"INNER JOIN meta_data AS md\n"
@@ -238,7 +238,7 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3f *const db) {
 		}
 		case EFSLinksToFilterType: {
 			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
-			f->age = QUERY(db,
+			f->age = QUERY_UNCACHED(db,
 				"SELECT MIN(mf.file_id) AS age\n"
 				"FROM file_uris AS f\n"
 				"INNER JOIN meta_files AS mf\n"

@@ -211,7 +211,7 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 		while(SQLITE_ROW == STEP(selectFiles)) {
 			int64_t const fileID = sqlite3_column_int64(selectFiles, 0);
 			int64_t const age = EFSFilterMatchAge(filter, sortID, fileID);
-			fprintf(stderr, "{%lld, %lld} -> %lld\n", sortID, fileID, age);
+//			fprintf(stderr, "{%lld, %lld} -> %lld\n", sortID, fileID, age);
 			if(age != sortID) continue;
 			sqlite3_bind_int64(selectHash, 1, fileID);
 			if(SQLITE_ROW == STEP(selectHash)) {
