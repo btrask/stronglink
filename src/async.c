@@ -7,30 +7,28 @@
 uv_loop_t *loop = NULL;
 cothread_t yield = NULL;
 
-static cothread_t reap = NULL;
-static cothread_t zombie = NULL;
-
-static void reaper(void) {
-	for(;;) {
-		co_delete(zombie); zombie = NULL;
-		co_switch(yield);
-	}
-}
 void async_init(void) {
 	loop = uv_default_loop();
 	yield = co_active();
-	reap = co_create(STACK_MINIMUM, reaper);
-	assert(reap && "async_init() thread creation failed");
 }
 
+static cothread_t trampoline = NULL;
 static void (*arg_func)(void *) = NULL;
 static void *arg_arg = NULL;
+
+static void trampoline_fn(void) {
+	for(;;) {
+		void (*const func)(void *) = arg_func;
+		void *const arg = arg_arg;
+		func(arg);
+		co_switch(yield);
+	}
+}
 static void async_start(void) {
 	void (*const func)(void *) = arg_func;
 	void *const arg = arg_arg;
 	func(arg);
-	zombie = co_active();
-	co_switch(reap);
+	async_call(co_delete, co_active());
 }
 int async_thread(size_t const stack, void (*const func)(void *), void *const arg) {
 	cothread_t const thread = co_create(stack, async_start);
@@ -40,7 +38,15 @@ int async_thread(size_t const stack, void (*const func)(void *), void *const arg
 	async_wakeup(thread);
 	return 0;
 }
-
+void async_call(void (*const func)(void *), void *const arg) {
+	if(!trampoline) {
+		trampoline = co_create(STACK_DEFAULT, trampoline_fn);
+		assert(trampoline);
+	}
+	arg_func = func;
+	arg_arg = arg;
+	co_switch(trampoline);
+}
 void async_wakeup(cothread_t const thread) {
 	if(thread == yield) return; // The main thread will get woken up when we yield to it. It would never yield back to us.
 	cothread_t const original = yield;

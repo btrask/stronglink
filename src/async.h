@@ -59,6 +59,7 @@ static void async_connect_cb(uv_connect_t *const req, int const status) {
 
 void async_init(void);
 int async_thread(size_t const stack, void (*const func)(void *), void *const arg);
+void async_call(void (*const func)(void *), void *const arg); // Conceptually, yields and then calls `func` from the main thread. Similar to `nextTick`.
 void async_wakeup(cothread_t const thread);
 
 int async_random(unsigned char *const buf, size_t const len);
