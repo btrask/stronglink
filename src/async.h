@@ -124,6 +124,13 @@ void async_rwlock_wrunlock(async_rwlock_t *const lock);
 int async_rwlock_upgrade(async_rwlock_t *const lock);
 void async_rwlock_downgrade(async_rwlock_t *const lock);
 
+// async_worker.c
+typedef struct async_worker_s async_worker_t;
+async_worker_t *async_worker_create(void);
+void async_worker_free(async_worker_t *const worker);
+void async_worker_enter(async_worker_t *const worker);
+void async_worker_leave(async_worker_t *const worker);
+
 // async_sqlite.c
 void async_sqlite_register(void);
 
