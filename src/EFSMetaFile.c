@@ -57,7 +57,7 @@ EFSMetaFileRef EFSMetaFileCreate(strarg_t const type) {
 		EFSMetaFileFree(&meta);
 		return NULL;
 	}
-	EXEC(meta->tmpdb, QUERY(meta->tmpdb,
+	EXEC(QUERY(meta->tmpdb,
 		"CREATE TABLE fields (\n"
 		"	field TEXT NOT NULL,\n"
 		"	value TEXT NOT NULL\n"
@@ -98,7 +98,7 @@ err_t EFSMetaFileEnd(EFSMetaFileRef const meta) {
 err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t const fileURI, sqlite3f *const db) {
 	if(!meta) return 0;
 	if(!meta->parser) return -1;
-	EXEC(db, QUERY(db, "SAVEPOINT metafile"));
+	EXEC(QUERY(db, "SAVEPOINT metafile"));
 
 	sqlite3_stmt *insertMetaFile = QUERY(db,
 		"INSERT INTO meta_files (file_id, target_uri)\n"
@@ -107,40 +107,40 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 		"INSERT INTO meta_data (meta_file_id, field, value)\n"
 		"VALUES (?, ?, ?)");
 
-	async_sqlite3_bind_int64(db->worker, insertMetaFile, 1, fileID);
-	async_sqlite3_bind_text(db->worker, insertMetaFile, 2, fileURI, -1, SQLITE_STATIC);
-	async_sqlite3_step(db->worker, insertMetaFile);
-	async_sqlite3_reset(db->worker, insertMetaFile);
+	sqlite3_bind_int64(insertMetaFile, 1, fileID);
+	sqlite3_bind_text(insertMetaFile, 2, fileURI, -1, SQLITE_STATIC);
+	sqlite3_step(insertMetaFile);
+	sqlite3_reset(insertMetaFile);
 	int64_t const self = sqlite3_last_insert_rowid(db->conn);
 
-	async_sqlite3_bind_int64(db->worker, insertMetaData, 1, self);
-	async_sqlite3_bind_text(db->worker, insertMetaData, 2, "link", -1, SQLITE_STATIC);
-	async_sqlite3_bind_text(db->worker, insertMetaData, 3, meta->targetURI, -1, SQLITE_STATIC);
-	async_sqlite3_step(db->worker, insertMetaData);
-	async_sqlite3_reset(db->worker, insertMetaData);
+	sqlite3_bind_int64(insertMetaData, 1, self);
+	sqlite3_bind_text(insertMetaData, 2, "link", -1, SQLITE_STATIC);
+	sqlite3_bind_text(insertMetaData, 3, meta->targetURI, -1, SQLITE_STATIC);
+	sqlite3_step(insertMetaData);
+	sqlite3_reset(insertMetaData);
 
-	async_sqlite3_bind_text(db->worker, insertMetaFile, 2, meta->targetURI, -1, SQLITE_STATIC);
-	async_sqlite3_step(db->worker, insertMetaFile);
-	async_sqlite3_reset(db->worker, insertMetaFile);
+	sqlite3_bind_text(insertMetaFile, 2, meta->targetURI, -1, SQLITE_STATIC);
+	sqlite3_step(insertMetaFile);
+	sqlite3_reset(insertMetaFile);
 	int64_t const metaFileID = sqlite3_last_insert_rowid(db->conn);
 
-	async_sqlite3_bind_int64(db->worker, insertMetaData, 1, metaFileID);
+	sqlite3_bind_int64(insertMetaData, 1, metaFileID);
 	sqlite3_stmt *selectMetaData = QUERY(meta->tmpdb,
 		"SELECT field, value FROM fields");
-	while(SQLITE_ROW == STEP(meta->tmpdb, selectMetaData)) {
-		strarg_t const field = (strarg_t)async_sqlite3_column_text(meta->tmpdb->worker, selectMetaData, 0);
-		strarg_t const value = (strarg_t)async_sqlite3_column_text(meta->tmpdb->worker, selectMetaData, 1);
-		async_sqlite3_bind_text(db->worker, insertMetaData, 2, field, -1, SQLITE_STATIC);
-		async_sqlite3_bind_text(db->worker, insertMetaData, 3, value, -1, SQLITE_STATIC);
-		STEP(db, insertMetaData);
-		async_sqlite3_reset(db->worker, insertMetaData);
+	while(SQLITE_ROW == STEP(selectMetaData)) {
+		strarg_t const field = (strarg_t)sqlite3_column_text(selectMetaData, 0);
+		strarg_t const value = (strarg_t)sqlite3_column_text(selectMetaData, 1);
+		sqlite3_bind_text(insertMetaData, 2, field, -1, SQLITE_STATIC);
+		sqlite3_bind_text(insertMetaData, 3, value, -1, SQLITE_STATIC);
+		STEP(insertMetaData);
+		sqlite3_reset(insertMetaData);
 	}
 
-	sqlite3f_finalize(db, selectMetaData); selectMetaData = NULL;
-	sqlite3f_finalize(db, insertMetaData); insertMetaData = NULL;
-	sqlite3f_finalize(db, insertMetaFile); insertMetaFile = NULL;
+	sqlite3f_finalize(selectMetaData); selectMetaData = NULL;
+	sqlite3f_finalize(insertMetaData); insertMetaData = NULL;
+	sqlite3f_finalize(insertMetaFile); insertMetaFile = NULL;
 
-	EXEC(db, QUERY(db, "RELEASE metafile"));
+	EXEC(QUERY(db, "RELEASE metafile"));
 	return 0;
 }
 
@@ -181,9 +181,9 @@ static int yajl_string(EFSMetaFileRef const meta, strarg_t const str, size_t con
 			sqlite3_stmt *insertMeta = QUERY(meta->tmpdb,
 				"INSERT OR IGNORE INTO fields (field, value)\n"
 				"VALUES (?, ?)");
-			async_sqlite3_bind_text(meta->tmpdb->worker, insertMeta, 1, meta->field, -1, SQLITE_STATIC);
-			async_sqlite3_bind_text(meta->tmpdb->worker, insertMeta, 2, str, len, SQLITE_STATIC);
-			EXEC(meta->tmpdb, insertMeta); insertMeta = NULL;
+			sqlite3_bind_text(insertMeta, 1, meta->field, -1, SQLITE_STATIC);
+			sqlite3_bind_text(insertMeta, 2, str, len, SQLITE_STATIC);
+			EXEC(insertMeta); insertMeta = NULL;
 			// TODO: Full text indexing.
 			if(s_field_value == meta->state) {
 				FREE(&meta->field);

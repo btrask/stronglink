@@ -86,7 +86,7 @@ err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
 void EFSFilterPrint(EFSFilterRef const filter, count_t const indent);
 err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3f *const db);
-int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const sortID, int64_t const fileID, sqlite3f *const db);
+int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const sortID, int64_t const fileID);
 
 EFSJSONFilterParserRef EFSJSONFilterParserCreate(void);
 void EFSJSONFilterParserFree(EFSJSONFilterParserRef *const parserptr);

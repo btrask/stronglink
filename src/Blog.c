@@ -134,9 +134,9 @@ static str_t *md_lookup(md_state const *const state, strarg_t const var) {
 		"	ON (md.meta_file_id = mf.meta_file_id)\n"
 		"WHERE mf.target_uri = ? AND md.field = ?\n"
 		"AND md.value != '' LIMIT 1");
-	async_sqlite3_bind_text(db->worker, select, 1, state->fileURI, -1, SQLITE_STATIC);
-	async_sqlite3_bind_text(db->worker, select, 2, var, -1, SQLITE_STATIC);
-	if(SQLITE_ROW == STEP(db, select)) {
+	sqlite3_bind_text(select, 1, state->fileURI, -1, SQLITE_STATIC);
+	sqlite3_bind_text(select, 2, var, -1, SQLITE_STATIC);
+	if(SQLITE_ROW == STEP(select)) {
 		unsafe = (strarg_t)sqlite3_column_text(select, 0);
 	}
 	if(!unsafe) {
@@ -145,7 +145,7 @@ static str_t *md_lookup(md_state const *const state, strarg_t const var) {
 		if(0 == strcmp(var, "description")) unsafe = "(no description)";
 	}
 	str_t *result = htmlenc(unsafe);
-	sqlite3f_finalize(db, select); select = NULL;
+	sqlite3f_finalize(select); select = NULL;
 	EFSRepoDBClose(state->blog->repo, &db);
 	return result;
 }
@@ -330,14 +330,14 @@ static bool_t postSubmission(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	}
 
 	sqlite3f *db = EFSRepoDBConnect(blog->repo);
-	EXEC(db, QUERY(db, "SAVEPOINT addpair"));
+	EXEC(QUERY(db, "SAVEPOINT addpair"));
 
 	bool_t const success =
 		EFSSubmissionStore(sub, db) >= 0 &&
 		EFSSubmissionStore(meta, db) >= 0;
 
-	if(!success) EXEC(db, QUERY(db, "ROLLBACK TO addpair"));
-	EXEC(db, QUERY(db, "RELEASE addpair"));
+	if(!success) EXEC(QUERY(db, "ROLLBACK TO addpair"));
+	EXEC(QUERY(db, "RELEASE addpair"));
 	EFSRepoDBClose(blog->repo, &db);
 	EFSSubmissionFree(&sub);
 	EFSSubmissionFree(&meta);

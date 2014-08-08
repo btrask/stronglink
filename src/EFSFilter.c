@@ -15,19 +15,25 @@ typedef struct EFSCollectionFilter* EFSCollectionFilterRef;
 
 #define EFS_FILTER_BASE \
 	EFSFilterType type;
+#define EFS_FILTER_QUERY \
+	sqlite3_stmt *age; \
+	int arg;
 
 struct EFSFilter {
 	EFS_FILTER_BASE
 };
 struct EFSQueryFilter {
 	EFS_FILTER_BASE
+	EFS_FILTER_QUERY
 };
 struct EFSPermissionFilter {
 	EFS_FILTER_BASE
+	EFS_FILTER_QUERY
 	int64_t userID;
 };
 struct EFSStringFilter {
 	EFS_FILTER_BASE
+	EFS_FILTER_QUERY
 	str_t *string;
 };
 struct EFSCollectionFilter {
@@ -69,14 +75,20 @@ void EFSFilterFree(EFSFilterRef *const filterptr) {
 	EFSFilterRef filter = *filterptr;
 	if(!filter) return;
 	switch(filter->type) {
-		case EFSNoFilterType:
-		case EFSPermissionFilterType:
+		case EFSNoFilterType: {
 			break;
+		}
+		case EFSPermissionFilterType: {
+			EFSQueryFilterRef const f = (EFSQueryFilterRef)filter;
+			sqlite3_finalize(f->age); f->age = NULL;
+			break;
+		}
 		case EFSFileTypeFilterType:
 		case EFSFullTextFilterType:
 		case EFSLinkedFromFilterType:
 		case EFSLinksToFilterType: {
 			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
+			sqlite3_finalize(f->age); f->age = NULL;
 			FREE(&f->string);
 			break;
 		}
@@ -192,20 +204,75 @@ void EFSFilterPrint(EFSFilterRef const filter, count_t const indent) {
 	}
 }
 
-static int64_t getAge(sqlite3f *const db, sqlite3_stmt *const stmt) {
-	int64_t age = INT64_MAX;
-	if(SQLITE_ROW == STEP(db, stmt) && SQLITE_NULL != async_sqlite3_column_type(db->worker, stmt, 0)) {
-		age = async_sqlite3_column_int64(db->worker, stmt, 0);
+err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3f *const db) {
+	assert(filter);
+	switch(filter->type) {
+		case EFSNoFilterType: {
+			return 0;
+		}
+		case EFSFileTypeFilterType: {
+			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
+			f->age = QUERY_UNCACHED(db,
+				"SELECT MIN(file_id) AS age\n"
+				"FROM files\n"
+				"WHERE file_type = ? AND file_id = ?");
+			sqlite3_bind_text(f->age, 1, f->string, -1, SQLITE_STATIC);
+			f->arg = 2;
+			return 0;
+		}
+		case EFSLinkedFromFilterType: {
+			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
+			f->age = QUERY_UNCACHED(db,
+				"SELECT MIN(mf.file_id) AS age\n"
+				"FROM file_uris AS f\n"
+				"INNER JOIN meta_data AS md\n"
+				"	ON (md.value = f.uri)\n"
+				"INNER JOIN meta_files AS mf\n"
+				"	ON (mf.meta_file_id = md.meta_file_id)\n"
+				"WHERE md.field = 'link'\n"
+				"AND f.uri = ?\n"
+				"AND f.file_id = ?");
+			sqlite3_bind_text(f->age, 1, f->string, -1, SQLITE_STATIC);
+			f->arg = 2;
+			return 0;
+		}
+		case EFSLinksToFilterType: {
+			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
+			f->age = QUERY_UNCACHED(db,
+				"SELECT MIN(mf.file_id) AS age\n"
+				"FROM file_uris AS f\n"
+				"INNER JOIN meta_files AS mf\n"
+				"	ON (mf.target_uri = f.uri)\n"
+				"INNER JOIN meta_data AS md\n"
+				"	ON (md.meta_file_id = mf.meta_file_id)\n"
+				"WHERE md.field = 'link'\n"
+				"AND md.value = ?\n"
+				"AND f.file_id = ?");
+			sqlite3_bind_text(f->age, 1, f->string, -1, SQLITE_STATIC);
+			f->arg = 2;
+			return 0;
+		}
+		case EFSIntersectionFilterType:
+		case EFSUnionFilterType: {
+			EFSCollectionFilterRef const f = (EFSCollectionFilterRef)filter;
+			EFSFilterList const *const list = f->filters;
+			for(index_t i = 0; i < list->count; ++i) {
+				EFSFilterPrepare(list->items[i], db);
+			}
+			return 0;
+		}
+		default: {
+			assertf(0, "Unknown filter type %d\n", filter->type);
+			return -1;
+		}
 	}
-	sqlite3f_finalize(db, stmt);
-	return age;
 }
-static int64_t EFSCollectionFilterMatchAge(EFSCollectionFilterRef const filter, int64_t const sortID, int64_t const fileID, sqlite3f *const db) {
+static int64_t EFSCollectionFilterMatchAge(EFSCollectionFilterRef const filter, int64_t const sortID, int64_t const fileID) {
 	assert(filter);
 	bool_t hit = false;
 	EFSFilterList const *const list = filter->filters;
 	for(index_t i = 0; i < list->count; ++i) {
-		int64_t const age = EFSFilterMatchAge(list->items[i], sortID, fileID, db);
+		int64_t const age = EFSFilterMatchAge(list->items[i], sortID, fileID);
 		if(age == sortID) {
 			hit = true;
 		} else if(EFSIntersectionFilterType == filter->type) {
@@ -221,59 +288,29 @@ static int64_t EFSCollectionFilterMatchAge(EFSCollectionFilterRef const filter, 
 	}
 	return sortID;
 }
-int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const sortID, int64_t const fileID, sqlite3f *const db) {
+int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const sortID, int64_t const fileID) {
 	assert(filter);
 	switch(filter->type) {
 		case EFSNoFilterType:
 			return fileID;
-//		case EFSPermissionFilterType:
-		case EFSFileTypeFilterType: {
-			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
-			sqlite3_stmt *stmt = QUERY(db,
-				"SELECT MIN(file_id) AS age\n"
-				"FROM files\n"
-				"WHERE file_type = ? AND file_id = ?");
-			async_sqlite3_bind_text(db->worker, stmt, 1, f->string, -1, SQLITE_STATIC);
-			async_sqlite3_bind_int64(db->worker, stmt, 2, fileID);
-			return getAge(db, stmt);
-		}
-//		case EFSFullTextFilterType:
-		case EFSLinkedFromFilterType: {
-			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
-			sqlite3_stmt *stmt = QUERY(db,
-				"SELECT MIN(mf.file_id) AS age\n"
-				"FROM file_uris AS f\n"
-				"INNER JOIN meta_data AS md\n"
-				"	ON (md.value = f.uri)\n"
-				"INNER JOIN meta_files AS mf\n"
-				"	ON (mf.meta_file_id = md.meta_file_id)\n"
-				"WHERE md.field = 'link'\n"
-				"AND f.uri = ?\n"
-				"AND f.file_id = ?");
-			async_sqlite3_bind_text(db->worker, stmt, 1, f->string, -1, SQLITE_STATIC);
-			async_sqlite3_bind_int64(db->worker, stmt, 2, fileID);
-			return getAge(db, stmt);
-		}
+		case EFSPermissionFilterType:
+		case EFSFileTypeFilterType:
+		case EFSFullTextFilterType:
+		case EFSLinkedFromFilterType:
 		case EFSLinksToFilterType: {
-			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
-			sqlite3_stmt *stmt = QUERY(db,
-				"SELECT MIN(mf.file_id) AS age\n"
-				"FROM file_uris AS f\n"
-				"INNER JOIN meta_files AS mf\n"
-				"	ON (mf.target_uri = f.uri)\n"
-				"INNER JOIN meta_data AS md\n"
-				"	ON (md.meta_file_id = mf.meta_file_id)\n"
-				"WHERE md.field = 'link'\n"
-				"AND md.value = ?\n"
-				"AND f.file_id = ?");
-			async_sqlite3_bind_text(db->worker, stmt, 1, f->string, -1, SQLITE_STATIC);
-			async_sqlite3_bind_int64(db->worker, stmt, 2, fileID);
-			return getAge(db, stmt);
+			EFSQueryFilterRef const f = (EFSQueryFilterRef)filter;
+			sqlite3_bind_int64(f->age, f->arg, fileID);
+			int64_t age = INT64_MAX;
+			if(SQLITE_ROW == STEP(f->age) && SQLITE_NULL != sqlite3_column_type(f->age, 0)) {
+				age = sqlite3_column_int64(f->age, 0);
+			}
+			sqlite3_reset(f->age);
+			return age;
 		}
 		case EFSIntersectionFilterType:
 		case EFSUnionFilterType: {
 			EFSCollectionFilterRef const f = (EFSCollectionFilterRef)filter;
-			return EFSCollectionFilterMatchAge(f, sortID, fileID, db);
+			return EFSCollectionFilterMatchAge(f, sortID, fileID);
 		}
 		default: {
 			assertf(0, "Unknown filter type %d\n", filter->type);

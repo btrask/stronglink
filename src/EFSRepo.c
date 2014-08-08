@@ -115,20 +115,20 @@ void EFSRepoStartPulls(EFSRepoRef const repo) {
 		"SELECT\n"
 		"	pull_id, user_id, host, username, password, cookie, query\n"
 		"FROM pulls");
-	while(SQLITE_ROW == STEP(db, select)) {
+	while(SQLITE_ROW == STEP(select)) {
 		int col = 0;
-		int64_t const pullID = async_sqlite3_column_int64(db->worker, select, col++);
-		int64_t const userID = async_sqlite3_column_int64(db->worker, select, col++);
-		strarg_t const host = (strarg_t)async_sqlite3_column_text(db->worker, select, col++);
-		strarg_t const username = (strarg_t)async_sqlite3_column_text(db->worker, select, col++);
-		strarg_t const password = (strarg_t)async_sqlite3_column_text(db->worker, select, col++);
-		strarg_t const cookie = (strarg_t)async_sqlite3_column_text(db->worker, select, col++);
-		strarg_t const query = (strarg_t)async_sqlite3_column_text(db->worker, select, col++);
+		int64_t const pullID = sqlite3_column_int64(select, col++);
+		int64_t const userID = sqlite3_column_int64(select, col++);
+		strarg_t const host = (strarg_t)sqlite3_column_text(select, col++);
+		strarg_t const username = (strarg_t)sqlite3_column_text(select, col++);
+		strarg_t const password = (strarg_t)sqlite3_column_text(select, col++);
+		strarg_t const cookie = (strarg_t)sqlite3_column_text(select, col++);
+		strarg_t const query = (strarg_t)sqlite3_column_text(select, col++);
 		EFSPullRef const pull = EFSRepoCreatePull(repo, pullID, userID, host, username, password, cookie, query);
 		EFSPullStart(pull);
 		// TODO: Keep a list?
 	}
-	sqlite3f_finalize(db, select); select = NULL;
+	sqlite3f_finalize(select); select = NULL;
 
 	EFSRepoDBClose(repo, &db);
 }
@@ -138,7 +138,6 @@ static int retry(void *const ctx, int const count) {
 }
 static sqlite3f *openDB(strarg_t const path) {
 	sqlite3 *conn = NULL;
-	// TODO: Async?
 	if(SQLITE_OK != sqlite3_open_v2(
 		path,
 		&conn,
@@ -155,10 +154,10 @@ static sqlite3f *openDB(strarg_t const path) {
 	assertf(SQLITE_OK == err, "Couldn't turn on extended results codes");
 	err = sqlite3_busy_handler(conn, retry, NULL);
 	assertf(SQLITE_OK == err, "Couldn't set busy handler");
-	EXEC(db, QUERY(db, "PRAGMA synchronous=NORMAL"));
-	EXEC(db, QUERY(db, "PRAGMA wal_autocheckpoint=5000"));
-	EXEC(db, QUERY(db, "PRAGMA cache_size=-8000"));
-	EXEC(db, QUERY(db, "PRAGMA mmap_size=268435456")); // 256MB, as recommended.
+	EXEC(QUERY(db, "PRAGMA synchronous=NORMAL"));
+	EXEC(QUERY(db, "PRAGMA wal_autocheckpoint=5000"));
+	EXEC(QUERY(db, "PRAGMA cache_size=-8000"));
+	EXEC(QUERY(db, "PRAGMA mmap_size=268435456")); // 256MB, as recommended.
 	return db;
 }
 

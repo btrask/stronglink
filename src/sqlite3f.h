@@ -1,5 +1,4 @@
 #include "../deps/sqlite/sqlite3.h"
-#include "async.h"
 
 #define STATEMENT_CACHE_SIZE 16
 
@@ -14,7 +13,6 @@ struct sqlite3f_stmt {
 
 typedef struct {
 	sqlite3 *conn;
-	async_worker_t *worker;
 #if STATEMENT_CACHE_SIZE > 0
 	sqlite3f_stmt *head;
 	sqlite3f_stmt *tail;
@@ -25,5 +23,5 @@ typedef struct {
 sqlite3f *sqlite3f_create(sqlite3 *const conn);
 void sqlite3f_close(sqlite3f *const db);
 int sqlite3f_prepare_v2(sqlite3f *const db, char const *const sql, int const len, sqlite3_stmt **const stmt);
-int sqlite3f_finalize(sqlite3f *const db, sqlite3_stmt *const stmt);
+int sqlite3f_finalize(sqlite3_stmt *const stmt);
 

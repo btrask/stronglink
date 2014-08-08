@@ -64,15 +64,21 @@ typedef int err_t;
 	if(SQLITE_OK != __err) fprintf(stderr, "%s:%d %s: %s (%d)\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, sqlite3_errstr(__err), __err); \
 	__stmt; \
 })
-#define STEP(db, stmt) ({ \
-	int const __err = async_sqlite3_step((db)->worker, (stmt)); \
+#define QUERY_UNCACHED(db, str) ({ \
+	sqlite3_stmt *__stmt = NULL; \
+	int const __err = sqlite3_prepare_v2((db)->conn, str, sizeof(str)-1, &__stmt, NULL); \
+	if(SQLITE_OK != __err) fprintf(stderr, "%s:%d %s: %s (%d)\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, sqlite3_errstr(__err), __err); \
+	__stmt; \
+})
+#define STEP(stmt) ({ \
+	int const __err = sqlite3_step(stmt); \
 	if(SQLITE_DONE != __err && SQLITE_ROW != __err) fprintf(stderr, "%s:%d %s: %s (%d)\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, sqlite3_errstr(__err), __err); \
 	__err; \
 })
-#define EXEC(db, stmt) ({ \
+#define EXEC(stmt) ({ \
 	sqlite3_stmt *const __stmt = (stmt); \
-	int const status = STEP((db), __stmt); \
-	(void)sqlite3f_finalize((db), __stmt); \
+	int const status = STEP(__stmt); \
+	(void)sqlite3f_finalize(__stmt); \
 	status; \
 })
 
