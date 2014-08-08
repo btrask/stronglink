@@ -11,6 +11,7 @@ CFLAGS += -g -O2 -Wno-unused-result
 #CFLAGS += -DNDEBUG -Wno-unused-but-set-variable
 CFLAGS += -DSQLITE_DEBUG -DHTTP_PARSER_DEBUG
 #CFLAGS += -DSQLITE_ENABLE_SQLLOG
+CFLAGS += -DLIBCO_MP
 
 BUILD_DIR := $(ROOT_DIR)/build
 SRC_DIR := $(ROOT_DIR)/src

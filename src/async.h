@@ -23,8 +23,14 @@
 })
 #endif
 
-extern uv_loop_t *loop;
-extern cothread_t yield;
+#ifdef LIBCO_MP
+#define thread_local __thread
+#else
+#define thread_local
+#endif
+
+extern thread_local uv_loop_t *loop;
+extern thread_local cothread_t yield;
 
 static void async_fs_cb(uv_fs_t *const req) {
 	co_switch(req->data);

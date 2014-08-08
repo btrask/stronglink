@@ -4,17 +4,17 @@
 #include <openssl/rand.h>
 #include "async.h"
 
-uv_loop_t *loop = NULL;
-cothread_t yield = NULL;
+thread_local uv_loop_t *loop = NULL;
+thread_local cothread_t yield = NULL;
 
 void async_init(void) {
 	loop = uv_default_loop();
 	yield = co_active();
 }
 
-static cothread_t trampoline = NULL;
-static void (*arg_func)(void *) = NULL;
-static void *arg_arg = NULL;
+static thread_local cothread_t trampoline = NULL;
+static thread_local void (*arg_func)(void *) = NULL;
+static thread_local void *arg_arg = NULL;
 
 static void trampoline_fn(void) {
 	for(;;) {
