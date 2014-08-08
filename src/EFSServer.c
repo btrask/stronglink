@@ -193,8 +193,8 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 	HTTPMessageWriteHeader(msg, "Content-Type", "text/uri-list; charset=utf-8");
 	HTTPMessageBeginBody(msg);
 
-	while(SQLITE_ROW == STEP(select)) {
-		strarg_t const hash = (strarg_t)sqlite3_column_text(select, 0);
+	while(SQLITE_ROW == STEP(db, select)) {
+		strarg_t const hash = (strarg_t)async_sqlite3_column_text(db->worker, select, 0);
 		str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
 		uv_buf_t const parts[] = {
 			uv_buf_init((char *)URI, strlen(URI)),
@@ -203,7 +203,7 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 		};
 		HTTPMessageWritev(msg, parts, numberof(parts));
 	}
-	sqlite3f_finalize(select);
+	sqlite3f_finalize(db, select);
 
 	HTTPMessageWriteChunkLength(msg, 0);
 	HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);

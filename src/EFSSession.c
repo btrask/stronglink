@@ -45,15 +45,15 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	sqlite3_stmt *select = QUERY(db,
 		"SELECT user_id, password_hash\n"
 		"FROM users WHERE username = ?");
-	sqlite3_bind_text(select, 1, username, -1, SQLITE_STATIC);
-	if(SQLITE_ROW != STEP(select)) {
-		sqlite3f_finalize(select);
+	async_sqlite3_bind_text(db->worker, select, 1, username, -1, SQLITE_STATIC);
+	if(SQLITE_ROW != STEP(db, select)) {
+		sqlite3f_finalize(db, select);
 		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
-	int64_t const userID = sqlite3_column_int64(select, 0);
-	str_t *passhash = strdup((char const *)sqlite3_column_text(select, 1));
-	sqlite3f_finalize(select); select = NULL;
+	int64_t const userID = async_sqlite3_column_int64(db->worker, select, 0);
+	str_t *passhash = strdup((char const *)async_sqlite3_column_text(db->worker, select, 1));
+	sqlite3f_finalize(db, select); select = NULL;
 	if(userID <= 0 && !checkpass(password, passhash)) {
 		FREE(&passhash);
 		EFSRepoDBClose(repo, &db);
@@ -77,11 +77,11 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	sqlite3_stmt *insert = QUERY(db,
 		"INSERT INTO sessions (session_hash, user_id)\n"
 		"SELECT ?, ?");
-	sqlite3_bind_text(insert, 1, sessionHash, -1, SQLITE_STATIC);
-	sqlite3_bind_int64(insert, 2, userID);
-	int const status = STEP(insert);
+	async_sqlite3_bind_text(db->worker, insert, 1, sessionHash, -1, SQLITE_STATIC);
+	async_sqlite3_bind_int64(db->worker, insert, 2, userID);
+	int const status = STEP(db, insert);
 	FREE(&sessionHash);
-	sqlite3f_finalize(insert); insert = NULL;
+	sqlite3f_finalize(db, insert); insert = NULL;
 	str_t *cookie = NULL;
 	if(SQLITE_DONE == status) {
 		long long const sessionID = sqlite3_last_insert_rowid(db->conn);
@@ -114,34 +114,34 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 	sqlite3_stmt *select = QUERY(db,
 		"SELECT user_id, session_hash\n"
 		"FROM sessions WHERE session_id = ?");
-	sqlite3_bind_int64(select, 1, sessionID);
-	if(SQLITE_ROW != STEP(select)) {
+	async_sqlite3_bind_int64(db->worker, select, 1, sessionID);
+	if(SQLITE_ROW != STEP(db, select)) {
 		FREE(&sessionKey);
-		sqlite3f_finalize(select); select = NULL;
+		sqlite3f_finalize(db, select); select = NULL;
 		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
 
-	int64_t const userID = sqlite3_column_int64(select, 0);
+	int64_t const userID = async_sqlite3_column_int64(db->worker, select, 0);
 	if(userID <= 0) {
 		FREE(&sessionKey);
-		sqlite3f_finalize(select); select = NULL;
+		sqlite3f_finalize(db, select); select = NULL;
 		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
 
-	strarg_t sessionHash = (strarg_t)sqlite3_column_text(select, 1);
+	strarg_t sessionHash = (strarg_t)async_sqlite3_column_text(db->worker, select, 1);
 	if(!cookie_cache_lookup(sessionID, sessionKey)) {
 		if(!checkpass(sessionKey, sessionHash)) {
 			FREE(&sessionKey);
-			sqlite3f_finalize(select); select = NULL;
+			sqlite3f_finalize(db, select); select = NULL;
 			EFSRepoDBClose(repo, &db);
 			return NULL;
 		}
 		cookie_cache_store(sessionID, sessionKey);
 	}
 	FREE(&sessionKey);
-	sqlite3f_finalize(select); select = NULL;
+	sqlite3f_finalize(db, select); select = NULL;
 	EFSRepoDBClose(repo, &db);
 
 	return EFSRepoCreateSessionInternal(repo, userID);
@@ -182,8 +182,6 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 	int64_t const initialSortID = INT64_MAX;
 	int64_t const initialFileID = INT64_MAX;
 
-	EFSFilterPrepare(filter, db);
-
 	// It'd be nice to combine these two into one query, but the query optimizer was being stupid. Basically, we're just doing a manual JOIN with `WHERE (sort_id = ?1 AND file_id < ?2) OR sort_id < ?1` and `ORDER BY sort_id DESC, file_id DESC`.
 	// The problems with the query optimizer are: 1. it doesn't like SELECT DISTINCT (or GROUP BY) with two args, even if it's sorted on both of them, and 2. we have to use a temp b-tree for the second ORDER BY either way, but I think it's slower in a larger query...
 	sqlite3_stmt *selectMetaFiles = QUERY(db,
@@ -191,7 +189,7 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 		"FROM meta_files\n"
 		"WHERE sort_id <= ?\n"
 		"ORDER BY sort_id DESC");
-	sqlite3_bind_int64(selectMetaFiles, 1, initialSortID);
+	async_sqlite3_bind_int64(db->worker, selectMetaFiles, 1, initialSortID);
 	sqlite3_stmt *selectFiles = QUERY(db,
 		"SELECT f.file_id\n"
 		"FROM meta_files AS mf\n"
@@ -203,35 +201,35 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 		"SELECT internal_hash\n"
 		"FROM files WHERE file_id = ? LIMIT 1");
 
-	EXEC(QUERY(db, "BEGIN DEFERRED TRANSACTION"));
-	while(SQLITE_ROW == STEP(selectMetaFiles)) {
-		int64_t const sortID = sqlite3_column_int64(selectMetaFiles, 0);
+	EXEC(db, QUERY(db, "BEGIN DEFERRED TRANSACTION"));
+	while(SQLITE_ROW == STEP(db, selectMetaFiles)) {
+		int64_t const sortID = async_sqlite3_column_int64(db->worker, selectMetaFiles, 0);
 
-		sqlite3_bind_int64(selectFiles, 1, sortID);
-		sqlite3_bind_int64(selectFiles, 2, initialSortID == sortID ? initialFileID : INT64_MAX);
-		while(SQLITE_ROW == STEP(selectFiles)) {
-			int64_t const fileID = sqlite3_column_int64(selectFiles, 0);
-			int64_t const age = EFSFilterMatchAge(filter, sortID, fileID);
+		async_sqlite3_bind_int64(db->worker, selectFiles, 1, sortID);
+		async_sqlite3_bind_int64(db->worker, selectFiles, 2, initialSortID == sortID ? initialFileID : INT64_MAX);
+		while(SQLITE_ROW == STEP(db, selectFiles)) {
+			int64_t const fileID = async_sqlite3_column_int64(db->worker, selectFiles, 0);
+			int64_t const age = EFSFilterMatchAge(filter, sortID, fileID, db);
 //			fprintf(stderr, "{%lld, %lld} -> %lld\n", sortID, fileID, age);
 			if(age != sortID) continue;
-			sqlite3_bind_int64(selectHash, 1, fileID);
-			if(SQLITE_ROW == STEP(selectHash)) {
-				strarg_t const hash = (strarg_t)sqlite3_column_text(selectHash, 0);
+			async_sqlite3_bind_int64(db->worker, selectHash, 1, fileID);
+			if(SQLITE_ROW == STEP(db, selectHash)) {
+				strarg_t const hash = (strarg_t)async_sqlite3_column_text(db->worker, selectHash, 0);
 				str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
 				URIListAddURI(URIs, URI, -1);
 				FREE(&URI);
 			}
-			sqlite3_reset(selectHash);
+			async_sqlite3_reset(db->worker, selectHash);
 			if(URIListGetCount(URIs) >= max) break;
 		}
-		sqlite3_reset(selectFiles);
+		async_sqlite3_reset(db->worker, selectFiles);
 		if(URIListGetCount(URIs) >= max) break;
 	}
-	EXEC(QUERY(db, "COMMIT"));
+	EXEC(db, QUERY(db, "COMMIT"));
 
-	sqlite3f_finalize(selectHash); selectHash = NULL;
-	sqlite3f_finalize(selectFiles); selectFiles = NULL;
-	sqlite3f_finalize(selectMetaFiles); selectMetaFiles = NULL;
+	sqlite3f_finalize(db, selectHash); selectHash = NULL;
+	sqlite3f_finalize(db, selectFiles); selectFiles = NULL;
+	sqlite3f_finalize(db, selectMetaFiles); selectMetaFiles = NULL;
 
 	EFSRepoDBClose(repo, &db);
 	return URIs;
@@ -247,18 +245,18 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 		"FROM files AS f\n"
 		"INNER JOIN file_uris AS f2 ON (f.file_id = f2.file_id)\n"
 		"WHERE f2.uri = ? LIMIT 1");
-	sqlite3_bind_text(select, 1, URI, -1, SQLITE_STATIC);
-	if(SQLITE_ROW != STEP(select)) {
-		sqlite3f_finalize(select);
+	async_sqlite3_bind_text(db->worker, select, 1, URI, -1, SQLITE_STATIC);
+	if(SQLITE_ROW != STEP(db, select)) {
+		sqlite3f_finalize(db, select);
 		EFSRepoDBClose(repo, &db);
 		return -1;
 	}
 	if(info) {
-		info->path = EFSRepoCopyInternalPath(repo, (strarg_t)sqlite3_column_text(select, 0));
-		info->type = strdup((strarg_t)sqlite3_column_text(select, 1));
-		info->size = sqlite3_column_int64(select, 2);
+		info->path = EFSRepoCopyInternalPath(repo, (strarg_t)async_sqlite3_column_text(db->worker, select, 0));
+		info->type = strdup((strarg_t)async_sqlite3_column_text(db->worker, select, 1));
+		info->size = async_sqlite3_column_int64(db->worker, select, 2);
 	}
-	sqlite3f_finalize(select);
+	sqlite3f_finalize(db, select);
 	EFSRepoDBClose(repo, &db);
 	return 0;
 }

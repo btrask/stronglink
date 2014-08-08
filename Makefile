@@ -63,6 +63,7 @@ OBJECTS := \
 	$(BUILD_DIR)/async_rwlock.o \
 	$(BUILD_DIR)/async_worker.o \
 	$(BUILD_DIR)/async_sqlite.o \
+	$(BUILD_DIR)/async_sqlite2.o \
 	$(BUILD_DIR)/bcrypt.o \
 	$(BUILD_DIR)/http/Headers.o \
 	$(BUILD_DIR)/http/HTTPMessage.o \

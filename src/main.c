@@ -58,7 +58,7 @@ int main(int const argc, char const *const *const argv) {
 #endif
 
 	async_init();
-	async_sqlite_register();
+//	async_sqlite_register();
 
 	if(argc > 1) {
 		path = strdup(argv[1]);

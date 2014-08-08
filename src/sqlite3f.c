@@ -10,6 +10,8 @@ sqlite3f *sqlite3f_create(sqlite3 *const conn) {
 	sqlite3f *db = sqlite3_malloc(sizeof(sqlite3f));
 	if(!db) return NULL;
 	db->conn = conn;
+	db->worker = async_worker_create();
+	// TODO: Error checking
 #if STATEMENT_CACHE_SIZE > 0
 	db->head = &db->cache[0];
 	for(int i = 0; i < STATEMENT_CACHE_SIZE; ++i) {
@@ -29,13 +31,14 @@ void sqlite3f_close(sqlite3f *const db) {
 	sqlite3f_stmt *cur = db->head;
 	while(cur) {
 		cur->sql = NULL;
-		sqlite3_finalize(cur->stmt); cur->stmt = NULL;
+		async_sqlite3_finalize(db->worker, cur->stmt); cur->stmt = NULL;
 		cur = cur->next;
 	}
 	db->head = NULL;
 	db->tail = NULL;
 #endif
-	sqlite3_close(db->conn); db->conn = NULL;
+	async_sqlite3_close(db->worker, db->conn); db->conn = NULL;
+	async_worker_free(db->worker); db->worker = NULL;
 	sqlite3_free(db);
 }
 
@@ -61,13 +64,13 @@ int sqlite3f_prepare_v2(sqlite3f *const db, char const *const sql, int const len
 		cur	= cur->next;
 	}
 #endif
-	int const result = sqlite3_prepare_v2(db->conn, sql, len, stmt, NULL);
+	int const result = async_sqlite3_prepare_v2(db->worker, db->conn, sql, len, stmt, NULL);
 	if(SQLITE_OK != result) return result;
 #if STATEMENT_CACHE_SIZE > 0
 	assert(db->tail != last && "Didn't retain list item");
 	assert(last->next == db->tail && "Didn't reach last item");
 	last->next = NULL;
-	sqlite3_finalize(cur->stmt);
+	async_sqlite3_finalize(db->worker, cur->stmt);
 	cur->sql = sql;
 	cur->stmt = *stmt;
 	cur->next = db->head;
@@ -77,13 +80,13 @@ int sqlite3f_prepare_v2(sqlite3f *const db, char const *const sql, int const len
 #endif
 	return SQLITE_OK;
 }
-int sqlite3f_finalize(sqlite3_stmt *const stmt) {
+int sqlite3f_finalize(sqlite3f *const db, sqlite3_stmt *const stmt) {
 #if STATEMENT_CACHE_SIZE > 0
 	// TODO: Track which statements are in use. If more than the cached number of statements are needed at once, create "detached" statements.
-	sqlite3_clear_bindings(stmt);
-	return sqlite3_reset(stmt);
+	async_sqlite3_clear_bindings(db->worker, stmt);
+	return async_sqlite3_reset(db->worker, stmt);
 #else
-	return sqlite3_finalize(stmt);
+	return async_sqlite3_finalize(db->worker, stmt);
 #endif
 }
 

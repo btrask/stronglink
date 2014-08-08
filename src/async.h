@@ -134,4 +134,23 @@ void async_worker_leave(async_worker_t *const worker);
 // async_sqlite.c
 void async_sqlite_register(void);
 
+#include "../deps/sqlite/sqlite3.h" /* TODO: Don't include this here */
+
+// async_sqlite2.c
+int async_sqlite3_open_v2(async_worker_t *worker, const char *filename, sqlite3 **ppDb, int flags, const char *zVfs);
+int async_sqlite3_close(async_worker_t *worker, sqlite3 *const db);
+
+int async_sqlite3_prepare_v2(async_worker_t *worker, sqlite3 *db, const char *zSql, int nByte, sqlite3_stmt **ppStmt, const char **pzTail);
+int async_sqlite3_step(async_worker_t *worker, sqlite3_stmt *pStmt);
+int async_sqlite3_reset(async_worker_t *worker, sqlite3_stmt *pStmt);
+int async_sqlite3_clear_bindings(async_worker_t *worker, sqlite3_stmt *pStmt);
+int async_sqlite3_finalize(async_worker_t *worker, sqlite3_stmt *pStmt);
+
+int async_sqlite3_bind_int64(async_worker_t *worker, sqlite3_stmt *pStmt, int iOffset, sqlite3_int64 iValue);
+int async_sqlite3_bind_text(async_worker_t *worker, sqlite3_stmt *pStmt, int iOffset, const char *zValue, int nValue, void(*cb)(void*));
+
+const unsigned char *async_sqlite3_column_text(async_worker_t *worker, sqlite3_stmt *pStmt, int iCol);
+sqlite3_int64 async_sqlite3_column_int64(async_worker_t *worker, sqlite3_stmt *pStmt, int iCol);
+int async_sqlite3_column_type(async_worker_t *worker, sqlite3_stmt *pStmt, int iCol);
+
 #endif
