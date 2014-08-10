@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include <assert.h>
 #include <fcntl.h>
 #include <yajl/yajl_gen.h>
 #include "async.h"
@@ -269,5 +270,22 @@ err_t EFSSubmissionCreatePair(EFSSessionRef const session, strarg_t const type, 
 	*outSub = sub;
 	*outMeta = meta;
 	return 0;
+}
+err_t EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const count) {
+	if(!count) return 0;
+	EFSRepoRef const repo = EFSSessionGetRepo(list[0]->session);
+	sqlite3f *db = EFSRepoDBConnect(repo);
+	EXEC(QUERY(db, "BEGIN IMMEDIATE TRANSACTION"));
+	err_t err = 0;
+	for(index_t i = 0; i < count; ++i) {
+		assert(list[i]);
+		assert(repo == EFSSessionGetRepo(list[i]->session));
+		err = EFSSubmissionStore(list[i], db);
+		if(err < 0) break;
+	}
+	if(err < 0) EXEC(QUERY(db, "ROLLBACK"));
+	else EXEC(QUERY(db, "COMMIT"));
+	EFSRepoDBClose(repo, &db);
+	return err;
 }
 

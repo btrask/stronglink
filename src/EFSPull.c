@@ -151,18 +151,7 @@ static void writer(EFSPullRef const pull) {
 		assert(count <= QUEUE_SIZE);
 
 		for(;;) {
-			sqlite3f *db = EFSRepoDBConnect(EFSSessionGetRepo(pull->session));
-			EXEC(QUERY(db, "BEGIN IMMEDIATE TRANSACTION"));
-			err_t err = 0;
-			for(index_t i = 0; i < count; ++i) {
-				assert(queue[i]);
-				err = EFSSubmissionStore(queue[i], db);
-				if(err < 0) break;
-			}
-			if(err < 0) EXEC(QUERY(db, "ROLLBACK"));
-			else EXEC(QUERY(db, "COMMIT"));
-			EFSRepoDBClose(EFSSessionGetRepo(pull->session), &db);
-			if(err >= 0) break;
+			if(EFSSubmissionBatchStore(queue, count) >= 0) break;
 			async_sleep(1000 * 5);
 		}
 		for(index_t i = 0; i < count; ++i) {
