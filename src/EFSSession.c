@@ -14,6 +14,7 @@ struct cached_cookie {
 static struct cached_cookie cookie_cache[COOKIE_CACHE_SIZE] = {};
 
 static bool_t cookie_cache_lookup(int64_t const sessionID, strarg_t const sessionKey) {
+	assert(!async_worker_get_current());
 	if(sessionID <= 0 || !sessionKey) return false;
 	index_t const x = sessionID+sessionKey[0] % COOKIE_CACHE_SIZE;
 	if(cookie_cache[x].sessionID != sessionID) return false;
@@ -21,6 +22,7 @@ static bool_t cookie_cache_lookup(int64_t const sessionID, strarg_t const sessio
 	return 0 == passcmp(sessionKey, cookie_cache[x].sessionKey);
 }
 static void cookie_cache_store(int64_t const sessionID, strarg_t const sessionKey) {
+	assert(!async_worker_get_current());
 	if(sessionID <= 0 || !sessionKey) return;
 	index_t const x = sessionID+sessionKey[0] % COOKIE_CACHE_SIZE;
 	FREE(&cookie_cache[x].sessionKey);
@@ -110,7 +112,6 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 		FREE(&sessionKey);
 		return NULL;
 	}
-
 	sqlite3_stmt *select = QUERY(db,
 		"SELECT user_id, session_hash\n"
 		"FROM sessions WHERE session_id = ?");
@@ -121,28 +122,27 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
-
 	int64_t const userID = sqlite3_column_int64(select, 0);
+	str_t *sessionHash = strdup(sqlite3_column_text(select, 1));
+	sqlite3f_finalize(select); select = NULL;
+	EFSRepoDBClose(repo, &db);
+
 	if(userID <= 0) {
 		FREE(&sessionKey);
-		sqlite3f_finalize(select); select = NULL;
-		EFSRepoDBClose(repo, &db);
+		FREE(&sessionHash);
 		return NULL;
 	}
 
-	strarg_t sessionHash = (strarg_t)sqlite3_column_text(select, 1);
 	if(!cookie_cache_lookup(sessionID, sessionKey)) {
 		if(!checkpass(sessionKey, sessionHash)) {
 			FREE(&sessionKey);
-			sqlite3f_finalize(select); select = NULL;
-			EFSRepoDBClose(repo, &db);
+			FREE(&sessionHash);
 			return NULL;
 		}
 		cookie_cache_store(sessionID, sessionKey);
 	}
 	FREE(&sessionKey);
-	sqlite3f_finalize(select); select = NULL;
-	EFSRepoDBClose(repo, &db);
+	FREE(&sessionHash);
 
 	return EFSRepoCreateSessionInternal(repo, userID);
 }

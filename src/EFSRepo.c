@@ -3,7 +3,7 @@
 #include "async.h"
 #include "EarthFS.h"
 
-#define CONNECTION_COUNT 24
+#define CONNECTION_COUNT 4
 
 struct EFSRepo {
 	str_t *dir;
@@ -13,8 +13,13 @@ struct EFSRepo {
 	str_t *DBPath;
 
 	sqlite3f *connections[CONNECTION_COUNT];
-	index_t conn_count;
+	async_worker_t *workers[CONNECTION_COUNT];
+	count_t conn_count;
 	async_sem_t *conn_sem;
+
+	EFSPullRef *pulls;
+	count_t pull_count;
+	count_t pull_size;
 };
 
 static sqlite3f *openDB(strarg_t const path);
@@ -36,7 +41,8 @@ EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 	}
 	for(index_t i = 0; i < CONNECTION_COUNT; ++i) {
 		repo->connections[i] = openDB(repo->DBPath);
-		if(!repo->connections[i]) {
+		repo->workers[i] = async_worker_create();
+		if(!repo->connections[i] || !repo->workers[i]) {
 			EFSRepoFree(&repo);
 			return NULL;
 		}
@@ -52,16 +58,24 @@ EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 void EFSRepoFree(EFSRepoRef *const repoptr) {
 	EFSRepoRef repo = *repoptr;
 	if(!repo) return;
+
+	for(index_t i = 0; i < repo->pull_count; ++i) {
+		EFSPullFree(&repo->pulls[i]);
+	}
+	FREE(&repo->pulls);
+
+	for(index_t i = 0; i < CONNECTION_COUNT; ++i) {
+		sqlite3f_close(repo->connections[i]); repo->connections[i] = NULL;
+		async_worker_free(repo->workers[i]); repo->workers[i] = NULL;
+	}
+	repo->conn_count = 0;
+	async_sem_free(repo->conn_sem); repo->conn_sem = NULL;
+
 	FREE(&repo->dir);
 	FREE(&repo->dataDir);
 	FREE(&repo->tempDir);
 	FREE(&repo->cacheDir);
 	FREE(&repo->DBPath);
-	for(index_t i = 0; i < CONNECTION_COUNT; ++i) {
-		sqlite3f_close(repo->connections[i]); repo->connections[i] = NULL;
-	}
-	repo->conn_count = 0;
-	async_sem_free(repo->conn_sem); repo->conn_sem = NULL;
 	FREE(repoptr); repo = NULL;
 }
 strarg_t EFSRepoGetDir(EFSRepoRef const repo) {
@@ -96,21 +110,28 @@ sqlite3f *EFSRepoDBConnect(EFSRepoRef const repo) {
 	assert(repo->conn_count > 0);
 	--repo->conn_count;
 	sqlite3f *const db = repo->connections[repo->conn_count];
+	async_worker_t *const worker = repo->workers[repo->conn_count];
 	repo->connections[repo->conn_count] = NULL;
+	repo->workers[repo->conn_count] = NULL;
+	async_worker_enter(worker);
 	return db;
 }
 void EFSRepoDBClose(EFSRepoRef const repo, sqlite3f **const dbptr) {
 	if(!repo) return;
+	async_worker_t *const worker = async_worker_get_current();
+	async_worker_leave(worker);
 	assert(repo->conn_count < CONNECTION_COUNT);
-	repo->connections[repo->conn_count++] = *dbptr;
+	repo->connections[repo->conn_count] = *dbptr;
+	repo->workers[repo->conn_count] = worker;
+	++repo->conn_count;
 	async_sem_post(repo->conn_sem);
 	*dbptr = NULL;
 }
 
+// TODO: Separate methods for loading and starting?
 void EFSRepoStartPulls(EFSRepoRef const repo) {
 	if(!repo) return;
 	sqlite3f *db = EFSRepoDBConnect(repo);
-
 	sqlite3_stmt *select = QUERY(db,
 		"SELECT\n"
 		"	pull_id, user_id, host, username, password, cookie, query\n"
@@ -125,12 +146,19 @@ void EFSRepoStartPulls(EFSRepoRef const repo) {
 		strarg_t const cookie = (strarg_t)sqlite3_column_text(select, col++);
 		strarg_t const query = (strarg_t)sqlite3_column_text(select, col++);
 		EFSPullRef const pull = EFSRepoCreatePull(repo, pullID, userID, host, username, password, cookie, query);
-		EFSPullStart(pull);
-		// TODO: Keep a list?
+		if(repo->pull_count+1 > repo->pull_size) {
+			repo->pull_size = (repo->pull_count+1) * 2;
+			repo->pulls = realloc(repo->pulls, sizeof(EFSPullRef) * repo->pull_size);
+			assert(repo->pulls); // TODO: Handle error
+		}
+		repo->pulls[repo->pull_count++] = pull;
 	}
 	sqlite3f_finalize(select); select = NULL;
-
 	EFSRepoDBClose(repo, &db);
+
+	for(index_t i = 0; i < repo->pull_count; ++i) {
+		EFSPullStart(repo->pulls[i]);
+	}
 }
 
 static int retry(void *const ctx, int const count) {

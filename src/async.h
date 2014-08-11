@@ -1,6 +1,7 @@
 #ifndef ASYNC_H
 #define ASYNC_H
 
+#include <assert.h>
 #include <stdio.h> /* Debugging */
 #include "../deps/uv/include/uv.h"
 #include "../deps/libco/libco.h"
@@ -16,6 +17,7 @@
 #define async_yield() (co_switch(yield))
 #else
 #define async_yield() ({ \
+	assert(yield); \
 	double const x = uv_now(loop) / 1000.0; \
 	co_switch(yield); \
 	double const y = uv_now(loop) / 1000.0; \
@@ -130,6 +132,7 @@ async_worker_t *async_worker_create(void);
 void async_worker_free(async_worker_t *const worker);
 void async_worker_enter(async_worker_t *const worker);
 void async_worker_leave(async_worker_t *const worker);
+async_worker_t *async_worker_get_current(void);
 
 // async_sqlite.c
 void async_sqlite_register(void);
