@@ -43,39 +43,43 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 
 	sqlite3f *db = EFSRepoDBConnect(repo);
 	if(!db) return NULL;
-
 	sqlite3_stmt *select = QUERY(db,
 		"SELECT user_id, password_hash\n"
 		"FROM users WHERE username = ?");
 	sqlite3_bind_text(select, 1, username, -1, SQLITE_STATIC);
 	if(SQLITE_ROW != STEP(select)) {
-		sqlite3f_finalize(select);
+		sqlite3f_finalize(select); select = NULL;
 		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
 	int64_t const userID = sqlite3_column_int64(select, 0);
 	str_t *passhash = strdup((char const *)sqlite3_column_text(select, 1));
 	sqlite3f_finalize(select); select = NULL;
-	if(userID <= 0 && !checkpass(password, passhash)) {
+	EFSRepoDBClose(repo, &db);
+
+	if(userID <= 0 || !checkpass(password, passhash)) {
 		FREE(&passhash);
-		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
 	FREE(&passhash);
 
 	str_t *sessionKey = strdup("not-very-random"); // TODO: Generate
 	if(!sessionKey) {
-		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
 	str_t *sessionHash = hashpass(sessionKey);
 	if(!sessionHash) {
 		FREE(&sessionHash);
 		FREE(&sessionKey);
-		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
 
+	db = EFSRepoDBConnect(repo);
+	if(!db) {
+		FREE(&sessionHash);
+		FREE(&sessionKey);
+		return NULL;
+	}
 	sqlite3_stmt *insert = QUERY(db,
 		"INSERT INTO sessions (session_hash, user_id)\n"
 		"SELECT ?, ?");
