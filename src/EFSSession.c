@@ -123,7 +123,7 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 		return NULL;
 	}
 	int64_t const userID = sqlite3_column_int64(select, 0);
-	str_t *sessionHash = strdup(sqlite3_column_text(select, 1));
+	str_t *sessionHash = strdup((char const *)sqlite3_column_text(select, 1));
 	sqlite3f_finalize(select); select = NULL;
 	EFSRepoDBClose(repo, &db);
 
