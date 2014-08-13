@@ -8,7 +8,6 @@
 typedef enum {
 	s_start = 0,
 	s_top,
-		s_meta_uri,
 		s_field_value,
 		s_field_array,
 	s_end,
@@ -20,7 +19,6 @@ struct EFSMetaFile {
 	sqlite3f *tmpdb;
 
 	meta_state state;
-	str_t *targetURI;
 	str_t *field;
 };
 
@@ -100,6 +98,19 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 	if(!meta->parser) return -1;
 	EXEC(QUERY(db, "SAVEPOINT metafile"));
 
+	// TODO: Rename "metaURI" field to "targetURI"?
+	sqlite3_stmt *selectTargetURI = QUERY(meta->tmpdb,
+		"SELECT value FROM fields WHERE field = 'metaURI'");
+	str_t *targetURI = NULL;
+	if(SQLITE_ROW == STEP(selectTargetURI)) {
+		targetURI = strdup((char const *)sqlite3_column_text(selectTargetURI, 0));
+	}
+	sqlite3f_finalize(selectTargetURI); selectTargetURI = NULL;
+	if(!targetURI) {
+		EXEC(QUERY(db, "ROLLBACK TO metafile"));
+		return -1;
+	}
+
 	sqlite3_stmt *insertMetaFile = QUERY(db,
 		"INSERT INTO meta_files (file_id, target_uri)\n"
 		"VALUES (?, ?)");
@@ -115,14 +126,16 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 
 	sqlite3_bind_int64(insertMetaData, 1, self);
 	sqlite3_bind_text(insertMetaData, 2, "link", -1, SQLITE_STATIC);
-	sqlite3_bind_text(insertMetaData, 3, meta->targetURI, -1, SQLITE_STATIC);
+	sqlite3_bind_text(insertMetaData, 3, targetURI, -1, SQLITE_STATIC);
 	sqlite3_step(insertMetaData);
 	sqlite3_reset(insertMetaData);
 
-	sqlite3_bind_text(insertMetaFile, 2, meta->targetURI, -1, SQLITE_STATIC);
+	sqlite3_bind_text(insertMetaFile, 2, targetURI, -1, SQLITE_STATIC);
 	sqlite3_step(insertMetaFile);
 	sqlite3_reset(insertMetaFile);
 	int64_t const metaFileID = sqlite3_last_insert_rowid(db->conn);
+
+	FREE(&targetURI);
 
 	sqlite3_bind_int64(insertMetaData, 1, metaFileID);
 	sqlite3_stmt *selectMetaData = QUERY(meta->tmpdb,
@@ -149,7 +162,6 @@ static void cleanup(EFSMetaFileRef const meta) {
 	if(meta->parser) { yajl_free(meta->parser); meta->parser = NULL; }
 	sqlite3f_close(meta->tmpdb); meta->tmpdb = NULL;
 	meta->state = s_start;
-	FREE(&meta->targetURI);
 	FREE(&meta->field);
 }
 static void parse_error(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len) {
@@ -170,14 +182,8 @@ static int yajl_number(EFSMetaFileRef const meta, strarg_t const str, size_t con
 }
 static int yajl_string(EFSMetaFileRef const meta, strarg_t const str, size_t const len) {
 	switch(meta->state) {
-		case s_meta_uri: {
-			if(meta->targetURI) return false;
-			meta->targetURI = strndup(str, len);
-			meta->state = s_top;
-			return true;
-		} case s_field_value: {
-			/* fallthrough */
-		} case s_field_array: {
+		case s_field_value:
+		case s_field_array: {
 			sqlite3_stmt *insertMeta = QUERY(meta->tmpdb,
 				"INSERT OR IGNORE INTO fields (field, value)\n"
 				"VALUES (?, ?)");
@@ -190,57 +196,61 @@ static int yajl_string(EFSMetaFileRef const meta, strarg_t const str, size_t con
 				meta->state = s_top;
 			}
 			return true;
-		} default: {
-			return false;
 		}
+		default:
+			return false;
 	}
-	return true;
 }
 static int yajl_start_map(EFSMetaFileRef const meta) {
 	switch(meta->state) {
-		case s_start: meta->state = s_top; break;
-		default: return false;
+		case s_start:
+			meta->state = s_top;
+			return true;
+		default:
+			return false;
 	}
-	return true;
 }
 static int yajl_map_key(EFSMetaFileRef const meta, strarg_t const key, size_t const len) {
 	switch(meta->state) {
 		case s_top:
 			assertf(!meta->field, "Already parsing field");
-			// TODO: Rename this field targetURI since it's ambiguous, but also we want to move it out of the JSON object so that it is guaranteed to be at the beginning of the file and our whole parser can be single-pass.
-			if(substr("metaURI", key, len)) meta->state = s_meta_uri;
-			else {
-				meta->field = strndup(key, len);
-				meta->state = s_field_value;
-			}
-			break;
-		default: assertf(0, "Unexpected map key in state %d", meta->state);
+			meta->field = strndup(key, len);
+			meta->state = s_field_value;
+			return true;
+		default:
+			assertf(0, "Unexpected map key in state %d", meta->state);
+			return false;
 	}
-	return true;
 }
 static int yajl_end_map(EFSMetaFileRef const meta) {
 	switch(meta->state) {
-		case s_top: meta->state = s_end; break;
-		default: assertf(0, "Unexpected map end in state %d", meta->state);
+		case s_top:
+			meta->state = s_end;
+			return true;
+		default:
+			assertf(0, "Unexpected map end in state %d", meta->state);
+			return false;
 	}
-	return true;
 }
 static int yajl_start_array(EFSMetaFileRef const meta) {
 	switch(meta->state) {
-		case s_field_value: meta->state = s_field_array; break;
-		default: return false;
+		case s_field_value:
+			meta->state = s_field_array;
+			return true;
+		default:
+			return false;
 	}
-	return true;
 }
 static int yajl_end_array(EFSMetaFileRef const meta) {
 	switch(meta->state) {
 		case s_field_array:
 			FREE(&meta->field);
 			meta->state = s_top;
-			break;
-		default: assertf(0, "Unexpected array end in state %d", meta->state);
+			return true;
+		default:
+			assertf(0, "Unexpected array end in state %d", meta->state);
+			return false;
 	}
-	return true;
 }
 static yajl_callbacks const callbacks = {
 	.yajl_null = (int (*)())yajl_null,
