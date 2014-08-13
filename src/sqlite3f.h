@@ -1,6 +1,6 @@
 #include "../deps/sqlite/sqlite3.h"
 
-#define STATEMENT_CACHE_SIZE 16
+#define STATEMENT_CACHE_SIZE 32
 
 typedef struct sqlite3f_stmt sqlite3f_stmt;
 

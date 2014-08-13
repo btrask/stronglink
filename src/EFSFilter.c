@@ -225,10 +225,10 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3f *const db) {
 			f->age = QUERY_UNCACHED(db,
 				"SELECT MIN(mf.file_id) AS age\n"
 				"FROM fulltext AS ft\n"
-				"INNER JOIN meta_data_fulltext AS mdf\n"
-				"	ON (mdf.docid = ft.docid)\n"
+				"INNER JOIN meta_fulltext AS mft\n"
+				"	ON (mft.docid = ft.docid)\n"
 				"INNER JOIN meta_files AS mf\n"
-				"	ON (mf.meta_file_id = mdf.meta_file_id)\n"
+				"	ON (mf.meta_file_id = mft.meta_file_id)\n"
 				"INNER JOIN file_uris AS f\n"
 				"	ON (f.uri = mf.target_uri)\n"
 				"WHERE ft.value MATCH ? AND f.file_id = ?");

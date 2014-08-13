@@ -63,12 +63,12 @@ CREATE VIRTUAL TABLE fulltext USING "fts4" (
 	content="",
 	value TEXT
 );
-CREATE TABLE meta_data_fulltext (
+CREATE TABLE meta_fulltext (
 	meta_content_id INTEGER PRIMARY KEY NOT NULL,
 	meta_file_id INTEGER NOT NULL,
 	docid INTEGER NOT NULL
 );
-CREATE UNIQUE INDEX meta_data_fulltext_unique ON meta_data_fulltext (docid, meta_file_id);
+CREATE UNIQUE INDEX meta_fulltext_unique ON meta_fulltext (docid, meta_file_id);
 
 -- TODO: We need a much better way to handle permissions, especially in order to determine accurate sort orders.
 --CREATE TABLE file_permissions (
