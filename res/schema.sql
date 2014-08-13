@@ -58,19 +58,17 @@ CREATE TABLE file_uris (
 CREATE UNIQUE INDEX file_uris_unique ON file_uris (uri, file_id);
 CREATE INDEX file_uris_index ON file_uris (file_id);
 
--- TODO
--- LOTS of restrictions on column names. Apparently can't use underscores or "fulltext". And the table can't have any non-text columns either, besides the default rowid. So it's hard to give it a meaningful name. `description` isn't quite right because we index titles and potentially other fields too.
---CREATE VIRTUAL TABLE fulltext USING "fts4" (
---	content="",
---	description TEXT
---);
---CREATE TABLE file_content (
---	file_content_id INTEGER PRIMARY KEY NOT NULL,
---	fulltext_rowid INTEGER NOT NULL,
---	file_id INTEGER NOT NULL,
---	meta_file_id INTEGER NOT NULL
---);
---CREATE UNIQUE INDEX file_content_unique ON file_content (fulltext_rowid, file_id, meta_file_id);
+-- FTS column and table names are heavily restricted. No underscores, etc.
+CREATE VIRTUAL TABLE fulltext USING "fts4" (
+	content="",
+	value TEXT
+);
+CREATE TABLE meta_data_fulltext (
+	meta_content_id INTEGER PRIMARY KEY NOT NULL,
+	meta_data_id INTEGER NOT NULL,
+	docid INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX meta_data_fulltext_unique ON meta_data_fulltext (docid, meta_data_id);
 
 -- TODO: We need a much better way to handle permissions, especially in order to determine accurate sort orders.
 --CREATE TABLE file_permissions (
