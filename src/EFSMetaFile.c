@@ -155,18 +155,19 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 
 	sqlite3_stmt *selectFulltext = QUERY(meta->tmpdb,
 		"SELECT value FROM fields WHERE field = 'fulltext'");
-	sqlite3_stmt *insertFulltext = QUERY(db,
-		"INSERT INTO fulltext (value) VALUES (?)");
 	sqlite3_stmt *insertMetaFulltext = QUERY(db,
-		"INSERT INTO meta_fulltext (meta_file_id, docid) VALUES (?, ?)");
+		"INSERT INTO meta_fulltext (meta_file_id) VALUES (?)");
 	sqlite3_bind_int64(insertMetaFulltext, 1, metaFileID);
+	sqlite3_stmt *insertFulltext = QUERY(db,
+		"INSERT INTO fulltext (docid, value) VALUES (?, ?)");
 	while(SQLITE_ROW == STEP(selectFulltext)) {
 		strarg_t const value = (strarg_t)sqlite3_column_text(selectFulltext, 0);
-		sqlite3_bind_text(insertFulltext, 1, value, -1, SQLITE_STATIC);
-		STEP(insertFulltext);
-		int64_t const docid = sqlite3_last_insert_rowid(db->conn);
-		sqlite3_bind_int64(insertMetaFulltext, 2, docid);
 		STEP(insertMetaFulltext);
+		int64_t const docid = sqlite3_last_insert_rowid(db->conn);
+
+		sqlite3_bind_int64(insertFulltext, 1, docid);
+		sqlite3_bind_text(insertFulltext, 2, value, -1, SQLITE_STATIC);
+		STEP(insertFulltext);
 		sqlite3_reset(insertFulltext);
 		sqlite3_reset(insertMetaFulltext);
 	}

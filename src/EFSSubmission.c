@@ -5,6 +5,8 @@
 #include "async.h"
 #include "EarthFS.h"
 
+#define FTS_MAX (1024 * 50)
+
 struct EFSSubmission {
 	EFSSessionRef session;
 	str_t *type;
@@ -221,11 +223,45 @@ EFSSubmissionRef EFSSubmissionCreateAndAdd(EFSSessionRef const session, strarg_t
 err_t EFSSubmissionCreatePair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title, EFSSubmissionRef *const outSub, EFSSubmissionRef *const outMeta) {
 	EFSSubmissionRef sub = EFSSubmissionCreate(session, type);
 	EFSSubmissionRef meta = EFSSubmissionCreate(session, "text/efs-meta+json; charset=utf-8");
+	if(!sub || !meta) {
+		EFSSubmissionFree(&sub);
+		EFSSubmissionFree(&meta);
+		return -1;
+	}
+
+
+	str_t *fulltext = NULL;
+	size_t fulltextlen = 0;
 	if(
-		!sub || !meta ||
-		EFSSubmissionWriteFrom(sub, read, context) < 0 ||
-		EFSSubmissionAddFile(sub) < 0
+		0 == strcasecmp(type, "text/markdown; charset=utf-8") ||
+		0 == strcasecmp(type, "text/plain; charset=utf-8")
 	) {
+		fulltext = malloc(FTS_MAX + 1);
+		// TODO
+	}
+	for(;;) {
+		byte_t const *buf = NULL;
+		ssize_t const len = read(context, &buf);
+		if(0 == len) break;
+		if(len < 0 || EFSSubmissionWrite(sub, buf, len) < 0) {
+			FREE(&fulltext);
+			EFSSubmissionFree(&sub);
+			EFSSubmissionFree(&meta);
+			return -1;
+		}
+		if(fulltext) {
+			size_t const use = MIN(FTS_MAX-fulltextlen, len);
+			memcpy(fulltext+fulltextlen, buf, use);
+			fulltextlen += use;
+		}
+	}
+	if(fulltext) {
+		fulltext[fulltextlen] = '\0';
+	}
+
+
+	if(EFSSubmissionEnd(sub) < 0 || EFSSubmissionAddFile(sub) < 0) {
+		FREE(&fulltext);
 		EFSSubmissionFree(&sub);
 		EFSSubmissionFree(&meta);
 		return -1;
@@ -243,20 +279,28 @@ err_t EFSSubmissionCreatePair(EFSSessionRef const session, strarg_t const type, 
 
 	if(title) {
 		yajl_gen_string(json, (byte_t const *)"title", strlen("title"));
-//		yajl_gen_array_open(json);
+		yajl_gen_array_open(json);
 		yajl_gen_string(json, (byte_t const *)title, strlen(title));
-//		yajl_gen_array_close(json);
+		if(fulltextlen) {
+			// TODO: Try to determine title from content
+		}
+		yajl_gen_array_close(json);
 	}
-	// TODO: We should also try to extract a title from the content. Write them together in an array. All of our fields should support multiple values.
+
+	if(fulltextlen) {
+		yajl_gen_string(json, (byte_t const *)"fulltext", strlen("fulltext"));
+		yajl_gen_string(json, (byte_t const *)fulltext, fulltextlen);
+	}
 
 	yajl_gen_string(json, (byte_t const *)"link", strlen("link"));
 	yajl_gen_array_open(json);
 	yajl_gen_string(json, (byte_t const *)"efs://user", strlen("efs://user"));
 	yajl_gen_array_close(json);
-	// TODO: Full text indexing, determine links, etc.
+	// TODO: Parse fulltext for links
 
 	yajl_gen_map_close(json);
 	yajl_gen_free(json); json = NULL;
+	FREE(&fulltext);
 
 	if(
 		EFSSubmissionEnd(meta) < 0 ||
