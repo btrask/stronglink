@@ -1,5 +1,4 @@
 #define _GNU_SOURCE
-#include "../deps/sqlite/sqlite3.h"
 #include "async.h"
 #include "bcrypt.h"
 #include "EarthFS.h"
@@ -41,21 +40,35 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	if(!username) return NULL;
 	if(!password) return NULL;
 
-	sqlite3f *db = EFSRepoDBConnect(repo);
-	if(!db) return NULL;
-	sqlite3_stmt *select = QUERY(db,
-		"SELECT user_id, password_hash\n"
-		"FROM users WHERE username = ?");
-	sqlite3_bind_text(select, 1, username, -1, SQLITE_STATIC);
-	if(SQLITE_ROW != STEP(select)) {
-		sqlite3f_finalize(select); select = NULL;
-		EFSRepoDBClose(repo, &db);
+	EFSConnection const *conn;
+	int rc;
+
+	conn = EFSRepoDBOpen(repo);
+	if(!conn) return NULL;
+	MDB_txn *txn = NULL;
+	rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
+	if(MDB_SUCCESS != rc) {
+		EFSRepoDBClose(repo, &conn);
 		return NULL;
 	}
-	int64_t const userID = sqlite3_column_int64(select, 0);
-	str_t *passhash = strdup((char const *)sqlite3_column_text(select, 1));
-	sqlite3f_finalize(select); select = NULL;
-	EFSRepoDBClose(repo, &db);
+
+	MDB_val username_val = { strlen(username)+1, (void *)username };
+	MDB_val userID_val;
+	MDB_val user_val;
+	rc = mdb_get(txn, conn->userIDByName, &username_val, &userID_val);
+	if(MDB_SUCCESS == rc) rc = mdb_get(txn, conn->userByID, &userID_val, &user_val);
+	if(MDB_SUCCESS != rc) {
+		mdb_txn_abort(txn); txn = NULL;
+		EFSRepoDBClose(repo, &conn);
+		return NULL;
+	}
+	int64_t const userID = db_read_int64(&userID_val);
+	(void)db_read_text(&user_val); // username
+	str_t *passhash = strdup(db_read_text(&user_val));
+	(void)db_read_text(&user_val); // token
+
+	mdb_txn_abort(txn); txn = NULL;
+	EFSRepoDBClose(repo, &conn);
 
 	if(userID <= 0 || !checkpass(password, passhash)) {
 		FREE(&passhash);
@@ -74,27 +87,42 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 		return NULL;
 	}
 
-	db = EFSRepoDBConnect(repo);
-	if(!db) {
+	conn = EFSRepoDBOpen(repo);
+	if(conn) rc = mdb_txn_begin(conn->env, NULL, MDB_RDWR, &txn);
+	if(!conn || MDB_SUCCESS != rc) {
 		FREE(&sessionHash);
 		FREE(&sessionKey);
 		return NULL;
 	}
-	sqlite3_stmt *insert = QUERY(db,
-		"INSERT INTO sessions (session_hash, user_id)\n"
-		"SELECT ?, ?");
-	sqlite3_bind_text(insert, 1, sessionHash, -1, SQLITE_STATIC);
-	sqlite3_bind_int64(insert, 2, userID);
-	int const status = STEP(insert);
+
+	int64_t const sessionID = db_autoincrement(txn, conn->sessionByID);
+	byte_t intbuf[DB_SIZE_INT64];
+	MDB_val sessionID_val = { 0, intbuf };
+	db_bind_int64(&sessionID_val, DB_SIZE_INT64, sessionID);
+
+	size_t const hashlen = strlen(sessionHash);
+	MDB_val session_val = { DB_SIZE_TEXT(hashlen)+DB_SIZE_INT64, NULL };
+	rc = mdb_put(txn, conn->sessionByID, &sessionID_val, &session_val, MDB_NOOVERWRITE | MDB_RESERVE);
+	if(MDB_SUCCESS != rc) {
+		mdb_txn_abort(txn); txn = NULL;
+		EFSRepoDBClose(repo, &conn);
+		FREE(&sessionHash);
+		FREE(&sessionKey);
+		return NULL;
+	}
+	db_fill_text(&session_val, sessionHash, hashlen);
+	db_fill_int64(&session_val, userID);
+
+	rc = mdb_txn_commit(txn); txn = NULL;
+	EFSRepoDBClose(repo, &conn);
 	FREE(&sessionHash);
-	sqlite3f_finalize(insert); insert = NULL;
-	str_t *cookie = NULL;
-	if(SQLITE_DONE == status) {
-		long long const sessionID = sqlite3_last_insert_rowid(db->conn);
-		if(asprintf(&cookie, "%lld:%s", sessionID, sessionKey) < 0) cookie = NULL;
+	if(MDB_SUCCESS != rc) {
+		FREE(&sessionKey);
+		return NULL;
 	}
 
-	EFSRepoDBClose(repo, &db);
+	str_t *cookie = NULL;
+	if(asprintf(&cookie, "%lld:%s", sessionID, sessionKey) < 0) cookie = NULL;
 	FREE(&sessionKey);
 	return cookie;
 }
@@ -111,25 +139,31 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 		return NULL;
 	}
 
-	sqlite3f *db = EFSRepoDBConnect(repo);
-	if(!db) {
+	EFSConnection const *conn = EFSRepoDBOpen(repo);
+	int rc;
+	if(!conn) {
 		FREE(&sessionKey);
 		return NULL;
 	}
-	sqlite3_stmt *select = QUERY(db,
-		"SELECT user_id, session_hash\n"
-		"FROM sessions WHERE session_id = ?");
-	sqlite3_bind_int64(select, 1, sessionID);
-	if(SQLITE_ROW != STEP(select)) {
+	MDB_txn *txn = NULL;
+	mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
+
+	byte_t intbuf[DB_SIZE_INT64];
+	MDB_val sessionID_val = { 0, intbuf };
+	db_bind_int64(&sessionID_val, DB_SIZE_INT64, sessionID);
+	MDB_val session_val;
+	rc = mdb_get(txn, conn->sessionByID, &sessionID_val, &session_val);
+	if(MDB_SUCCESS != rc) {
 		FREE(&sessionKey);
-		sqlite3f_finalize(select); select = NULL;
-		EFSRepoDBClose(repo, &db);
+		mdb_txn_abort(txn); txn = NULL;
+		EFSRepoDBClose(repo, &conn);
 		return NULL;
 	}
-	int64_t const userID = sqlite3_column_int64(select, 0);
-	str_t *sessionHash = strdup((char const *)sqlite3_column_text(select, 1));
-	sqlite3f_finalize(select); select = NULL;
-	EFSRepoDBClose(repo, &db);
+	str_t *sessionHash = strdup(db_read_text(&session_val));
+	int64_t const userID = db_read_int64(&session_val);
+
+	mdb_txn_abort(txn); txn = NULL;
+	EFSRepoDBClose(repo, &conn);
 
 	if(userID <= 0) {
 		FREE(&sessionKey);
@@ -174,6 +208,10 @@ int64_t EFSSessionGetUserID(EFSSessionRef const session) {
 }
 
 URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilterRef const filter, count_t const max) { // TODO: Sort order, pagination.
+
+	return NULL;
+// TODO
+/*
 	if(!session) return NULL;
 	// TODO: Check session mode.
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
@@ -238,32 +276,41 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 	sqlite3f_finalize(selectMetaFiles); selectMetaFiles = NULL;
 
 	EFSRepoDBClose(repo, &db);
-	return URIs;
+	return URIs;*/
 }
 err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFSFileInfo *const info) {
 	if(!session) return -1;
 	if(!URI) return -1;
 	// TODO: Check session mode.
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
-	sqlite3f *db = EFSRepoDBConnect(repo);
-	sqlite3_stmt *const select = QUERY(db,
-		"SELECT f.internal_hash, f.file_type, f.file_size\n"
-		"FROM files AS f\n"
-		"INNER JOIN file_uris AS f2 ON (f.file_id = f2.file_id)\n"
-		"WHERE f2.uri = ? LIMIT 1");
-	sqlite3_bind_text(select, 1, URI, -1, SQLITE_STATIC);
-	if(SQLITE_ROW != STEP(select)) {
-		sqlite3f_finalize(select);
-		EFSRepoDBClose(repo, &db);
+	EFSConnection const *conn = EFSRepoDBOpen(repo);
+	int rc;
+	MDB_txn *txn = NULL;
+	rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
+	if(MDB_SUCCESS != rc) {
+		EFSRepoDBClose(repo, &conn);
 		return -1;
 	}
-	if(info) {
-		info->path = EFSRepoCopyInternalPath(repo, (strarg_t)sqlite3_column_text(select, 0));
-		info->type = strdup((strarg_t)sqlite3_column_text(select, 1));
-		info->size = sqlite3_column_int64(select, 2);
+
+	MDB_val URI_val = { strlen(URI)+1, (void *)URI };
+	MDB_val fileID_val;
+	MDB_val file_val;
+	rc = mdb_get(txn, conn->fileIDByURI, &URI_val, &fileID_val);
+	if(MDB_SUCCESS == rc) rc = mdb_get(txn, conn->fileByID, &fileID_val, &file_val);
+	if(MDB_SUCCESS != rc) {
+		mdb_txn_abort(txn); txn = NULL;
+		EFSRepoDBClose(repo, &conn);
+		return -1;
 	}
-	sqlite3f_finalize(select);
-	EFSRepoDBClose(repo, &db);
+
+	if(info) {
+		info->path = EFSRepoCopyInternalPath(repo, db_read_text(&file_val));
+		info->type = strdup(db_read_text(&file_val));
+		info->size = db_read_int64(&file_val);
+	}
+
+	mdb_txn_abort(txn); txn = NULL;
+	EFSRepoDBClose(repo, &conn);
 	return 0;
 }
 void EFSFileInfoCleanup(EFSFileInfo *const info) {

@@ -16,7 +16,7 @@ typedef struct EFSCollectionFilter* EFSCollectionFilterRef;
 #define EFS_FILTER_BASE \
 	EFSFilterType type;
 #define EFS_FILTER_QUERY \
-	sqlite3_stmt *age; \
+	/*sqlite3_stmt *age;*/ \
 	int arg;
 
 struct EFSFilter {
@@ -80,7 +80,7 @@ void EFSFilterFree(EFSFilterRef *const filterptr) {
 		}
 		case EFSPermissionFilterType: {
 			EFSQueryFilterRef const f = (EFSQueryFilterRef)filter;
-			sqlite3_finalize(f->age); f->age = NULL;
+//			sqlite3_finalize(f->age); f->age = NULL;
 			break;
 		}
 		case EFSFileTypeFilterType:
@@ -88,7 +88,7 @@ void EFSFilterFree(EFSFilterRef *const filterptr) {
 		case EFSLinkedFromFilterType:
 		case EFSLinksToFilterType: {
 			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
-			sqlite3_finalize(f->age); f->age = NULL;
+//			sqlite3_finalize(f->age); f->age = NULL;
 			FREE(&f->string);
 			break;
 		}
@@ -204,9 +204,10 @@ void EFSFilterPrint(EFSFilterRef const filter, count_t const indent) {
 	}
 }
 
-err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3f *const db) {
+err_t EFSFilterPrepare(EFSFilterRef const filter, EFSConnection const *const conn, MDB_txn *const txn) {
 	assert(filter);
-	switch(filter->type) {
+	return 0;
+/*	switch(filter->type) {
 		case EFSNoFilterType: {
 			return 0;
 		}
@@ -281,9 +282,9 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3f *const db) {
 			assertf(0, "Unknown filter type %d\n", filter->type);
 			return -1;
 		}
-	}
+	}*/
 }
-static int64_t EFSCollectionFilterMatchAge(EFSCollectionFilterRef const filter, int64_t const sortID, int64_t const fileID) {
+/*static int64_t EFSCollectionFilterMatchAge(EFSCollectionFilterRef const filter, int64_t const sortID, int64_t const fileID) {
 	assert(filter);
 	bool_t hit = false;
 	EFSFilterList const *const list = filter->filters;
@@ -303,9 +304,10 @@ static int64_t EFSCollectionFilterMatchAge(EFSCollectionFilterRef const filter, 
 		if(!hit) return INT64_MAX;
 	}
 	return sortID;
-}
-int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const sortID, int64_t const fileID) {
+}*/
+int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const sortID, int64_t const fileID, EFSConnection const *const conn, MDB_txn *const txn) {
 	assert(filter);
+	return 0;/*
 	switch(filter->type) {
 		case EFSNoFilterType:
 			return fileID;
@@ -332,6 +334,6 @@ int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const sortID, int64
 			assertf(0, "Unknown filter type %d\n", filter->type);
 			return INT64_MAX;
 		}
-	}
+	}*/
 }
 

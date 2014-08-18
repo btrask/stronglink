@@ -126,7 +126,7 @@ static str_t *md_lookup(md_state const *const state, strarg_t const var) {
 	strarg_t unsafe = NULL;
 	if(0 == strcmp(var, "rawURI")) unsafe = state->fileURI; // TODO
 	if(unsafe) return htmlenc(unsafe);
-	sqlite3f *db = EFSRepoDBConnect(state->blog->repo);
+/*	sqlite3f *db = EFSRepoDBConnect(state->blog->repo);
 	sqlite3_stmt *select = QUERY(db,
 		"SELECT md.value\n"
 		"FROM meta_data AS md\n"
@@ -138,15 +138,15 @@ static str_t *md_lookup(md_state const *const state, strarg_t const var) {
 	sqlite3_bind_text(select, 2, var, -1, SQLITE_STATIC);
 	if(SQLITE_ROW == STEP(select)) {
 		unsafe = (strarg_t)sqlite3_column_text(select, 0);
-	}
+	}*/
 	if(!unsafe) {
 		if(0 == strcmp(var, "thumbnailURI")) unsafe = "/file.png";
 		if(0 == strcmp(var, "title")) unsafe = "(no title)";
 		if(0 == strcmp(var, "description")) unsafe = "(no description)";
 	}
 	str_t *result = htmlenc(unsafe);
-	sqlite3f_finalize(select); select = NULL;
-	EFSRepoDBClose(state->blog->repo, &db);
+//	sqlite3f_finalize(select); select = NULL;
+//	EFSRepoDBClose(state->blog->repo, &db);
 	return result;
 }
 static void md_free(md_state const *const state, strarg_t const var, str_t **const val) {
@@ -329,7 +329,8 @@ static bool_t postSubmission(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 		return true;
 	}
 
-	sqlite3f *db = EFSRepoDBConnect(blog->repo);
+	bool_t const success = false;
+/*	sqlite3f *db = EFSRepoDBConnect(blog->repo);
 	EXEC(QUERY(db, "SAVEPOINT addpair"));
 
 	bool_t const success =
@@ -338,7 +339,7 @@ static bool_t postSubmission(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 
 	if(!success) EXEC(QUERY(db, "ROLLBACK TO addpair"));
 	EXEC(QUERY(db, "RELEASE addpair"));
-	EFSRepoDBClose(blog->repo, &db);
+	EFSRepoDBClose(blog->repo, &db);*/
 	EFSSubmissionFree(&sub);
 	EFSSubmissionFree(&meta);
 	MultipartFormFree(&form);

@@ -141,44 +141,51 @@ err_t EFSSubmissionAddFile(EFSSubmissionRef const sub) {
 	FREE(&sub->tmppath);
 	return 0;
 }
-err_t EFSSubmissionStore(EFSSubmissionRef const sub, sqlite3f *const db) {
+err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const conn, MDB_txn *const txn) {
 	if(!sub) return -1;
-	assertf(db, "EFSSubmissionStore DB required");
+	assertf(conn && txn, "EFSSubmissionStore DB connection required");
 	if(sub->tmppath) return -1;
 	EFSSessionRef const session = sub->session;
 	EFSRepoRef const repo = EFSSubmissionGetRepo(sub);
-	uint64_t const userID = EFSSessionGetUserID(session);
+	int64_t const userID = EFSSessionGetUserID(session);
 
-	EXEC(QUERY(db, "SAVEPOINT submission"));
+	int64_t fileID = db_autoincrement(txn, conn->fileByID);
+	byte_t buf[MDB_MAXKEYSIZE];
+	byte_t intbuf[DB_SIZE_INT64];
+	int rc;
 
-	sqlite3_stmt *insertFile = QUERY(db,
-		"INSERT OR IGNORE INTO files (internal_hash, file_type, file_size)\n"
-		"VALUES (?, ?, ?)");
-	sqlite3_bind_text(insertFile, 1, sub->internalHash, -1, SQLITE_STATIC);
-	sqlite3_bind_text(insertFile, 2, sub->type, -1, SQLITE_STATIC);
-	sqlite3_bind_int64(insertFile, 3, sub->size);
-	EXEC(insertFile); insertFile = NULL;
+	MDB_val fileID_val = { 0, intbuf };
+	db_bind_int64(&fileID_val, DB_SIZE_INT64, fileID);
 
-	// We can't use last_insert_rowid() if the file already existed.
-	sqlite3_stmt *selectFile = QUERY(db,
-		"SELECT file_id FROM files\n"
-		"WHERE internal_hash = ? AND file_type = ?");
-	sqlite3_bind_text(selectFile, 1, sub->internalHash, -1, SQLITE_STATIC);
-	sqlite3_bind_text(selectFile, 2, sub->type, -1, SQLITE_STATIC);
-	STEP(selectFile);
-	int64_t const fileID = sqlite3_column_int64(selectFile, 0);
-	sqlite3f_finalize(selectFile); selectFile = NULL;
+	MDB_val fileInfo_val = { 0, buf };
+	db_bind_text(&fileInfo_val, MDB_MAXKEYSIZE, sub->internalHash);
+	db_bind_text(&fileInfo_val, MDB_MAXKEYSIZE, sub->type);
+	rc = mdb_put(txn, conn->fileIDByInfo, &fileInfo_val, &fileID_val, MDB_NOOVERWRITE);
+	if(MDB_SUCCESS != rc && MDB_KEYEXIST != rc) return -1;
+	if(MDB_KEYEXIST == rc) {
+		rc = mdb_get(txn, conn->fileIDByInfo, &fileInfo_val, &fileID_val);
+		if(MDB_SUCCESS != rc) return -1;
+		fileID = db_read_int64(&fileID_val);
+		fileID_val = (MDB_val){ 0, intbuf };
+		db_bind_int64(&fileID_val, DB_SIZE_INT64, fileID);
+		// Might seem strange, but the result we get back is owned by the DB, not by us.
+	}
 
-	sqlite3_stmt *insertFileURI = QUERY(db,
-		"INSERT OR IGNORE INTO file_uris (file_id, uri)\n"
-		"VALUES (?, ?)");
+	size_t const hashlen = strlen(sub->internalHash);
+	size_t const typelen = strlen(sub->type);
+	MDB_val file_val = { DB_SIZE_TEXT(hashlen)+DB_SIZE_TEXT(typelen)+DB_SIZE_INT64, NULL };
+	rc = mdb_put(txn, conn->fileByID, &fileID_val, &file_val, MDB_NOOVERWRITE | MDB_RESERVE);
+	if(MDB_SUCCESS != rc) return -1;
+	db_fill_text(&file_val, sub->internalHash, hashlen);
+	db_fill_text(&file_val, sub->type, typelen);
+	db_fill_int64(&file_val, sub->size);
+
 	for(index_t i = 0; i < URIListGetCount(sub->URIs); ++i) {
 		strarg_t const URI = URIListGetURI(sub->URIs, i);
-		sqlite3_bind_int64(insertFileURI, 1, fileID);
-		sqlite3_bind_text(insertFileURI, 2, URI, -1, SQLITE_STATIC);
-		STEP(insertFileURI); sqlite3_reset(insertFileURI);
+		MDB_val URI_val = { strlen(URI)+1, (void *)URI };
+		rc = mdb_put(txn, conn->fileIDByURI, &URI_val, &fileID_val, MDB_NOOVERWRITE);
+		if(MDB_SUCCESS != rc && MDB_KEYEXIST != rc) return -1;
 	}
-	sqlite3f_finalize(insertFileURI); insertFileURI = NULL;
 
 
 	// TODO: Add permissions for other specified users too.
@@ -193,14 +200,10 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, sqlite3f *const db) {
 
 
 	strarg_t const primaryURI = EFSSubmissionGetPrimaryURI(sub);
-	if(EFSMetaFileStore(sub->meta, fileID, primaryURI, db) < 0) {
+	if(EFSMetaFileStore(sub->meta, fileID, primaryURI, conn, txn) < 0) {
 		fprintf(stderr, "EFSMetaFileStore error\n");
-		EXEC(QUERY(db, "ROLLBACK TO submission"));
-		EXEC(QUERY(db, "RELEASE submission"));
 		return -1;
 	}
-
-	EXEC(QUERY(db, "RELEASE submission"));
 
 	return 0;
 }
@@ -213,9 +216,18 @@ EFSSubmissionRef EFSSubmissionCreateAndAdd(EFSSessionRef const session, strarg_t
 	err = err < 0 ? err : EFSSubmissionAddFile(sub);
 	if(err >= 0) {
 		EFSRepoRef const repo = EFSSubmissionGetRepo(sub);
-		sqlite3f *db = EFSRepoDBConnect(repo);
-		err = err < 0 ? err : EFSSubmissionStore(sub, db);
-		EFSRepoDBClose(repo, &db);
+		EFSConnection const *conn = EFSRepoDBOpen(repo);
+		int rc;
+		MDB_txn *txn = NULL;
+		rc = mdb_txn_begin(conn->env, NULL, MDB_RDWR, &txn);
+		if(MDB_SUCCESS != rc) err = -1;
+		err = err < 0 ? err : EFSSubmissionStore(sub, conn, txn);
+		if(err < 0) {
+			mdb_txn_abort(txn); txn = NULL;
+		} else {
+			rc = mdb_txn_commit(txn); txn = NULL;
+		}
+		EFSRepoDBClose(repo, &conn);
 	}
 	if(err < 0) EFSSubmissionFree(&sub);
 	return sub;
@@ -318,18 +330,28 @@ err_t EFSSubmissionCreatePair(EFSSessionRef const session, strarg_t const type, 
 err_t EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const count) {
 	if(!count) return 0;
 	EFSRepoRef const repo = EFSSessionGetRepo(list[0]->session);
-	sqlite3f *db = EFSRepoDBConnect(repo);
-	EXEC(QUERY(db, "BEGIN IMMEDIATE TRANSACTION"));
+	EFSConnection const *conn = EFSRepoDBOpen(repo);
+	int rc;
+	MDB_txn *txn = NULL;
+	rc = mdb_txn_begin(conn->env, NULL, MDB_RDWR, &txn);
+	if(MDB_SUCCESS != rc) {
+		EFSRepoDBClose(repo, &conn);
+		return -1;
+	}
 	err_t err = 0;
 	for(index_t i = 0; i < count; ++i) {
 		assert(list[i]);
 		assert(repo == EFSSessionGetRepo(list[i]->session));
-		err = EFSSubmissionStore(list[i], db);
+		err = EFSSubmissionStore(list[i], conn, txn);
 		if(err < 0) break;
 	}
-	if(err < 0) EXEC(QUERY(db, "ROLLBACK"));
-	else EXEC(QUERY(db, "COMMIT"));
-	EFSRepoDBClose(repo, &db);
+	if(err < 0) {
+		mdb_txn_abort(txn); txn = NULL;
+	} else {
+		rc = mdb_txn_commit(txn); txn = NULL;
+		if(MDB_SUCCESS != rc) err = -1;
+	}
+	EFSRepoDBClose(repo, &conn);
 	return err;
 }
 

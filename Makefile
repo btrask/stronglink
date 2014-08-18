@@ -9,13 +9,14 @@ LIBCO_VER := libco
 CFLAGS += -g -O2 -Wno-unused-result
 #CFLAGS += -g -O0
 #CFLAGS += -DNDEBUG -Wno-unused-but-set-variable
-CFLAGS += -DSQLITE_DEBUG -DHTTP_PARSER_DEBUG
-#CFLAGS += -DSQLITE_ENABLE_SQLLOG
+CFLAGS += -DHTTP_PARSER_DEBUG
 CFLAGS += -DLIBCO_MP
+CFLAGS += -DMDB_MAXKEYSIZE=2047
 
 BUILD_DIR := $(ROOT_DIR)/build
 SRC_DIR := $(ROOT_DIR)/src
 DEPS_DIR := $(ROOT_DIR)/deps
+TOOLS_DIR := $(ROOT_DIR)/tools
 
 # TODO: Isn't there a way to have it find everything automatically?
 
@@ -26,7 +27,7 @@ HEADERS := \
 	$(SRC_DIR)/EarthFS.h \
 	$(SRC_DIR)/URIList.h \
 	$(SRC_DIR)/Template.h \
-	$(SRC_DIR)/sqlite3f.h \
+	$(SRC_DIR)/db.h \
 	$(SRC_DIR)/strndup.h \
 	$(SRC_DIR)/http/status.h \
 	$(SRC_DIR)/http/Headers.h \
@@ -38,7 +39,7 @@ HEADERS := \
 	$(DEPS_DIR)/crypt_blowfish-1.0.4/ow-crypt.h \
 	$(DEPS_DIR)/http_parser/http_parser.h \
 	$(DEPS_DIR)/multipart-parser-c/multipart_parser.h \
-	$(DEPS_DIR)/sqlite/sqlite3.h
+	$(DEPS_DIR)/liblmdb/lmdb.h
 
 OBJECTS := \
 	$(BUILD_DIR)/main.o \
@@ -54,7 +55,7 @@ OBJECTS := \
 	$(BUILD_DIR)/EFSServer.o \
 	$(BUILD_DIR)/Template.o \
 	$(BUILD_DIR)/URIList.o \
-	$(BUILD_DIR)/sqlite3f.o \
+	$(BUILD_DIR)/db.o \
 	$(BUILD_DIR)/strndup.o \
 	$(BUILD_DIR)/async.o \
 	$(BUILD_DIR)/async_fs.o \
@@ -62,7 +63,6 @@ OBJECTS := \
 	$(BUILD_DIR)/async_mutex.o \
 	$(BUILD_DIR)/async_rwlock.o \
 	$(BUILD_DIR)/async_worker.o \
-	$(BUILD_DIR)/async_sqlite.o \
 	$(BUILD_DIR)/bcrypt.o \
 	$(BUILD_DIR)/http/Headers.o \
 	$(BUILD_DIR)/http/HTTPMessage.o \
@@ -75,25 +75,16 @@ OBJECTS := \
 	$(BUILD_DIR)/crypt/x86.S.o \
 	$(BUILD_DIR)/http_parser.o \
 	$(BUILD_DIR)/multipart_parser.o \
-	$(BUILD_DIR)/sqlite/sqlite3.o
+	$(BUILD_DIR)/liblmdb/mdb.o \
+	$(BUILD_DIR)/liblmdb/midl.o
 
 OBJECTS += $(BUILD_DIR)/libco/$(LIBCO_VER).o
 #HEADERS += $(DEPS_DIR)/libcoro/coro.h
 #OBJECTS += $(BUILD_DIR)/libcoro/coro.o $(BUILD_DIR)/libco_coro.o
 #CFLAGS += -DCORO_USE_VALGRIND
 
-# DEBUG
-#OBJECTS += \
-#	$(BUILD_DIR)/sqlite/test_sqllog.o
-
 OBJECTS += \
 	$(BUILD_DIR)/Blog.o
-
-TEST_OBJECTS := \
-	$(BUILD_DIR)/async.o \
-	$(BUILD_DIR)/sqlite_async.o \
-	$(BUILD_DIR)/libco.o \
-	$(BUILD_DIR)/sqlite3.o
 
 LIBUV_DIR := $(DEPS_DIR)/uv/out/Debug/obj.target
 #LIBUV_DIR := $(DEPS_DIR)/uv/build/Release
@@ -141,25 +132,26 @@ $(BUILD_DIR)/multipart_parser.o: $(DEPS_DIR)/multipart-parser-c/multipart_parser
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) -std=c89 -ansi -pedantic -Wall
 
-$(BUILD_DIR)/sqlite/%.o: $(DEPS_DIR)/sqlite/%.c $(DEPS_DIR)/sqlite/sqlite3.h
+$(BUILD_DIR)/liblmdb/%.o: $(DEPS_DIR)/liblmdb/%.c $(DEPS_DIR)/liblmdb/lmdb.h
 	@- mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS) -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -Wno-unused-value -Wno-constant-conversion
+	$(CC) -c -o $@ $< $(CFLAGS)
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c $(HEADERS)
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) -Werror -Wall -Wno-unused-function -Wno-unused-variable -Wno-unused-parameter -Wno-unused-value
 
-.PHONY: test
-test: $(BUILD_DIR)/test/sqlite_async
-	./$(BUILD_DIR)/test/sqlite_async
+.PHONY: tools
+tools: $(BUILD_DIR)/tools/efs_dump
 
-$(BUILD_DIR)/test/sqlite_async: $(ROOT_DIR)/test/test_sqlite_async.c $(TEST_OBJECTS) $(HEADERS)
+$(BUILD_DIR)/tools/efs_dump: $(TOOLS_DIR)/efs_dump.c $(SRC_DIR)/db.c $(SRC_DIR)/db.h $(DEPS_DIR)/liblmdb/mdb.c $(DEPS_DIR)/liblmdb/midl.c $(DEPS_DIR)/liblmdb/lmdb.h
 	@- mkdir -p $(dir $@)
-	$(CC) -c -o $@.o $< $(CFLAGS) -Werror -Wall -Wno-unused-function
-	$(CC) -o $@ $@.o $(TEST_OBJECTS) $(CFLAGS) -luv
+	$(CC) -o $@ $^ $(CFLAGS) -lpthread -Werror -Wall -Wno-unused-function -Wno-unused-variable -Wno-unused-parameter -Wno-unused-value
 
 .PHONY: clean
 clean:
 	- rm -rf $(BUILD_DIR)
+
+.PHONY: distclean
+distclean: clean
 	- rm -rf $(DEPS_DIR)/uv/out
 

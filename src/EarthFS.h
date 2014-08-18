@@ -1,8 +1,8 @@
 #ifndef EARTHFS_H
 #define EARTHFS_H
 
-#include "sqlite3f.h"
 #include "common.h"
+#include "db.h"
 #include "URIList.h"
 
 typedef struct EFSRepo* EFSRepoRef;
@@ -14,6 +14,27 @@ typedef struct EFSFilter* EFSFilterRef;
 typedef struct EFSJSONFilterParser* EFSJSONFilterParserRef;
 typedef struct EFSPull* EFSPullRef;
 
+typedef struct {
+	MDB_env *env;
+
+	MDB_dbi userByID;
+	MDB_dbi userIDByName;
+	MDB_dbi sessionByID;
+	MDB_dbi pullByID; // by user ID?
+
+	MDB_dbi fileByID;
+	MDB_dbi fileIDByInfo; // Merge with fileIDByURI?
+	MDB_dbi fileIDByURI;
+	MDB_dbi fileIDByType;
+
+	MDB_dbi targetURIByMetaFileID;
+	MDB_dbi targetFileIDByMetaFileID; // denorm
+	MDB_dbi metadataByMetaFileID;
+	MDB_dbi metaFileIDByMetadata;
+
+	MDB_dbi metaFileIDByFulltext;
+} EFSConnection;
+
 EFSRepoRef EFSRepoCreate(strarg_t const dir);
 void EFSRepoFree(EFSRepoRef *const repoptr);
 strarg_t EFSRepoGetDir(EFSRepoRef const repo);
@@ -22,8 +43,8 @@ str_t *EFSRepoCopyInternalPath(EFSRepoRef const repo, strarg_t const internalHas
 strarg_t EFSRepoGetTempDir(EFSRepoRef const repo);
 str_t *EFSRepoCopyTempPath(EFSRepoRef const repo);
 strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo);
-sqlite3f *EFSRepoDBConnect(EFSRepoRef const repo);
-void EFSRepoDBClose(EFSRepoRef const repo, sqlite3f **const dbptr);
+EFSConnection const *EFSRepoDBOpen(EFSRepoRef const repo);
+void EFSRepoDBClose(EFSRepoRef const repo, EFSConnection const **const dbptr);
 void EFSRepoStartPulls(EFSRepoRef const repo);
 
 typedef struct {
@@ -50,7 +71,7 @@ err_t EFSSubmissionEnd(EFSSubmissionRef const sub);
 err_t EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context);
 strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub);
 err_t EFSSubmissionAddFile(EFSSubmissionRef const sub);
-err_t EFSSubmissionStore(EFSSubmissionRef const sub, sqlite3f *const db);
+err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const conn, MDB_txn *const txn);
 // Convenience methods
 EFSSubmissionRef EFSSubmissionCreateAndAdd(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context);
 err_t EFSSubmissionCreatePair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title, EFSSubmissionRef *const outSub, EFSSubmissionRef *const outMeta);
@@ -66,7 +87,7 @@ EFSMetaFileRef EFSMetaFileCreate(strarg_t const type);
 void EFSMetaFileFree(EFSMetaFileRef *const metaptr);
 err_t EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len);
 err_t EFSMetaFileEnd(EFSMetaFileRef const meta);
-err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t const URI, sqlite3f *const db);
+err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t const URI, EFSConnection const *const conn, MDB_txn *const txn);
 
 typedef enum {
 	EFSFilterTypeInvalid = 0,
@@ -86,8 +107,7 @@ void EFSFilterFree(EFSFilterRef *const filterptr);
 err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len);
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
 void EFSFilterPrint(EFSFilterRef const filter, count_t const indent);
-err_t EFSFilterPrepare(EFSFilterRef const filter, sqlite3f *const db);
-int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const sortID, int64_t const fileID);
+int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const sortID, int64_t const fileID, EFSConnection const *const conn, MDB_txn *const txn);
 
 EFSJSONFilterParserRef EFSJSONFilterParserCreate(void);
 void EFSJSONFilterParserFree(EFSJSONFilterParserRef *const parserptr);

@@ -16,7 +16,7 @@ typedef enum {
 struct EFSMetaFile {
 	size_t length;
 	yajl_handle parser;
-	sqlite3f *tmpdb;
+//	sqlite3f *tmpdb;
 
 	meta_state state;
 	str_t *field;
@@ -28,7 +28,8 @@ static void cleanup(EFSMetaFileRef const meta);
 static void parse_error(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len);
 
 EFSMetaFileRef EFSMetaFileCreate(strarg_t const type) {
-	if(!type) return NULL;
+return NULL;
+/*	if(!type) return NULL;
 	if(0 != strcasecmp("text/efs-meta+json; charset=utf-8", type)) return NULL;
 
 	EFSMetaFileRef meta = calloc(1, sizeof(struct EFSMetaFile));
@@ -60,7 +61,7 @@ EFSMetaFileRef EFSMetaFileCreate(strarg_t const type) {
 		"	field TEXT NOT NULL,\n"
 		"	value TEXT NOT NULL\n"
 		")"));
-	return meta;
+	return meta;*/
 }
 void EFSMetaFileFree(EFSMetaFileRef *const metaptr) {
 	EFSMetaFileRef meta = *metaptr;
@@ -73,30 +74,30 @@ err_t EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_
 	if(!meta) return 0;
 	if(!meta->parser) return -1;
 	if(meta->length > META_MAX) return -1;
-	meta->length += len;
+/*	meta->length += len;
 	yajl_status const status = yajl_parse(meta->parser, buf, MIN(len, META_MAX - meta->length));
 	if(yajl_status_ok != status) {
 		parse_error(meta, buf, len);
 		return -1;
-	}
+	}*/
 	return 0;
 }
 err_t EFSMetaFileEnd(EFSMetaFileRef const meta) {
 	if(!meta) return 0;
 	if(!meta->parser) return -1;
-	yajl_status const status = yajl_complete_parse(meta->parser);
+/*	yajl_status const status = yajl_complete_parse(meta->parser);
 	if(yajl_status_ok != status) {
 		parse_error(meta, NULL, 0);
 		return -1;
-	}
+	}*/
 	return 0;
 }
 
 
-err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t const fileURI, sqlite3f *const db) {
+err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t const fileURI, EFSConnection const *const conn, MDB_txn *const txn) {
 	if(!meta) return 0;
 	if(!meta->parser) return -1;
-	EXEC(QUERY(db, "SAVEPOINT metafile"));
+/*	EXEC(QUERY(db, "SAVEPOINT metafile"));
 
 	// TODO: Rename "metaURI" field to "targetURI"?
 	sqlite3_stmt *selectTargetURI = QUERY(meta->tmpdb,
@@ -175,14 +176,14 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 	sqlite3f_finalize(insertFulltext); insertFulltext = NULL;
 	sqlite3f_finalize(insertMetaFulltext); insertMetaFulltext = NULL;
 
-	EXEC(QUERY(db, "RELEASE metafile"));
+	EXEC(QUERY(db, "RELEASE metafile"));*/
 	return 0;
 }
 
 
 static void cleanup(EFSMetaFileRef const meta) {
 	if(meta->parser) { yajl_free(meta->parser); meta->parser = NULL; }
-	sqlite3f_close(meta->tmpdb); meta->tmpdb = NULL;
+//	sqlite3f_close(meta->tmpdb); meta->tmpdb = NULL;
 	meta->state = s_start;
 	FREE(&meta->field);
 }
@@ -206,12 +207,12 @@ static int yajl_string(EFSMetaFileRef const meta, strarg_t const str, size_t con
 	switch(meta->state) {
 		case s_field_value:
 		case s_field_array: {
-			sqlite3_stmt *insertMeta = QUERY(meta->tmpdb,
+/*			sqlite3_stmt *insertMeta = QUERY(meta->tmpdb,
 				"INSERT OR IGNORE INTO fields (field, value)\n"
 				"VALUES (?, ?)");
 			sqlite3_bind_text(insertMeta, 1, meta->field, -1, SQLITE_STATIC);
 			sqlite3_bind_text(insertMeta, 2, str, len, SQLITE_STATIC);
-			EXEC(insertMeta); insertMeta = NULL;
+			EXEC(insertMeta); insertMeta = NULL;*/
 			// TODO: Full text indexing.
 			if(s_field_value == meta->state) {
 				FREE(&meta->field);

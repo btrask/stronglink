@@ -4,9 +4,9 @@
 #include "async.h"
 #include "http/HTTPMessage.h"
 
-#define URI_MAX 1024
+#define URI_MAX 1023
 #define READER_COUNT 16
-#define QUEUE_SIZE 32
+#define QUEUE_SIZE 512
 
 #define PROFILE_INTERVAL 10
 
