@@ -184,8 +184,6 @@ void EFSRepoStartPulls(EFSRepoRef const repo) {
 		strarg_t const cookie = db_read_text(&pull_val);
 		strarg_t const query = db_read_text(&pull_val);
 
-fprintf(stderr, "starting pull %s\n", host);
-
 		EFSPullRef const pull = EFSRepoCreatePull(repo, pullID, userID, host, username, password, cookie, query);
 		if(repo->pull_count+1 > repo->pull_size) {
 			repo->pull_size = (repo->pull_count+1) * 2;
