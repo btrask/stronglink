@@ -79,7 +79,11 @@ void db_bind_int64(MDB_val *const val, size_t const max, int64_t const item) {
 	val->mv_size += DB_SIZE_INT64;
 }
 void db_bind_text(MDB_val *const val, size_t const max, strarg_t const item) {
-	int16_t const len = strlen(item);
+	size_t const len = strlen(item);
+	put_text(val->mv_data+val->mv_size, max-val->mv_size, item, len);
+	val->mv_size += DB_SIZE_TEXT(len);
+}
+void db_bind_text_len(MDB_val *const val, size_t const max, strarg_t const item, size_t const len) {
 	put_text(val->mv_data+val->mv_size, max-val->mv_size, item, len);
 	val->mv_size += DB_SIZE_TEXT(len);
 }

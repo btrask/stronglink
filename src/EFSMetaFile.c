@@ -5,218 +5,163 @@
 
 #define META_MAX (1024 * 100)
 
+struct EFSMetaFile {
+	byte_t *buf;
+	size_t len;
+};
+
+static yajl_callbacks const callbacks;
+
+static void add_metadata(EFSConnection const *const conn, MDB_txn *const txn, int64_t const metaFileID, strarg_t const field, strarg_t const value, size_t const vlen);
+
+EFSMetaFileRef EFSMetaFileCreate(strarg_t const type) {
+	if(!type) return NULL;
+	if(0 != strcasecmp("text/efs-meta+json; charset=utf-8", type)) return NULL;
+
+	EFSMetaFileRef meta = calloc(1, sizeof(struct EFSMetaFile));
+	if(!meta) return NULL;
+	meta->buf = malloc(META_MAX);
+	meta->len = 0;
+	return meta;
+}
+void EFSMetaFileFree(EFSMetaFileRef *const metaptr) {
+	EFSMetaFileRef meta = *metaptr;
+	if(!meta) return;
+	FREE(&meta->buf);
+	meta->len = 0;
+	FREE(metaptr); meta = NULL;
+}
+
+err_t EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len) {
+	if(!meta) return 0;
+	if(meta->len >= META_MAX) return 0;
+	size_t const use = MIN(META_MAX-meta->len, len);
+	memcpy(meta->buf+meta->len, buf, use);
+	meta->len += use;
+	return 0;
+}
+err_t EFSMetaFileEnd(EFSMetaFileRef const meta) {
+	if(!meta) return 0;
+	return 0;
+}
+
 typedef enum {
 	s_start = 0,
 	s_top,
 		s_field_value,
 		s_field_array,
 	s_end,
-} meta_state;
+} parser_state;
 
-struct EFSMetaFile {
-	size_t length;
-	yajl_handle parser;
-//	sqlite3f *tmpdb;
-
-	meta_state state;
+typedef struct {
+	EFSConnection const *conn;
+	MDB_txn *txn;
+	int64_t metaFileID;
+	strarg_t targetURI;
+	parser_state state;
 	str_t *field;
-};
-
-static yajl_callbacks const callbacks;
-
-static void cleanup(EFSMetaFileRef const meta);
-static void parse_error(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len);
-
-EFSMetaFileRef EFSMetaFileCreate(strarg_t const type) {
-return NULL;
-/*	if(!type) return NULL;
-	if(0 != strcasecmp("text/efs-meta+json; charset=utf-8", type)) return NULL;
-
-	EFSMetaFileRef meta = calloc(1, sizeof(struct EFSMetaFile));
-	if(!meta) return NULL;
-	meta->parser = yajl_alloc(&callbacks, NULL, meta);
-	if(!meta->parser) {
-		EFSMetaFileFree(&meta);
-		return NULL;
-	}
-	yajl_config(meta->parser, yajl_allow_partial_values, (int)true);
-	sqlite3 *db = NULL;
-	if(SQLITE_OK != sqlite3_open_v2(
-		":memory:",
-		&db,
-		SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE,
-		NULL)
-	) {
-		EFSMetaFileFree(&meta);
-		return NULL;
-	}
-	meta->tmpdb = sqlite3f_create(db);
-	if(!db) {
-		sqlite3_close(db); db = NULL;
-		EFSMetaFileFree(&meta);
-		return NULL;
-	}
-	EXEC(QUERY(meta->tmpdb,
-		"CREATE TABLE fields (\n"
-		"	field TEXT NOT NULL,\n"
-		"	value TEXT NOT NULL\n"
-		")"));
-	return meta;*/
-}
-void EFSMetaFileFree(EFSMetaFileRef *const metaptr) {
-	EFSMetaFileRef meta = *metaptr;
-	if(!meta) return;
-	cleanup(meta);
-	FREE(metaptr); meta = NULL;
-}
-
-err_t EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len) {
-	if(!meta) return 0;
-	if(!meta->parser) return -1;
-	if(meta->length > META_MAX) return -1;
-/*	meta->length += len;
-	yajl_status const status = yajl_parse(meta->parser, buf, MIN(len, META_MAX - meta->length));
-	if(yajl_status_ok != status) {
-		parse_error(meta, buf, len);
-		return -1;
-	}*/
-	return 0;
-}
-err_t EFSMetaFileEnd(EFSMetaFileRef const meta) {
-	if(!meta) return 0;
-	if(!meta->parser) return -1;
-/*	yajl_status const status = yajl_complete_parse(meta->parser);
-	if(yajl_status_ok != status) {
-		parse_error(meta, NULL, 0);
-		return -1;
-	}*/
-	return 0;
-}
-
+} parser_context;
 
 err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t const fileURI, EFSConnection const *const conn, MDB_txn *const txn) {
 	if(!meta) return 0;
-	if(!meta->parser) return -1;
-/*	EXEC(QUERY(db, "SAVEPOINT metafile"));
+	if(meta->len < 3) return 0;
 
-	// TODO: Rename "metaURI" field to "targetURI"?
-	sqlite3_stmt *selectTargetURI = QUERY(meta->tmpdb,
-		"SELECT value FROM fields WHERE field = 'metaURI'");
-	str_t *targetURI = NULL;
-	if(SQLITE_ROW == STEP(selectTargetURI)) {
-		targetURI = strdup((char const *)sqlite3_column_text(selectTargetURI, 0));
+	byte_t *buf = NULL;
+	size_t len = 0;
+	strarg_t targetURI = NULL;
+	for(index_t i = 0; i < MIN(URI_MAX+1, meta->len-3); ++i) {
+		bool_t const crlfcrlf =
+			'\r' == meta->buf[i+0] &&
+			'\n' == meta->buf[i+1] &&
+			'\r' == meta->buf[i+2] &&
+			'\n' == meta->buf[i+3];
+		bool_t const crcr =
+			'\r' == meta->buf[i+0] &&
+			'\r' == meta->buf[i+1];
+		bool_t const lflf =
+			'\n' == meta->buf[i+0] &&
+			'\n' == meta->buf[i+1];
+		if(!crlfcrlf && !crcr && !lflf) continue;
+		if(i < 8) break; // Too short to be a valid URI.
+		meta->buf[i] = '\0';
+		targetURI = (strarg_t)meta->buf;
+		buf = meta->buf + (i + 1);
+		len = meta->len - (i + 1);
+		break;
 	}
-	sqlite3f_finalize(selectTargetURI); selectTargetURI = NULL;
-	if(!targetURI) {
-		EXEC(QUERY(db, "ROLLBACK TO metafile"));
+	if(!buf || !len || !targetURI) return 0;
+
+
+	int64_t metaFileID = db_autoincrement(txn, conn->targetURIByMetaFileID);
+	byte_t intbuf[DB_SIZE_INT64];
+	MDB_val metaFileID_val = { 0, intbuf };
+	db_bind_int64(&metaFileID_val, DB_SIZE_INT64, metaFileID);
+	MDB_val targetURI_val = { strlen(fileURI)+1, (void *)fileURI };
+	mdb_put(txn, conn->targetURIByMetaFileID, &metaFileID_val, &targetURI_val, MDB_NOOVERWRITE);
+
+	++metaFileID;
+	metaFileID_val = (MDB_val){ 0, intbuf };
+	db_bind_int64(&metaFileID_val, DB_SIZE_INT64, metaFileID);
+	targetURI_val = (MDB_val){ strlen(targetURI)+1, (void *)targetURI };
+	mdb_put(txn, conn->targetURIByMetaFileID, &metaFileID_val, &targetURI_val, MDB_NOOVERWRITE);
+
+	add_metadata(conn, txn, metaFileID, "link", targetURI, strlen(targetURI));
+
+
+	parser_context context = {
+		.conn = conn,
+		.txn = txn,
+		.metaFileID = metaFileID,
+		.targetURI = targetURI,
+		.state = s_start,
+		.field = NULL,
+	};
+
+	yajl_handle parser = yajl_alloc(&callbacks, NULL, &context);
+	if(!parser) return -1;
+	yajl_config(parser, yajl_allow_partial_values, (int)true);
+	yajl_parse(parser, buf, len);
+	yajl_status const status = yajl_complete_parse(parser);
+	if(yajl_status_ok != status) {
+		unsigned char *msg = yajl_get_error(parser, true, buf, len);
+		fprintf(stderr, "%s", msg);
+		yajl_free_error(parser, msg); msg = NULL;
+		FREE(&context.field);
+		yajl_free(parser); parser = NULL;
 		return -1;
 	}
-
-	sqlite3_stmt *insertMetaFile = QUERY(db,
-		"INSERT INTO meta_files (file_id, target_uri)\n"
-		"VALUES (?, ?)");
-	sqlite3_stmt *insertMetaData = QUERY(db,
-		"INSERT INTO meta_data (meta_file_id, field, value)\n"
-		"VALUES (?, ?, ?)");
-
-	sqlite3_bind_int64(insertMetaFile, 1, fileID);
-	sqlite3_bind_text(insertMetaFile, 2, fileURI, -1, SQLITE_STATIC);
-	sqlite3_step(insertMetaFile);
-	sqlite3_reset(insertMetaFile);
-	int64_t const self = sqlite3_last_insert_rowid(db->conn);
-
-	sqlite3_bind_int64(insertMetaData, 1, self);
-	sqlite3_bind_text(insertMetaData, 2, "link", -1, SQLITE_STATIC);
-	sqlite3_bind_text(insertMetaData, 3, targetURI, -1, SQLITE_STATIC);
-	sqlite3_step(insertMetaData);
-	sqlite3_reset(insertMetaData);
-
-	sqlite3_bind_text(insertMetaFile, 2, targetURI, -1, SQLITE_STATIC);
-	sqlite3_step(insertMetaFile);
-	sqlite3_reset(insertMetaFile);
-	int64_t const metaFileID = sqlite3_last_insert_rowid(db->conn);
-
-	FREE(&targetURI);
-
-	sqlite3_bind_int64(insertMetaData, 1, metaFileID);
-	sqlite3_stmt *selectMetaData = QUERY(meta->tmpdb,
-		"SELECT field, value FROM fields WHERE field != 'fulltext'");
-	while(SQLITE_ROW == STEP(selectMetaData)) {
-		strarg_t const field = (strarg_t)sqlite3_column_text(selectMetaData, 0);
-		strarg_t const value = (strarg_t)sqlite3_column_text(selectMetaData, 1);
-		sqlite3_bind_text(insertMetaData, 2, field, -1, SQLITE_STATIC);
-		sqlite3_bind_text(insertMetaData, 3, value, -1, SQLITE_STATIC);
-		STEP(insertMetaData);
-		sqlite3_reset(insertMetaData);
-	}
-
-	sqlite3f_finalize(selectMetaData); selectMetaData = NULL;
-	sqlite3f_finalize(insertMetaData); insertMetaData = NULL;
-	sqlite3f_finalize(insertMetaFile); insertMetaFile = NULL;
-
-	sqlite3_stmt *selectFulltext = QUERY(meta->tmpdb,
-		"SELECT value FROM fields WHERE field = 'fulltext'");
-	sqlite3_stmt *insertMetaFulltext = QUERY(db,
-		"INSERT INTO meta_fulltext (meta_file_id) VALUES (?)");
-	sqlite3_bind_int64(insertMetaFulltext, 1, metaFileID);
-	sqlite3_stmt *insertFulltext = QUERY(db,
-		"INSERT INTO fulltext (docid, value) VALUES (?, ?)");
-	while(SQLITE_ROW == STEP(selectFulltext)) {
-		strarg_t const value = (strarg_t)sqlite3_column_text(selectFulltext, 0);
-		STEP(insertMetaFulltext);
-		int64_t const docid = sqlite3_last_insert_rowid(db->conn);
-
-		sqlite3_bind_int64(insertFulltext, 1, docid);
-		sqlite3_bind_text(insertFulltext, 2, value, -1, SQLITE_STATIC);
-		STEP(insertFulltext);
-		sqlite3_reset(insertFulltext);
-		sqlite3_reset(insertMetaFulltext);
-	}
-	sqlite3f_finalize(selectFulltext); selectFulltext = NULL;
-	sqlite3f_finalize(insertFulltext); insertFulltext = NULL;
-	sqlite3f_finalize(insertMetaFulltext); insertMetaFulltext = NULL;
-
-	EXEC(QUERY(db, "RELEASE metafile"));*/
+	FREE(&context.field);
+	yajl_free(parser); parser = NULL;
 	return 0;
 }
 
 
-static void cleanup(EFSMetaFileRef const meta) {
-	if(meta->parser) { yajl_free(meta->parser); meta->parser = NULL; }
-//	sqlite3f_close(meta->tmpdb); meta->tmpdb = NULL;
-	meta->state = s_start;
-	FREE(&meta->field);
-}
-static void parse_error(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len) {
-	unsigned char *msg = yajl_get_error(meta->parser, true, buf, len);
-	fprintf(stderr, "%s", msg);
-	yajl_free_error(meta->parser, msg); msg = NULL;
-	cleanup(meta);
-}
-
-static int yajl_null(EFSMetaFileRef const meta) {
+static int yajl_null(parser_context *const context) {
 	return false;
 }
-static int yajl_boolean(EFSMetaFileRef const meta, int const flag) {
+static int yajl_boolean(parser_context *const context, int const flag) {
 	return false;
 }
-static int yajl_number(EFSMetaFileRef const meta, strarg_t const str, size_t const len) {
+static int yajl_number(parser_context *const context, strarg_t const str, size_t const len) {
 	return false;
 }
-static int yajl_string(EFSMetaFileRef const meta, strarg_t const str, size_t const len) {
-	switch(meta->state) {
+static int yajl_string(parser_context *const context, strarg_t const str, size_t const len) {
+	switch(context->state) {
 		case s_field_value:
 		case s_field_array: {
-/*			sqlite3_stmt *insertMeta = QUERY(meta->tmpdb,
-				"INSERT OR IGNORE INTO fields (field, value)\n"
-				"VALUES (?, ?)");
-			sqlite3_bind_text(insertMeta, 1, meta->field, -1, SQLITE_STATIC);
-			sqlite3_bind_text(insertMeta, 2, str, len, SQLITE_STATIC);
-			EXEC(insertMeta); insertMeta = NULL;*/
-			// TODO: Full text indexing.
-			if(s_field_value == meta->state) {
-				FREE(&meta->field);
-				meta->state = s_top;
+			if(0 == strcmp("fulltext", context->field)) {
+				// TODO
+			} else {
+				add_metadata(
+					context->conn,
+					context->txn,
+					context->metaFileID,
+					context->field,
+					str, len);
+			}
+			if(s_field_value == context->state) {
+				FREE(&context->field);
+				context->state = s_top;
 			}
 			return true;
 		}
@@ -224,54 +169,54 @@ static int yajl_string(EFSMetaFileRef const meta, strarg_t const str, size_t con
 			return false;
 	}
 }
-static int yajl_start_map(EFSMetaFileRef const meta) {
-	switch(meta->state) {
+static int yajl_start_map(parser_context *const context) {
+	switch(context->state) {
 		case s_start:
-			meta->state = s_top;
+			context->state = s_top;
 			return true;
 		default:
 			return false;
 	}
 }
-static int yajl_map_key(EFSMetaFileRef const meta, strarg_t const key, size_t const len) {
-	switch(meta->state) {
+static int yajl_map_key(parser_context *const context, strarg_t const key, size_t const len) {
+	switch(context->state) {
 		case s_top:
-			assertf(!meta->field, "Already parsing field");
-			meta->field = strndup(key, len);
-			meta->state = s_field_value;
+			assertf(!context->field, "Already parsing field");
+			context->field = strndup(key, len);
+			context->state = s_field_value;
 			return true;
 		default:
-			assertf(0, "Unexpected map key in state %d", meta->state);
+			assertf(0, "Unexpected map key in state %d", context->state);
 			return false;
 	}
 }
-static int yajl_end_map(EFSMetaFileRef const meta) {
-	switch(meta->state) {
+static int yajl_end_map(parser_context *const context) {
+	switch(context->state) {
 		case s_top:
-			meta->state = s_end;
+			context->state = s_end;
 			return true;
 		default:
-			assertf(0, "Unexpected map end in state %d", meta->state);
+			assertf(0, "Unexpected map end in state %d", context->state);
 			return false;
 	}
 }
-static int yajl_start_array(EFSMetaFileRef const meta) {
-	switch(meta->state) {
+static int yajl_start_array(parser_context *const context) {
+	switch(context->state) {
 		case s_field_value:
-			meta->state = s_field_array;
+			context->state = s_field_array;
 			return true;
 		default:
 			return false;
 	}
 }
-static int yajl_end_array(EFSMetaFileRef const meta) {
-	switch(meta->state) {
+static int yajl_end_array(parser_context *const context) {
+	switch(context->state) {
 		case s_field_array:
-			FREE(&meta->field);
-			meta->state = s_top;
+			FREE(&context->field);
+			context->state = s_top;
 			return true;
 		default:
-			assertf(0, "Unexpected array end in state %d", meta->state);
+			assertf(0, "Unexpected array end in state %d", context->state);
 			return false;
 	}
 }
@@ -286,4 +231,17 @@ static yajl_callbacks const callbacks = {
 	.yajl_start_array = (int (*)())yajl_start_array,
 	.yajl_end_array = (int (*)())yajl_end_array,
 };
+
+static void add_metadata(EFSConnection const *const conn, MDB_txn *const txn, int64_t const metaFileID, strarg_t const field, strarg_t const value, size_t const vlen) {
+	byte_t intbuf[DB_SIZE_INT64];
+	byte_t buf[MDB_MAXKEYSIZE];
+
+	MDB_val metaFileID_val = { 0, intbuf };
+	db_bind_int64(&metaFileID_val, DB_SIZE_INT64, metaFileID);
+	MDB_val metadata_val = { 0, buf };
+	db_bind_text(&metadata_val, MDB_MAXKEYSIZE, field);
+	db_bind_text_len(&metadata_val, MDB_MAXKEYSIZE, value, vlen);
+	mdb_put(txn, conn->metaFileIDByMetadata, &metadata_val, &metaFileID_val, MDB_NODUPDATA);
+	mdb_put(txn, conn->metadataByMetaFileID, &metaFileID_val, &metadata_val, MDB_NODUPDATA);
+}
 

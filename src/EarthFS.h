@@ -5,6 +5,8 @@
 #include "db.h"
 #include "URIList.h"
 
+#define URI_MAX 1023
+
 typedef struct EFSRepo* EFSRepoRef;
 typedef struct EFSSession* EFSSessionRef;
 typedef struct EFSSubmission* EFSSubmissionRef;
@@ -28,7 +30,7 @@ typedef struct {
 	MDB_dbi fileIDByType;
 
 	MDB_dbi targetURIByMetaFileID;
-	MDB_dbi targetFileIDByMetaFileID; // denorm
+//	MDB_dbi targetFileIDByMetaFileID; // denorm
 	MDB_dbi metadataByMetaFileID;
 	MDB_dbi metaFileIDByMetadata;
 

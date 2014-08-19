@@ -15,6 +15,7 @@ strarg_t db_read_text(MDB_val *const val);
 
 void db_bind_int64(MDB_val *const val, size_t const max, int64_t const item);
 void db_bind_text(MDB_val *const val, size_t const max, strarg_t const item);
+void db_bind_text_len(MDB_val *const val, size_t const max, strarg_t const item, size_t const len);
 
 void db_fill_int64(MDB_val *const val, int64_t const item);
 void db_fill_text(MDB_val *const val, strarg_t const item, size_t const len);

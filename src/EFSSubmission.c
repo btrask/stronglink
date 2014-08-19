@@ -279,15 +279,15 @@ err_t EFSSubmissionCreatePair(EFSSessionRef const session, strarg_t const type, 
 		return -1;
 	}
 
+	strarg_t const targetURI = EFSSubmissionGetPrimaryURI(sub);
+	EFSSubmissionWrite(meta, (byte_t const *)targetURI, strlen(targetURI));
+	EFSSubmissionWrite(meta, (byte_t const *)"\r\n\r\n", 4);
+
 	yajl_gen json = yajl_gen_alloc(NULL);
 	yajl_gen_config(json, yajl_gen_print_callback, (void (*)())EFSSubmissionWrite, meta);
 	yajl_gen_config(json, yajl_gen_beautify, (int)true);
 
 	yajl_gen_map_open(json);
-
-	strarg_t const metaURI = EFSSubmissionGetPrimaryURI(sub);
-	yajl_gen_string(json, (byte_t const *)"metaURI", strlen("metaURI"));
-	yajl_gen_string(json, (byte_t const *)metaURI, strlen(metaURI));
 
 	if(title) {
 		yajl_gen_string(json, (byte_t const *)"title", strlen("title"));
