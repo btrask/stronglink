@@ -11,7 +11,6 @@ CFLAGS += -g -O2 -Wno-unused-result
 #CFLAGS += -DNDEBUG -Wno-unused-but-set-variable
 CFLAGS += -DHTTP_PARSER_DEBUG
 CFLAGS += -DLIBCO_MP
-CFLAGS += -DMDB_MAXKEYSIZE=2047
 
 BUILD_DIR := $(ROOT_DIR)/build
 SRC_DIR := $(ROOT_DIR)/src
