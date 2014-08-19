@@ -11,7 +11,7 @@
 #define PROFILE_INTERVAL 10
 
 struct EFSPull {
-	int64_t pullID;
+	uint64_t pullID;
 	EFSSessionRef session;
 	str_t *host;
 	str_t *username;
@@ -51,7 +51,7 @@ static void profile(uv_timer_t *const timer) {
 static err_t reconnect(EFSPullRef const pull);
 static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn);
 
-EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, int64_t const pullID, int64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query) {
+EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, uint64_t const pullID, uint64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query) {
 	EFSPullRef pull = calloc(1, sizeof(struct EFSPull));
 	if(!pull) return NULL;
 	pull->pullID = pullID;

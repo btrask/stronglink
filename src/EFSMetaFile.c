@@ -62,7 +62,7 @@ typedef struct {
 	str_t *field;
 } parser_context;
 
-err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t const fileURI, EFSConnection const *const conn, MDB_txn *const txn) {
+err_t EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_t const fileURI, EFSConnection const *const conn, MDB_txn *const txn) {
 	if(!meta) return 0;
 	if(meta->len < 3) return 0;
 
@@ -91,29 +91,24 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 	}
 	if(!buf || !len || !targetURI) return 0;
 
-	int64_t metaFileID;
+	uint64_t metaFileID;
 	{
 
-	byte_t intbuf[DB_SIZE_INT64];
-	byte_t buf[MDB_MAXKEYSIZE];
-
 	metaFileID = db_autoincrement(txn, conn->metaFileByID);
-	MDB_val metaFileID_val = { 0, intbuf };
-	db_bind_int64(&metaFileID_val, DB_SIZE_INT64, metaFileID);
+	DB_VAL(metaFileID_val, 1);
+	db_bind(metaFileID_val, 0, metaFileID);
 
-	MDB_val metaFile_val = { 0, buf };
-	db_bind_int64(&metaFile_val, MDB_MAXKEYSIZE, fileID);
-	db_bind_text(&metaFile_val, MDB_MAXKEYSIZE, fileURI);
-	mdb_put(txn, conn->metaFileByID, &metaFileID_val, &metaFile_val, MDB_NOOVERWRITE);
+	uint64_t const fileURI_id = db_string_id(txn, conn->schema, fileURI);
+	DB_VAL(metaFile_val, 2);
+	db_bind(metaFile_val, 0, fileID);
+	db_bind(metaFile_val, 1, fileURI_id);
+	mdb_put(txn, conn->metaFileByID, metaFileID_val, metaFile_val, MDB_NOOVERWRITE);
 
-	++metaFileID;
-	metaFileID_val = (MDB_val){ 0, intbuf };
-	db_bind_int64(&metaFileID_val, DB_SIZE_INT64, metaFileID);
-
-	metaFile_val = (MDB_val){ 0, buf };
-	db_bind_int64(&metaFile_val, MDB_MAXKEYSIZE, fileID);
-	db_bind_text(&metaFile_val, MDB_MAXKEYSIZE, targetURI);
-	mdb_put(txn, conn->metaFileByID, &metaFileID_val, &metaFile_val, MDB_NOOVERWRITE);
+	uint64_t const targetURI_id = db_string_id(txn, conn->schema, targetURI);
+	db_bind(metaFileID_val, 0, ++metaFileID);
+	db_bind(metaFile_val, 0, fileID);
+	db_bind(metaFile_val, 1, targetURI_id);
+	mdb_put(txn, conn->metaFileByID, metaFileID_val, metaFile_val, MDB_NOOVERWRITE);
 
 	}
 
@@ -245,15 +240,17 @@ static yajl_callbacks const callbacks = {
 };
 
 static void add_metadata(EFSConnection const *const conn, MDB_txn *const txn, int64_t const metaFileID, strarg_t const field, strarg_t const value, size_t const vlen) {
-	byte_t intbuf[DB_SIZE_INT64];
-	byte_t buf[MDB_MAXKEYSIZE];
+	uint64_t const field_id = db_string_id(txn, conn->schema, field);
+	uint64_t const value_id = db_string_id_len(txn, conn->schema, value, vlen);
+	assert(field_id);
+	assert(value_id);
 
-	MDB_val metaFileID_val = { 0, intbuf };
-	db_bind_int64(&metaFileID_val, DB_SIZE_INT64, metaFileID);
-	MDB_val metadata_val = { 0, buf };
-	db_bind_text(&metadata_val, MDB_MAXKEYSIZE, field);
-	db_bind_text_len(&metadata_val, MDB_MAXKEYSIZE, value, vlen);
-	mdb_put(txn, conn->metaFileIDByMetadata, &metadata_val, &metaFileID_val, MDB_NODUPDATA);
-	mdb_put(txn, conn->metadataByMetaFileID, &metaFileID_val, &metadata_val, MDB_NODUPDATA);
+	DB_VAL(metaFileID_val, 1);
+	db_bind(metaFileID_val, 0, metaFileID);
+	DB_VAL(metadata_val, 2);
+	db_bind(metadata_val, 0, field_id);
+	db_bind(metadata_val, 1, value_id);
+	mdb_put(txn, conn->metaFileIDByMetadata, metadata_val, metaFileID_val, MDB_NODUPDATA);
+	mdb_put(txn, conn->metadataByMetaFileID, metaFileID_val, metadata_val, MDB_NODUPDATA);
 }
 

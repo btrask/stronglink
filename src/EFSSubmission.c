@@ -150,40 +150,39 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 	int64_t const userID = EFSSessionGetUserID(session);
 
 	int64_t fileID = db_autoincrement(txn, conn->fileByID);
-	byte_t buf[MDB_MAXKEYSIZE];
-	byte_t intbuf[DB_SIZE_INT64];
 	int rc;
 
-	MDB_val fileID_val = { 0, intbuf };
-	db_bind_int64(&fileID_val, DB_SIZE_INT64, fileID);
+	DB_VAL(fileID_val, 1);
+	db_bind(fileID_val, 0, fileID);
 
-	MDB_val fileInfo_val = { 0, buf };
-	db_bind_text(&fileInfo_val, MDB_MAXKEYSIZE, sub->internalHash);
-	db_bind_text(&fileInfo_val, MDB_MAXKEYSIZE, sub->type);
-	rc = mdb_put(txn, conn->fileIDByInfo, &fileInfo_val, &fileID_val, MDB_NOOVERWRITE);
+	uint64_t const internalHash_id = db_string_id(txn, conn->schema, sub->internalHash);
+	uint64_t const type_id = db_string_id(txn, conn->schema, sub->type);
+	DB_VAL(fileInfo_val, 2);
+	db_bind(fileInfo_val, 0, internalHash_id);
+	db_bind(fileInfo_val, 1, type_id);
+	rc = mdb_put(txn, conn->fileIDByInfo, fileInfo_val, fileID_val, MDB_NOOVERWRITE);
 	if(MDB_SUCCESS != rc && MDB_KEYEXIST != rc) return -1;
 	if(MDB_KEYEXIST == rc) {
-		rc = mdb_get(txn, conn->fileIDByInfo, &fileInfo_val, &fileID_val);
+		MDB_val origFileID_val[1];
+		rc = mdb_get(txn, conn->fileIDByInfo, fileInfo_val, origFileID_val);
 		if(MDB_SUCCESS != rc) return -1;
-		fileID = db_read_int64(&fileID_val);
-		fileID_val = (MDB_val){ 0, intbuf };
-		db_bind_int64(&fileID_val, DB_SIZE_INT64, fileID);
-		// Might seem strange, but the result we get back is owned by the DB, not by us.
+		fileID = db_column(origFileID_val, 0);
+		db_bind(fileID_val, 0, fileID);
 	}
 
-	size_t const hashlen = strlen(sub->internalHash);
-	size_t const typelen = strlen(sub->type);
-	MDB_val file_val = { DB_SIZE_TEXT(hashlen)+DB_SIZE_TEXT(typelen)+DB_SIZE_INT64, NULL };
-	rc = mdb_put(txn, conn->fileByID, &fileID_val, &file_val, MDB_NOOVERWRITE | MDB_RESERVE);
+	DB_VAL(file_val, 3);
+	db_bind(file_val, 0, internalHash_id);
+	db_bind(file_val, 1, type_id);
+	db_bind(file_val, 2, sub->size);
+	rc = mdb_put(txn, conn->fileByID, fileID_val, file_val, MDB_NOOVERWRITE);
 	if(MDB_SUCCESS != rc) return -1;
-	db_fill_text(&file_val, sub->internalHash, hashlen);
-	db_fill_text(&file_val, sub->type, typelen);
-	db_fill_int64(&file_val, sub->size);
 
 	for(index_t i = 0; i < URIListGetCount(sub->URIs); ++i) {
 		strarg_t const URI = URIListGetURI(sub->URIs, i);
-		MDB_val URI_val = { strlen(URI)+1, (void *)URI };
-		rc = mdb_put(txn, conn->fileIDByURI, &URI_val, &fileID_val, MDB_NOOVERWRITE);
+		uint64_t const URI_id = db_string_id(txn, conn->schema, URI);
+		DB_VAL(URI_val, 1);
+		db_bind(URI_val, 0, URI_id);
+		rc = mdb_put(txn, conn->fileIDByURI, URI_val, fileID_val, MDB_NOOVERWRITE);
 		if(MDB_SUCCESS != rc && MDB_KEYEXIST != rc) return -1;
 	}
 

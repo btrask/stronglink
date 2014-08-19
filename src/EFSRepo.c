@@ -50,6 +50,14 @@ EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 	MDB_txn *txn = NULL;
 	mdb_txn_begin(conn->env, NULL, MDB_RDWR, &txn);
 
+
+	// TODO: Separate "schema open" function.
+	mdb_dbi_open(txn, "schema", MDB_CREATE, &conn->schema->schema);
+	mdb_dbi_open(txn, "stringByID", MDB_CREATE, &conn->schema->stringByID);
+	mdb_dbi_open(txn, "stringIDByValue", MDB_CREATE, &conn->schema->stringIDByValue);
+	mdb_dbi_open(txn, "stringIDByHash", MDB_CREATE, &conn->schema->stringIDByHash);
+
+
 	mdb_dbi_open(txn, "userByID", MDB_CREATE, &conn->userByID);
 	mdb_dbi_open(txn, "userIDByName", MDB_CREATE, &conn->userIDByName);
 	mdb_dbi_open(txn, "sessionByID", MDB_CREATE, &conn->sessionByID);
@@ -172,17 +180,17 @@ void EFSRepoStartPulls(EFSRepoRef const repo) {
 	rc = mdb_cursor_open(txn, conn->pullByID, &cur);
 	assert(MDB_SUCCESS == rc);
 
-	MDB_val pullID_val;
-	MDB_val pull_val;
-	rc = mdb_cursor_get(cur, &pullID_val, &pull_val, MDB_FIRST);
-	for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(cur, &pullID_val, &pull_val, MDB_NEXT)) {
-		int64_t const pullID = db_read_int64(&pullID_val);
-		int64_t const userID = db_read_int64(&pull_val);
-		strarg_t const host = db_read_text(&pull_val);
-		strarg_t const username = db_read_text(&pull_val);
-		strarg_t const password = db_read_text(&pull_val);
-		strarg_t const cookie = db_read_text(&pull_val);
-		strarg_t const query = db_read_text(&pull_val);
+	MDB_val pullID_val[1];
+	MDB_val pull_val[1];
+	rc = mdb_cursor_get(cur, pullID_val, pull_val, MDB_FIRST);
+	for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(cur, pullID_val, pull_val, MDB_NEXT)) {
+		uint64_t const pullID = db_column(pullID_val, 0);
+		uint64_t const userID = db_column(pull_val, 0);
+		strarg_t const host = db_string(txn, conn->schema, db_column(pull_val, 1));
+		strarg_t const username = db_string(txn, conn->schema, db_column(pull_val, 2));
+		strarg_t const password = db_string(txn, conn->schema, db_column(pull_val, 3));
+		strarg_t const cookie = db_string(txn, conn->schema, db_column(pull_val, 4));
+		strarg_t const query = db_string(txn, conn->schema, db_column(pull_val, 5));
 
 		EFSPullRef const pull = EFSRepoCreatePull(repo, pullID, userID, host, username, password, cookie, query);
 		if(repo->pull_count+1 > repo->pull_size) {
@@ -206,34 +214,44 @@ static void debug_data(EFSConnection const *const conn) {
 	MDB_txn *txn = NULL;
 	mdb_txn_begin(conn->env, NULL, MDB_RDWR, &txn);
 
-	byte_t intbuf[DB_SIZE_INT64];
-	byte_t buf[2000]; // Real code would use db_fill_* to avoid having a fake cap like this.
+	uint64_t const userID = 1;
+	uint64_t const username_id = db_string_id(txn, conn->schema, "ben");
+	uint64_t const passhash_id = db_string_id(txn, conn->schema, "$2a$08$lhAQjgGPuwvtErV.aK.MGO1T2W0UhN1r4IngmF5FvY0LM826aF8ye");
+	assert(username_id);
+	assert(passhash_id);
 
-	MDB_val userID_val = { 0, intbuf };
-	db_bind_int64(&userID_val, DB_SIZE_INT64, 1);
+	DB_VAL(userID_val, 1);
+	db_bind(userID_val, 0, userID);
+	DB_VAL(user_val, 3);
+	db_bind(user_val, 0, username_id);
+	db_bind(user_val, 1, passhash_id); // passhash
+	db_bind(user_val, 2, passhash_id); // token
+	mdb_put(txn, conn->userByID, userID_val, user_val, MDB_NOOVERWRITE);
 
-	MDB_val user_val = { 0, buf };
-	db_bind_text(&user_val, sizeof(buf), "ben");
-	db_bind_text(&user_val, sizeof(buf), "$2a$08$lhAQjgGPuwvtErV.aK.MGO1T2W0UhN1r4IngmF5FvY0LM826aF8ye"); // passhash
-	db_bind_text(&user_val, sizeof(buf), "$2a$08$lhAQjgGPuwvtErV.aK.MGO1T2W0UhN1r4IngmF5FvY0LM826aF8ye"); // token
+	DB_VAL(username_val, 1);
+	db_bind(username_val, 0, username_id);
+	mdb_put(txn, conn->userIDByName, username_val, userID_val, MDB_NOOVERWRITE);
 
-	mdb_put(txn, conn->userByID, &userID_val, &user_val, MDB_NOOVERWRITE);
+	DB_VAL(pullID_val, 1);
+	db_bind(pullID_val, 0, 1);
 
-	MDB_val username_val = { strlen("ben")+1, "ben" };
-	mdb_put(txn, conn->userIDByName, &username_val, &userID_val, MDB_NOOVERWRITE);
+	uint64_t const host_id = db_string_id(txn, conn->schema, "localhost:8009");
+	uint64_t const remote_username_id = db_string_id(txn, conn->schema, "ben");
+	uint64_t const remote_password_id = db_string_id(txn, conn->schema, "testing");
+	uint64_t const cookie_id = db_string_id(txn, conn->schema, "s=1892%3A4qKSMlVOtdrWXXjpE6CnQvckLjs%3D");
+	uint64_t const query_id = db_string_id(txn, conn->schema, "");
+	assert(host_id);
+	assert(query_id);
 
-	MDB_val pullID_val = { 0, intbuf };
-	db_bind_int64(&pullID_val, DB_SIZE_INT64, 1);
+	DB_VAL(pull_val, 6);
+	db_bind(pull_val, 0, userID);
+	db_bind(pull_val, 1, host_id);
+	db_bind(pull_val, 2, remote_username_id);
+	db_bind(pull_val, 3, remote_password_id);
+	db_bind(pull_val, 4, cookie_id);
+	db_bind(pull_val, 5, query_id);
 
-	MDB_val pull_val = { 0, buf };
-	db_bind_int64(&pull_val, sizeof(buf), 1); // Local user id
-	db_bind_text(&pull_val, sizeof(buf), "localhost:8009");
-	db_bind_text(&pull_val, sizeof(buf), "ben"); // Remote username
-	db_bind_text(&pull_val, sizeof(buf), "testing"); // Remote pass
-	db_bind_text(&pull_val, sizeof(buf), "s=1892%3A4qKSMlVOtdrWXXjpE6CnQvckLjs%3D");
-	db_bind_text(&pull_val, sizeof(buf), ""); // query
-
-	mdb_put(txn, conn->pullByID, &pullID_val, &pull_val, MDB_NOOVERWRITE);
+	mdb_put(txn, conn->pullByID, pullID_val, pull_val, MDB_NOOVERWRITE);
 
 	mdb_txn_commit(txn); txn = NULL;
 }

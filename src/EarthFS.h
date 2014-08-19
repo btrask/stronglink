@@ -18,6 +18,7 @@ typedef struct EFSPull* EFSPullRef;
 
 typedef struct {
 	MDB_env *env;
+	DB_schema schema[1];
 
 	MDB_dbi userByID;
 	MDB_dbi userIDByName;
@@ -57,10 +58,10 @@ typedef struct {
 
 str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strarg_t const password);
 EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie);
-EFSSessionRef EFSRepoCreateSessionInternal(EFSRepoRef const repo, int64_t const userID); // TODO: Private
+EFSSessionRef EFSRepoCreateSessionInternal(EFSRepoRef const repo, uint64_t const userID); // TODO: Private
 void EFSSessionFree(EFSSessionRef *const sessionptr);
 EFSRepoRef EFSSessionGetRepo(EFSSessionRef const session);
-int64_t EFSSessionGetUserID(EFSSessionRef const session);
+uint64_t EFSSessionGetUserID(EFSSessionRef const session);
 URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilterRef const filter, count_t const max); // TODO: Public API?
 err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFSFileInfo *const info);
 void EFSFileInfoCleanup(EFSFileInfo *const info);
@@ -89,7 +90,7 @@ EFSMetaFileRef EFSMetaFileCreate(strarg_t const type);
 void EFSMetaFileFree(EFSMetaFileRef *const metaptr);
 err_t EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len);
 err_t EFSMetaFileEnd(EFSMetaFileRef const meta);
-err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t const URI, EFSConnection const *const conn, MDB_txn *const txn);
+err_t EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_t const URI, EFSConnection const *const conn, MDB_txn *const txn);
 
 typedef enum {
 	EFSFilterTypeInvalid = 0,
@@ -104,12 +105,12 @@ typedef enum {
 } EFSFilterType;
 
 EFSFilterRef EFSFilterCreate(EFSFilterType const type);
-EFSFilterRef EFSPermissionFilterCreate(int64_t const userID);
+EFSFilterRef EFSPermissionFilterCreate(uint64_t const userID);
 void EFSFilterFree(EFSFilterRef *const filterptr);
 err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len);
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
 void EFSFilterPrint(EFSFilterRef const filter, count_t const indent);
-int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const sortID, int64_t const fileID, EFSConnection const *const conn, MDB_txn *const txn);
+uint64_t EFSFilterMatchAge(EFSFilterRef const filter, uint64_t const sortID, uint64_t const fileID, EFSConnection const *const conn, MDB_txn *const txn);
 
 EFSJSONFilterParserRef EFSJSONFilterParserCreate(void);
 void EFSJSONFilterParserFree(EFSJSONFilterParserRef *const parserptr);
@@ -119,7 +120,7 @@ EFSFilterType EFSFilterTypeFromString(strarg_t const type, size_t const len);
 
 EFSFilterRef EFSUserFilterParse(strarg_t const query);
 
-EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, int64_t const pullID, int64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query);
+EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, uint64_t const pullID, uint64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query);
 void EFSPullFree(EFSPullRef *const pullptr);
 err_t EFSPullStart(EFSPullRef const pull);
 void EFSPullStop(EFSPullRef const pull);

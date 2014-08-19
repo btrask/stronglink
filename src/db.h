@@ -4,21 +4,26 @@
 // Makes beginning a transaction slightly clearer.
 #define MDB_RDWR 0
 
-#define DB_SIZE_INT64 8
-#define DB_SIZE_TEXT(len) (2+(len)+1)
+// Big endian for sorting.
+typedef byte_t DB_uint64[8];
 
-//int64_t db_peek_int64(MDB_val const *const val);
-//strarg_t db_peek_text(MDB_val const *const val);
+#define DB_VAL(name, cols) \
+	DB_uint64 __buf_##name[cols]; \
+	MDB_val name[1] = {{ sizeof(__buf_##name), __buf_##name }};
 
-int64_t db_read_int64(MDB_val *const val);
-strarg_t db_read_text(MDB_val *const val);
+typedef struct {
+	MDB_dbi schema;
+	MDB_dbi stringByID;
+	MDB_dbi stringIDByValue;
+	MDB_dbi stringIDByHash;
+} DB_schema;
 
-void db_bind_int64(MDB_val *const val, size_t const max, int64_t const item);
-void db_bind_text(MDB_val *const val, size_t const max, strarg_t const item);
-void db_bind_text_len(MDB_val *const val, size_t const max, strarg_t const item, size_t const len);
+uint64_t db_column(MDB_val const *const val, index_t const col);
+void db_bind(MDB_val *const val, index_t const col, uint64_t const item);
 
-void db_fill_int64(MDB_val *const val, int64_t const item);
-void db_fill_text(MDB_val *const val, strarg_t const item, size_t const len);
+uint64_t db_autoincrement(MDB_txn *txn, MDB_dbi dbi);
 
-int64_t db_autoincrement(MDB_txn *txn, MDB_dbi dbi);
+uint64_t db_string_id(MDB_txn *const txn, DB_schema const *const schema, strarg_t const str);
+uint64_t db_string_id_len(MDB_txn *const txn, DB_schema const *const schema, strarg_t const str, size_t const len);
+strarg_t db_string(MDB_txn *const txn, DB_schema const *const schema, uint64_t const stringID);
 

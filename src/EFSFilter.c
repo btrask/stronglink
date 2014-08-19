@@ -29,7 +29,7 @@ struct EFSQueryFilter {
 struct EFSPermissionFilter {
 	EFS_FILTER_BASE
 	EFS_FILTER_QUERY
-	int64_t userID;
+	uint64_t userID;
 };
 struct EFSStringFilter {
 	EFS_FILTER_BASE
@@ -64,7 +64,7 @@ EFSFilterRef EFSFilterCreate(EFSFilterType const type) {
 	filter->type = type;
 	return filter;
 }
-EFSFilterRef EFSPermissionFilterCreate(int64_t const userID) {
+EFSFilterRef EFSPermissionFilterCreate(uint64_t const userID) {
 	EFSPermissionFilterRef filter = calloc(1, sizeof(struct EFSPermissionFilter));
 	if(!filter) return NULL;
 	filter->type = EFSPermissionFilterType;
@@ -284,16 +284,16 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, EFSConnection const *const con
 		}
 	}*/
 }
-/*static int64_t EFSCollectionFilterMatchAge(EFSCollectionFilterRef const filter, int64_t const sortID, int64_t const fileID) {
+/*static uint64_t EFSCollectionFilterMatchAge(EFSCollectionFilterRef const filter, uint64_t const sortID, uint64_t const fileID) {
 	assert(filter);
 	bool_t hit = false;
 	EFSFilterList const *const list = filter->filters;
 	for(index_t i = 0; i < list->count; ++i) {
-		int64_t const age = EFSFilterMatchAge(list->items[i], sortID, fileID);
+		uint64_t const age = EFSFilterMatchAge(list->items[i], sortID, fileID);
 		if(age == sortID) {
 			hit = true;
 		} else if(EFSIntersectionFilterType == filter->type) {
-			if(age > sortID) return INT64_MAX;
+			if(age > sortID) return UINT64_MAX;
 		} else if(EFSUnionFilterType == filter->type) {
 			if(age < sortID) return -1;
 		}
@@ -301,11 +301,11 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, EFSConnection const *const con
 	if(EFSIntersectionFilterType == filter->type) {
 		if(!hit) return -1;
 	} else if(EFSUnionFilterType == filter->type) {
-		if(!hit) return INT64_MAX;
+		if(!hit) return UINT64_MAX;
 	}
 	return sortID;
 }*/
-int64_t EFSFilterMatchAge(EFSFilterRef const filter, int64_t const sortID, int64_t const fileID, EFSConnection const *const conn, MDB_txn *const txn) {
+uint64_t EFSFilterMatchAge(EFSFilterRef const filter, uint64_t const sortID, uint64_t const fileID, EFSConnection const *const conn, MDB_txn *const txn) {
 	assert(filter);
 	return 0;/*
 	switch(filter->type) {
