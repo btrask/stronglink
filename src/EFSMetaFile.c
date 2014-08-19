@@ -91,19 +91,31 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, int64_t const fileID, strarg_t
 	}
 	if(!buf || !len || !targetURI) return 0;
 
+	int64_t metaFileID;
+	{
 
-	int64_t metaFileID = db_autoincrement(txn, conn->targetURIByMetaFileID);
 	byte_t intbuf[DB_SIZE_INT64];
+	byte_t buf[MDB_MAXKEYSIZE];
+
+	metaFileID = db_autoincrement(txn, conn->metaFileByID);
 	MDB_val metaFileID_val = { 0, intbuf };
 	db_bind_int64(&metaFileID_val, DB_SIZE_INT64, metaFileID);
-	MDB_val targetURI_val = { strlen(fileURI)+1, (void *)fileURI };
-	mdb_put(txn, conn->targetURIByMetaFileID, &metaFileID_val, &targetURI_val, MDB_NOOVERWRITE);
+
+	MDB_val metaFile_val = { 0, buf };
+	db_bind_int64(&metaFile_val, MDB_MAXKEYSIZE, fileID);
+	db_bind_text(&metaFile_val, MDB_MAXKEYSIZE, fileURI);
+	mdb_put(txn, conn->metaFileByID, &metaFileID_val, &metaFile_val, MDB_NOOVERWRITE);
 
 	++metaFileID;
 	metaFileID_val = (MDB_val){ 0, intbuf };
 	db_bind_int64(&metaFileID_val, DB_SIZE_INT64, metaFileID);
-	targetURI_val = (MDB_val){ strlen(targetURI)+1, (void *)targetURI };
-	mdb_put(txn, conn->targetURIByMetaFileID, &metaFileID_val, &targetURI_val, MDB_NOOVERWRITE);
+
+	metaFile_val = (MDB_val){ 0, buf };
+	db_bind_int64(&metaFile_val, MDB_MAXKEYSIZE, fileID);
+	db_bind_text(&metaFile_val, MDB_MAXKEYSIZE, targetURI);
+	mdb_put(txn, conn->metaFileByID, &metaFileID_val, &metaFile_val, MDB_NOOVERWRITE);
+
+	}
 
 	add_metadata(conn, txn, metaFileID, "link", targetURI, strlen(targetURI));
 

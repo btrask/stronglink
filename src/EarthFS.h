@@ -29,7 +29,7 @@ typedef struct {
 	MDB_dbi fileIDByURI;
 	MDB_dbi fileIDByType;
 
-	MDB_dbi targetURIByMetaFileID;
+	MDB_dbi metaFileByID;
 //	MDB_dbi targetFileIDByMetaFileID; // denorm
 	MDB_dbi metadataByMetaFileID;
 	MDB_dbi metaFileIDByMetadata;
