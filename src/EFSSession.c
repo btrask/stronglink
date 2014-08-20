@@ -293,12 +293,14 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 	MDB_txn *txn = NULL;
 	rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
 	if(MDB_SUCCESS != rc) {
+		fprintf(stderr, "Transaction error %s\n", mdb_strerror(rc));
 		EFSRepoDBClose(repo, &conn);
 		return -1;
 	}
 
 	uint64_t const URI_id = db_string_id(txn, conn->schema, URI);
 	if(!URI_id) {
+		mdb_txn_abort(txn); txn = NULL;
 		EFSRepoDBClose(repo, &conn);
 		return -1;
 	}
