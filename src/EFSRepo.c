@@ -65,15 +65,24 @@ EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 
 	mdb_dbi_open(txn, "fileByID", MDB_CREATE, &conn->fileByID);
 	mdb_dbi_open(txn, "fileIDByInfo", MDB_CREATE, &conn->fileIDByInfo);
-	mdb_dbi_open(txn, "fileIDByURI", MDB_CREATE, &conn->fileIDByURI);
-	mdb_dbi_open(txn, "fileIDByType", MDB_CREATE, &conn->fileIDByType);
+	mdb_dbi_open(txn, "fileIDByType", MDB_CREATE | MDB_DUPSORT, &conn->fileIDByType);
+
+	mdb_dbi_open(txn, "URIByFileID", MDB_CREATE | MDB_DUPSORT, &conn->URIByFileID);
+	mdb_dbi_open(txn, "fileIDByURI", MDB_CREATE | MDB_DUPSORT, &conn->fileIDByURI);
 
 	mdb_dbi_open(txn, "metaFileByID", MDB_CREATE, &conn->metaFileByID);
-//	mdb_dbi_open(txn, "targetFileIDByMetaFileID", MDB_CREATE, &conn->targetFileIDByMetaFileID);
-	mdb_dbi_open(txn, "metadataByMetaFileID", MDB_CREATE | MDB_DUPSORT, &conn->metadataByMetaFileID);
-	mdb_dbi_open(txn, "metaFileIDByMetadata", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByMetadata);
+	mdb_dbi_open(txn, "metaFileIDByFileID", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByFileID);
+	mdb_dbi_open(txn, "metaFileIDByTargetURI", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByTargetURI);
+	mdb_dbi_open(txn, "metadata", MDB_CREATE, &conn->metadata);
 
-	mdb_dbi_open(txn, "metaFileIDByFulltext", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByFulltext);
+
+
+
+//	mdb_dbi_open(txn, "targetFileIDByMetaFileID", MDB_CREATE, &conn->targetFileIDByMetaFileID);
+//	mdb_dbi_open(txn, "metadataByMetaFileID", MDB_CREATE | MDB_DUPSORT, &conn->metadataByMetaFileID);
+//	mdb_dbi_open(txn, "metaFileIDByMetadata", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByMetadata);
+
+//	mdb_dbi_open(txn, "metaFileIDByFulltext", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByFulltext);
 
 	mdb_txn_commit(txn);
 

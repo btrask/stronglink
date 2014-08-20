@@ -213,75 +213,94 @@ uint64_t EFSSessionGetUserID(EFSSessionRef const session) {
 }
 
 URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilterRef const filter, count_t const max) { // TODO: Sort order, pagination.
-
-	return NULL;
-// TODO
-/*
 	if(!session) return NULL;
 	// TODO: Check session mode.
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
-	sqlite3f *db = EFSRepoDBConnect(repo);
-	if(!db) return NULL;
+	EFSConnection const *conn = EFSRepoDBOpen(repo);
+	if(!conn) return NULL;
 
 	URIListRef const URIs = URIListCreate(); // TODO: Just preallocate a regular array, since we know the maximum size. Get rid of URILists all together.
 
 	// TODO: Pagination
-	int64_t const initialSortID = INT64_MAX;
-	int64_t const initialFileID = INT64_MAX;
+	uint64_t const initialSortID = UINT64_MAX;
+	uint64_t const initialFileID = UINT64_MAX;
+	int rc;
 
-	EFSFilterPrepare(filter, db);
+	MDB_txn *txn = NULL;
+	rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
+	assert(MDB_SUCCESS == rc);
 
-	// It'd be nice to combine these two into one query, but the query optimizer was being stupid. Basically, we're just doing a manual JOIN with `WHERE (sort_id = ?1 AND file_id < ?2) OR sort_id < ?1` and `ORDER BY sort_id DESC, file_id DESC`.
-	// The problems with the query optimizer are: 1. it doesn't like SELECT DISTINCT (or GROUP BY) with two args, even if it's sorted on both of them, and 2. we have to use a temp b-tree for the second ORDER BY either way, but I think it's slower in a larger query...
-	sqlite3_stmt *selectMetaFiles = QUERY(db,
-		"SELECT DISTINCT file_id AS sort_id\n"
-		"FROM meta_files\n"
-		"WHERE sort_id <= ?\n"
-		"ORDER BY sort_id DESC");
-	sqlite3_bind_int64(selectMetaFiles, 1, initialSortID);
-	sqlite3_stmt *selectFiles = QUERY(db,
-		"SELECT f.file_id\n"
-		"FROM meta_files AS mf\n"
-		"INNER JOIN file_uris AS f ON (f.uri = mf.target_uri)\n"
-		"WHERE mf.file_id = ? AND f.file_id < ?\n"
-		"ORDER BY f.file_id DESC");
+	EFSFilterPrepare(filter, conn, txn);
 
-	sqlite3_stmt *selectHash = QUERY(db,
-		"SELECT internal_hash\n"
-		"FROM files WHERE file_id = ? LIMIT 1");
+	MDB_cursor *sortIDs = NULL;
+	rc = mdb_cursor_open(txn, conn->metaFileIDByFileID, &sortIDs);
+	assert(MDB_SUCCESS == rc);
+	// TODO: EVERY file must have an associated meta-file, pointing at itself?
 
-	EXEC(QUERY(db, "BEGIN DEFERRED TRANSACTION"));
-	while(SQLITE_ROW == STEP(selectMetaFiles)) {
-		int64_t const sortID = sqlite3_column_int64(selectMetaFiles, 0);
+	MDB_cursor *fileIDs = NULL;
+	rc = mdb_cursor_open(txn, conn->fileIDByURI, &fileIDs);
+	assert(MDB_SUCCESS == rc);
 
-		sqlite3_bind_int64(selectFiles, 1, sortID);
-		sqlite3_bind_int64(selectFiles, 2, initialSortID == sortID ? initialFileID : INT64_MAX);
-		while(SQLITE_ROW == STEP(selectFiles)) {
-			int64_t const fileID = sqlite3_column_int64(selectFiles, 0);
-			int64_t const age = EFSFilterMatchAge(filter, sortID, fileID);
-//			fprintf(stderr, "{%lld, %lld} -> %lld\n", sortID, fileID, age);
+	DB_VAL(sortID_val, 1);
+	db_bind(sortID_val, 0, initialSortID);
+	MDB_val metaFileID_val[1];
+	rc = mdb_cursor_get(sortIDs, sortID_val, metaFileID_val, MDB_SET_RANGE);
+	if(MDB_SUCCESS == rc) {
+		// We want MDB_SET_RANGE_LT, but it doesn't exist.
+		rc = mdb_cursor_get(sortIDs, sortID_val, metaFileID_val, MDB_PREV);
+	} else if(MDB_NOTFOUND == rc) {
+		rc = mdb_cursor_get(sortIDs, sortID_val, metaFileID_val, MDB_LAST);
+	} else assert(0);
+	for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(sortIDs, sortID_val, metaFileID_val, MDB_PREV)) {
+		MDB_val metaFile_val[1];
+		rc = mdb_get(txn, conn->metaFileByID, metaFileID_val, metaFile_val);
+		assert(MDB_SUCCESS == rc);
+		uint64_t const metaFileID = db_column(metaFileID_val, 0);
+		uint64_t const targetURI_id = db_column(metaFile_val, 1);
+
+		DB_VAL(URI_val, 1);
+		db_bind(URI_val, 0, targetURI_id);
+		MDB_val fileID_val[1];
+		rc = mdb_cursor_get(fileIDs, URI_val, fileID_val, MDB_SET);
+		assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
+		for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(fileIDs, URI_val, fileID_val, MDB_PREV_DUP)) {
+			assert(targetURI_id == db_column(URI_val, 0)); // Check for bug with MDB_PREV_DUP.
+
+			uint64_t const sortID = db_column(sortID_val, 0);
+			uint64_t const fileID = db_column(fileID_val, 0);
+
+			if(sortID == initialSortID && fileID >= initialFileID) continue;
+
+			uint64_t const age = EFSFilterMatchAge(filter, fileID, sortID, conn, txn);
+//			fprintf(stderr, "{%llu, %llu, %llu} -> %llu\n", sortID, metaFileID, fileID, age);
 			if(age != sortID) continue;
-			sqlite3_bind_int64(selectHash, 1, fileID);
-			if(SQLITE_ROW == STEP(selectHash)) {
-				strarg_t const hash = (strarg_t)sqlite3_column_text(selectHash, 0);
-				str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
-				URIListAddURI(URIs, URI, -1);
-				FREE(&URI);
-			}
-			sqlite3_reset(selectHash);
+
+			MDB_val file_val[1];
+			rc = mdb_get(txn, conn->fileByID, fileID_val, file_val);
+			if(MDB_NOTFOUND == rc) continue;
+			assert(MDB_SUCCESS == rc);
+
+			uint64_t const hash_id = db_column(file_val, 0);
+			strarg_t const hash = db_string(txn, conn->schema, hash_id);
+			assert(hash);
+
+			str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
+			URIListAddURI(URIs, URI, -1);
+			FREE(&URI);
 			if(URIListGetCount(URIs) >= max) break;
+
 		}
-		sqlite3_reset(selectFiles);
-		if(URIListGetCount(URIs) >= max) break;
+
+		if(URIListGetCount(URIs) >= max) break;		
+
 	}
-	EXEC(QUERY(db, "COMMIT"));
 
-	sqlite3f_finalize(selectHash); selectHash = NULL;
-	sqlite3f_finalize(selectFiles); selectFiles = NULL;
-	sqlite3f_finalize(selectMetaFiles); selectMetaFiles = NULL;
+	mdb_cursor_close(sortIDs); sortIDs = NULL;
+	mdb_cursor_close(fileIDs); fileIDs = NULL;
+	mdb_txn_abort(txn); txn = NULL;
 
-	EFSRepoDBClose(repo, &db);
-	return URIs;*/
+	EFSRepoDBClose(repo, &conn);
+	return URIs;
 }
 err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFSFileInfo *const info) {
 	if(!session) return -1;

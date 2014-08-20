@@ -27,15 +27,20 @@ typedef struct {
 
 	MDB_dbi fileByID;
 	MDB_dbi fileIDByInfo; // Merge with fileIDByURI?
-	MDB_dbi fileIDByURI;
 	MDB_dbi fileIDByType;
 
-	MDB_dbi metaFileByID;
-//	MDB_dbi targetFileIDByMetaFileID; // denorm
-	MDB_dbi metadataByMetaFileID;
-	MDB_dbi metaFileIDByMetadata;
+	MDB_dbi URIByFileID;
+	MDB_dbi fileIDByURI;
 
-	MDB_dbi metaFileIDByFulltext;
+	MDB_dbi metaFileByID;
+	MDB_dbi metaFileIDByFileID;
+	MDB_dbi metaFileIDByTargetURI;
+	MDB_dbi metadata;
+
+//	MDB_dbi metadataByMetaFileID; // Unneeded?
+//	MDB_dbi metaFileIDByMetadata;
+
+//	MDB_dbi metaFileIDByFulltext;
 } EFSConnection;
 
 EFSRepoRef EFSRepoCreate(strarg_t const dir);
@@ -110,6 +115,7 @@ void EFSFilterFree(EFSFilterRef *const filterptr);
 err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len);
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
 void EFSFilterPrint(EFSFilterRef const filter, count_t const indent);
+err_t EFSFilterPrepare(EFSFilterRef const filter, EFSConnection const *const conn, MDB_txn *const txn);
 uint64_t EFSFilterMatchAge(EFSFilterRef const filter, uint64_t const sortID, uint64_t const fileID, EFSConnection const *const conn, MDB_txn *const txn);
 
 EFSJSONFilterParserRef EFSJSONFilterParserCreate(void);

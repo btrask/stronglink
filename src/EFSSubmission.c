@@ -182,9 +182,15 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 		uint64_t const URI_id = db_string_id(txn, conn->schema, URI);
 		DB_VAL(URI_val, 1);
 		db_bind(URI_val, 0, URI_id);
-		rc = mdb_put(txn, conn->fileIDByURI, URI_val, fileID_val, MDB_NOOVERWRITE);
-		if(MDB_SUCCESS != rc && MDB_KEYEXIST != rc) return -1;
+
+		rc = mdb_put(txn, conn->URIByFileID, fileID_val, URI_val, MDB_NODUPDATA);
+		assert(MDB_SUCCESS == rc || MDB_KEYEXIST == rc);
+
+		rc = mdb_put(txn, conn->fileIDByURI, URI_val, fileID_val, MDB_NODUPDATA);
+		assert(MDB_SUCCESS == rc || MDB_KEYEXIST == rc);
 	}
+
+	// TODO: Store fileIDByType
 
 
 	// TODO: Add permissions for other specified users too.
