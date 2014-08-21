@@ -284,11 +284,11 @@ static uint64_t EFSCollectionFilterMatchAge(EFSFilterRef const f, uint64_t const
 		} else if(EFSIntersectionFilterType == filter->type) {
 			if(age > sortID) return UINT64_MAX;
 		} else if(EFSUnionFilterType == filter->type) {
-			if(age < sortID) return -1;
+			if(age < sortID) return 0;
 		}
 	}
 	if(EFSIntersectionFilterType == filter->type) {
-		if(!hit) return -1;
+		if(!hit) return 0;
 	} else if(EFSUnionFilterType == filter->type) {
 		if(!hit) return UINT64_MAX;
 	}
