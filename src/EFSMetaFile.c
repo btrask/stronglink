@@ -222,7 +222,7 @@ static yajl_callbacks const callbacks = {
 };
 
 static uint64_t add_metafile(MDB_txn *const txn, EFSConnection const *const conn, uint64_t const fileID, strarg_t const targetURI) {
-	uint64_t const metaFileID = db_autoincrement(txn, conn->metaFileByID);
+	uint64_t const metaFileID = db_last_id(txn, conn->metaFileByID)+1;
 	uint64_t const targetURI_id = db_string_id(txn, conn->schema, targetURI);
 	assert(metaFileID);
 	assert(targetURI_id);

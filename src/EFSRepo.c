@@ -195,11 +195,11 @@ void EFSRepoStartPulls(EFSRepoRef const repo) {
 	for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(cur, pullID_val, pull_val, MDB_NEXT)) {
 		uint64_t const pullID = db_column(pullID_val, 0);
 		uint64_t const userID = db_column(pull_val, 0);
-		strarg_t const host = db_string(txn, conn->schema, db_column(pull_val, 1));
-		strarg_t const username = db_string(txn, conn->schema, db_column(pull_val, 2));
-		strarg_t const password = db_string(txn, conn->schema, db_column(pull_val, 3));
-		strarg_t const cookie = db_string(txn, conn->schema, db_column(pull_val, 4));
-		strarg_t const query = db_string(txn, conn->schema, db_column(pull_val, 5));
+		strarg_t const host = db_column_text(txn, conn->schema, pull_val, 1);
+		strarg_t const username = db_column_text(txn, conn->schema, pull_val, 2);
+		strarg_t const password = db_column_text(txn, conn->schema, pull_val, 3);
+		strarg_t const cookie = db_column_text(txn, conn->schema, pull_val, 4);
+		strarg_t const query = db_column_text(txn, conn->schema, pull_val, 5);
 
 		EFSPullRef const pull = EFSRepoCreatePull(repo, pullID, userID, host, username, password, cookie, query);
 		if(repo->pull_count+1 > repo->pull_size) {
@@ -250,6 +250,7 @@ static void debug_data(EFSConnection const *const conn) {
 	uint64_t const cookie_id = db_string_id(txn, conn->schema, "s=1892%3A4qKSMlVOtdrWXXjpE6CnQvckLjs%3D");
 	uint64_t const query_id = db_string_id(txn, conn->schema, "");
 	assert(host_id);
+	assert(remote_username_id);
 	assert(query_id);
 
 	DB_VAL(pull_val, 6);

@@ -149,7 +149,7 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 	EFSRepoRef const repo = EFSSubmissionGetRepo(sub);
 	int64_t const userID = EFSSessionGetUserID(session);
 
-	int64_t fileID = db_autoincrement(txn, conn->fileByID);
+	int64_t fileID = db_last_id(txn, conn->fileByID)+1;
 	int rc;
 
 	DB_VAL(fileID_val, 1);

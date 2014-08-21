@@ -70,8 +70,7 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 		return NULL;
 	}
 	uint64_t const userID = db_column(userID_val, 0);
-	uint64_t const passhash_id = db_column(user_val, 1);
-	str_t *passhash = strdup(db_string(txn, conn->schema, passhash_id));
+	str_t *passhash = strdup(db_column_text(txn, conn->schema, user_val, 1));
 
 	mdb_txn_abort(txn); txn = NULL;
 	EFSRepoDBClose(repo, &conn);
@@ -101,7 +100,7 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 		return NULL;
 	}
 
-	uint64_t const sessionID = db_autoincrement(txn, conn->sessionByID);
+	uint64_t const sessionID = db_last_id(txn, conn->sessionByID)+1;
 	uint64_t const sessionHash_id = db_string_id(txn, conn->schema, sessionHash);
 	FREE(&sessionHash);
 
@@ -164,8 +163,7 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 		return NULL;
 	}
 	uint64_t const userID = db_column(session_val, 0);
-	uint64_t const sessionHash_id = db_column(session_val, 1);
-	str_t *sessionHash = strdup(db_string(txn, conn->schema, sessionHash_id));
+	str_t *sessionHash = strdup(db_column_text(txn, conn->schema, session_val, 1));
 
 	mdb_txn_abort(txn); txn = NULL;
 	EFSRepoDBClose(repo, &conn);
@@ -280,8 +278,7 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 			if(MDB_NOTFOUND == rc) continue;
 			assert(MDB_SUCCESS == rc);
 
-			uint64_t const hash_id = db_column(file_val, 0);
-			strarg_t const hash = db_string(txn, conn->schema, hash_id);
+			strarg_t const hash = db_column_text(txn, conn->schema, file_val, 0);
 			assert(hash);
 
 			str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
@@ -337,8 +334,8 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 	}
 
 	if(info) {
-		strarg_t const internalHash = db_string(txn, conn->schema, db_column(file_val, 0));
-		strarg_t const type = db_string(txn, conn->schema, db_column(file_val, 1));
+		strarg_t const internalHash = db_column_text(txn, conn->schema, file_val, 0);
+		strarg_t const type = db_column_text(txn, conn->schema, file_val, 1);
 		info->path = EFSRepoCopyInternalPath(repo, internalHash);
 		info->type = strdup(type);
 		info->size = db_column(file_val, 2);

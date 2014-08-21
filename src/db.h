@@ -19,11 +19,12 @@ typedef struct {
 } DB_schema;
 
 uint64_t db_column(MDB_val const *const val, index_t const col);
+strarg_t db_column_text(MDB_txn *const txn, DB_schema const *const schema, MDB_val const *const val, index_t const col);
+
 void db_bind(MDB_val *const val, index_t const col, uint64_t const item);
 
-uint64_t db_autoincrement(MDB_txn *txn, MDB_dbi dbi);
+uint64_t db_last_id(MDB_txn *txn, MDB_dbi dbi);
 
 uint64_t db_string_id(MDB_txn *const txn, DB_schema const *const schema, strarg_t const str);
 uint64_t db_string_id_len(MDB_txn *const txn, DB_schema const *const schema, strarg_t const str, size_t const len);
-strarg_t db_string(MDB_txn *const txn, DB_schema const *const schema, uint64_t const stringID);
 
