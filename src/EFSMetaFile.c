@@ -14,6 +14,8 @@ static yajl_callbacks const callbacks;
 
 static uint64_t add_metafile(MDB_txn *const txn, EFSConnection const *const conn, uint64_t const fileID, strarg_t const targetURI);
 static void add_metadata(MDB_txn *const txn, EFSConnection const *const conn, uint64_t const metaFileID, strarg_t const field, strarg_t const value, size_t const vlen);
+static void add_fulltext(MDB_txn *const txn, EFSConnection const *const conn, uint64_t const metaFileID, strarg_t const str, size_t const len);
+
 
 EFSMetaFileRef EFSMetaFileCreate(strarg_t const type) {
 	if(!type) return NULL;
@@ -139,7 +141,11 @@ static int yajl_string(parser_context *const context, strarg_t const str, size_t
 		case s_field_value:
 		case s_field_array: {
 			if(0 == strcmp("fulltext", context->field)) {
-				// TODO
+				add_fulltext(
+					context->txn,
+					context->conn,
+					context->metaFileID,
+					str, len);
 			} else {
 				add_metadata(
 					context->txn,
@@ -254,8 +260,48 @@ static void add_metadata(MDB_txn *const txn, EFSConnection const *const conn, ui
 	db_bind(metadata_val, 0, value_id);
 	db_bind(metadata_val, 1, field_id);
 	db_bind(metadata_val, 2, metaFileID);
-	MDB_val empty = { 0, NULL };
-	mdb_put(txn, conn->metadata, metadata_val, &empty, MDB_NOOVERWRITE);
+	MDB_val empty_val = { 0, NULL };
+	mdb_put(txn, conn->metadata, metadata_val, &empty_val, MDB_NOOVERWRITE);
+}
 
+#include <ctype.h> /* TODO */
+
+static void add_fulltext(MDB_txn *const txn, EFSConnection const *const conn, uint64_t const metaFileID, strarg_t const str, size_t const len) {
+	int rc;
+	MDB_cursor *cur = NULL;
+	rc = mdb_cursor_open(txn, conn->fulltext, &cur);
+	assert(MDB_SUCCESS == rc);
+
+	byte_t buf[20];
+	index_t start = 0;
+	for(index_t i = 0; i < len; ++i) {
+		if(isalpha(str[i])) continue;
+		size_t const wlen = MIN(i - start, 10);
+		if(wlen <= 3) {
+			start = i+1;
+			continue;
+		}
+
+		byte_t *const data = buf;
+		uint64_t const item = metaFileID;
+		data[0] = 0xff & (item >> (8 * 7));
+		data[1] = 0xff & (item >> (8 * 6));
+		data[2] = 0xff & (item >> (8 * 5));
+		data[3] = 0xff & (item >> (8 * 4));
+		data[4] = 0xff & (item >> (8 * 3));
+		data[5] = 0xff & (item >> (8 * 2));
+		data[6] = 0xff & (item >> (8 * 1));
+		data[7] = 0xff & (item >> (8 * 0));
+
+		memcpy(buf+8, str + start, wlen);
+
+		MDB_val stem_val = { 8+wlen, buf };
+		MDB_val empty_val = { 0, NULL };
+		mdb_cursor_put(cur, &stem_val, &empty_val, MDB_NOOVERWRITE);
+
+		start = i+1;
+	}
+
+	mdb_cursor_close(cur); cur = NULL;
 }
 

@@ -210,7 +210,8 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, EFSConnection const *const con
 		}
 		case EFSFullTextFilterType: {
 			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
-			assert(0);
+			// TODO: Stemming
+			if(strlen(f->string) > 10) f->string[10] = '\0';
 			return 0;
 		}
 		case EFSLinkedFromFilterType: {
@@ -336,9 +337,43 @@ static uint64_t EFSFilterMetaFileAge(EFSFilterRef const filter, uint64_t const m
 	int rc;
 	switch(filter->type) {
 		case EFSPermissionFilterType:
-		case EFSFullTextFilterType:
-			assert(0); // TODO
+			assert(0);
 			return 0;
+		case EFSFullTextFilterType: {
+			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
+			byte_t buf[20];
+
+			byte_t *const data = buf;
+			uint64_t const item = metaFileID;
+			data[0] = 0xff & (item >> (8 * 7));
+			data[1] = 0xff & (item >> (8 * 6));
+			data[2] = 0xff & (item >> (8 * 5));
+			data[3] = 0xff & (item >> (8 * 4));
+			data[4] = 0xff & (item >> (8 * 3));
+			data[5] = 0xff & (item >> (8 * 2));
+			data[6] = 0xff & (item >> (8 * 1));
+			data[7] = 0xff & (item >> (8 * 0));
+
+			size_t const wlen = strlen(f->string);
+			memcpy(buf+8, f->string, wlen);
+
+			MDB_val stem_val[1] = {{ 8+wlen, buf }};
+			MDB_val match_val[1];
+			rc = mdb_get(txn, conn->fulltext, stem_val, match_val);
+			if(MDB_NOTFOUND == rc) return UINT64_MAX;
+			assert(MDB_SUCCESS == rc);
+
+			// TODO: No copy and paste.
+
+			// We could've used a wider metadata index to avoid this lookup, but it doesn't seem worth it.
+			DB_VAL(metaFileID_val, 1);
+			db_bind(metaFileID_val, 0, metaFileID);
+			MDB_val metaFile_val[1];
+			rc = mdb_get(txn, conn->metaFileByID, metaFileID_val, metaFile_val);
+			assert(MDB_SUCCESS == rc);
+			uint64_t const fileID = db_column(metaFile_val, 0);
+			return fileID;
+		}
 		case EFSLinksToFilterType: {
 			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
 			DB_VAL(metadata_val, 3);
@@ -349,6 +384,8 @@ static uint64_t EFSFilterMetaFileAge(EFSFilterRef const filter, uint64_t const m
 			rc = mdb_get(txn, conn->metadata, metadata_val, match_val);
 			if(MDB_NOTFOUND == rc) return UINT64_MAX;
 			assert(MDB_SUCCESS == rc);
+
+			// TODO: No copy and paste.
 
 			// We could've used a wider metadata index to avoid this lookup, but it doesn't seem worth it.
 			DB_VAL(metaFileID_val, 1);

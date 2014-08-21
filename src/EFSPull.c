@@ -6,7 +6,7 @@
 
 #define URI_MAX 1023
 #define READER_COUNT 16
-#define QUEUE_SIZE 512
+#define QUEUE_SIZE 128
 
 #define PROFILE_INTERVAL 10
 
