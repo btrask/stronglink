@@ -251,9 +251,9 @@ static void add_metadata(MDB_txn *const txn, EFSConnection const *const conn, ui
 	assert(value_id);
 
 	DB_VAL(metadata_val, 3);
-	db_bind(metadata_val, 0, metaFileID);
+	db_bind(metadata_val, 0, value_id);
 	db_bind(metadata_val, 1, field_id);
-	db_bind(metadata_val, 2, value_id);
+	db_bind(metadata_val, 2, metaFileID);
 	MDB_val empty = { 0, NULL };
 	mdb_put(txn, conn->metadata, metadata_val, &empty, MDB_NOOVERWRITE);
 
