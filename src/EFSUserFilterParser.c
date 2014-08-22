@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <ctype.h>
 #include "EarthFS.h"
 
@@ -58,13 +59,15 @@ static EFSFilterRef parse_exp(strarg_t *const query) {
 	return exp;
 }
 static EFSFilterRef parse_parens(strarg_t *const query) {
-	if('(' != (*query)[0]) return NULL;
-	EFSFilterRef filter = parse_and(query);
+	strarg_t subquery = *query;
+	if('(' != *subquery++) return NULL;
+	EFSFilterRef filter = parse_and(&subquery);
 	if(!filter) return NULL;
-	if(')' != (*query)[0]) {
+	if(')' != *subquery++) {
 		EFSFilterFree(&filter);
 		return NULL;
 	}
+	*query = subquery;
 	return filter;
 }
 static EFSFilterRef parse_link(strarg_t *const query) {

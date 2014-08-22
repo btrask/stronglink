@@ -29,8 +29,7 @@ void *QSValuesCopy(strarg_t const qs, strarg_t const fields[], count_t const cou
 			if(!substr(fields[i], pos, flen)) continue;
 			if(values[i]) continue;
 			if(sep) {
-				// TODO: Decode.
-				values[i] = strndup(pos+flen+sep, vlen);
+				values[i] = QSUnescape(pos+flen+sep, vlen, true);
 			} else {
 				values[i] = strdup("true");
 			}
@@ -45,5 +44,68 @@ void QSValuesFree(QSValues *const valuesptr, count_t const count) {
 		FREE(&values[i]);
 	}
 	FREE((void **)valuesptr); values = NULL;
+}
+
+// Ported from Node.js QueryString.unescapeBuffer
+str_t *QSUnescape(strarg_t const s, size_t const slen, bool_t const decodeSpaces) {
+	str_t *const out = malloc(slen+1);
+	if(!out) return NULL;
+	enum { CHAR, HEX0, HEX1 } state = CHAR;
+	char n = 0, m = 0, hexchar = 0;
+
+	index_t outIndex = 0;
+	for(index_t inIndex = 0; inIndex < slen; ++inIndex) {
+		char c = s[inIndex];
+		switch(state) {
+		case CHAR:
+			switch(c) {
+			case '%':
+				n = 0;
+				m = 0;
+				state = HEX0;
+				break;
+			case '+':
+				if(decodeSpaces) c = ' ';
+				// pass through
+			default:
+				out[outIndex++] = c;
+				break;
+			}
+			break;
+		case HEX0:
+			state = HEX1;
+			hexchar = c;
+			if('0' <= c && c <= '9') {
+				n = c - '0';
+			} else if('a' <= c && c <= 'f') {
+				n = c - 'a' + 10;
+			} else if('A' <= c && c <= 'F') {
+				n = c - 'A' + 10;
+			} else {
+				out[outIndex++] = '%';
+				out[outIndex++] = c;
+				state = CHAR;
+			}
+			break;
+		case HEX1:
+			state = CHAR;
+			if('0' <= c && c <= '9') {
+				m = c - '0';
+			} else if('a' <= c && c <= 'f') {
+				m = c - 'a' + 10;
+			} else if('A' <= c && c <= 'F') {
+				m = c - 'A' + 10;
+			} else {
+				out[outIndex++] = '%';
+				out[outIndex++] = hexchar;
+				out[outIndex++] = c;
+				break;
+			}
+			out[outIndex++] = 16 * n + m;
+			break;
+		}
+	}
+	out[outIndex++] = '\0';
+	return out;
 }
 
