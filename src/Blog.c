@@ -126,27 +126,64 @@ static str_t *md_lookup(md_state const *const state, strarg_t const var) {
 	strarg_t unsafe = NULL;
 	if(0 == strcmp(var, "rawURI")) unsafe = state->fileURI; // TODO
 	if(unsafe) return htmlenc(unsafe);
-/*	sqlite3f *db = EFSRepoDBConnect(state->blog->repo);
-	sqlite3_stmt *select = QUERY(db,
-		"SELECT md.value\n"
-		"FROM meta_data AS md\n"
-		"INNER JOIN meta_files AS mf\n"
-		"	ON (md.meta_file_id = mf.meta_file_id)\n"
-		"WHERE mf.target_uri = ? AND md.field = ?\n"
-		"AND md.value != '' LIMIT 1");
-	sqlite3_bind_text(select, 1, state->fileURI, -1, SQLITE_STATIC);
-	sqlite3_bind_text(select, 2, var, -1, SQLITE_STATIC);
-	if(SQLITE_ROW == STEP(select)) {
-		unsafe = (strarg_t)sqlite3_column_text(select, 0);
-	}*/
+
+	EFSConnection const *conn = EFSRepoDBOpen(state->blog->repo);
+	int rc;
+	MDB_txn *txn = NULL;
+	rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
+	assert(MDB_SUCCESS == rc);
+
+	MDB_cursor *metaFiles = NULL;
+	rc = mdb_cursor_open(txn, conn->metaFileIDByTargetURI, &metaFiles);
+	assert(MDB_SUCCESS == rc);
+
+	MDB_cursor *values = NULL;
+	rc = mdb_cursor_open(txn, conn->metadata, &values);
+	assert(MDB_SUCCESS == rc);
+
+	uint64_t const targetURI_id = db_string_id(txn, conn->schema, state->fileURI);
+	uint64_t const field_id = db_string_id(txn, conn->schema, var);
+
+	DB_VAL(targetURI_val, 1);
+	db_bind(targetURI_val, 0, targetURI_id);
+	MDB_val metaFileID_val[1];
+	rc = mdb_cursor_get(metaFiles, targetURI_val, metaFileID_val, MDB_SET);
+	assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
+	for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(metaFiles, targetURI_val, metaFileID_val, MDB_NEXT_DUP)) {
+		uint64_t const metaFileID = db_column(metaFileID_val, 0);
+		DB_VAL(metadata_val, 2);
+		db_bind(metadata_val, 0, metaFileID);
+		db_bind(metadata_val, 1, field_id);
+//		db_bind(metadata_val, 2, value_id);
+
+		MDB_val empty_val[1];
+		rc = mdb_cursor_get(values, metadata_val, empty_val, MDB_SET_RANGE);
+		assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
+		for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(values, metadata_val, empty_val, MDB_NEXT)) {
+			uint64_t const thisMetaFileID = db_column(metadata_val, 0);
+			uint64_t const thisField_id = db_column(metadata_val, 1);
+			if(thisMetaFileID != metaFileID) continue;
+			if(thisField_id != field_id) continue;
+			strarg_t const value = db_column_text(txn, conn->schema, metadata_val, 2);
+			if(0 == strcmp("", value)) continue;
+			unsafe = value;
+			break;
+		}
+		if(unsafe) break;
+	}
+
+	mdb_cursor_close(values); values = NULL;
+	mdb_cursor_close(metaFiles); metaFiles = NULL;
+
 	if(!unsafe) {
 		if(0 == strcmp(var, "thumbnailURI")) unsafe = "/file.png";
 		if(0 == strcmp(var, "title")) unsafe = "(no title)";
 		if(0 == strcmp(var, "description")) unsafe = "(no description)";
 	}
 	str_t *result = htmlenc(unsafe);
-//	sqlite3f_finalize(select); select = NULL;
-//	EFSRepoDBClose(state->blog->repo, &db);
+
+	mdb_txn_abort(txn); txn = NULL;
+	EFSRepoDBClose(state->blog->repo, &conn);
 	return result;
 }
 static void md_free(md_state const *const state, strarg_t const var, str_t **const val) {

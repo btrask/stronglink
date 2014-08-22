@@ -412,9 +412,9 @@ static uint64_t EFSFilterMetaFileAge(EFSFilterRef const filter, uint64_t const m
 		case EFSLinksToFilterType: {
 			EFSMetadataFilterRef const f = (EFSMetadataFilterRef)filter;
 			DB_VAL(metadata_val, 3);
-			db_bind(metadata_val, 0, f->value_id);
+			db_bind(metadata_val, 0, metaFileID);
 			db_bind(metadata_val, 1, f->field_id);
-			db_bind(metadata_val, 2, metaFileID);
+			db_bind(metadata_val, 2, f->value_id);
 			MDB_val match_val[1];
 			rc = mdb_get(txn, conn->metadata, metadata_val, match_val);
 			if(MDB_NOTFOUND == rc) return UINT64_MAX;

@@ -93,7 +93,10 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_
 		len = meta->len - (i + 1);
 		break;
 	}
-	if(!buf || !len || !targetURI) return 0;
+	if(!buf || !len || !targetURI) {
+		fprintf(stderr, "Invalid meta-file (missing target URI)\n");
+		return 0; // TODO: Should this warrant an actual error? Or should we ignore it since we can still store the data?
+	}
 
 	uint64_t const external = add_metafile(txn, conn, fileID, targetURI);
 	uint64_t const internal = add_metafile(txn, conn, fileID, fileURI);
@@ -252,17 +255,20 @@ static uint64_t add_metafile(MDB_txn *const txn, EFSConnection const *const conn
 	return metaFileID;
 }
 static void add_metadata(MDB_txn *const txn, EFSConnection const *const conn, uint64_t const metaFileID, strarg_t const field, strarg_t const value, size_t const vlen) {
+	if(!vlen) return;
+
 	uint64_t const field_id = db_string_id(txn, conn->schema, field);
 	uint64_t const value_id = db_string_id_len(txn, conn->schema, value, vlen);
 	assert(field_id);
 	assert(value_id);
 
 	DB_VAL(metadata_val, 3);
-	db_bind(metadata_val, 0, value_id);
+	db_bind(metadata_val, 0, metaFileID);
 	db_bind(metadata_val, 1, field_id);
-	db_bind(metadata_val, 2, metaFileID);
+	db_bind(metadata_val, 2, value_id);
 	MDB_val empty_val = { 0, NULL };
-	mdb_put(txn, conn->metadata, metadata_val, &empty_val, MDB_NOOVERWRITE);
+	int rc = mdb_put(txn, conn->metadata, metadata_val, &empty_val, MDB_NOOVERWRITE);
+	assert(MDB_SUCCESS == rc);
 }
 static void add_fulltext(MDB_txn *const txn, EFSConnection const *const conn, uint64_t const metaFileID, strarg_t const str, size_t const len) {
 	int rc;
