@@ -17,7 +17,7 @@ EFSFilterRef EFSUserFilterParse(strarg_t const query) {
 	EFSFilterRef filter = parse_and(&pos);
 	if(!filter) return NULL;
 	parse_space(&pos);
-	if('\0' != pos[0]) {
+	if('\0' != *pos) {
 		EFSFilterFree(&filter);
 		return NULL;
 	}
@@ -59,64 +59,63 @@ static EFSFilterRef parse_exp(strarg_t *const query) {
 	return exp;
 }
 static EFSFilterRef parse_parens(strarg_t *const query) {
-	strarg_t subquery = *query;
-	if('(' != *subquery++) return NULL;
-	EFSFilterRef filter = parse_and(&subquery);
+	strarg_t q = *query;
+	if('(' != *q++) return NULL;
+	EFSFilterRef filter = parse_and(&q);
 	if(!filter) return NULL;
-	if(')' != *subquery++) {
+	if(')' != *q++) {
 		EFSFilterFree(&filter);
 		return NULL;
 	}
-	*query = subquery;
+	*query = q;
 	return filter;
 }
 static EFSFilterRef parse_link(strarg_t *const query) {
-	off_t i = 0;
-	bool_t has_scheme = false;
-	while(isalpha((*query)[i])) { ++i; has_scheme = true; }
-	if(!has_scheme) return NULL;
-	if(':' != (*query)[i++]) return NULL;
-	if('/' != (*query)[i++]) return NULL;
-	if('/' != (*query)[i++]) return NULL;
-	while('\0' != (*query)[i] && !isspace((*query)[i])) ++i;
+	strarg_t q = *query;
+	for(; isalpha(*q); ++q);
+	if(*query == q) return NULL;
+	if(':' != *q++) return NULL;
+	if('/' != *q++) return NULL;
+	if('/' != *q++) return NULL;
+	for(; '\0' != *q && !isspace(*q); ++q);
 	EFSFilterRef const filter = EFSFilterCreate(EFSLinksToFilterType);
-	EFSFilterAddStringArg(filter, *query, i);
-	*query += i;
+	size_t const len = q - *query;
+	EFSFilterAddStringArg(filter, *query, len);
+	*query = q;
 	return filter;
 }
 static EFSFilterRef parse_term(strarg_t *const query) {
-	off_t i = 0;
+	strarg_t q = *query;
 	for(;;) {
-		if('\0' == (*query)[i]) break;
-		if(isspace((*query)[i])) break;
-		if('(' == (*query)[i] || ')' == (*query)[i]) break;
-		++i;
+		if('\0' == *q) break;
+		if(isspace(*q)) break;
+		if('(' == *q || ')' == *q) break;
+		q++;
 	}
-	if(0 == i) return NULL;
-	if(substr("or", *query, i)) return NULL;
-	if(substr("and", *query, i)) return NULL;
+	size_t const len = q - *query;
+	if(0 == len) return NULL;
+	if(substr("or", *query, len)) return NULL;
+	if(substr("and", *query, len)) return NULL;
 	EFSFilterRef const filter = EFSFilterCreate(EFSFullTextFilterType);
-	EFSFilterAddStringArg(filter, *query, i);
-	*query += i;
+	EFSFilterAddStringArg(filter, *query, len);
+	*query = q;
 	return filter;
 }
 static bool_t parse_space(strarg_t *const query) {
+	strarg_t q = *query;
 	bool_t space = false;
-	while(isspace((*query)[0])) {
-		*query += 1;
-		space = true;
-	}
+	for(; isspace(*q); ++q) space = true;
+	*query = q;
 	return space;
 }
 static bool_t parse_token(strarg_t *const query, strarg_t const token) {
-	off_t i = 0;
+	strarg_t q = *query;
+	strarg_t t = token;
 	for(;;) {
-		if('\0' == token[i]) {
-			*query += i;
-			return true;
-		}
-		if(tolower((*query)[i]) != token[i]) return false;
-		++i;
+		if('\0' == *t) break;
+		if(tolower(*q++) != *t++) return false;
 	}
+	*query = q;
+	return true;
 }
 
