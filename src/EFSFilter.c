@@ -1,4 +1,5 @@
 #include <assert.h>
+#include "fts.h"
 #include "strndup.h"
 #include "EarthFS.h"
 
@@ -11,10 +12,14 @@ typedef struct {
 typedef struct EFSQueryFilter* EFSQueryFilterRef;
 typedef struct EFSPermissionFilter* EFSPermissionFilterRef;
 typedef struct EFSStringFilter* EFSStringFilterRef;
+typedef struct EFSFulltextFilter* EFSFulltextFilterRef;
+typedef struct EFSMetadataFilter* EFSMetadataFilterRef;
 typedef struct EFSCollectionFilter* EFSCollectionFilterRef;
 
 #define EFS_FILTER_BASE \
 	EFSFilterType type;
+#define EFS_STRING_FILTER \
+	str_t *string;
 
 struct EFSFilter {
 	EFS_FILTER_BASE
@@ -25,7 +30,17 @@ struct EFSPermissionFilter {
 };
 struct EFSStringFilter {
 	EFS_FILTER_BASE
-	str_t *string;
+	EFS_STRING_FILTER
+};
+struct EFSFulltextFilter {
+	EFS_FILTER_BASE
+	EFS_STRING_FILTER
+	str_t *tokens[10];
+	count_t count;
+};
+struct EFSMetadataFilter {
+	EFS_FILTER_BASE
+	EFS_STRING_FILTER
 	uint64_t field_id;
 	uint64_t value_id;
 };
@@ -41,10 +56,14 @@ EFSFilterRef EFSFilterCreate(EFSFilterType const type) {
 			filter = calloc(1, sizeof(struct EFSFilter));
 			break;
 		case EFSFileTypeFilterType:
-		case EFSFullTextFilterType:
 		case EFSLinkedFromFilterType:
+			assert(0);
+			return NULL;
+		case EFSFullTextFilterType:
+			filter = calloc(1, sizeof(struct EFSFulltextFilter));
+			break;
 		case EFSLinksToFilterType:
-			filter = calloc(1, sizeof(struct EFSStringFilter));
+			filter = calloc(1, sizeof(struct EFSMetadataFilter));
 			break;
 		case EFSIntersectionFilterType:
 		case EFSUnionFilterType:
@@ -73,15 +92,22 @@ void EFSFilterFree(EFSFilterRef *const filterptr) {
 		}
 		case EFSPermissionFilterType: {
 			EFSQueryFilterRef const f = (EFSQueryFilterRef)filter;
-//			sqlite3_finalize(f->age); f->age = NULL;
 			break;
 		}
 		case EFSFileTypeFilterType:
-		case EFSFullTextFilterType:
 		case EFSLinkedFromFilterType:
+			assert(0);
+			break;
+		case EFSFullTextFilterType: {
+			EFSFulltextFilterRef const f = (EFSFulltextFilterRef)filter;
+			FREE(&f->string);
+			for(index_t i = 0; i < f->count; ++i) {
+				FREE(&f->tokens[i]);
+			}
+			break;
+		}
 		case EFSLinksToFilterType: {
-			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
-//			sqlite3_finalize(f->age); f->age = NULL;
+			EFSMetadataFilterRef const f = (EFSMetadataFilterRef)filter;
 			FREE(&f->string);
 			break;
 		}
@@ -209,9 +235,27 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, EFSConnection const *const con
 			return 0;
 		}
 		case EFSFullTextFilterType: {
-			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
-			// TODO: Stemming
-			if(strlen(f->string) > 10) f->string[10] = '\0';
+			EFSFulltextFilterRef const f = (EFSFulltextFilterRef)filter;
+			assert(0 == f->count);
+
+			sqlite3_tokenizer_module const *fts = NULL;
+			sqlite3_tokenizer *tokenizer = NULL;
+			fts_get(&fts, &tokenizer);
+
+			sqlite3_tokenizer_cursor *tcur = NULL;
+			int rc = fts->xOpen(tokenizer, f->string, strlen(f->string), &tcur);
+			assert(SQLITE_OK == rc);
+
+			while(f->count < numberof(f->tokens)) {
+				strarg_t token;
+				int tlen;
+				int ignored1, ignored2, ignored3;
+				rc = fts->xNext(tcur, &token, &tlen, &ignored1, &ignored2, &ignored3);
+				if(SQLITE_OK != rc) break;
+				f->tokens[f->count++] = strndup(token, tlen);
+			}
+
+			fts->xClose(tcur);
 			return 0;
 		}
 		case EFSLinkedFromFilterType: {
@@ -220,7 +264,7 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, EFSConnection const *const con
 			return 0;
 		}
 		case EFSLinksToFilterType: {
-			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
+			EFSMetadataFilterRef const f = (EFSMetadataFilterRef)filter;
 			f->field_id = db_string_id(txn, conn->schema, "link");
 			f->value_id = db_string_id(txn, conn->schema, f->string);
 			return 0;
@@ -340,8 +384,10 @@ static uint64_t EFSFilterMetaFileAge(EFSFilterRef const filter, uint64_t const m
 			assert(0);
 			return 0;
 		case EFSFullTextFilterType: {
-			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
-			byte_t buf[20];
+			EFSFulltextFilterRef const f = (EFSFulltextFilterRef)filter;
+			byte_t buf[40];
+			size_t const tlen = strlen(f->tokens[0]);
+			assert(8+tlen < sizeof(buf));
 
 			byte_t *const data = buf;
 			uint64_t const item = metaFileID;
@@ -354,28 +400,17 @@ static uint64_t EFSFilterMetaFileAge(EFSFilterRef const filter, uint64_t const m
 			data[6] = 0xff & (item >> (8 * 1));
 			data[7] = 0xff & (item >> (8 * 0));
 
-			size_t const wlen = strlen(f->string);
-			memcpy(buf+8, f->string, wlen);
+			memcpy(buf+8, f->tokens[0], tlen);
 
-			MDB_val stem_val[1] = {{ 8+wlen, buf }};
+			MDB_val token_val[1] = {{ 8+tlen, buf }};
 			MDB_val match_val[1];
-			rc = mdb_get(txn, conn->fulltext, stem_val, match_val);
+			rc = mdb_get(txn, conn->fulltext, token_val, match_val);
 			if(MDB_NOTFOUND == rc) return UINT64_MAX;
 			assert(MDB_SUCCESS == rc);
-
-			// TODO: No copy and paste.
-
-			// We could've used a wider metadata index to avoid this lookup, but it doesn't seem worth it.
-			DB_VAL(metaFileID_val, 1);
-			db_bind(metaFileID_val, 0, metaFileID);
-			MDB_val metaFile_val[1];
-			rc = mdb_get(txn, conn->metaFileByID, metaFileID_val, metaFile_val);
-			assert(MDB_SUCCESS == rc);
-			uint64_t const fileID = db_column(metaFile_val, 0);
-			return fileID;
+			break;
 		}
 		case EFSLinksToFilterType: {
-			EFSStringFilterRef const f = (EFSStringFilterRef)filter;
+			EFSMetadataFilterRef const f = (EFSMetadataFilterRef)filter;
 			DB_VAL(metadata_val, 3);
 			db_bind(metadata_val, 0, f->value_id);
 			db_bind(metadata_val, 1, f->field_id);
@@ -384,21 +419,20 @@ static uint64_t EFSFilterMetaFileAge(EFSFilterRef const filter, uint64_t const m
 			rc = mdb_get(txn, conn->metadata, metadata_val, match_val);
 			if(MDB_NOTFOUND == rc) return UINT64_MAX;
 			assert(MDB_SUCCESS == rc);
-
-			// TODO: No copy and paste.
-
-			// We could've used a wider metadata index to avoid this lookup, but it doesn't seem worth it.
-			DB_VAL(metaFileID_val, 1);
-			db_bind(metaFileID_val, 0, metaFileID);
-			MDB_val metaFile_val[1];
-			rc = mdb_get(txn, conn->metaFileByID, metaFileID_val, metaFile_val);
-			assert(MDB_SUCCESS == rc);
-			uint64_t const fileID = db_column(metaFile_val, 0);
-			return fileID;
+			break;
 		}
 		default:
 			assertf(0, "Unexpected filter type %d\n", filter->type);
 			return INT64_MAX;
 	}
+
+	// If we reach this point it means the meta-file matches.
+	DB_VAL(metaFileID_val, 1);
+	db_bind(metaFileID_val, 0, metaFileID);
+	MDB_val metaFile_val[1];
+	rc = mdb_get(txn, conn->metaFileByID, metaFileID_val, metaFile_val);
+	assert(MDB_SUCCESS == rc);
+	uint64_t const fileID = db_column(metaFile_val, 0);
+	return fileID;
 }
 

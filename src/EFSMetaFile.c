@@ -1,6 +1,7 @@
 #include <yajl/yajl_parse.h>
 #include "strndup.h"
 #include "async.h"
+#include "fts.h"
 #include "EarthFS.h"
 
 #define META_MAX (1024 * 100)
@@ -263,27 +264,34 @@ static void add_metadata(MDB_txn *const txn, EFSConnection const *const conn, ui
 	MDB_val empty_val = { 0, NULL };
 	mdb_put(txn, conn->metadata, metadata_val, &empty_val, MDB_NOOVERWRITE);
 }
-
-#include <ctype.h> /* TODO */
-
 static void add_fulltext(MDB_txn *const txn, EFSConnection const *const conn, uint64_t const metaFileID, strarg_t const str, size_t const len) {
 	int rc;
+
+	sqlite3_tokenizer_module const *fts = NULL;
+	sqlite3_tokenizer *tokenizer = NULL;
+	fts_get(&fts, &tokenizer);
+
+	sqlite3_tokenizer_cursor *tcur = NULL;
+	rc = fts->xOpen(tokenizer, str, len, &tcur);
+	assert(SQLITE_OK == rc);
+
 	MDB_cursor *cur = NULL;
 	rc = mdb_cursor_open(txn, conn->fulltext, &cur);
 	assert(MDB_SUCCESS == rc);
 
-	byte_t buf[20];
-	index_t start = 0;
-	for(index_t i = 0; i < len; ++i) {
-		if(isalpha(str[i])) continue;
-		size_t const wlen = MIN(i - start, 10);
-		if(wlen <= 3) {
-			start = i+1;
-			continue;
-		}
+	for(;;) {
+		strarg_t token;
+		int tlen;
+		int tpos; // TODO
+		int ignored1, ignored2;
+		rc = fts->xNext(tcur, &token, &tlen, &ignored1, &ignored2, &tpos);
+		if(SQLITE_OK != rc) break;
 
-		byte_t *const data = buf;
+		byte_t data[40];
+		assert(8+tlen <= sizeof(data));
+
 		uint64_t const item = metaFileID;
+		// TODO: Varint encoding.
 		data[0] = 0xff & (item >> (8 * 7));
 		data[1] = 0xff & (item >> (8 * 6));
 		data[2] = 0xff & (item >> (8 * 5));
@@ -293,15 +301,18 @@ static void add_fulltext(MDB_txn *const txn, EFSConnection const *const conn, ui
 		data[6] = 0xff & (item >> (8 * 1));
 		data[7] = 0xff & (item >> (8 * 0));
 
-		memcpy(buf+8, str + start, wlen);
+		memcpy(data+8, token, tlen);
 
-		MDB_val stem_val = { 8+wlen, buf };
+		// TODO: Store tpos
+
+		MDB_val token_val = { 8+tlen, data };
 		MDB_val empty_val = { 0, NULL };
-		mdb_cursor_put(cur, &stem_val, &empty_val, MDB_NOOVERWRITE);
-
-		start = i+1;
+		rc = mdb_cursor_put(cur, &token_val, &empty_val, MDB_NOOVERWRITE);
+		assert(MDB_SUCCESS == rc || MDB_KEYEXIST == rc);
 	}
 
 	mdb_cursor_close(cur); cur = NULL;
+
+	fts->xClose(tcur); tcur = NULL;
 }
 

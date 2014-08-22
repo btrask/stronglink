@@ -27,6 +27,7 @@ HEADERS := \
 	$(SRC_DIR)/URIList.h \
 	$(SRC_DIR)/Template.h \
 	$(SRC_DIR)/db.h \
+	$(SRC_DIR)/fts.h \
 	$(SRC_DIR)/strndup.h \
 	$(SRC_DIR)/http/status.h \
 	$(SRC_DIR)/http/Headers.h \
@@ -38,7 +39,8 @@ HEADERS := \
 	$(DEPS_DIR)/crypt_blowfish-1.0.4/ow-crypt.h \
 	$(DEPS_DIR)/http_parser/http_parser.h \
 	$(DEPS_DIR)/multipart-parser-c/multipart_parser.h \
-	$(DEPS_DIR)/liblmdb/lmdb.h
+	$(DEPS_DIR)/liblmdb/lmdb.h \
+	$(DEPS_DIR)/fts3/fts3_tokenizer.h
 
 OBJECTS := \
 	$(BUILD_DIR)/main.o \
@@ -55,6 +57,7 @@ OBJECTS := \
 	$(BUILD_DIR)/Template.o \
 	$(BUILD_DIR)/URIList.o \
 	$(BUILD_DIR)/db.o \
+	$(BUILD_DIR)/fts.o \
 	$(BUILD_DIR)/strndup.o \
 	$(BUILD_DIR)/async.o \
 	$(BUILD_DIR)/async_fs.o \
@@ -75,7 +78,8 @@ OBJECTS := \
 	$(BUILD_DIR)/http_parser.o \
 	$(BUILD_DIR)/multipart_parser.o \
 	$(BUILD_DIR)/liblmdb/mdb.o \
-	$(BUILD_DIR)/liblmdb/midl.o
+	$(BUILD_DIR)/liblmdb/midl.o \
+	$(BUILD_DIR)/fts3/fts3_porter.o
 
 OBJECTS += $(BUILD_DIR)/libco/$(LIBCO_VER).o
 #HEADERS += $(DEPS_DIR)/libcoro/coro.h
@@ -132,6 +136,10 @@ $(BUILD_DIR)/multipart_parser.o: $(DEPS_DIR)/multipart-parser-c/multipart_parser
 	$(CC) -c -o $@ $< $(CFLAGS) -std=c89 -ansi -pedantic -Wall
 
 $(BUILD_DIR)/liblmdb/%.o: $(DEPS_DIR)/liblmdb/%.c $(DEPS_DIR)/liblmdb/lmdb.h
+	@- mkdir -p $(dir $@)
+	$(CC) -c -o $@ $< $(CFLAGS)
+
+$(BUILD_DIR)/fts3/%.o: $(DEPS_DIR)/fts3/%.c $(DEPS_DIR)/fts3/fts3Int.h $(DEPS_DIR)/fts3/fts3_tokenizer.h $(DEPS_DIR)/fts3/sqlite3.h
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
