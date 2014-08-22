@@ -111,6 +111,7 @@ void EFSFilterFree(EFSFilterRef *const filterptr);
 err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len);
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
 void EFSFilterPrint(EFSFilterRef const filter, count_t const indent);
+size_t EFSFilterToUserFilterString(EFSFilterRef const filter, str_t *const data, size_t const size, count_t const depth);
 err_t EFSFilterPrepare(EFSFilterRef const filter, EFSConnection const *const conn, MDB_txn *const txn);
 uint64_t EFSFilterMatchAge(EFSFilterRef const filter, uint64_t const sortID, uint64_t const fileID, EFSConnection const *const conn, MDB_txn *const txn);
 

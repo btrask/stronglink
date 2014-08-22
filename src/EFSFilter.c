@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <ctype.h>
 #include "fts.h"
 #include "strndup.h"
 #include "EarthFS.h"
@@ -177,49 +178,125 @@ void EFSFilterPrint(EFSFilterRef const filter, count_t const indent) {
 	// TODO: Copy and paste is bad.
 	for(index_t i = 0; i < indent; ++i) fprintf(stderr, "\t");
 	switch(filter->type) {
-		case EFSNoFilterType:
-			fprintf(stderr, "(all)\n");
-			break;
-		case EFSPermissionFilterType:
-			fprintf(stderr, "(permission %lld)\n", ((EFSPermissionFilterRef)filter)->userID);
-			break;
-		case EFSFileTypeFilterType:
-			fprintf(stderr, "(file-type %s)\n", ((EFSStringFilterRef)filter)->string);
-			break;
-		case EFSFullTextFilterType:
-			fprintf(stderr, "(full-text %s)\n", ((EFSStringFilterRef)filter)->string);
-			break;
-		case EFSLinkedFromFilterType:
-			fprintf(stderr, "(linked-from %s)\n", ((EFSStringFilterRef)filter)->string);
-			break;
-		case EFSLinksToFilterType:
-			fprintf(stderr, "(links-to %s)\n", ((EFSStringFilterRef)filter)->string);
-			break;
-		case EFSIntersectionFilterType: {
-			fprintf(stderr, "(intersection\n");
-			EFSCollectionFilterRef const f = (EFSCollectionFilterRef)filter;
-			EFSFilterList const *const list = f->filters;
-			for(index_t i = 0; i < list->count; ++i) {
-				EFSFilterPrint(list->items[i], indent+1);
-			}
-			for(index_t i = 0; i < indent; ++i) fprintf(stderr, "\t");
-			fprintf(stderr, ")\n");
-			break;
+	case EFSNoFilterType:
+		fprintf(stderr, "(all)\n");
+		break;
+	case EFSPermissionFilterType:
+		fprintf(stderr, "(permission %lld)\n", ((EFSPermissionFilterRef)filter)->userID);
+		break;
+	case EFSFileTypeFilterType:
+		fprintf(stderr, "(file-type %s)\n", ((EFSStringFilterRef)filter)->string);
+		break;
+	case EFSFullTextFilterType:
+		fprintf(stderr, "(full-text %s)\n", ((EFSStringFilterRef)filter)->string);
+		break;
+	case EFSLinkedFromFilterType:
+		fprintf(stderr, "(linked-from %s)\n", ((EFSStringFilterRef)filter)->string);
+		break;
+	case EFSLinksToFilterType:
+		fprintf(stderr, "(links-to %s)\n", ((EFSStringFilterRef)filter)->string);
+		break;
+	case EFSIntersectionFilterType: {
+		fprintf(stderr, "(intersection\n");
+		EFSCollectionFilterRef const f = (EFSCollectionFilterRef)filter;
+		EFSFilterList const *const list = f->filters;
+		for(index_t i = 0; i < list->count; ++i) {
+			EFSFilterPrint(list->items[i], indent+1);
 		}
-		case EFSUnionFilterType: {
-			fprintf(stderr, "(union\n");
-			EFSCollectionFilterRef const f = (EFSCollectionFilterRef)filter;
-			EFSFilterList const *const list = f->filters;
-			for(index_t i = 0; i < list->count; ++i) {
-				EFSFilterPrint(list->items[i], indent+1);
-			}
-			for(index_t i = 0; i < indent; ++i) fprintf(stderr, "\t");
-			fprintf(stderr, ")\n");
-			break;
+		for(index_t i = 0; i < indent; ++i) fprintf(stderr, "\t");
+		fprintf(stderr, ")\n");
+		break;
+	}
+	case EFSUnionFilterType: {
+		fprintf(stderr, "(union\n");
+		EFSCollectionFilterRef const f = (EFSCollectionFilterRef)filter;
+		EFSFilterList const *const list = f->filters;
+		for(index_t i = 0; i < list->count; ++i) {
+			EFSFilterPrint(list->items[i], indent+1);
 		}
-		default:
-			fprintf(stderr, "(unknown-%d)\n", filter->type);
-			break;
+		for(index_t i = 0; i < indent; ++i) fprintf(stderr, "\t");
+		fprintf(stderr, ")\n");
+		break;
+	}
+	default:
+		fprintf(stderr, "(unknown-%d)\n", filter->type);
+		break;
+	}
+}
+static size_t wr(str_t *const data, size_t const size, strarg_t const str) {
+	size_t const len = MIN(size, strlen(str));
+	memcpy(data, str, len);
+	if(len < size) data[len] = '\0';
+	return len;
+}
+static bool_t needs_quotes(strarg_t const str) {
+	for(index_t i = 0; '\0' != str[i]; ++i) {
+		if(isspace(str[i])) return true;
+	}
+	return false;
+}
+size_t EFSFilterToUserFilterString(EFSFilterRef const filter, str_t *const data, size_t const size, count_t const depth) {
+	if(!filter) return wr(data, size, "");
+	switch(filter->type) {
+	case EFSNoFilterType:
+		return wr(data, size, "");
+	case EFSPermissionFilterType:
+		assert(0);
+		return 0;
+	case EFSFileTypeFilterType: {
+		EFSStringFilterRef const f = (EFSStringFilterRef)filter;
+		size_t len = 0;
+		bool_t const quoted = needs_quotes(f->string);
+		len += wr(data+len, size-len, "type:");
+		if(quoted) len += wr(data+len, size-len, "\"");
+		len += wr(data+len, size-len, f->string);
+		if(quoted) len += wr(data+len, size-len, "\"");
+		return len;
+	}
+	case EFSFullTextFilterType: {
+		EFSStringFilterRef const f = (EFSStringFilterRef)filter;
+		size_t len = 0;
+		bool_t const quoted = needs_quotes(f->string);
+		if(quoted) len += wr(data+len, size-len, "\"");
+		len += wr(data+len, size-len, f->string);
+		if(quoted) len += wr(data+len, size-len, "\"");
+		return len;
+	}
+	case EFSLinkedFromFilterType: {
+		EFSStringFilterRef const f = (EFSStringFilterRef)filter;
+		return wr(data, size, f->string);
+	}
+	case EFSLinksToFilterType: {
+		EFSStringFilterRef const f = (EFSStringFilterRef)filter;
+		return wr(data, size, f->string);
+	}
+	case EFSIntersectionFilterType: {
+		EFSCollectionFilterRef const f = (EFSCollectionFilterRef)filter;
+		EFSFilterList const *const list = f->filters;
+		if(!list || !list->count) return wr(data, size, "");
+		size_t len = 0;
+		if(depth) len += wr(data+len, size-len, "(");
+		for(index_t i = 0; i < list->count; ++i) {
+			if(i) len += wr(data+len, size-len, " ");
+			len += EFSFilterToUserFilterString(list->items[i], data+len, size-len, depth+1);
+		}
+		if(depth) len += wr(data+len, size-len, ")");
+		return len;
+	}
+	case EFSUnionFilterType: {
+		EFSCollectionFilterRef const f = (EFSCollectionFilterRef)filter;
+		EFSFilterList const *const list = f->filters;
+		size_t len = 0;
+		for(index_t i = 0; i < list->count; ++i) {
+			if(i) len += wr(data+len, size-len, " or ");
+			len += EFSFilterToUserFilterString(list->items[i], data+len, size-len, depth+1);
+		}
+		return len;
+	}
+	default: {
+		assertf(0, "Unknown filter type %d\n", filter->type);
+		return -1;
+	}
 	}
 }
 

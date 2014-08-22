@@ -284,8 +284,15 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	HTTPMessageWriteHeader(msg, "Transfer-Encoding", "chunked");
 	HTTPMessageBeginBody(msg);
 
-	// TODO: Template args like repo name.
-	TemplateWriteHTTPChunk(blog->header, NULL, NULL, msg);
+	str_t q[200];
+	size_t qlen = EFSFilterToUserFilterString(query, q, sizeof(q), 0);
+	str_t *q_HTMLSafe = htmlenc(q);
+	TemplateStaticArg const args[] = {
+		{"q", q_HTMLSafe},
+		{NULL, NULL},
+	};
+
+	TemplateWriteHTTPChunk(blog->header, &TemplateStaticCBs, args, msg);
 
 	for(index_t i = 0; i < URIListGetCount(URIs); ++i) {
 		strarg_t const URI = URIListGetURI(URIs, i);
@@ -298,7 +305,8 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 		FREE(&previewPath);
 	}
 
-	TemplateWriteHTTPChunk(blog->footer, NULL, NULL, msg);
+	TemplateWriteHTTPChunk(blog->footer, &TemplateStaticCBs, args, msg);
+	FREE(&q_HTMLSafe);
 
 	HTTPMessageWriteChunkLength(msg, 0);
 	HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
