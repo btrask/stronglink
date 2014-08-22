@@ -329,25 +329,18 @@ static bool_t postSubmission(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 		return true;
 	}
 
-	bool_t const success = false;
-/*	sqlite3f *db = EFSRepoDBConnect(blog->repo);
-	EXEC(QUERY(db, "SAVEPOINT addpair"));
+	EFSSubmissionRef subs[2] = { sub, meta };
+	err_t err = EFSSubmissionBatchStore(subs, numberof(subs));
 
-	bool_t const success =
-		EFSSubmissionStore(sub, db) >= 0 &&
-		EFSSubmissionStore(meta, db) >= 0;
-
-	if(!success) EXEC(QUERY(db, "ROLLBACK TO addpair"));
-	EXEC(QUERY(db, "RELEASE addpair"));
-	EFSRepoDBClose(blog->repo, &db);*/
 	EFSSubmissionFree(&sub);
 	EFSSubmissionFree(&meta);
 	MultipartFormFree(&form);
 	EFSSessionFree(&session);
 
-	if(success) {
+	if(err >= 0) {
 		HTTPMessageWriteResponse(msg, 303, "See Other");
 		HTTPMessageWriteHeader(msg, "Location", "/");
+		HTTPMessageWriteContentLength(msg, 0);
 		HTTPMessageBeginBody(msg);
 		HTTPMessageEnd(msg);
 	} else {
