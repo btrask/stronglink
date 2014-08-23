@@ -1,6 +1,9 @@
 #define _GNU_SOURCE
 #include <yajl/yajl_tree.h>
 #include <limits.h>
+#include <sys/mman.h> /* TODO: Portable wrapper */
+#include "../deps/sundown/src/markdown.h"
+#include "../deps/sundown/html/html.h"
 #include "common.h"
 #include "async.h"
 #include "EarthFS.h"
@@ -58,65 +61,80 @@ static str_t *BlogCopyPreviewPath(BlogRef const blog, strarg_t const hash) {
 	return path;
 }
 
-static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {
 
-	EFSFileInfo info;
-	if(EFSSessionGetFileInfo(session, URI, &info) < 0) return -1;
+static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {
+	EFSFileInfo info[1];
+	if(EFSSessionGetFileInfo(session, URI, info) < 0) return -1;
 
 	if(
-		0 != strcasecmp("text/markdown; charset=utf-8", info.type) &&
-		0 != strcasecmp("text/markdown", info.type)
+		0 != strcasecmp("text/markdown; charset=utf-8", info->type) &&
+		0 != strcasecmp("text/markdown", info->type)
 	) {
-		EFSFileInfoCleanup(&info);
+		EFSFileInfoCleanup(info);
 		return -1; // TODO: Other types, plugins, w/e.
 	}
 
-	if(async_fs_mkdirp_dirname(previewPath, 0700) < 0) {
-		EFSFileInfoCleanup(&info);
-		return -1;
+
+	// TODO: Have real thread pool functions instead of abusing the database connection.
+	EFSConnection const *conn = EFSRepoDBOpen(blog->repo);
+	str_t *tmpPath = NULL;
+	int fd = -1;
+	byte_t const *buf = NULL;
+	uv_file file = -1;
+
+	if(async_fs_mkdirp_dirname(previewPath, 0700) < 0) goto err;
+
+	tmpPath = EFSRepoCopyTempPath(EFSSessionGetRepo(session));
+	if(async_fs_mkdirp_dirname(tmpPath, 0700) < 0) goto err;
+
+	// TODO: Portable wrapper
+	fd = open(info->path, O_RDONLY, 0000);
+	buf = mmap(NULL, info->size, PROT_READ, MAP_SHARED, fd, 0);
+	if(!buf) goto err;
+	close(fd); fd = -1;
+
+	struct sd_callbacks callbacks;
+	struct html_renderopt opts;
+	sdhtml_renderer(&callbacks, &opts, HTML_ESCAPE | HTML_HARD_WRAP);
+	struct sd_markdown *parser = sd_markdown_new(MKDEXT_AUTOLINK | MKDEXT_FENCED_CODE, 10, &callbacks, &opts);
+	struct buf *out = bufnew(1);
+	sd_markdown_render(out, buf, info->size, parser);
+	sd_markdown_free(parser); parser = NULL;
+
+	file = async_fs_open(tmpPath, O_CREAT | O_EXCL | O_RDWR, 0600);
+	if(file < 0) goto err;
+	int written = 0;
+	for(;;) {
+		uv_buf_t bufs = uv_buf_init((char *)out->data+written, out->size-written);
+		int const r = async_fs_write(file, &bufs, 1, 0);
+		if(r < 0) goto err;
+		written += r;
+		if(written >= out->size) break;
 	}
-
-	str_t *tmpPath = EFSRepoCopyTempPath(EFSSessionGetRepo(session));
-	if(async_fs_mkdirp_dirname(tmpPath, 0700) < 0) {
-		FREE(&tmpPath);
-		EFSFileInfoCleanup(&info);
-		return -1;
-	}
-
-	cothread_t const thread = co_active();
-	async_state state = { .thread = thread };
-	uv_process_t proc;
-	proc.data = &state;
-	str_t *args[] = {
-		"markdown",
-		"-f", "autolink",
-		"-G",
-		"-o", tmpPath,
-		info.path,
-		NULL
-	};
-	uv_process_options_t const opts = {
-		.file = args[0],
-		.args = args,
-		.exit_cb = async_exit_cb,
-	};
-	uv_spawn(loop, &proc, &opts);
-	async_yield();
-
-	if(state.status < 0) {
-		FREE(&tmpPath);
-		EFSFileInfoCleanup(&info);
-		return -1;
-	}
-
-	err_t const err = async_fs_link(tmpPath, previewPath);
-
+	if(async_fs_fsync(file) < 0) goto err;
+	int const close_err = async_fs_close(file); file = -1;
+	if(close_err < 0) goto err;
+	if(async_fs_link(tmpPath, previewPath) < 0) goto err;
 	async_fs_unlink(tmpPath);
-	FREE(&tmpPath);
-	EFSFileInfoCleanup(&info);
 
-	if(err < 0) return -1;
+	munmap((byte_t *)buf, info->size);
+
+	EFSRepoDBClose(blog->repo, &conn);
+
+	FREE(&tmpPath);
+	EFSFileInfoCleanup(info);
+
 	return 0;
+
+err:
+	if(tmpPath) async_fs_unlink(tmpPath);
+	FREE(&tmpPath);
+	async_fs_close(file); file = -1;
+	munmap((byte_t *)buf, info->size); buf = NULL;
+	if(fd >= 0) { close(fd); fd = -1; }
+	EFSFileInfoCleanup(info);
+	EFSRepoDBClose(blog->repo, &conn);
+	return -1;
 }
 typedef struct {
 	BlogRef blog;

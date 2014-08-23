@@ -14,8 +14,10 @@ static thread_local async_worker_t *current = NULL;
 
 static void work(void *const arg) {
 	async_worker_t *const worker = arg;
+	async_init();
 	current = worker;
-	worker->main = co_active();
+	worker->main = yield;
+	yield = NULL;
 	for(;;) {
 		uv_sem_wait(&worker->sem);
 		if(!worker->work) break;

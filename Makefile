@@ -40,7 +40,10 @@ HEADERS := \
 	$(DEPS_DIR)/http_parser/http_parser.h \
 	$(DEPS_DIR)/multipart-parser-c/multipart_parser.h \
 	$(DEPS_DIR)/liblmdb/lmdb.h \
-	$(DEPS_DIR)/fts3/fts3_tokenizer.h
+	$(DEPS_DIR)/fts3/fts3_tokenizer.h \
+	$(DEPS_DIR)/sundown/src/markdown.h \
+	$(DEPS_DIR)/sundown/html/html.h \
+	$(DEPS_DIR)/sundown/html/houdini.h
 
 OBJECTS := \
 	$(BUILD_DIR)/main.o \
@@ -79,7 +82,15 @@ OBJECTS := \
 	$(BUILD_DIR)/multipart_parser.o \
 	$(BUILD_DIR)/liblmdb/mdb.o \
 	$(BUILD_DIR)/liblmdb/midl.o \
-	$(BUILD_DIR)/fts3/fts3_porter.o
+	$(BUILD_DIR)/fts3/fts3_porter.o \
+	$(BUILD_DIR)/sundown/src/markdown.o \
+	$(BUILD_DIR)/sundown/src/autolink.o \
+	$(BUILD_DIR)/sundown/src/buffer.o \
+	$(BUILD_DIR)/sundown/src/stack.o \
+	$(BUILD_DIR)/sundown/html/html.o \
+	$(BUILD_DIR)/sundown/html/html_smartypants.o \
+	$(BUILD_DIR)/sundown/html/houdini_href_e.o \
+	$(BUILD_DIR)/sundown/html/houdini_html_e.o
 
 OBJECTS += $(BUILD_DIR)/libco/$(LIBCO_VER).o
 #HEADERS += $(DEPS_DIR)/libcoro/coro.h
@@ -142,6 +153,10 @@ $(BUILD_DIR)/liblmdb/%.o: $(DEPS_DIR)/liblmdb/%.c $(DEPS_DIR)/liblmdb/lmdb.h
 $(BUILD_DIR)/fts3/%.o: $(DEPS_DIR)/fts3/%.c $(DEPS_DIR)/fts3/fts3Int.h $(DEPS_DIR)/fts3/fts3_tokenizer.h $(DEPS_DIR)/fts3/sqlite3.h
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS)
+
+$(BUILD_DIR)/sundown/%.o: $(DEPS_DIR)/sundown/%.c
+	@- mkdir -p $(dir $@)
+	$(CC) -c -o $@ $< $(CFLAGS) #-I$(DEPS_DIR)/sundown/src
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c $(HEADERS)
 	@- mkdir -p $(dir $@)

@@ -9,7 +9,6 @@
 #include <string.h>
 #include <unistd.h>
 
-typedef int fd_t;
 typedef unsigned char byte_t;
 typedef char str_t;
 typedef str_t const *strarg_t; // A string that belongs to someone else.

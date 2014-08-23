@@ -47,6 +47,8 @@ void async_rwlock_free(async_rwlock_t *const lock) {
 }
 void async_rwlock_rdlock(async_rwlock_t *const lock) {
 	assert(lock);
+	assert(yield);
+	assert(co_active() != yield);
 	if(async_rwlock_tryrdlock(lock) >= 0) return;
 	thread_list us = {
 		.thread = co_active(),
@@ -78,6 +80,8 @@ void async_rwlock_rdunlock(async_rwlock_t *const lock) {
 }
 void async_rwlock_wrlock(async_rwlock_t *const lock) {
 	assert(lock);
+	assert(yield);
+	assert(co_active() != yield);
 	if(async_rwlock_trywrlock(lock) >= 0) return;
 	thread_list us = {
 		.thread = co_active(),

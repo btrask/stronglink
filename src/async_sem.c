@@ -44,6 +44,8 @@ void async_sem_post(async_sem_t *const sem) {
 }
 void async_sem_wait(async_sem_t *const sem) {
 	assert(sem);
+	assert(yield);
+	assert(co_active() != yield);
 	if(sem->value) {
 		--sem->value;
 		return;

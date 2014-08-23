@@ -9,15 +9,20 @@
 
 #define ENTROPY_BYTES 8
 
-#define ASYNC_FS_WRAP(name, args...) \
-	cothread_t const thread = co_active(); \
-	uv_fs_t req; \
-	req.data = thread; \
-	int const err = uv_fs_##name(loop, &req, ##args, async_fs_cb); \
+#define ASYNC_FS_PREPARE(name, args...) \
+	uv_fs_t req[1]; \
+	uv_fs_cb cb = NULL; \
+	if(yield) { \
+		req->data = co_active(); \
+		cb = async_fs_cb; \
+	} \
+	int const err = uv_fs_##name(loop, req, ##args, cb); \
 	if(err < 0) return err; \
-	async_yield(); \
-	uv_fs_req_cleanup(&req); \
-	return req.result;
+	if(cb) async_yield();
+#define ASYNC_FS_WRAP(name, args...) \
+	ASYNC_FS_PREPARE(name, ##args) \
+	uv_fs_req_cleanup(req); \
+	return req->result;
 
 uv_file async_fs_open(const char* path, int flags, int mode) {
 	ASYNC_FS_WRAP(open, path, flags, mode)
@@ -51,34 +56,22 @@ int async_fs_ftruncate(uv_file file, int64_t offset) {
 }
 
 int async_fs_fstat(uv_file file, uv_stat_t *stats) {
-	uv_fs_t req;
-	req.data = co_active();
-	int const err = uv_fs_fstat(loop, &req, file, async_fs_cb);
-	if(err < 0) return err;
-	async_yield();
-	if(req.result >= 0) memcpy(stats, &req.statbuf, sizeof(uv_stat_t));
-	uv_fs_req_cleanup(&req);
-	return req.result;
+	ASYNC_FS_PREPARE(fstat, file)
+	if(req->result >= 0) memcpy(stats, &req->statbuf, sizeof(uv_stat_t));
+	uv_fs_req_cleanup(req);
+	return req->result;
 }
 int async_fs_fstat_size(uv_file file, uint64_t *size) {
-	uv_fs_t req;
-	req.data = co_active();
-	int const err = uv_fs_fstat(loop, &req, file, async_fs_cb);
-	if(err < 0) return err;
-	async_yield();
-	*size = req.statbuf.st_size;
-	uv_fs_req_cleanup(&req);
-	return req.result;
+	ASYNC_FS_PREPARE(fstat, file)
+	*size = req->statbuf.st_size;
+	uv_fs_req_cleanup(req);
+	return req->result;
 }
 int async_fs_stat_mode(const char* path, uint64_t *mode) {
-	uv_fs_t req;
-	req.data = co_active();
-	int const err = uv_fs_stat(loop, &req, path, async_fs_cb);
-	if(err < 0) return err;
-	async_yield();
-	*mode = req.statbuf.st_mode;
-	uv_fs_req_cleanup(&req);
-	return req.result;
+	ASYNC_FS_PREPARE(stat, path)
+	*mode = req->statbuf.st_mode;
+	uv_fs_req_cleanup(req);
+	return req->result;
 }
 
 /* Example paths:
