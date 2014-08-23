@@ -15,7 +15,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "markdown.h"
+#include "../src/markdown.h"
 #include "html.h"
 
 #include <string.h>

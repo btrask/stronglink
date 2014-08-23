@@ -6,7 +6,7 @@ LIBCO_VER := libco
 # Use sjlj for clang on x86
 
 #CFLAGS += -arch i386
-CFLAGS += -g -O2 -Wno-unused-result
+CFLAGS += -g -O2 -fno-omit-frame-pointer -Wno-unused-result
 #CFLAGS += -g -O0
 #CFLAGS += -DNDEBUG -Wno-unused-but-set-variable
 CFLAGS += -DHTTP_PARSER_DEBUG

@@ -243,7 +243,7 @@ static uint64_t add_metafile(MDB_txn *const txn, EFSConnection const *const conn
 	DB_VAL(metaFile_val, 2);
 	db_bind(metaFile_val, 0, fileID);
 	db_bind(metaFile_val, 1, targetURI_id);
-	mdb_put(txn, conn->metaFileByID, metaFileID_val, metaFile_val, MDB_NOOVERWRITE);
+	mdb_put(txn, conn->metaFileByID, metaFileID_val, metaFile_val, MDB_NOOVERWRITE | MDB_APPEND);
 
 	DB_VAL(fileID_val, 1);
 	db_bind(fileID_val, 0, fileID);

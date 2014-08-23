@@ -1,7 +1,7 @@
 #ifndef HOUDINI_H__
 #define HOUDINI_H__
 
-#include "buffer.h"
+#include "../src/buffer.h"
 
 #ifdef __cplusplus
 extern "C" {

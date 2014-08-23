@@ -117,7 +117,7 @@ uint64_t db_string_id_len(MDB_txn *const txn, DB_schema const *const schema, str
 	db_bind(newStringID_val, 0, newStringID);
 	str_t *nulterm = strndup(str, len); // TODO: Avoid this if possible.
 	MDB_val str_val = { len+1, nulterm };
-	rc = mdb_put(txn, schema->stringByID, newStringID_val, &str_val, MDB_NOOVERWRITE);
+	rc = mdb_put(txn, schema->stringByID, newStringID_val, &str_val, MDB_NOOVERWRITE | MDB_APPEND);
 	FREE(&nulterm);
 	if(EACCES == rc) return 0; // Read-only transaction.
 	assertf(MDB_SUCCESS == rc, "mdb err %s", mdb_strerror(rc));

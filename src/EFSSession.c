@@ -110,7 +110,7 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	DB_VAL(session_val, 2);
 	db_bind(session_val, 0, userID);
 	db_bind(session_val, 1, sessionHash_id);
-	rc = mdb_put(txn, conn->sessionByID, sessionID_val, session_val, MDB_NOOVERWRITE);
+	rc = mdb_put(txn, conn->sessionByID, sessionID_val, session_val, MDB_NOOVERWRITE | MDB_APPEND);
 	if(MDB_SUCCESS != rc) {
 		mdb_txn_abort(txn); txn = NULL;
 		EFSRepoDBClose(repo, &conn);

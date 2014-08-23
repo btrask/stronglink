@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "buffer.h"
+#include "../src/buffer.h"
 #include "html.h"
 
 #include <string.h>
