@@ -148,7 +148,7 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 		written += r;
 		if(written >= out->size) break;
 	}
-	if(async_fs_fsync(file) < 0) goto err;
+	if(async_fs_fdatasync(file) < 0) goto err;
 	int const close_err = async_fs_close(file); file = -1;
 	if(close_err < 0) goto err;
 	if(async_fs_link(tmpPath, previewPath) < 0) goto err;
