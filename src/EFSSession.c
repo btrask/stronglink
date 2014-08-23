@@ -336,6 +336,7 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 	if(info) {
 		strarg_t const internalHash = db_column_text(txn, conn->schema, file_val, 0);
 		strarg_t const type = db_column_text(txn, conn->schema, file_val, 1);
+		info->hash = strdup(internalHash);
 		info->path = EFSRepoCopyInternalPath(repo, internalHash);
 		info->type = strdup(type);
 		info->size = db_column(file_val, 2);
@@ -347,6 +348,7 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 }
 void EFSFileInfoCleanup(EFSFileInfo *const info) {
 	if(!info) return;
+	FREE(&info->hash);
 	FREE(&info->path);
 	FREE(&info->type);
 }

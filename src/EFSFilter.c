@@ -128,6 +128,37 @@ void EFSFilterFree(EFSFilterRef *const filterptr) {
 	}
 	FREE(filterptr); filter = NULL;
 }
+EFSFilterType EFSFilterGetType(EFSFilterRef const filter) {
+	if(!filter) return EFSFilterTypeInvalid;
+	return filter->type;
+}
+strarg_t EFSFilterGetStringArg(EFSFilterRef const filter, index_t const i) {
+	if(!filter) return NULL;
+	switch(filter->type) {
+		case EFSFileTypeFilterType:
+		case EFSFullTextFilterType:
+		case EFSLinkedFromFilterType:
+		case EFSLinksToFilterType:
+			break;
+		default: return NULL;
+	}
+	EFSStringFilterRef const f = (EFSStringFilterRef)filter;
+	if(0 != i) return NULL;
+	return f->string;
+}
+EFSFilterRef EFSFilterUnwrap(EFSFilterRef const filter) {
+	if(!filter) return NULL;
+	switch(filter->type) {
+		case EFSIntersectionFilterType:
+		case EFSUnionFilterType: {
+			EFSCollectionFilterRef const f = (EFSCollectionFilterRef)filter;
+			EFSFilterList const *const list = f->filters;
+			if(1 != list->count) return NULL;
+			return EFSFilterUnwrap(list->items[0]);
+		}
+		default: return filter;
+	}
+}
 err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len) {
 	if(!filter) return 0;
 	switch(filter->type) {

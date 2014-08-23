@@ -220,6 +220,8 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 	return 0;
 }
 static void sendPreview(BlogRef const blog, HTTPMessageRef const msg, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {
+	if(!previewPath) return;
+
 	str_t *URI_HTMLSafe = htmlenc(URI);
 	str_t *URIEncoded_HTMLSafe = htmlenc(URI); // TODO: URI enc
 	TemplateStaticArg const args[] = {
@@ -294,13 +296,27 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 
 	TemplateWriteHTTPChunk(blog->header, &TemplateStaticCBs, args, msg);
 
+	EFSFilterRef const coreFilter = EFSFilterUnwrap(query);
+	if(EFSLinksToFilterType == EFSFilterGetType(coreFilter)) {
+		strarg_t const URI = EFSFilterGetStringArg(coreFilter, 0);
+		EFSFileInfo info[1];
+		if(EFSSessionGetFileInfo(session, URI, info) >= 0) {
+			str_t *canonical = EFSFormatURI(EFS_INTERNAL_ALGO, info->hash);
+			str_t *previewPath = BlogCopyPreviewPath(blog, info->hash);
+			sendPreview(blog, msg, session, canonical, previewPath);
+			FREE(&previewPath);
+			FREE(&canonical);
+			EFSFileInfoCleanup(info);
+			// TODO: Remember this file and make sure it doesn't show up as a duplicate below.
+		}
+	}
+
 	for(index_t i = 0; i < URIListGetCount(URIs); ++i) {
 		strarg_t const URI = URIListGetURI(URIs, i);
 		str_t algo[EFS_ALGO_SIZE]; // EFS_INTERNAL_ALGO
 		str_t hash[EFS_HASH_SIZE];
 		EFSParseURI(URI, algo, hash);
 		str_t *previewPath = BlogCopyPreviewPath(blog, hash);
-		if(!previewPath) continue;
 		sendPreview(blog, msg, session, URI, previewPath);
 		FREE(&previewPath);
 	}

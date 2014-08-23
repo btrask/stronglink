@@ -52,6 +52,7 @@ void EFSRepoDBClose(EFSRepoRef const repo, EFSConnection const **const dbptr);
 void EFSRepoStartPulls(EFSRepoRef const repo);
 
 typedef struct {
+	str_t *hash; // Internal hash
 	str_t *path;
 	str_t *type;
 	uint64_t size;
@@ -108,6 +109,9 @@ typedef enum {
 EFSFilterRef EFSFilterCreate(EFSFilterType const type);
 EFSFilterRef EFSPermissionFilterCreate(uint64_t const userID);
 void EFSFilterFree(EFSFilterRef *const filterptr);
+EFSFilterType EFSFilterGetType(EFSFilterRef const filter);
+strarg_t EFSFilterGetStringArg(EFSFilterRef const filter, index_t const i);
+EFSFilterRef EFSFilterUnwrap(EFSFilterRef const filter);
 err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len);
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
 void EFSFilterPrint(EFSFilterRef const filter, count_t const indent);
