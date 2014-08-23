@@ -61,6 +61,31 @@ static str_t *BlogCopyPreviewPath(BlogRef const blog, strarg_t const hash) {
 	return path;
 }
 
+struct markdown_state {
+	struct html_renderopt opts;
+	int (*autolink)(struct buf *ob, const struct buf *link, enum mkd_autolink type, void *opaque);
+	int (*link)(struct buf *ob, const struct buf *link, const struct buf *title, const struct buf *content, void *opaque);
+};
+static int markdown_link(struct buf *ob, const struct buf *link, const struct buf *title, const struct buf *content, void *opaque) {
+	struct markdown_state *const state = opaque;
+	if(0 != bufprefix(link, "hash://")) {
+		return state->link(ob, link, title, content, opaque);
+	}
+	// TODO: Query string escaping
+	struct buf *rel = bufnew(strlen("?q=")+link->size);
+	bufputs(rel, "?q=");
+	bufput(rel, link->data, link->size);
+	int const r = state->link(ob, rel, title, content, opaque);
+	bufrelease(rel);
+	return r;
+}
+static int markdown_autolink(struct buf *ob, const struct buf *link, enum mkd_autolink type, void *opaque) {
+	struct markdown_state *const state = opaque;
+	if(MKDA_NORMAL != type || 0 != bufprefix(link, "hash://")) {
+		return state->autolink(ob, link, type, opaque);
+	}
+	return markdown_link(ob, link, NULL, link, opaque);
+}
 
 static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {
 	EFSFileInfo info[1];
@@ -94,9 +119,13 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 	close(fd); fd = -1;
 
 	struct sd_callbacks callbacks;
-	struct html_renderopt opts;
-	sdhtml_renderer(&callbacks, &opts, HTML_ESCAPE | HTML_HARD_WRAP);
-	struct sd_markdown *parser = sd_markdown_new(MKDEXT_AUTOLINK | MKDEXT_FENCED_CODE, 10, &callbacks, &opts);
+	struct markdown_state state;
+	sdhtml_renderer(&callbacks, &state.opts, HTML_ESCAPE | HTML_HARD_WRAP);
+	state.link = callbacks.link;
+	state.autolink = callbacks.autolink;
+	callbacks.link = markdown_link;
+	callbacks.autolink = markdown_autolink;
+	struct sd_markdown *parser = sd_markdown_new(MKDEXT_AUTOLINK | MKDEXT_FENCED_CODE, 10, &callbacks, &state);
 	struct buf *out = bufnew(1);
 	sd_markdown_render(out, buf, info->size, parser);
 	sd_markdown_free(parser); parser = NULL;

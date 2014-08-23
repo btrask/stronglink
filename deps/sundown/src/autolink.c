@@ -29,9 +29,10 @@
 int
 sd_autolink_issafe(const uint8_t *link, size_t link_len)
 {
-	static const size_t valid_uris_count = 5;
+	// HACK: hash: URI support
+	static const size_t valid_uris_count = 6;
 	static const char *valid_uris[] = {
-		"/", "http://", "https://", "ftp://", "mailto:"
+		"/", "hash://", "http://", "https://", "ftp://", "mailto:"
 	};
 
 	size_t i;
@@ -260,6 +261,7 @@ sd_autolink__url(
 	unsigned int flags)
 {
 	size_t link_end, rewind = 0, domain_len;
+	int hash;
 
 	if (size < 4 || data[1] != '/' || data[2] != '/')
 		return 0;
@@ -269,13 +271,14 @@ sd_autolink__url(
 
 	if (!sd_autolink_issafe(data - rewind, size + rewind))
 		return 0;
+	hash = (0 == strncasecmp("hash://", data - rewind, rewind)); // HACK
 
 	link_end = strlen("://");
 
 	domain_len = check_domain(
 		data + link_end,
 		size - link_end,
-		flags & SD_AUTOLINK_SHORT_DOMAINS);
+		hash || flags & SD_AUTOLINK_SHORT_DOMAINS);
 
 	if (domain_len == 0)
 		return 0;
