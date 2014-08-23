@@ -179,7 +179,22 @@ typedef struct {
 } md_state;
 static str_t *md_lookup(md_state const *const state, strarg_t const var) {
 	strarg_t unsafe = NULL;
-	if(0 == strcmp(var, "rawURI")) unsafe = state->fileURI; // TODO
+	str_t buf[URI_MAX];
+	if(0 == strcmp(var, "rawURI")) {
+		str_t algo[EFS_ALGO_SIZE]; // EFS_INTERNAL_ALGO
+		str_t hash[EFS_HASH_SIZE];
+		EFSParseURI(state->fileURI, algo, hash);
+		snprintf(buf, sizeof(buf), "/efs/file/%s/%s", algo, hash);
+		unsafe = buf;
+	}
+	if(0 == strcmp(var, "queryURI")) {
+		// TODO: Query string escaping
+		snprintf(buf, sizeof(buf), "?q=%s", state->fileURI);
+		unsafe = buf;
+	}
+	if(0 == strcmp(var, "hashURI")) {
+		unsafe = state->fileURI;
+	}
 	if(unsafe) return htmlenc(unsafe);
 
 	EFSConnection const *conn = EFSRepoDBOpen(state->blog->repo);
