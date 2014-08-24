@@ -294,26 +294,17 @@ static void add_fulltext(MDB_txn *const txn, EFSConnection const *const conn, ui
 		if(SQLITE_OK != rc) break;
 
 		byte_t data[40];
-		assert(8+tlen <= sizeof(data));
+		MDB_val token_val[1] = {{ 0, data }};
+		db_bind(token_val, metaFileID);
+		assert(token_val->mv_size+tlen <= sizeof(data));
 
-		uint64_t const item = metaFileID;
-		// TODO: Varint encoding.
-		data[0] = 0xff & (item >> (8 * 7));
-		data[1] = 0xff & (item >> (8 * 6));
-		data[2] = 0xff & (item >> (8 * 5));
-		data[3] = 0xff & (item >> (8 * 4));
-		data[4] = 0xff & (item >> (8 * 3));
-		data[5] = 0xff & (item >> (8 * 2));
-		data[6] = 0xff & (item >> (8 * 1));
-		data[7] = 0xff & (item >> (8 * 0));
-
-		memcpy(data+8, token, tlen);
+		memcpy(token_val->mv_data+token_val->mv_size, token, tlen);
+		token_val->mv_size += tlen;
 
 		// TODO: Store tpos
 
-		MDB_val token_val = { 8+tlen, data };
-		MDB_val empty_val = { 0, NULL };
-		rc = mdb_cursor_put(cur, &token_val, &empty_val, MDB_NOOVERWRITE);
+		MDB_val empty_val[1] = {{ 0, NULL }};
+		rc = mdb_cursor_put(cur, token_val, empty_val, MDB_NOOVERWRITE);
 		assert(MDB_SUCCESS == rc || MDB_KEYEXIST == rc);
 	}
 

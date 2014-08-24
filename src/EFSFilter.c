@@ -493,24 +493,18 @@ static uint64_t EFSFilterMetaFileAge(EFSFilterRef const filter, uint64_t const m
 			return 0;
 		case EFSFullTextFilterType: {
 			EFSFulltextFilterRef const f = (EFSFulltextFilterRef)filter;
-			byte_t buf[40];
-			size_t const tlen = strlen(f->tokens[0]);
-			assert(8+tlen < sizeof(buf));
+			strarg_t const token = f->tokens[0];
+			size_t const tlen = strlen(token);
 
-			byte_t *const data = buf;
-			uint64_t const item = metaFileID;
-			data[0] = 0xff & (item >> (8 * 7));
-			data[1] = 0xff & (item >> (8 * 6));
-			data[2] = 0xff & (item >> (8 * 5));
-			data[3] = 0xff & (item >> (8 * 4));
-			data[4] = 0xff & (item >> (8 * 3));
-			data[5] = 0xff & (item >> (8 * 2));
-			data[6] = 0xff & (item >> (8 * 1));
-			data[7] = 0xff & (item >> (8 * 0));
+			// TODO: Copy and paste is bad (from EFSMetaFile.c).
+			byte_t data[40];
+			MDB_val token_val[1] = {{ 0, data }};
+			db_bind(token_val, metaFileID);
+			assert(token_val->mv_size+tlen <= sizeof(data));
 
-			memcpy(buf+8, f->tokens[0], tlen);
+			memcpy(token_val->mv_data+token_val->mv_size, token, tlen);
+			token_val->mv_size += tlen;
 
-			MDB_val token_val[1] = {{ 8+tlen, buf }};
 			MDB_val match_val[1];
 			rc = mdb_get(txn, conn->fulltext, token_val, match_val);
 			if(MDB_NOTFOUND == rc) return UINT64_MAX;
