@@ -258,7 +258,7 @@ static void add_metadata(MDB_txn *const txn, EFSConnection const *const conn, ui
 	if(!vlen) return;
 
 	uint64_t const field_id = db_string_id(txn, conn->schema, field);
-	uint64_t const value_id = db_string_id_len(txn, conn->schema, value, vlen);
+	uint64_t const value_id = db_string_id_len(txn, conn->schema, value, vlen, false);
 	assert(field_id);
 	assert(value_id);
 

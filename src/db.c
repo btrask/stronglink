@@ -80,9 +80,9 @@ uint64_t db_last_id(MDB_txn *txn, MDB_dbi dbi) {
 uint64_t db_string_id(MDB_txn *const txn, DB_schema const *const schema, strarg_t const str) {
 	if(!str) return 0;
 	size_t const len = strlen(str);
-	return db_string_id_len(txn, schema, str, len);
+	return db_string_id_len(txn, schema, str, len, true);
 }
-uint64_t db_string_id_len(MDB_txn *const txn, DB_schema const *const schema, strarg_t const str, size_t const len) {
+uint64_t db_string_id_len(MDB_txn *const txn, DB_schema const *const schema, strarg_t const str, size_t const len, bool_t const nulterm) {
 	if(!str) return 0;
 	if(!len) return 1;
 
@@ -110,18 +110,35 @@ uint64_t db_string_id_len(MDB_txn *const txn, DB_schema const *const schema, str
 	if(MDB_SUCCESS == rc) return db_column(existingStringID_val, 0);
 	assertf(MDB_NOTFOUND == rc, "mdb err %s", mdb_strerror(rc));
 
-	// Assume we have a write transaction. If not, it'll let us know.
-	uint64_t const newStringID = MAX(db_last_id(txn, schema->stringByID), 1)+1;
-	DB_VAL(newStringID_val, 1);
-	db_bind(newStringID_val, newStringID);
-	str_t *nulterm = strndup(str, len); // TODO: Avoid this if possible.
-	MDB_val str_val = { len+1, nulterm };
-	rc = mdb_put(txn, schema->stringByID, newStringID_val, &str_val, MDB_NOOVERWRITE | MDB_APPEND);
-	FREE(&nulterm);
+	MDB_cursor *cur = NULL;
+	rc = mdb_cursor_open(txn, schema->stringByID, &cur);
+	assert(MDB_SUCCESS == rc);
+
+	uint64_t lastID;
+	MDB_val lastID_val[1];
+	MDB_val ignored_val[1];
+	rc = mdb_cursor_get(cur, lastID_val, ignored_val, MDB_LAST);
+	if(MDB_SUCCESS == rc) {
+		lastID = db_column(lastID_val, 0);
+	} else if(MDB_NOTFOUND == rc) {
+		lastID = 1;
+	} else {
+		assertf(0, "mdb err %s", mdb_strerror(rc));
+	}
+
+	uint64_t const nextID = lastID+1;
+	DB_VAL(nextID_val, 1);
+	db_bind(nextID_val, nextID);
+	str_t *str2 = nulterm ? (str_t *)str : strndup(str, len);
+	MDB_val str_val = { len+1, str2 };
+	rc = mdb_put(txn, schema->stringByID, nextID_val, &str_val, MDB_NOOVERWRITE | MDB_APPEND);
+	if(nulterm) str2 = NULL;
+	else FREE(&str2);
+	mdb_cursor_close(cur); cur = NULL;
 	if(EACCES == rc) return 0; // Read-only transaction.
 	assertf(MDB_SUCCESS == rc, "mdb err %s", mdb_strerror(rc));
-	rc = mdb_put(txn, lookup_table, lookup_val, newStringID_val, MDB_NOOVERWRITE);
+	rc = mdb_put(txn, lookup_table, lookup_val, nextID_val, MDB_NOOVERWRITE);
 	assertf(MDB_SUCCESS == rc, "mdb err %s", mdb_strerror(rc));
-	return newStringID;
+	return nextID;
 }
 
