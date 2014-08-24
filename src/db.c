@@ -3,7 +3,7 @@
 #include "db.h"
 
 static size_t varint_size(byte_t const *const data) {
-	return (data[0] >> 4) + 1; // 0xe0
+	return (data[0] >> 4) + 1;
 }
 static uint64_t varint_decode(byte_t const *const data, size_t const size) {
 	assert(size >= 1);
