@@ -6,9 +6,7 @@
 
 #define URI_MAX 1023
 #define READER_COUNT 16
-#define QUEUE_SIZE 128
-
-#define PROFILE_INTERVAL 10
+#define QUEUE_SIZE 512
 
 struct EFSPull {
 	uint64_t pullID;
@@ -34,19 +32,8 @@ struct EFSPull {
 	index_t cur;
 	count_t count;
 
-#if PROFILE_INTERVAL>0
-	uv_timer_t profiler;
-	count_t written;
-#endif
+	double time;
 };
-
-#if PROFILE_INTERVAL>0
-static void profile(uv_timer_t *const timer) {
-	EFSPullRef const pull = timer->data;
-	if(pull->written) fprintf(stderr, "%f\n", pull->written / (double)PROFILE_INTERVAL);
-	pull->written = 0;
-}
-#endif
 
 static err_t reconnect(EFSPullRef const pull);
 static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn);
@@ -158,9 +145,9 @@ static void writer(EFSPullRef const pull) {
 			EFSSubmissionFree(&queue[i]);
 		}
 
-#if PROFILE_INTERVAL>0
-		pull->written += count + skipped;
-#endif
+		double const now = uv_now(loop) / 1000.0;
+		fprintf(stderr, "Pulled %f files per second\n", QUEUE_SIZE / (now - pull->time));
+		pull->time = now;
 
 		count = 0;
 		skipped = 0;
@@ -179,15 +166,9 @@ err_t EFSPullStart(EFSPullRef const pull) {
 	for(index_t i = 0; i < READER_COUNT; ++i) {
 		async_thread(STACK_DEFAULT, (void (*)())reader, pull);
 	}
+	pull->time = uv_now(loop) / 1000.0;
 	async_thread(STACK_DEFAULT, (void (*)())writer, pull);
 	// TODO: It'd be even better to have one writer shared between all pulls...
-
-#if PROFILE_INTERVAL>0
-	pull->written = 0;
-	pull->profiler.data = pull;
-	uv_timer_init(loop, &pull->profiler);
-	uv_timer_start(&pull->profiler, profile, 1000 * PROFILE_INTERVAL, 1000 * PROFILE_INTERVAL);
-#endif
 
 	return 0;
 }
@@ -292,10 +273,8 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 
 	if(EFSSessionGetFileInfo(pull->session, URI, NULL) >= 0) goto enqueue;
 
-#if PROFILE_INTERVAL<=0
 	// TODO: We're logging out of order when we do it like this...
-	fprintf(stderr, "Pulling %s\n", URI);
-#endif
+//	fprintf(stderr, "Pulling %s\n", URI);
 
 	if(!*conn) *conn = HTTPConnectionCreateOutgoing(pull->host);
 	HTTPMessageRef msg = HTTPMessageCreate(*conn);
