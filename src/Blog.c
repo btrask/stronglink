@@ -133,7 +133,7 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 	state.autolink = callbacks.autolink;
 	callbacks.link = markdown_link;
 	callbacks.autolink = markdown_autolink;
-	struct sd_markdown *parser = sd_markdown_new(MKDEXT_AUTOLINK | MKDEXT_FENCED_CODE, 10, &callbacks, &state);
+	struct sd_markdown *parser = sd_markdown_new(MKDEXT_AUTOLINK | MKDEXT_FENCED_CODE | MKDEXT_NO_INTRA_EMPHASIS | MKDEXT_SUPERSCRIPT, 10, &callbacks, &state);
 	struct buf *out = bufnew(1);
 	sd_markdown_render(out, buf, info->size, parser);
 	sd_markdown_free(parser); parser = NULL;
