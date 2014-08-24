@@ -222,19 +222,19 @@ static void debug_data(EFSConnection const *const conn) {
 	assert(passhash_id);
 
 	DB_VAL(userID_val, 1);
-	db_bind(userID_val, 0, userID);
+	db_bind(userID_val, userID);
 	DB_VAL(user_val, 3);
-	db_bind(user_val, 0, username_id);
-	db_bind(user_val, 1, passhash_id); // passhash
-	db_bind(user_val, 2, passhash_id); // token
+	db_bind(user_val, username_id);
+	db_bind(user_val, passhash_id); // passhash
+	db_bind(user_val, passhash_id); // token
 	mdb_put(txn, conn->userByID, userID_val, user_val, MDB_NOOVERWRITE);
 
 	DB_VAL(username_val, 1);
-	db_bind(username_val, 0, username_id);
+	db_bind(username_val, username_id);
 	mdb_put(txn, conn->userIDByName, username_val, userID_val, MDB_NOOVERWRITE);
 
 	DB_VAL(pullID_val, 1);
-	db_bind(pullID_val, 0, 1);
+	db_bind(pullID_val, 1);
 
 	uint64_t const host_id = db_string_id(txn, conn->schema, "localhost:8009");
 	uint64_t const remote_username_id = db_string_id(txn, conn->schema, "ben");
@@ -246,12 +246,12 @@ static void debug_data(EFSConnection const *const conn) {
 	assert(query_id);
 
 	DB_VAL(pull_val, 6);
-	db_bind(pull_val, 0, userID);
-	db_bind(pull_val, 1, host_id);
-	db_bind(pull_val, 2, remote_username_id);
-	db_bind(pull_val, 3, remote_password_id);
-	db_bind(pull_val, 4, cookie_id);
-	db_bind(pull_val, 5, query_id);
+	db_bind(pull_val, userID);
+	db_bind(pull_val, host_id);
+	db_bind(pull_val, remote_username_id);
+	db_bind(pull_val, remote_password_id);
+	db_bind(pull_val, cookie_id);
+	db_bind(pull_val, query_id);
 
 	mdb_put(txn, conn->pullByID, pullID_val, pull_val, MDB_NOOVERWRITE);
 

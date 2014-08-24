@@ -215,16 +215,16 @@ static str_t *md_lookup(md_state const *const state, strarg_t const var) {
 	uint64_t const field_id = db_string_id(txn, conn->schema, var);
 
 	DB_VAL(targetURI_val, 1);
-	db_bind(targetURI_val, 0, targetURI_id);
+	db_bind(targetURI_val, targetURI_id);
 	MDB_val metaFileID_val[1];
 	rc = mdb_cursor_get(metaFiles, targetURI_val, metaFileID_val, MDB_SET);
 	assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
 	for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(metaFiles, targetURI_val, metaFileID_val, MDB_NEXT_DUP)) {
 		uint64_t const metaFileID = db_column(metaFileID_val, 0);
 		DB_VAL(metadata_val, 2);
-		db_bind(metadata_val, 0, metaFileID);
-		db_bind(metadata_val, 1, field_id);
-//		db_bind(metadata_val, 2, value_id);
+		db_bind(metadata_val, metaFileID);
+		db_bind(metadata_val, field_id);
+//		db_bind(metadata_val, value_id);
 
 		MDB_val empty_val[1];
 		rc = mdb_cursor_get(values, metadata_val, empty_val, MDB_SET_RANGE);

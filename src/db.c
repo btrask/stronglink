@@ -2,55 +2,68 @@
 #include <openssl/sha.h> // TODO: Switch to LibreSSL.
 #include "db.h"
 
+static size_t varint_size(byte_t const *const data) {
+	return (data[0] >> 4) + 1; // 0xe0
+}
+static uint64_t varint_decode(byte_t const *const data, size_t const size) {
+	assert(size >= 1);
+	size_t const len = varint_size(data);
+	assert(len);
+	assert(size >= len);
+	uint64_t x = data[0] & 0x0f;
+	for(off_t i = 1; i < len; ++i) x = x << 8 | data[i];
+	return x;
+}
+static size_t varint_encode(byte_t *const data, size_t const size, uint64_t const x) {
+	assert(size >= DB_VARINT_MAX);
+	size_t rem = 8;
+	size_t out = 0;
+	while(rem--) {
+		byte_t const y = 0xff & (x >> (8 * rem));
+		if(out) {
+			data[out++] = y;
+		} else if(y && y <= 0x0f) {
+			data[out++] = ((rem+0) << 4) | (y & 0x0f);
+		} else if(y) {
+			data[out++] = ((rem+1) << 4) | 0;
+			data[out++] = y;
+		}
+	}
+	if(!out) data[out++] = 0;
+	assert(varint_decode(data, size) == x);
+	return out;
+}
+static size_t varint_seek(byte_t const *const data, size_t const size, index_t const col) {
+	size_t pos = 0;
+	for(index_t i = 0; i < col; ++i) {
+		assert(pos+1 <= size);
+		pos += varint_size(data+pos);
+	}
+	assert(pos+1 <= size);
+	return pos;
+}
+
+
 // http://commandcenter.blogspot.co.uk/2012/04/byte-order-fallacy.html
 uint64_t db_column(MDB_val const *const val, index_t const col) {
-	assert(val->mv_size >= (col+1) * sizeof(DB_uint64));
-	byte_t const *const data = val->mv_data + col * sizeof(DB_uint64);
-	return (
-		(uint64_t)data[0] << (8 * 7) |
-		(uint64_t)data[1] << (8 * 6) |
-		(uint64_t)data[2] << (8 * 5) |
-		(uint64_t)data[3] << (8 * 4) |
-		(uint64_t)data[4] << (8 * 3) |
-		(uint64_t)data[5] << (8 * 2) |
-		(uint64_t)data[6] << (8 * 1) |
-		(uint64_t)data[7] << (8 * 0)
-	);
+	size_t const pos = varint_seek(val->mv_data, val->mv_size, col);
+	return varint_decode(val->mv_data+pos, val->mv_size-pos);
 }
 strarg_t db_column_text(MDB_txn *const txn, DB_schema const *const schema, MDB_val const *const val, index_t const col) {
-	assert(val->mv_size >= (col+1) * sizeof(DB_uint64));
-	byte_t const *const data = val->mv_data + col * sizeof(DB_uint64);
-
-	if(!data[7]) {
-		if(data[0]) return (strarg_t)data;
-		assert(!data[2]);
-		assert(!data[3]);
-		assert(!data[4]);
-		assert(!data[5]);
-		assert(!data[6]);
-		if(0 == data[1]) return NULL;
-		if(1 == data[1]) return (strarg_t)data;
-		assert(0);
-	}
-
-	MDB_val stringID_val[1] = {{ sizeof(DB_uint64), (void *)data }};
+	uint64_t const stringID = db_column(val, col);
+	if(0 == stringID) return NULL;
+	if(1 == stringID) return "";
+	DB_VAL(stringID_val, 1);
+	db_bind(stringID_val, stringID);
 	MDB_val string_val[1];
 	int rc = mdb_get(txn, schema->stringByID, stringID_val, string_val);
 	if(MDB_SUCCESS != rc) return NULL;
 	return string_val->mv_data;
 }
 
-void db_bind(MDB_val *const val, index_t const col, uint64_t const item) {
-	assert(val->mv_size >= (col+1) * sizeof(DB_uint64));
-	byte_t *const data = val->mv_data + col * sizeof(DB_uint64);
-	data[0] = 0xff & (item >> (8 * 7));
-	data[1] = 0xff & (item >> (8 * 6));
-	data[2] = 0xff & (item >> (8 * 5));
-	data[3] = 0xff & (item >> (8 * 4));
-	data[4] = 0xff & (item >> (8 * 3));
-	data[5] = 0xff & (item >> (8 * 2));
-	data[6] = 0xff & (item >> (8 * 1));
-	data[7] = 0xff & (item >> (8 * 0));
+void db_bind(MDB_val *const val, uint64_t const item) {
+	size_t const len = varint_encode(val->mv_data+val->mv_size, SIZE_MAX, item);
+	val->mv_size += len;
 }
 
 uint64_t db_last_id(MDB_txn *txn, MDB_dbi dbi) {
@@ -71,26 +84,14 @@ uint64_t db_string_id(MDB_txn *const txn, DB_schema const *const schema, strarg_
 }
 uint64_t db_string_id_len(MDB_txn *const txn, DB_schema const *const schema, strarg_t const str, size_t const len) {
 	if(!str) return 0;
+	if(!len) return 1;
 
 	MDB_dbi lookup_table;
 	MDB_val lookup_val[1];
 	byte_t hash[SHA256_DIGEST_LENGTH];
 	int rc;
 
-	if(0 == len) {
-		return (uint64_t)1 << (8 * 6);
-	} else if(len < sizeof(DB_uint64)) {
-		uint64_t x = 0;
-		if(len >= 1) x |= (uint64_t)str[0] << (8 * 7);
-		if(len >= 2) x |= (uint64_t)str[1] << (8 * 6);
-		if(len >= 3) x |= (uint64_t)str[2] << (8 * 5);
-		if(len >= 4) x |= (uint64_t)str[3] << (8 * 4);
-		if(len >= 5) x |= (uint64_t)str[4] << (8 * 3);
-		if(len >= 6) x |= (uint64_t)str[5] << (8 * 2);
-		if(len >= 7) x |= (uint64_t)str[6] << (8 * 1);
-		// Last byte must be nul.
-		return x;
-	} else if(len < sizeof(hash) * 2) {
+	if(len < sizeof(hash) * 2) {
 		lookup_table = schema->stringIDByValue;
 		lookup_val->mv_size = len;
 		lookup_val->mv_data = (void *)str;
@@ -107,14 +108,12 @@ uint64_t db_string_id_len(MDB_txn *const txn, DB_schema const *const schema, str
 	MDB_val existingStringID_val[1];
 	rc = mdb_get(txn, lookup_table, lookup_val, existingStringID_val);
 	if(MDB_SUCCESS == rc) return db_column(existingStringID_val, 0);
-	assert(MDB_NOTFOUND == rc);
+	assertf(MDB_NOTFOUND == rc, "mdb err %s", mdb_strerror(rc));
 
 	// Assume we have a write transaction. If not, it'll let us know.
-	uint64_t const newStringID = (db_last_id(txn, schema->stringByID) + 2) | 1;
-	assertf(!(newStringID >> 63), "Overflow (%llx)", newStringID);
-	if(newStringID >> 63) return 0;
+	uint64_t const newStringID = MAX(db_last_id(txn, schema->stringByID), 1)+1;
 	DB_VAL(newStringID_val, 1);
-	db_bind(newStringID_val, 0, newStringID);
+	db_bind(newStringID_val, newStringID);
 	str_t *nulterm = strndup(str, len); // TODO: Avoid this if possible.
 	MDB_val str_val = { len+1, nulterm };
 	rc = mdb_put(txn, schema->stringByID, newStringID_val, &str_val, MDB_NOOVERWRITE | MDB_APPEND);

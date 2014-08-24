@@ -59,7 +59,7 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	}
 
 	DB_VAL(username_val, 1);
-	db_bind(username_val, 0, username_id);
+	db_bind(username_val, username_id);
 	MDB_val userID_val[1];
 	MDB_val user_val[1];
 	rc = mdb_get(txn, conn->userIDByName, username_val, userID_val);
@@ -105,11 +105,11 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	FREE(&sessionHash);
 
 	DB_VAL(sessionID_val, 1);
-	db_bind(sessionID_val, 0, sessionID);
+	db_bind(sessionID_val, sessionID);
 
 	DB_VAL(session_val, 2);
-	db_bind(session_val, 0, userID);
-	db_bind(session_val, 1, sessionHash_id);
+	db_bind(session_val, userID);
+	db_bind(session_val, sessionHash_id);
 	rc = mdb_put(txn, conn->sessionByID, sessionID_val, session_val, MDB_NOOVERWRITE | MDB_APPEND);
 	if(MDB_SUCCESS != rc) {
 		mdb_txn_abort(txn); txn = NULL;
@@ -153,7 +153,7 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 	mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
 
 	DB_VAL(sessionID_val, 1);
-	db_bind(sessionID_val, 0, sessionID);
+	db_bind(sessionID_val, sessionID);
 	MDB_val session_val[1];
 	rc = mdb_get(txn, conn->sessionByID, sessionID_val, session_val);
 	if(MDB_SUCCESS != rc) {
@@ -240,7 +240,7 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 	assert(MDB_SUCCESS == rc);
 
 	DB_VAL(sortID_val, 1);
-	db_bind(sortID_val, 0, initialSortID);
+	db_bind(sortID_val, initialSortID);
 	MDB_val metaFileID_val[1];
 	rc = mdb_cursor_get(sortIDs, sortID_val, metaFileID_val, MDB_SET_RANGE);
 	if(MDB_SUCCESS == rc) {
@@ -257,7 +257,7 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 		uint64_t const targetURI_id = db_column(metaFile_val, 1);
 
 		DB_VAL(URI_val, 1);
-		db_bind(URI_val, 0, targetURI_id);
+		db_bind(URI_val, targetURI_id);
 		MDB_val fileID_val[1];
 		rc = mdb_cursor_get(fileIDs, URI_val, fileID_val, MDB_SET);
 		assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
@@ -322,7 +322,7 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 	}
 
 	DB_VAL(URI_val, 1);
-	db_bind(URI_val, 0, URI_id);
+	db_bind(URI_val, URI_id);
 	MDB_val fileID_val[1];
 	MDB_val file_val[1];
 	rc = mdb_get(txn, conn->fileIDByURI, URI_val, fileID_val);

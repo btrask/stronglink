@@ -4,12 +4,11 @@
 // Makes beginning a transaction slightly clearer.
 #define MDB_RDWR 0
 
-// Big endian for sorting.
-typedef byte_t DB_uint64[8];
+#define DB_VARINT_MAX 9
 
 #define DB_VAL(name, cols) \
-	DB_uint64 __buf_##name[cols]; \
-	MDB_val name[1] = {{ sizeof(__buf_##name), __buf_##name }};
+	byte_t __buf_##name[DB_VARINT_MAX * cols]; \
+	MDB_val name[1] = {{ 0, __buf_##name }};
 
 typedef struct {
 	MDB_dbi schema;
@@ -21,7 +20,7 @@ typedef struct {
 uint64_t db_column(MDB_val const *const val, index_t const col);
 strarg_t db_column_text(MDB_txn *const txn, DB_schema const *const schema, MDB_val const *const val, index_t const col);
 
-void db_bind(MDB_val *const val, index_t const col, uint64_t const item);
+void db_bind(MDB_val *const val, uint64_t const item);
 
 uint64_t db_last_id(MDB_txn *txn, MDB_dbi dbi);
 

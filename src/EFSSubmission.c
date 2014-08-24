@@ -153,24 +153,24 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 	int rc;
 
 	DB_VAL(dupFileID_val, 1);
-	db_bind(dupFileID_val, 0, fileID);
+	db_bind(dupFileID_val, fileID);
 
 	uint64_t const internalHash_id = db_string_id(txn, conn->schema, sub->internalHash);
 	uint64_t const type_id = db_string_id(txn, conn->schema, sub->type);
 	DB_VAL(fileInfo_val, 2);
-	db_bind(fileInfo_val, 0, internalHash_id);
-	db_bind(fileInfo_val, 1, type_id);
+	db_bind(fileInfo_val, internalHash_id);
+	db_bind(fileInfo_val, type_id);
 	rc = mdb_put(txn, conn->fileIDByInfo, fileInfo_val, dupFileID_val, MDB_NOOVERWRITE);
 	if(MDB_KEYEXIST == rc) fileID = db_column(dupFileID_val, 0);
 	else if(MDB_SUCCESS != rc) return -1;
 
 	DB_VAL(fileID_val, 1);
-	db_bind(fileID_val, 0, fileID);
+	db_bind(fileID_val, fileID);
 
 	DB_VAL(file_val, 3);
-	db_bind(file_val, 0, internalHash_id);
-	db_bind(file_val, 1, type_id);
-	db_bind(file_val, 2, sub->size);
+	db_bind(file_val, internalHash_id);
+	db_bind(file_val, type_id);
+	db_bind(file_val, sub->size);
 	rc = mdb_put(txn, conn->fileByID, fileID_val, file_val, MDB_NOOVERWRITE);
 	if(MDB_SUCCESS != rc && MDB_KEYEXIST != rc) return -1;
 
@@ -178,7 +178,7 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 		strarg_t const URI = URIListGetURI(sub->URIs, i);
 		uint64_t const URI_id = db_string_id(txn, conn->schema, URI);
 		DB_VAL(URI_val, 1);
-		db_bind(URI_val, 0, URI_id);
+		db_bind(URI_val, URI_id);
 
 		rc = mdb_put(txn, conn->URIByFileID, fileID_val, URI_val, MDB_NODUPDATA);
 		assert(MDB_SUCCESS == rc || MDB_KEYEXIST == rc);

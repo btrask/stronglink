@@ -238,19 +238,19 @@ static uint64_t add_metafile(MDB_txn *const txn, EFSConnection const *const conn
 	assert(targetURI_id);
 
 	DB_VAL(metaFileID_val, 1);
-	db_bind(metaFileID_val, 0, metaFileID);
+	db_bind(metaFileID_val, metaFileID);
 
 	DB_VAL(metaFile_val, 2);
-	db_bind(metaFile_val, 0, fileID);
-	db_bind(metaFile_val, 1, targetURI_id);
+	db_bind(metaFile_val, fileID);
+	db_bind(metaFile_val, targetURI_id);
 	mdb_put(txn, conn->metaFileByID, metaFileID_val, metaFile_val, MDB_NOOVERWRITE | MDB_APPEND);
 
 	DB_VAL(fileID_val, 1);
-	db_bind(fileID_val, 0, fileID);
+	db_bind(fileID_val, fileID);
 	mdb_put(txn, conn->metaFileIDByFileID, fileID_val, metaFileID_val, MDB_NODUPDATA);
 
 	DB_VAL(targetURI_val, 1);
-	db_bind(targetURI_val, 0, targetURI_id);
+	db_bind(targetURI_val, targetURI_id);
 	mdb_put(txn, conn->metaFileIDByTargetURI, targetURI_val, metaFileID_val, MDB_NODUPDATA);
 	return metaFileID;
 }
@@ -263,9 +263,9 @@ static void add_metadata(MDB_txn *const txn, EFSConnection const *const conn, ui
 	assert(value_id);
 
 	DB_VAL(metadata_val, 3);
-	db_bind(metadata_val, 0, metaFileID);
-	db_bind(metadata_val, 1, field_id);
-	db_bind(metadata_val, 2, value_id);
+	db_bind(metadata_val, metaFileID);
+	db_bind(metadata_val, field_id);
+	db_bind(metadata_val, value_id);
 	MDB_val empty_val = { 0, NULL };
 	int rc = mdb_put(txn, conn->metadata, metadata_val, &empty_val, MDB_NOOVERWRITE);
 	assert(MDB_SUCCESS == rc);

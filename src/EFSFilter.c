@@ -460,7 +460,7 @@ static uint64_t EFSFilterMetaFileMatchAge(EFSFilterRef const filter, uint64_t co
 	assert(MDB_SUCCESS == rc);
 
 	DB_VAL(fileID_val, 1);
-	db_bind(fileID_val, 0, fileID);
+	db_bind(fileID_val, fileID);
 	MDB_val URI_val[1];
 	rc = mdb_cursor_get(URIs, fileID_val, URI_val, MDB_SET);
 	assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
@@ -468,7 +468,7 @@ static uint64_t EFSFilterMetaFileMatchAge(EFSFilterRef const filter, uint64_t co
 		uint64_t const targetURI_id = db_column(URI_val, 0);
 
 		DB_VAL(targetURI_val, 1);
-		db_bind(targetURI_val, 0, targetURI_id);
+		db_bind(targetURI_val, targetURI_id);
 		MDB_val metaFileID_val[1];
 		rc = mdb_cursor_get(metaFiles, targetURI_val, metaFileID_val, MDB_SET);
 		assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
@@ -520,9 +520,9 @@ static uint64_t EFSFilterMetaFileAge(EFSFilterRef const filter, uint64_t const m
 		case EFSLinksToFilterType: {
 			EFSMetadataFilterRef const f = (EFSMetadataFilterRef)filter;
 			DB_VAL(metadata_val, 3);
-			db_bind(metadata_val, 0, metaFileID);
-			db_bind(metadata_val, 1, f->field_id);
-			db_bind(metadata_val, 2, f->value_id);
+			db_bind(metadata_val, metaFileID);
+			db_bind(metadata_val, f->field_id);
+			db_bind(metadata_val, f->value_id);
 			MDB_val match_val[1];
 			rc = mdb_get(txn, conn->metadata, metadata_val, match_val);
 			if(MDB_NOTFOUND == rc) return UINT64_MAX;
@@ -536,7 +536,7 @@ static uint64_t EFSFilterMetaFileAge(EFSFilterRef const filter, uint64_t const m
 
 	// If we reach this point it means the meta-file matches.
 	DB_VAL(metaFileID_val, 1);
-	db_bind(metaFileID_val, 0, metaFileID);
+	db_bind(metaFileID_val, metaFileID);
 	MDB_val metaFile_val[1];
 	rc = mdb_get(txn, conn->metaFileByID, metaFileID_val, metaFile_val);
 	assert(MDB_SUCCESS == rc);
