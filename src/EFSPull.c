@@ -146,9 +146,8 @@ static void writer(EFSPullRef const pull) {
 		}
 
 		double const now = uv_now(loop) / 1000.0;
-		fprintf(stderr, "Pulled %f files per second\n", QUEUE_SIZE / (now - pull->time));
+		fprintf(stderr, "Pulled %f files per second\n", count / (now - pull->time));
 		pull->time = now;
-
 		count = 0;
 		skipped = 0;
 
