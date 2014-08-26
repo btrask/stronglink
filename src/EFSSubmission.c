@@ -94,8 +94,10 @@ err_t EFSSubmissionEnd(EFSSubmissionRef const sub) {
 
 	EFSMetaFileEnd(sub->meta);
 
-	async_fs_close(sub->tmpfile);
+	if(async_fs_fsync(sub->tmpfile) < 0) return -1;
+	int err = async_fs_close(sub->tmpfile);
 	sub->tmpfile = -1;
+	if(err < 0) return -1;
 	return 0;
 }
 err_t EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context) {
