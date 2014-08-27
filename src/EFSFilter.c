@@ -13,6 +13,7 @@ typedef struct {
 typedef struct EFSQueryFilter* EFSQueryFilterRef;
 typedef struct EFSPermissionFilter* EFSPermissionFilterRef;
 typedef struct EFSStringFilter* EFSStringFilterRef;
+typedef struct EFSMetaFileFilter* EFSMetaFileFilterRef;
 typedef struct EFSFulltextFilter* EFSFulltextFilterRef;
 typedef struct EFSMetadataFilter* EFSMetadataFilterRef;
 typedef struct EFSCollectionFilter* EFSCollectionFilterRef;
@@ -21,6 +22,11 @@ typedef struct EFSCollectionFilter* EFSCollectionFilterRef;
 	EFSFilterType type;
 #define EFS_STRING_FILTER \
 	str_t *string;
+#define EFS_METAFILE_FILTER \
+	MDB_cursor *cursor_uris; \
+	MDB_cursor *cursor_metafiles; \
+	MDB_cursor *cursor_attr; \
+	MDB_cursor *cursor_age;
 
 struct EFSFilter {
 	EFS_FILTER_BASE
@@ -33,15 +39,22 @@ struct EFSStringFilter {
 	EFS_FILTER_BASE
 	EFS_STRING_FILTER
 };
+struct EFSMetaFileFilter {
+	EFS_FILTER_BASE
+	EFS_STRING_FILTER
+	EFS_METAFILE_FILTER
+};
 struct EFSFulltextFilter {
 	EFS_FILTER_BASE
 	EFS_STRING_FILTER
+	EFS_METAFILE_FILTER
 	str_t *tokens[10];
 	count_t count;
 };
 struct EFSMetadataFilter {
 	EFS_FILTER_BASE
 	EFS_STRING_FILTER
+	EFS_METAFILE_FILTER
 	uint64_t field_id;
 	uint64_t value_id;
 };
@@ -105,11 +118,19 @@ void EFSFilterFree(EFSFilterRef *const filterptr) {
 			for(index_t i = 0; i < f->count; ++i) {
 				FREE(&f->tokens[i]);
 			}
+			mdb_cursor_close(f->cursor_uris); f->cursor_uris = NULL;
+			mdb_cursor_close(f->cursor_metafiles); f->cursor_metafiles = NULL;
+			mdb_cursor_close(f->cursor_attr); f->cursor_attr = NULL;
+			mdb_cursor_close(f->cursor_age); f->cursor_age = NULL;
 			break;
 		}
 		case EFSLinksToFilterType: {
 			EFSMetadataFilterRef const f = (EFSMetadataFilterRef)filter;
 			FREE(&f->string);
+			mdb_cursor_close(f->cursor_uris); f->cursor_uris = NULL;
+			mdb_cursor_close(f->cursor_metafiles); f->cursor_metafiles = NULL;
+			mdb_cursor_close(f->cursor_attr); f->cursor_attr = NULL;
+			mdb_cursor_close(f->cursor_age); f->cursor_age = NULL;
 			break;
 		}
 		case EFSIntersectionFilterType:
@@ -344,6 +365,8 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, EFSConnection const *const con
 		}
 		case EFSFullTextFilterType: {
 			EFSFulltextFilterRef const f = (EFSFulltextFilterRef)filter;
+
+			// TODO: Do tokenizing when the string arg is first set.
 			assert(0 == f->count);
 
 			sqlite3_tokenizer_module const *fts = NULL;
@@ -364,6 +387,11 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, EFSConnection const *const con
 			}
 
 			fts->xClose(tcur);
+
+			db_cursor(txn, conn->URIByFileID, &f->cursor_uris);
+			db_cursor(txn, conn->metaFileIDByTargetURI, &f->cursor_metafiles);
+			db_cursor(txn, conn->metaFileIDByFulltext, &f->cursor_attr);
+			db_cursor(txn, conn->metaFileByID, &f->cursor_age);
 			return 0;
 		}
 		case EFSLinkedFromFilterType: {
@@ -373,8 +401,12 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, EFSConnection const *const con
 		}
 		case EFSLinksToFilterType: {
 			EFSMetadataFilterRef const f = (EFSMetadataFilterRef)filter;
-			f->field_id = db_string_id(txn, conn->schema, "link");
-			f->value_id = db_string_id(txn, conn->schema, f->string);
+			if(!f->field_id) f->field_id = db_string_id(txn, conn->schema, "link");
+			if(!f->value_id) f->value_id = db_string_id(txn, conn->schema, f->string);
+			db_cursor(txn, conn->URIByFileID, &f->cursor_uris);
+			db_cursor(txn, conn->metaFileIDByTargetURI, &f->cursor_metafiles);
+			db_cursor(txn, conn->metaFileIDByMetadata, &f->cursor_attr);
+			db_cursor(txn, conn->metaFileByID, &f->cursor_age);
 			return 0;
 		}
 		case EFSIntersectionFilterType:
@@ -395,8 +427,8 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, EFSConnection const *const con
 
 
 static uint64_t EFSCollectionFilterMatchAge(EFSFilterRef const f, uint64_t const fileID, uint64_t const sortID, EFSConnection const *const conn, MDB_txn *const txn);
-static uint64_t EFSFilterMetaFileMatchAge(EFSFilterRef const filter, uint64_t const fileID, uint64_t const sortID, EFSConnection const *const conn, MDB_txn *const txn);
-static uint64_t EFSFilterMetaFileAge(EFSFilterRef const filter, uint64_t const metaFileID, EFSConnection const *const conn, MDB_txn *const txn);
+static uint64_t EFSMetaFileFilterMatchAge(EFSFilterRef const filter, uint64_t const fileID, uint64_t const sortID, EFSConnection const *const conn, MDB_txn *const txn);
+static uint64_t EFSMetaFileFilterGetAge(EFSFilterRef const filter, uint64_t const metaFileID, EFSConnection const *const conn, MDB_txn *const txn);
 
 uint64_t EFSFilterMatchAge(EFSFilterRef const filter, uint64_t const fileID, uint64_t const sortID, EFSConnection const *const conn, MDB_txn *const txn) {
 	assert(filter);
@@ -413,7 +445,7 @@ uint64_t EFSFilterMatchAge(EFSFilterRef const filter, uint64_t const fileID, uin
 		case EFSPermissionFilterType:
 		case EFSFullTextFilterType:
 		case EFSLinksToFilterType:
-			return EFSFilterMetaFileMatchAge
+			return EFSMetaFileFilterMatchAge
 				(filter, fileID, sortID, conn, txn);
 		case EFSIntersectionFilterType:
 		case EFSUnionFilterType:
@@ -447,44 +479,46 @@ static uint64_t EFSCollectionFilterMatchAge(EFSFilterRef const f, uint64_t const
 	}
 	return sortID;
 }
-static uint64_t EFSFilterMetaFileMatchAge(EFSFilterRef const filter, uint64_t const fileID, uint64_t const sortID, EFSConnection const *const conn, MDB_txn *const txn) {
+static uint64_t EFSMetaFileFilterMatchAge(EFSFilterRef const f, uint64_t const fileID, uint64_t const sortID, EFSConnection const *const conn, MDB_txn *const txn) {
+	EFSMetaFileFilterRef const filter = (EFSMetaFileFilterRef)f;
 	uint64_t youngest = UINT64_MAX;
 	int rc;
 
 	// TODO: Prepare cursors ahead of time
-	MDB_cursor *URIs = NULL;
+/*	MDB_cursor *URIs = NULL;
 	rc = mdb_cursor_open(txn, conn->URIByFileID, &URIs);
 	assert(MDB_SUCCESS == rc);
 	MDB_cursor *metaFiles = NULL;
 	rc = mdb_cursor_open(txn, conn->metaFileIDByTargetURI, &metaFiles);
-	assert(MDB_SUCCESS == rc);
+	assert(MDB_SUCCESS == rc);*/
 
 	DB_VAL(fileID_val, 1);
 	db_bind(fileID_val, fileID);
 	MDB_val URI_val[1];
-	rc = mdb_cursor_get(URIs, fileID_val, URI_val, MDB_SET);
+	rc = mdb_cursor_get(filter->cursor_uris, fileID_val, URI_val, MDB_SET);
 	assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
-	for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(URIs, fileID_val, URI_val, MDB_NEXT_DUP)) {
+	for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(filter->cursor_uris, fileID_val, URI_val, MDB_NEXT_DUP)) {
 		uint64_t const targetURI_id = db_column(URI_val, 0);
 
 		DB_VAL(targetURI_val, 1);
 		db_bind(targetURI_val, targetURI_id);
 		MDB_val metaFileID_val[1];
-		rc = mdb_cursor_get(metaFiles, targetURI_val, metaFileID_val, MDB_SET);
+		rc = mdb_cursor_get(filter->cursor_metafiles, targetURI_val, metaFileID_val, MDB_SET);
 		assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
-		for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(metaFiles, targetURI_val, metaFileID_val, MDB_NEXT_DUP)) {
+		for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(filter->cursor_metafiles, targetURI_val, metaFileID_val, MDB_NEXT_DUP)) {
 			uint64_t const metaFileID = db_column(metaFileID_val, 0);
-			uint64_t const age = EFSFilterMetaFileAge(filter, metaFileID, conn, txn);
+			uint64_t const age = EFSMetaFileFilterGetAge(f, metaFileID, conn, txn);
 			if(UINT64_MAX == age) continue;
 			if(age < youngest) youngest = age;
 			break;
 		}
 	}
-	mdb_cursor_close(metaFiles); metaFiles = NULL;
-	mdb_cursor_close(URIs); URIs = NULL;
+//	mdb_cursor_close(metaFiles); metaFiles = NULL;
+//	mdb_cursor_close(URIs); URIs = NULL;
 	return MAX(youngest, fileID); // No file can be younger than itself. We still have to check younger meta-files, though.
 }
-static uint64_t EFSFilterMetaFileAge(EFSFilterRef const filter, uint64_t const metaFileID, EFSConnection const *const conn, MDB_txn *const txn) {
+static uint64_t EFSMetaFileFilterGetAge(EFSFilterRef const f, uint64_t const metaFileID, EFSConnection const *const conn, MDB_txn *const txn) {
+	EFSMetaFileFilterRef const filter = (EFSMetaFileFilterRef)f;
 	assert(filter);
 	int rc;
 	switch(filter->type) {
@@ -502,11 +536,11 @@ static uint64_t EFSFilterMetaFileAge(EFSFilterRef const filter, uint64_t const m
 			db_bind(metaFileID_val, metaFileID);
 			// TODO: Store tpos
 
-			MDB_cursor *cur = NULL;
-			rc = mdb_cursor_open(txn, conn->metaFileIDByFulltext, &cur);
-			assert(MDB_SUCCESS == rc);
-			rc = mdb_cursor_get(cur, token_val, metaFileID_val, MDB_GET_BOTH);
-			mdb_cursor_close(cur); cur = NULL;
+//			MDB_cursor *cur = NULL;
+//			rc = mdb_cursor_open(txn, conn->metaFileIDByFulltext, &cur);
+//			assert(MDB_SUCCESS == rc);
+			rc = mdb_cursor_get(filter->cursor_attr, token_val, metaFileID_val, MDB_GET_BOTH);
+//			mdb_cursor_close(cur); cur = NULL;
 			if(MDB_NOTFOUND == rc) return UINT64_MAX;
 			assert(MDB_SUCCESS == rc);
 			break;
@@ -520,11 +554,11 @@ static uint64_t EFSFilterMetaFileAge(EFSFilterRef const filter, uint64_t const m
 			DB_VAL(metaFileID_val, 1);
 			db_bind(metaFileID_val, metaFileID);
 
-			MDB_cursor *cur = NULL;
-			rc = mdb_cursor_open(txn, conn->metaFileIDByMetadata, &cur);
-			assert(MDB_SUCCESS == rc);
-			rc = mdb_cursor_get(cur, metadata_val, metaFileID_val, MDB_GET_BOTH);
-			mdb_cursor_close(cur); cur = NULL;
+//			MDB_cursor *cur = NULL;
+//			rc = mdb_cursor_open(txn, conn->metaFileIDByMetadata, &cur);
+//			assert(MDB_SUCCESS == rc);
+			rc = mdb_cursor_get(filter->cursor_attr, metadata_val, metaFileID_val, MDB_GET_BOTH);
+//			mdb_cursor_close(cur); cur = NULL;
 
 			if(MDB_NOTFOUND == rc) return UINT64_MAX;
 			assert(MDB_SUCCESS == rc);
@@ -539,7 +573,7 @@ static uint64_t EFSFilterMetaFileAge(EFSFilterRef const filter, uint64_t const m
 	DB_VAL(metaFileID_val, 1);
 	db_bind(metaFileID_val, metaFileID);
 	MDB_val metaFile_val[1];
-	rc = mdb_get(txn, conn->metaFileByID, metaFileID_val, metaFile_val);
+	rc = mdb_cursor_get(filter->cursor_age, metaFileID_val, metaFile_val, MDB_SET);
 	assert(MDB_SUCCESS == rc);
 	uint64_t const fileID = db_column(metaFile_val, 0);
 	return fileID;

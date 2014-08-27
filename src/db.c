@@ -142,3 +142,8 @@ uint64_t db_string_id_len(MDB_txn *const txn, DB_schema const *const schema, str
 	return nextID;
 }
 
+int db_cursor(MDB_txn *const txn, MDB_dbi const dbi, MDB_cursor **const cur) {
+	if(*cur) return mdb_cursor_renew(txn, *cur);
+	return mdb_cursor_open(txn, dbi, cur);
+}
+
