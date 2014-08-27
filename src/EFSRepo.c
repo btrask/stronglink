@@ -73,8 +73,10 @@ EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 	mdb_dbi_open(txn, "metaFileByID", MDB_CREATE, &conn->metaFileByID);
 	mdb_dbi_open(txn, "metaFileIDByFileID", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByFileID);
 	mdb_dbi_open(txn, "metaFileIDByTargetURI", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByTargetURI);
-	mdb_dbi_open(txn, "metadata", MDB_CREATE, &conn->metadata);
-	mdb_dbi_open(txn, "fulltext", MDB_CREATE, &conn->fulltext);
+	mdb_dbi_open(txn, "metaFileIDByMetadata", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByMetadata);
+	mdb_dbi_open(txn, "metaFileIDByFulltext", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByFulltext);
+
+	mdb_dbi_open(txn, "valueByMetaFileIDField", MDB_CREATE | MDB_DUPSORT, &conn->valueByMetaFileIDField);
 
 	mdb_txn_commit(txn);
 

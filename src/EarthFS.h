@@ -35,8 +35,10 @@ typedef struct {
 	MDB_dbi metaFileByID;
 	MDB_dbi metaFileIDByFileID;
 	MDB_dbi metaFileIDByTargetURI;
-	MDB_dbi metadata;
-	MDB_dbi fulltext;
+	MDB_dbi metaFileIDByMetadata;
+	MDB_dbi metaFileIDByFulltext;
+
+	MDB_dbi valueByMetaFileIDField;
 } EFSConnection;
 
 EFSRepoRef EFSRepoCreate(strarg_t const dir);

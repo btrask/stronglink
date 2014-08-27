@@ -208,7 +208,7 @@ static str_t *md_lookup(md_state const *const state, strarg_t const var) {
 	assert(MDB_SUCCESS == rc);
 
 	MDB_cursor *values = NULL;
-	rc = mdb_cursor_open(txn, conn->metadata, &values);
+	rc = mdb_cursor_open(txn, conn->valueByMetaFileIDField, &values);
 	assert(MDB_SUCCESS == rc);
 
 	uint64_t const targetURI_id = db_string_id(txn, conn->schema, state->fileURI);
@@ -221,20 +221,15 @@ static str_t *md_lookup(md_state const *const state, strarg_t const var) {
 	assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
 	for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(metaFiles, targetURI_val, metaFileID_val, MDB_NEXT_DUP)) {
 		uint64_t const metaFileID = db_column(metaFileID_val, 0);
-		DB_VAL(metadata_val, 2);
-		db_bind(metadata_val, metaFileID);
-		db_bind(metadata_val, field_id);
-//		db_bind(metadata_val, value_id);
+		DB_VAL(metaFileIDField_val, 2);
+		db_bind(metaFileIDField_val, metaFileID);
+		db_bind(metaFileIDField_val, field_id);
 
-		MDB_val empty_val[1];
-		rc = mdb_cursor_get(values, metadata_val, empty_val, MDB_SET_RANGE);
+		MDB_val value_val[1];
+		rc = mdb_cursor_get(values, metaFileIDField_val, value_val, MDB_SET);
 		assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
-		for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(values, metadata_val, empty_val, MDB_NEXT)) {
-			uint64_t const thisMetaFileID = db_column(metadata_val, 0);
-			uint64_t const thisField_id = db_column(metadata_val, 1);
-			if(thisMetaFileID != metaFileID) continue;
-			if(thisField_id != field_id) continue;
-			strarg_t const value = db_column_text(txn, conn->schema, metadata_val, 2);
+		for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(values, metaFileIDField_val, value_val, MDB_NEXT_DUP)) {
+			strarg_t const value = db_column_text(txn, conn->schema, value_val, 0);
 			if(0 == strcmp("", value)) continue;
 			unsafe = value;
 			break;

@@ -497,16 +497,16 @@ static uint64_t EFSFilterMetaFileAge(EFSFilterRef const filter, uint64_t const m
 			size_t const tlen = strlen(token);
 
 			// TODO: Copy and paste is bad (from EFSMetaFile.c).
-			byte_t data[40];
-			MDB_val token_val[1] = {{ 0, data }};
-			db_bind(token_val, metaFileID);
-			assert(token_val->mv_size+tlen <= sizeof(data));
+			MDB_val token_val[1] = {{ tlen, (void *)token }};
+			DB_VAL(metaFileID_val, 1);
+			db_bind(metaFileID_val, metaFileID);
+			// TODO: Store tpos
 
-			memcpy(token_val->mv_data+token_val->mv_size, token, tlen);
-			token_val->mv_size += tlen;
-
-			MDB_val match_val[1];
-			rc = mdb_get(txn, conn->fulltext, token_val, match_val);
+			MDB_cursor *cur = NULL;
+			rc = mdb_cursor_open(txn, conn->metaFileIDByFulltext, &cur);
+			assert(MDB_SUCCESS == rc);
+			rc = mdb_cursor_get(cur, token_val, metaFileID_val, MDB_GET_BOTH);
+			mdb_cursor_close(cur); cur = NULL;
 			if(MDB_NOTFOUND == rc) return UINT64_MAX;
 			assert(MDB_SUCCESS == rc);
 			break;
@@ -514,11 +514,18 @@ static uint64_t EFSFilterMetaFileAge(EFSFilterRef const filter, uint64_t const m
 		case EFSLinksToFilterType: {
 			EFSMetadataFilterRef const f = (EFSMetadataFilterRef)filter;
 			DB_VAL(metadata_val, 3);
-			db_bind(metadata_val, metaFileID);
-			db_bind(metadata_val, f->field_id);
 			db_bind(metadata_val, f->value_id);
-			MDB_val match_val[1];
-			rc = mdb_get(txn, conn->metadata, metadata_val, match_val);
+			db_bind(metadata_val, f->field_id);
+
+			DB_VAL(metaFileID_val, 1);
+			db_bind(metaFileID_val, metaFileID);
+
+			MDB_cursor *cur = NULL;
+			rc = mdb_cursor_open(txn, conn->metaFileIDByMetadata, &cur);
+			assert(MDB_SUCCESS == rc);
+			rc = mdb_cursor_get(cur, metadata_val, metaFileID_val, MDB_GET_BOTH);
+			mdb_cursor_close(cur); cur = NULL;
+
 			if(MDB_NOTFOUND == rc) return UINT64_MAX;
 			assert(MDB_SUCCESS == rc);
 			break;

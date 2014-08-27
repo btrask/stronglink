@@ -262,12 +262,20 @@ static void add_metadata(MDB_txn *const txn, EFSConnection const *const conn, ui
 	assert(field_id);
 	assert(value_id);
 
-	DB_VAL(metadata_val, 3);
-	db_bind(metadata_val, metaFileID);
-	db_bind(metadata_val, field_id);
+	DB_VAL(metadata_val, 2);
 	db_bind(metadata_val, value_id);
-	MDB_val empty_val = { 0, NULL };
-	int rc = mdb_put(txn, conn->metadata, metadata_val, &empty_val, MDB_NOOVERWRITE);
+	db_bind(metadata_val, field_id);
+	DB_VAL(metaFileID_val, 1);
+	db_bind(metaFileID_val, metaFileID);
+	int rc = mdb_put(txn, conn->metaFileIDByMetadata, metadata_val, metaFileID_val, MDB_NODUPDATA);
+	assert(MDB_SUCCESS == rc);
+
+	DB_VAL(metaFileIDField_val, 2);
+	db_bind(metaFileIDField_val, metaFileID);
+	db_bind(metaFileIDField_val, field_id);
+	DB_VAL(value_val, 1);
+	db_bind(value_val, value_id);
+	rc = mdb_put(txn, conn->valueByMetaFileIDField, metaFileIDField_val, value_val, MDB_NODUPDATA);
 	assert(MDB_SUCCESS == rc);
 }
 static void add_fulltext(MDB_txn *const txn, EFSConnection const *const conn, uint64_t const metaFileID, strarg_t const str, size_t const len) {
@@ -282,7 +290,7 @@ static void add_fulltext(MDB_txn *const txn, EFSConnection const *const conn, ui
 	assert(SQLITE_OK == rc);
 
 	MDB_cursor *cur = NULL;
-	rc = mdb_cursor_open(txn, conn->fulltext, &cur);
+	rc = mdb_cursor_open(txn, conn->metaFileIDByFulltext, &cur);
 	assert(MDB_SUCCESS == rc);
 
 	for(;;) {
@@ -293,18 +301,12 @@ static void add_fulltext(MDB_txn *const txn, EFSConnection const *const conn, ui
 		rc = fts->xNext(tcur, &token, &tlen, &ignored1, &ignored2, &tpos);
 		if(SQLITE_OK != rc) break;
 
-		byte_t data[40];
-		MDB_val token_val[1] = {{ 0, data }};
-		db_bind(token_val, metaFileID);
-		assert(token_val->mv_size+tlen <= sizeof(data));
-
-		memcpy(token_val->mv_data+token_val->mv_size, token, tlen);
-		token_val->mv_size += tlen;
-
+		MDB_val token_val[1] = {{ tlen, (void *)token }};
+		DB_VAL(metaFileID_val, 1);
+		db_bind(metaFileID_val, metaFileID);
 		// TODO: Store tpos
 
-		MDB_val empty_val[1] = {{ 0, NULL }};
-		rc = mdb_cursor_put(cur, token_val, empty_val, MDB_NOOVERWRITE);
+		rc = mdb_cursor_put(cur, token_val, metaFileID_val, MDB_NODUPDATA);
 		assert(MDB_SUCCESS == rc || MDB_KEYEXIST == rc);
 	}
 
