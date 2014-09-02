@@ -181,10 +181,6 @@ static int filtercmp(EFSFilter *const *const _a, EFSFilter *const *const _b) {
 	FREE(&filters);
 	[super free];
 }
-- (id)init {
-	assert(!filters);
-	return [super init];
-}
 
 - (EFSFilter *)unwrap {
 	if(1 == count) return filters[0];
