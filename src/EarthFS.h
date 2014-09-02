@@ -98,13 +98,15 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_
 
 typedef enum {
 	EFSFilterTypeInvalid = 0,
-	EFSNoFilterType,
+	EFSAllFilterType,
 	EFSFileTypeFilterType,
 	EFSIntersectionFilterType,
 	EFSUnionFilterType,
-	EFSFullTextFilterType,
-	EFSLinkedFromFilterType,
-	EFSLinksToFilterType,
+	EFSFulltextFilterType,
+//	EFSLinkedFromFilterType,
+//	EFSLinksToFilterType,
+	EFSMetadataFilterType,
+	EFSBacklinkFilterType,
 	EFSPermissionFilterType,
 } EFSFilterType;
 
@@ -112,14 +114,15 @@ EFSFilterRef EFSFilterCreate(EFSFilterType const type);
 EFSFilterRef EFSPermissionFilterCreate(uint64_t const userID);
 void EFSFilterFree(EFSFilterRef *const filterptr);
 EFSFilterType EFSFilterGetType(EFSFilterRef const filter);
-strarg_t EFSFilterGetStringArg(EFSFilterRef const filter, index_t const i);
 EFSFilterRef EFSFilterUnwrap(EFSFilterRef const filter);
+strarg_t EFSFilterGetStringArg(EFSFilterRef const filter, index_t const i);
 err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len);
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
-void EFSFilterPrint(EFSFilterRef const filter, count_t const indent);
+void EFSFilterPrint(EFSFilterRef const filter, count_t const depth);
 size_t EFSFilterToUserFilterString(EFSFilterRef const filter, str_t *const data, size_t const size, count_t const depth);
-err_t EFSFilterPrepare(EFSFilterRef const filter, EFSConnection const *const conn, MDB_txn *const txn);
-uint64_t EFSFilterMatchAge(EFSFilterRef const filter, uint64_t const sortID, uint64_t const fileID, EFSConnection const *const conn, MDB_txn *const txn);
+err_t EFSFilterPrepare(EFSFilterRef const filter, MDB_txn *const txn, EFSConnection const *const conn);
+uint64_t EFSFilterStep(EFSFilterRef const filter, int const dir);
+uint64_t EFSFilterAge(EFSFilterRef const filter, uint64_t const fileID, uint64_t const sortID);
 
 EFSJSONFilterParserRef EFSJSONFilterParserCreate(void);
 void EFSJSONFilterParserFree(EFSJSONFilterParserRef *const parserptr);

@@ -78,8 +78,9 @@ static EFSFilterRef parse_link(strarg_t *const query) {
 	if('/' != *q++) return NULL;
 	if('/' != *q++) return NULL;
 	for(; '\0' != *q && !isspace(*q); ++q);
-	EFSFilterRef const filter = EFSFilterCreate(EFSLinksToFilterType);
+	EFSFilterRef const filter = EFSFilterCreate(EFSMetadataFilterType);
 	size_t const len = q - *query;
+	EFSFilterAddStringArg(filter, "link", sizeof("link")-1);
 	EFSFilterAddStringArg(filter, *query, len);
 	*query = q;
 	return filter;
@@ -96,7 +97,7 @@ static EFSFilterRef parse_term(strarg_t *const query) {
 	if(0 == len) return NULL;
 	if(substr("or", *query, len)) return NULL;
 	if(substr("and", *query, len)) return NULL;
-	EFSFilterRef const filter = EFSFilterCreate(EFSFullTextFilterType);
+	EFSFilterRef const filter = EFSFilterCreate(EFSFulltextFilterType);
 	EFSFilterAddStringArg(filter, *query, len);
 	*query = q;
 	return filter;

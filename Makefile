@@ -103,7 +103,7 @@ OBJECTS += \
 LIBUV_DIR := $(DEPS_DIR)/uv/out/Debug/obj.target
 #LIBUV_DIR := $(DEPS_DIR)/uv/build/Release
 
-LIBS := -luv -lcrypto -lyajl -lpthread
+LIBS := -luv -lcrypto -lyajl -lpthread -lobjc
 LIBS += -lrt
 
 .DEFAULT_GOAL := all
@@ -157,6 +157,10 @@ $(BUILD_DIR)/fts3/%.o: $(DEPS_DIR)/fts3/%.c $(DEPS_DIR)/fts3/fts3Int.h $(DEPS_DI
 $(BUILD_DIR)/sundown/%.o: $(DEPS_DIR)/sundown/%.c
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) #-I$(DEPS_DIR)/sundown/src
+
+$(BUILD_DIR)/EFSFilter.o: $(SRC_DIR)/EFSFilter.m $(HEADERS)
+	@- mkdir -p $(dir $@)
+	$(CC) -c -o $@ $< $(CFLAGS) -Werror -Wall -Wno-unused-function -Wno-unused-variable -Wno-unused-parameter -Wno-unused-value
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c $(HEADERS)
 	@- mkdir -p $(dir $@)

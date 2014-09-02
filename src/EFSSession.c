@@ -228,7 +228,7 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 	rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
 	assert(MDB_SUCCESS == rc);
 
-	EFSFilterPrepare(filter, conn, txn);
+	EFSFilterPrepare(filter, txn, conn);
 
 	MDB_cursor *sortIDs = NULL;
 	rc = mdb_cursor_open(txn, conn->metaFileIDByFileID, &sortIDs);
@@ -264,12 +264,12 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 		for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(fileIDs, URI_val, fileID_val, MDB_PREV_DUP)) {
 			assert(targetURI_id == db_column(URI_val, 0)); // Check for bug with MDB_PREV_DUP.
 
-			uint64_t const sortID = db_column(sortID_val, 0);
+			uint64_t const sortID = metaFileID;//db_column(sortID_val, 0);
 			uint64_t const fileID = db_column(fileID_val, 0);
 
 			if(sortID == initialSortID && fileID >= initialFileID) continue;
 
-			uint64_t const age = EFSFilterMatchAge(filter, fileID, sortID, conn, txn);
+			uint64_t const age = EFSFilterAge(filter, fileID, sortID);
 //			fprintf(stderr, "{%llu, %llu, %llu} -> %llu\n", sortID, metaFileID, fileID, age);
 			if(age != sortID) continue;
 

@@ -334,11 +334,14 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	EFSFilterRef filter = EFSFilterCreate(EFSIntersectionFilterType);
 
 	BlogQueryValues *params = QSValuesCopy(qs, BlogQueryFields, numberof(BlogQueryFields));
-	EFSFilterRef const query = EFSUserFilterParse(params->query);
-	if(query) EFSFilterAddFilterArg(filter, query);
+	EFSFilterRef query = EFSUserFilterParse(params->query);
+	if(!query) query = EFSFilterCreate(EFSAllFilterType);
+	EFSFilterAddFilterArg(filter, query);
 	QSValuesFree((QSValues *)&params, numberof(BlogQueryFields));
 
-	EFSFilterRef const visibility = EFSFilterCreate(EFSLinksToFilterType);
+	// TODO: Get rid of this entirely.
+	EFSFilterRef const visibility = EFSFilterCreate(EFSMetadataFilterType);
+	EFSFilterAddStringArg(visibility, "link", sizeof("link")-1);
 	EFSFilterAddStringArg(visibility, "efs://user", -1);
 	EFSFilterAddFilterArg(filter, visibility);
 
@@ -361,9 +364,10 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 
 	TemplateWriteHTTPChunk(blog->header, &TemplateStaticCBs, args, msg);
 
+	// TODO: This is pretty broken. We probably need a whole separate mode.
 	EFSFilterRef const coreFilter = EFSFilterUnwrap(query);
-	if(EFSLinksToFilterType == EFSFilterGetType(coreFilter)) {
-		strarg_t const URI = EFSFilterGetStringArg(coreFilter, 0);
+	if(EFSMetadataFilterType == EFSFilterGetType(coreFilter)) {
+		strarg_t const URI = EFSFilterGetStringArg(coreFilter, 1);
 		EFSFileInfo info[1];
 		if(EFSSessionGetFileInfo(session, URI, info) >= 0) {
 			str_t *canonical = EFSFormatURI(EFS_INTERNAL_ALGO, info->hash);
