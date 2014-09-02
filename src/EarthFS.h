@@ -103,8 +103,6 @@ typedef enum {
 	EFSIntersectionFilterType,
 	EFSUnionFilterType,
 	EFSFulltextFilterType,
-//	EFSLinkedFromFilterType,
-//	EFSLinksToFilterType,
 	EFSMetadataFilterType,
 	EFSBacklinkFilterType,
 	EFSPermissionFilterType,

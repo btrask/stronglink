@@ -498,7 +498,7 @@ static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str
 	fprintf(stderr, ")\n");
 }
 - (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth {
-	if(count) return wr(data, size, "");
+	if(!count) return wr(data, size, "");
 	size_t len = 0;
 	if(depth) len += wr(data+len, size-len, "(");
 	for(index_t i = 0; i < count; ++i) {
