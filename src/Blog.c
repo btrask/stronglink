@@ -331,21 +331,12 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 		return true;
 	}
 
-	EFSFilterRef filter = EFSFilterCreate(EFSIntersectionFilterType);
-
 	BlogQueryValues *params = QSValuesCopy(qs, BlogQueryFields, numberof(BlogQueryFields));
-	EFSFilterRef query = EFSUserFilterParse(params->query);
-	if(!query) query = EFSFilterCreate(EFSAllFilterType);
-	EFSFilterAddFilterArg(filter, query);
+	EFSFilterRef filter = EFSUserFilterParse(params->query);
+	if(!filter) filter = EFSFilterCreate(EFSAllFilterType);
 	QSValuesFree((QSValues *)&params, numberof(BlogQueryFields));
 
-	// TODO: Get rid of this entirely.
-	EFSFilterRef const visibility = EFSFilterCreate(EFSMetadataFilterType);
-	EFSFilterAddStringArg(visibility, "link", sizeof("link")-1);
-	EFSFilterAddStringArg(visibility, "efs://user", -1);
-	EFSFilterAddFilterArg(filter, visibility);
-
-	EFSFilterPrint(query, 0); // DEBUG
+	EFSFilterPrint(filter, 0); // DEBUG
 
 	URIListRef URIs = EFSSessionCreateFilteredURIList(session, filter, RESULTS_MAX); // TODO: We should be able to specify a specific algorithm here.
 
@@ -355,7 +346,7 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	HTTPMessageBeginBody(msg);
 
 	str_t q[200];
-	size_t qlen = EFSFilterToUserFilterString(query, q, sizeof(q), 0);
+	size_t qlen = EFSFilterToUserFilterString(filter, q, sizeof(q), 0);
 	str_t *q_HTMLSafe = htmlenc(q);
 	TemplateStaticArg const args[] = {
 		{"q", q_HTMLSafe},
@@ -365,8 +356,8 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	TemplateWriteHTTPChunk(blog->header, &TemplateStaticCBs, args, msg);
 
 	// TODO: This is pretty broken. We probably need a whole separate mode.
-	EFSFilterRef const coreFilter = EFSFilterUnwrap(query);
-	if(EFSMetadataFilterType == EFSFilterGetType(coreFilter)) {
+	EFSFilterRef const coreFilter = EFSFilterUnwrap(filter);
+	if(coreFilter && EFSMetadataFilterType == EFSFilterGetType(coreFilter)) {
 		strarg_t const URI = EFSFilterGetStringArg(coreFilter, 1);
 		EFSFileInfo info[1];
 		if(EFSSessionGetFileInfo(session, URI, info) >= 0) {

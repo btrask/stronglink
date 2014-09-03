@@ -229,73 +229,33 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 	assert(MDB_SUCCESS == rc);
 
 	EFSFilterPrepare(filter, txn, conn);
+	for(;;) {
+		uint64_t sortID, fileID;
+		if(!EFSFilterStep(filter, -1, &sortID, &fileID)) break;
+//		fprintf(stderr, "step: %llu, %llu\n", sortID, fileID);
 
-	MDB_cursor *sortIDs = NULL;
-	rc = mdb_cursor_open(txn, conn->metaFileIDByFileID, &sortIDs);
-	assert(MDB_SUCCESS == rc);
-	// TODO: EVERY file must have an associated meta-file, pointing at itself?
+		uint64_t const age = EFSFilterAge(filter, sortID, fileID);
+//		fprintf(stderr, "{%llu, %llu} -> %llu\n", sortID, fileID, age);
+		if(age != sortID) continue;
 
-	MDB_cursor *fileIDs = NULL;
-	rc = mdb_cursor_open(txn, conn->fileIDByURI, &fileIDs);
-	assert(MDB_SUCCESS == rc);
-
-	DB_VAL(sortID_val, 1);
-	db_bind(sortID_val, initialSortID);
-	MDB_val metaFileID_val[1];
-	rc = mdb_cursor_get(sortIDs, sortID_val, metaFileID_val, MDB_SET_RANGE);
-	if(MDB_SUCCESS == rc) {
-		// We want MDB_SET_RANGE_LT, but it doesn't exist.
-		rc = mdb_cursor_get(sortIDs, sortID_val, metaFileID_val, MDB_PREV);
-	} else if(MDB_NOTFOUND == rc) {
-		rc = mdb_cursor_get(sortIDs, sortID_val, metaFileID_val, MDB_LAST);
-	} else assert(0);
-	for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(sortIDs, sortID_val, metaFileID_val, MDB_PREV)) {
-		MDB_val metaFile_val[1];
-		rc = mdb_get(txn, conn->metaFileByID, metaFileID_val, metaFile_val);
+		DB_VAL(fileID_val, 1);
+		db_bind(fileID_val, fileID);
+		MDB_val file_val[1];
+		rc = mdb_get(txn, conn->fileByID, fileID_val, file_val);
+		if(MDB_NOTFOUND == rc) continue;
 		assert(MDB_SUCCESS == rc);
-		uint64_t const metaFileID = db_column(metaFileID_val, 0);
-		uint64_t const targetURI_id = db_column(metaFile_val, 1);
 
-		DB_VAL(URI_val, 1);
-		db_bind(URI_val, targetURI_id);
-		MDB_val fileID_val[1];
-		rc = mdb_cursor_get(fileIDs, URI_val, fileID_val, MDB_SET);
-		assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
-		for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(fileIDs, URI_val, fileID_val, MDB_PREV_DUP)) {
-			assert(targetURI_id == db_column(URI_val, 0)); // Check for bug with MDB_PREV_DUP.
+		strarg_t const hash = db_column_text(txn, conn->schema, file_val, 0);
+		assert(hash);
 
-			uint64_t const sortID = metaFileID;//db_column(sortID_val, 0);
-			uint64_t const fileID = db_column(fileID_val, 0);
-
-			if(sortID == initialSortID && fileID >= initialFileID) continue;
-
-			uint64_t const age = EFSFilterAge(filter, fileID, sortID);
-//			fprintf(stderr, "{%llu, %llu, %llu} -> %llu\n", sortID, metaFileID, fileID, age);
-			if(age != sortID) continue;
-
-			MDB_val file_val[1];
-			rc = mdb_get(txn, conn->fileByID, fileID_val, file_val);
-			if(MDB_NOTFOUND == rc) continue;
-			assert(MDB_SUCCESS == rc);
-
-			strarg_t const hash = db_column_text(txn, conn->schema, file_val, 0);
-			assert(hash);
-
-			str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
-			URIListAddURI(URIs, URI, -1);
-			FREE(&URI);
-			if(URIListGetCount(URIs) >= max) break;
-
-		}
-
-		if(URIListGetCount(URIs) >= max) break;		
+		str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
+		URIListAddURI(URIs, URI, -1);
+		FREE(&URI);
+		if(URIListGetCount(URIs) >= max) break;
 
 	}
 
-	mdb_cursor_close(sortIDs); sortIDs = NULL;
-	mdb_cursor_close(fileIDs); fileIDs = NULL;
 	mdb_txn_abort(txn); txn = NULL;
-
 	EFSRepoDBClose(repo, &conn);
 	return URIs;
 }

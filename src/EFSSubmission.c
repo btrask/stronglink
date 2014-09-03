@@ -310,9 +310,8 @@ err_t EFSSubmissionCreatePair(EFSSessionRef const session, strarg_t const type, 
 
 	yajl_gen_string(json, (byte_t const *)"link", strlen("link"));
 	yajl_gen_array_open(json);
-	yajl_gen_string(json, (byte_t const *)"efs://user", strlen("efs://user"));
-	yajl_gen_array_close(json);
 	// TODO: Parse fulltext for links
+	yajl_gen_array_close(json);
 
 	yajl_gen_map_close(json);
 	yajl_gen_free(json); json = NULL;

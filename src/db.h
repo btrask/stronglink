@@ -28,4 +28,5 @@ uint64_t db_string_id(MDB_txn *const txn, DB_schema const *const schema, strarg_
 uint64_t db_string_id_len(MDB_txn *const txn, DB_schema const *const schema, strarg_t const str, size_t const len, bool_t const nulterm);
 
 int db_cursor(MDB_txn *const txn, MDB_dbi const dbi, MDB_cursor **const cur);
+int db_cursor_get(MDB_cursor *const cur, MDB_val *const key, MDB_val *const val, MDB_cursor_op const op);
 

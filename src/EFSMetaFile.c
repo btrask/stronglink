@@ -98,15 +98,12 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_
 		return 0; // TODO: Should this warrant an actual error? Or should we ignore it since we can still store the data?
 	}
 
-	uint64_t const external = add_metafile(txn, conn, fileID, targetURI);
-	uint64_t const internal = add_metafile(txn, conn, fileID, fileURI);
-
-	add_metadata(txn, conn, internal, "link", targetURI, strlen(targetURI));
+	uint64_t const metaFileID = add_metafile(txn, conn, fileID, targetURI);
 
 	parser_context context = {
 		.conn = conn,
 		.txn = txn,
-		.metaFileID = external,
+		.metaFileID = metaFileID,
 		.targetURI = targetURI,
 		.state = s_start,
 		.field = NULL,

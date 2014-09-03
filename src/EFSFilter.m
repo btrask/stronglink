@@ -14,7 +14,6 @@
 @end
 
 @interface EFSFilter : EFSObject
-- (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn;
 @end
 @interface EFSFilter (Abstract)
 - (EFSFilterType)type;
@@ -25,19 +24,29 @@
 - (void)print:(count_t const)depth;
 - (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth;
 
-- (uint64_t)step:(int const)dir;
-- (uint64_t)age:(uint64_t const)fileID :(uint64_t const)sortID;
+- (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn;
+- (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
+- (bool_t)step:(int const)dir;
+- (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID;
 @end
 
 @interface EFSIndividualFilter : EFSFilter
 {
+	MDB_cursor *step_target;
+	MDB_cursor *step_files;
 	MDB_cursor *age_uris;
 	MDB_cursor *age_metafiles;
 }
 - (EFSFilter *)unwrap;
-- (uint64_t)age:(uint64_t const)fileID :(uint64_t const)sortID;
+
+- (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn;
+- (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
+- (bool_t)step:(int const)dir;
+- (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID;
 @end
 @interface EFSIndividualFilter (Abstract)
+- (uint64_t)currentMeta:(int const)dir;
+- (uint64_t)stepMeta:(int const)dir;
 - (bool_t)match:(uint64_t const)metaFileID;
 @end
 
@@ -46,12 +55,16 @@
 	EFSFilter **filters;
 	count_t count;
 	count_t asize;
+	bool_t sorted;
 }
 - (EFSFilter *)unwrap;
 - (err_t)addFilterArg:(EFSFilter *const)filter;
-- (uint64_t)step:(int const)dir;
 
-- (void)sort;
+- (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
+- (bool_t)step:(int const)dir;
+- (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID;
+
+- (void)sort:(int const)dir;
 @end
 @interface EFSCollectionFilter (Abstract)
 // TODO
@@ -59,8 +72,7 @@
 
 @interface EFSAllFilter : EFSIndividualFilter
 {
-	MDB_cursor *step_metafiles;
-	MDB_cursor *step_files;
+	MDB_cursor *metafiles;
 }
 @end
 
@@ -74,9 +86,8 @@ struct token {
 	struct token *tokens;
 	count_t count;
 	count_t asize;
-	MDB_cursor *step_metafiles;
-	MDB_cursor *step_phrase; // TODO
-	MDB_cursor *step_files;
+	MDB_cursor *metafiles;
+	MDB_cursor *phrase; // TODO
 	MDB_cursor *match;
 }
 @end
@@ -87,6 +98,7 @@ struct token {
 	str_t *value;
 	uint64_t field_id;
 	uint64_t value_id;
+	MDB_cursor *metafiles;
 	MDB_cursor *match;
 }
 @end
@@ -123,8 +135,47 @@ struct token {
 }
 @end
 
+static bool_t valid(uint64_t const x) {
+	return 0 != x && UINT64_MAX != x;
+}
+static uint64_t invalid(int const dir) {
+	if(dir < 0) return 0;
+	if(dir > 0) return UINT64_MAX;
+	assert(9 && "Invalid dir");
+	return 0;
+}
+static MDB_cursor_op op(int const dir, MDB_cursor_op const x) {
+	switch(x) {
+		case MDB_PREV_DUP: return op(-dir, MDB_NEXT_DUP);
+		case MDB_NEXT_DUP:
+			if(dir < 0) return MDB_PREV_DUP;
+			if(dir > 0) return MDB_NEXT_DUP;
+			break;
+		case MDB_FIRST_DUP: return op(-dir, MDB_LAST_DUP);
+		case MDB_LAST_DUP:
+			if(dir < 0) return MDB_FIRST_DUP;
+			if(dir > 0) return MDB_LAST_DUP;
+			break;
+		case MDB_PREV: return op(-dir, MDB_NEXT);
+		case MDB_NEXT:
+			if(dir < 0) return MDB_PREV;
+			if(dir > 0) return MDB_NEXT;
+			break;
+		case MDB_FIRST: return op(-dir, MDB_LAST);
+		case MDB_LAST:
+			if(dir < 0) return MDB_FIRST;
+			if(dir > 0) return MDB_LAST;
+			break;
+		default: break;
+	}
+	assert(0);
+	return 0;
+}
+
 @implementation EFSIndividualFilter
 - (void)free {
+	mdb_cursor_close(step_target); step_target = NULL;
+	mdb_cursor_close(step_files); step_files = NULL;
 	mdb_cursor_close(age_uris); age_uris = NULL;
 	mdb_cursor_close(age_metafiles); age_metafiles = NULL;
 	[super free];
@@ -133,14 +184,53 @@ struct token {
 - (EFSFilter *)unwrap {
 	return self;
 }
+
 - (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn {
 	if([super prepare:txn :conn] < 0) return -1;
+	db_cursor(txn, conn->metaFileByID, &step_target);
+	db_cursor(txn, conn->fileIDByURI, &step_files);
 	db_cursor(txn, conn->URIByFileID, &age_uris);
 	db_cursor(txn, conn->metaFileIDByTargetURI, &age_metafiles);
 	return 0;
 }
-- (uint64_t)age:(uint64_t const)fileID :(uint64_t const)sortID {
-	uint64_t youngest = UINT64_MAX;
+- (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
+	MDB_val fileID_val[1];
+	int rc = db_cursor_get(step_files, NULL, fileID_val, MDB_GET_CURRENT);
+	if(MDB_SUCCESS == rc) {
+		if(sortID) *sortID = [self currentMeta:dir];
+		if(fileID) *fileID = db_column(fileID_val, 0);
+	} else {
+		if(sortID) *sortID = invalid(dir);
+		if(fileID) *fileID = invalid(dir);
+	}
+}
+- (bool_t)step:(int const)dir {
+	int rc;
+	MDB_val fileID_val[1];
+
+	rc = db_cursor_get(step_files, NULL, fileID_val, op(dir, MDB_NEXT_DUP));
+	if(MDB_SUCCESS == rc) return true;
+
+	uint64_t sortID = [self stepMeta:dir];
+	for(; valid(sortID); sortID = [self stepMeta:dir]) {
+		DB_VAL(metaFileID_val, 1);
+		db_bind(metaFileID_val, sortID);
+		MDB_val metaFile_val[1];
+		rc = mdb_cursor_get(step_target, metaFileID_val, metaFile_val, MDB_SET);
+		if(MDB_SUCCESS != rc) continue;
+		uint64_t const targetURI_id = db_column(metaFile_val, 1);
+		DB_VAL(targetURI_val, 1);
+		db_bind(targetURI_val, targetURI_id);
+		rc = mdb_cursor_get(step_files, targetURI_val, NULL, MDB_SET);
+		if(MDB_SUCCESS != rc) continue;
+		rc = db_cursor_get(step_files, NULL, fileID_val, op(dir, MDB_FIRST_DUP));
+		if(MDB_SUCCESS != rc) continue;
+		return true;
+	}
+	return false;
+}
+- (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID {
+	uint64_t earliest = UINT64_MAX;
 	int rc;
 
 	DB_VAL(fileID_val, 1);
@@ -160,22 +250,41 @@ struct token {
 			uint64_t const metaFileID = db_column(metaFileID_val, 0);
 			if(metaFileID > sortID) break;
 			if(![self match:metaFileID]) continue;
-			if(metaFileID < youngest) youngest = metaFileID;
+			if(metaFileID < earliest) earliest = metaFileID;
 			break;
 		}
 	}
-	return MAX(youngest, fileID); // No file can be younger than itself. We still have to check younger meta-files, though.
+	return earliest;
+	// TODO: We should ensure that files aren't given positions
+	// earlier than the submission of the files themselves. This
+	// can happen if a meta-file is submitted before a file that
+	// it targets. The problem is that files can only show up when
+	// they are referenced by meta-files, so if we don't put it too
+	// early, we have to put it too late (if/when another meta-file
+	// is submitted for it later). Even if our ages were changed to
+	// be file IDs rather than meta-file IDs (so we could use the
+	// file's own ID as its lower-bound age), it wouldn't help,
+	// because we wouldn't step() in the right place.
 }
 @end
 
-static int filtercmp(EFSFilter *const *const _a, EFSFilter *const *const _b) {
-	// We use the full range from 0 to UINT64_MAX, so be careful about overflows and underflows. Don't just `return a - b`.
-	uint64_t const a = [*_a step:0];
-	uint64_t const b = [*_b step:0];
-	if(a < b) return -1;
-	if(a > b) return 1;
+static int filtercmp(EFSFilter *const a, EFSFilter *const b, int const dir) {
+	uint64_t asort, afile, bsort, bfile;
+	[a current:+1*dir :&asort :&afile];
+	[b current:+1*dir :&bsort :&bfile];
+	if(asort < bsort) return +1*dir;
+	if(asort > bsort) return -1*dir;
+	if(afile < bfile) return +1*dir;
+	if(afile > bfile) return -1*dir;
 	return 0;
 }
+static int filtercmp_fwd(EFSFilter *const *const a, EFSFilter *const *const b) {
+	return filtercmp(*a, *b, +1);
+}
+static int filtercmp_rev(EFSFilter *const *const a, EFSFilter *const *const b) {
+	return filtercmp(*a, *b, -1);
+}
+
 @implementation EFSCollectionFilter
 - (void)free {
 	FREE(&filters);
@@ -199,28 +308,40 @@ static int filtercmp(EFSFilter *const *const _a, EFSFilter *const *const _b) {
 
 - (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn {
 	if([super prepare:txn :conn] < 0) return -1;
-	for(index_t i = 0; i < count; ++i) [filters[i] prepare:txn :conn];
-	[self sort];
+	for(index_t i = 0; i < count; ++i) {
+		if([filters[i] prepare:txn :conn] < 0) return -1;
+	}
+	sorted = false;
 	return 0;
 }
-- (uint64_t)step:(int const)dir {
+- (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
 	assert(count);
-	uint64_t const old = [filters[0] step:0];
-	if(0 == dir) return old;
-	[filters[0] step:dir];
-	for(index_t i = 1; i < count; ++i) {
-		uint64_t const cur = [filters[i] step:0];
-		if(cur != old) break;
-		[filters[i] step:dir];
-	}
-	[self sort];
-	return [filters[0] step:0];
+	if(!sorted) [self sort:dir];
+	[filters[0] current:dir :sortID :fileID];
 }
-- (uint64_t)age:(uint64_t const)fileID :(uint64_t const)sortID {
+- (bool_t)step:(int const)dir {
+	assert(count);
+	if(!sorted) [self sort:dir];
+	uint64_t oldSortID, oldFileID;
+	[filters[0] current:dir :&oldSortID :&oldFileID];
+	bool_t step = false;
+	if([filters[0] step:dir]) step = true;
+	for(index_t i = 1; i < count; ++i) {
+		uint64_t curSortID, curFileID;
+		[filters[i] current:dir :&curSortID :&curFileID];
+		if(curSortID != oldSortID) break;
+		if(curFileID != oldFileID) break;
+		if([filters[i] step:dir]) step = true;
+	}
+	[self sort:dir];
+	return step;
+}
+- (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID {
 	EFSFilterType const type = [self type]; // TODO: Polymorphism
 	bool_t hit = false;
+	// TODO: Maybe better to check in reverse order?
 	for(index_t i = 0; i < count; ++i) {
-		uint64_t const age = [filters[i] age:fileID :sortID];
+		uint64_t const age = [filters[i] age:sortID :fileID];
 		if(age == sortID) {
 			hit = true;
 		} else if(EFSIntersectionFilterType == type) {
@@ -240,8 +361,13 @@ static int filtercmp(EFSFilter *const *const _a, EFSFilter *const *const _b) {
 	return 0;
 }
 
-- (void)sort {
-	qsort(filters, count, sizeof(filters[0]), (int (*)())filtercmp);
+- (void)sort:(int const)dir {
+	assert(0 != dir);
+	int (*cmp)();
+	if(dir > 0) cmp = filtercmp_fwd;
+	if(dir < 0) cmp = filtercmp_rev;
+	qsort(filters, count, sizeof(filters[0]), cmp);
+	sorted = true;
 }
 @end
 
@@ -271,8 +397,7 @@ static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str
 
 @implementation EFSAllFilter
 - (void)free {
-	mdb_cursor_close(step_metafiles); step_metafiles = NULL;
-	mdb_cursor_close(step_files); step_files = NULL;
+	mdb_cursor_close(metafiles); metafiles = NULL;
 	[super free];
 }
 
@@ -290,14 +415,22 @@ static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str
 
 - (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn {
 	if([super prepare:txn :conn] < 0) return -1;
-	db_cursor(txn, conn->metaFileByID, &step_metafiles);
-	db_cursor(txn, conn->fileIDByURI, &step_files);
+	db_cursor(txn, conn->metaFileByID, &metafiles);
 	return 0;
 }
-- (uint64_t)step:(int const)dir {
-	return 0; // TODO
-}
 
+- (uint64_t)currentMeta:(int const)dir {
+	MDB_val metaFileID_val[1];
+	int rc = mdb_cursor_get(metafiles, metaFileID_val, NULL, MDB_GET_CURRENT);
+	if(MDB_SUCCESS != rc) return invalid(dir);
+	return db_column(metaFileID_val, 0);
+}
+- (uint64_t)stepMeta:(int const)dir {
+	MDB_val metaFileID_val[1];
+	int rc = mdb_cursor_get(metafiles, metaFileID_val, NULL, op(dir, MDB_NEXT));
+	if(MDB_SUCCESS != rc) return invalid(dir);
+	return db_column(metaFileID_val, 0);
+}
 - (bool_t)match:(uint64_t const)metaFileID {
 	return true;
 }
@@ -310,8 +443,8 @@ static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str
 		FREE(&tokens[i].str);
 	}
 	FREE(&tokens);
-	mdb_cursor_close(step_metafiles); step_metafiles = NULL;
-	mdb_cursor_close(step_files); step_files = NULL;
+	mdb_cursor_close(metafiles); metafiles = NULL;
+	mdb_cursor_close(match); match = NULL;
 	[super free];
 }
 
@@ -367,42 +500,30 @@ static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str
 
 - (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn {
 	if([super prepare:txn :conn] < 0) return -1;
-	db_cursor(txn, conn->metaFileIDByFulltext, &step_metafiles);
-	db_cursor(txn, conn->fileIDByURI, &step_files);
+	db_cursor(txn, conn->metaFileIDByFulltext, &metafiles);
 	db_cursor(txn, conn->metaFileIDByFulltext, &match);
-
-//	MDB_val token_val = { tokens[0].len, tokens[0].str };
-//	MDB_val metaFileID_val;
-//	mdb_cursor_get(tokens[0].cursor, &token_val, &metaFileID_val, MDB_LAST_DUP);
 	return 0;
 }
-- (uint64_t)step:(int const)dir {
-/*
-	if(UINT64_MAX != sortID)
 
-
-
-	MDB_val token_val = { tokens[0].len, tokens[0].str };
-	MDB_val sortID_val;
-	int rc = mdb_cursor_get(step_metafiles, &token_val, &sortID_val, MDB_PREV_DUP);
-	if(MDB_NOTFOUND == rc) return 0;
-	assert(MDB_SUCCESS == rc);
-	sortID = db_column(&sortID_val, 0);
-
-	MDB_val metaFile_val;
-	mdb_get(txn, conn->metaFileByID, &sortID_val, &metaFile_val);
-	targetURI_id = db_column(&metaFile_val, 1);
-
-	DB_VAL(URI_val, 1);
-	db_bind(URI_val, targetURI_id);
-	MDB_val fileID_val;
-	rc = mdb_cursor_get(step_files, URI_val, fileID_val, MDB_PREV_DUP);
-
-
-*/
-	return 0; // TODO
+- (uint64_t)currentMeta:(int const)dir {
+	MDB_val metaFileID_val[1];
+	int rc = db_cursor_get(metafiles, NULL, metaFileID_val, MDB_GET_CURRENT);
+	if(MDB_SUCCESS != rc) return invalid(dir);
+	return db_column(metaFileID_val, 0);
 }
-
+- (uint64_t)stepMeta:(int const)dir {
+	int rc;
+	MDB_val metaFileID_val[1];
+	rc = db_cursor_get(metafiles, NULL, metaFileID_val, op(dir, MDB_NEXT_DUP));
+	if(MDB_SUCCESS == rc) return db_column(metaFileID_val, 0);
+	if(MDB_NOTFOUND == rc) return invalid(dir);
+	MDB_val token_val = { tokens[0].len, tokens[0].str };
+	rc = db_cursor_get(metafiles, &token_val, NULL, MDB_SET);
+	if(MDB_SUCCESS != rc) return invalid(dir);
+	rc = db_cursor_get(metafiles, NULL, metaFileID_val, op(dir, MDB_FIRST_DUP));
+	if(MDB_SUCCESS != rc) return invalid(dir);
+	return db_column(metaFileID_val, 0);
+}
 - (bool_t)match:(uint64_t const)metaFileID {
 	MDB_val token_val = { tokens[0].len, tokens[0].str };
 	DB_VAL(metaFileID_val, 1);
@@ -420,6 +541,7 @@ static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str
 	FREE(&value);
 	field_id = 0;
 	value_id = 0;
+	mdb_cursor_close(metafiles); metafiles = NULL;
 	mdb_cursor_close(match); match = NULL;
 	[super free];
 }
@@ -462,15 +584,34 @@ static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str
 	if(!field || !value) return -1;
 	if(!field_id) field_id = db_string_id(txn, conn->schema, field);
 	if(!value_id) value_id = db_string_id(txn, conn->schema, value);
+	db_cursor(txn, conn->metaFileIDByMetadata, &metafiles);
 	db_cursor(txn, conn->metaFileIDByMetadata, &match);
 	return 0;
 }
-- (uint64_t)step:(int const)dir {
-	return 0; // TODO
-}
 
+- (uint64_t)currentMeta:(int const)dir {
+	MDB_val metaFileID_val[1];
+	int rc = db_cursor_get(metafiles, NULL, metaFileID_val, MDB_GET_CURRENT);
+	if(MDB_SUCCESS != rc) return invalid(dir);
+	return db_column(metaFileID_val, 0);
+}
+- (uint64_t)stepMeta:(int const)dir {
+	int rc;
+	MDB_val metaFileID_val[1];
+	rc = db_cursor_get(metafiles, NULL, metaFileID_val, op(dir, MDB_NEXT_DUP));
+	if(MDB_SUCCESS == rc) return db_column(metaFileID_val, 0);
+	if(MDB_NOTFOUND == rc) return invalid(dir);
+	DB_VAL(metadata_val, 2);
+	db_bind(metadata_val, value_id);
+	db_bind(metadata_val, field_id);
+	rc = db_cursor_get(metafiles, metadata_val, NULL, MDB_SET);
+	if(MDB_SUCCESS != rc) return invalid(dir);
+	rc = db_cursor_get(metafiles, NULL, metaFileID_val, op(dir, MDB_FIRST_DUP));
+	if(MDB_SUCCESS != rc) return invalid(dir);
+	return db_column(metaFileID_val, 0);
+}
 - (bool_t)match:(uint64_t const)metaFileID {
-	DB_VAL(metadata_val, 3);
+	DB_VAL(metadata_val, 2);
 	db_bind(metadata_val, value_id);
 	db_bind(metadata_val, field_id);
 	DB_VAL(metaFileID_val, 1);
@@ -584,12 +725,14 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, MDB_txn *const txn, EFSConnect
 	assert(filter);
 	return [(EFSFilter *)filter prepare:txn :conn];
 }
-uint64_t EFSFilterStep(EFSFilterRef const filter, int const dir) {
+bool_t EFSFilterStep(EFSFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID) {
 	assert(filter);
-	return [(EFSFilter *)filter step:dir];
+	if(![(EFSFilter *)filter step:dir]) return false;
+	[(EFSFilter *)filter current:dir :sortID :fileID];
+	return true;
 }
-uint64_t EFSFilterAge(EFSFilterRef const filter, uint64_t const fileID, uint64_t const sortID) {
+uint64_t EFSFilterAge(EFSFilterRef const filter, uint64_t const sortID, uint64_t const fileID) {
 	assert(filter);
-	return [(EFSFilter *)filter age:fileID :sortID];
+	return [(EFSFilter *)filter age:sortID :fileID];
 }
 

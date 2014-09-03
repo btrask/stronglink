@@ -146,4 +146,45 @@ int db_cursor(MDB_txn *const txn, MDB_dbi const dbi, MDB_cursor **const cur) {
 	if(*cur) return mdb_cursor_renew(txn, *cur);
 	return mdb_cursor_open(txn, dbi, cur);
 }
+int db_cursor_get(MDB_cursor *const cur, MDB_val *const key, MDB_val *const val, MDB_cursor_op const op) {
+	assert(cur);
+	// MDB workarounds
+	// - Inconsistent dupsort cursor initialization rules (prev/next init, first/last don't)
+	switch(op) {
+		case MDB_PREV_DUP:
+		case MDB_NEXT_DUP: {
+			if(key) break;
+			size_t ignore;
+			int rc = mdb_cursor_count(cur, &ignore);
+			if(MDB_SUCCESS != rc) return rc;
+			break;
+		}
+		default: break;
+	}
+	// - Keys required when they shouldn't be
+	// - NULL values having unexpected side effects (mainly/exclusively for dupsort tables?)
+	switch(op) {
+		case MDB_GET_CURRENT:
+		case MDB_FIRST_DUP:
+		case MDB_LAST_DUP:
+		case MDB_PREV_DUP:
+		case MDB_NEXT_DUP: {
+			MDB_val ignore1;
+			MDB_val ignore2;
+			MDB_val *const k = key ? key : &ignore1;
+			MDB_val *const v = val ? val : &ignore2;
+			int rc = mdb_cursor_get(cur, k, v, op);
+			return rc;
+		}
+		case MDB_SET: {
+			MDB_val ignore;
+			MDB_val *const v = val ? val : &ignore;
+			int rc = mdb_cursor_get(cur, key, v, op);
+			return rc;
+		}
+		default:
+			return mdb_cursor_get(cur, key, val, op);
+	}
+}
+
 
