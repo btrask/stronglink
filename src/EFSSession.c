@@ -213,6 +213,7 @@ uint64_t EFSSessionGetUserID(EFSSessionRef const session) {
 URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilterRef const filter, count_t const max) { // TODO: Sort order, pagination.
 	if(!session) return NULL;
 	// TODO: Check session mode.
+//	uint64_t const then = uv_hrtime();
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	EFSConnection const *conn = EFSRepoDBOpen(repo);
 	if(!conn) return NULL;
@@ -257,6 +258,8 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 
 	mdb_txn_abort(txn); txn = NULL;
 	EFSRepoDBClose(repo, &conn);
+//	uint64_t const now = uv_hrtime();
+//	fprintf(stderr, "Query in %f ms\n", (now-then) / 1000.0 / 1000.0);
 	return URIs;
 }
 err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFSFileInfo *const info) {
