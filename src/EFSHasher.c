@@ -76,7 +76,7 @@ str_t **EFSHasherEnd(EFSHasherRef const hasher) {
 	URIs[1] = EFSFormatURI("sha256", sha256hex);
 
 	URIs[2] = EFSFormatURI("sha1", sha1hex);
-	sha1hex[16] = '\0';
+	sha1hex[24] = '\0';
 	URIs[3] = EFSFormatURI("sha1", sha1hex);
 
 	URIs[4] = NULL;
