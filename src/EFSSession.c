@@ -220,16 +220,13 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 
 	URIListRef const URIs = URIListCreate(); // TODO: Just preallocate a regular array, since we know the maximum size. Get rid of URILists all together.
 
-	// TODO: Pagination
-	uint64_t const initialSortID = UINT64_MAX;
-	uint64_t const initialFileID = UINT64_MAX;
 	int rc;
-
 	MDB_txn *txn = NULL;
 	rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
 	assert(MDB_SUCCESS == rc);
 
 	EFSFilterPrepare(filter, txn, conn);
+	EFSFilterSeek(filter, -1, UINT64_MAX, UINT64_MAX); // TODO: Pagination
 	for(;;) {
 		uint64_t sortID, fileID;
 		if(!EFSFilterStep(filter, -1, &sortID, &fileID)) break;

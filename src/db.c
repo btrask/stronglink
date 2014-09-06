@@ -176,7 +176,9 @@ int db_cursor_get(MDB_cursor *const cur, MDB_val *const key, MDB_val *const val,
 			int rc = mdb_cursor_get(cur, k, v, op);
 			return rc;
 		}
-		case MDB_SET: {
+		case MDB_SET:
+		case MDB_SET_KEY:
+		case MDB_SET_RANGE: {
 			MDB_val ignore;
 			MDB_val *const v = val ? val : &ignore;
 			int rc = mdb_cursor_get(cur, key, v, op);

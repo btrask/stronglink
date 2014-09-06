@@ -25,6 +25,7 @@
 - (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth;
 
 - (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn;
+- (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
 - (bool_t)step:(int const)dir;
 - (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID;
@@ -40,11 +41,13 @@
 - (EFSFilter *)unwrap;
 
 - (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn;
+- (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
 - (bool_t)step:(int const)dir;
 - (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID;
 @end
 @interface EFSIndividualFilter (Abstract)
+- (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID;
 - (uint64_t)currentMeta:(int const)dir;
 - (uint64_t)stepMeta:(int const)dir;
 - (bool_t)match:(uint64_t const)metaFileID;
@@ -193,6 +196,24 @@ static MDB_cursor_op op(int const dir, MDB_cursor_op const x) {
 	db_cursor(txn, conn->metaFileIDByTargetURI, &age_metafiles);
 	return 0;
 }
+- (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
+	int rc;
+	uint64_t const actualSortID = [self seekMeta:dir :sortID];
+	if(!valid(actualSortID)) return;
+	DB_VAL(metaFileID_val, 1);
+	db_bind(metaFileID_val, actualSortID);
+	MDB_val metaFile_val[1];
+	rc = mdb_cursor_get(step_target, metaFileID_val, metaFile_val, MDB_SET);
+	assertf(MDB_SUCCESS == rc, "Database error %s", mdb_strerror(rc));
+	uint64_t const targetURI_id = db_column(metaFile_val, 1);
+	DB_VAL(targetURI_val, 1);
+	db_bind(targetURI_val, targetURI_id);
+	DB_VAL(fileID_val, 1);
+	db_bind(fileID_val, fileID);
+	rc = mdb_cursor_get(step_files, targetURI_val, fileID_val, MDB_GET_BOTH_RANGE);
+	if(MDB_NOTFOUND == rc && dir < 0) [self step:dir];
+	[self step:-dir];
+}
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
 	MDB_val fileID_val[1];
 	int rc = db_cursor_get(step_files, NULL, fileID_val, MDB_GET_CURRENT);
@@ -211,13 +232,12 @@ static MDB_cursor_op op(int const dir, MDB_cursor_op const x) {
 	rc = db_cursor_get(step_files, NULL, fileID_val, op(dir, MDB_NEXT_DUP));
 	if(MDB_SUCCESS == rc) return true;
 
-	uint64_t sortID = [self stepMeta:dir];
-	for(; valid(sortID); sortID = [self stepMeta:dir]) {
+	for(uint64_t sortID = [self stepMeta:dir]; valid(sortID); sortID = [self stepMeta:dir]) {
 		DB_VAL(metaFileID_val, 1);
 		db_bind(metaFileID_val, sortID);
 		MDB_val metaFile_val[1];
 		rc = mdb_cursor_get(step_target, metaFileID_val, metaFile_val, MDB_SET);
-		if(MDB_SUCCESS != rc) continue;
+		assertf(MDB_SUCCESS == rc, "Database error %s", mdb_strerror(rc));
 		uint64_t const targetURI_id = db_column(metaFile_val, 1);
 		DB_VAL(targetURI_val, 1);
 		db_bind(targetURI_val, targetURI_id);
@@ -313,6 +333,11 @@ static int filtercmp_rev(EFSFilter *const *const a, EFSFilter *const *const b) {
 	}
 	sorted = false;
 	return 0;
+}
+- (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
+	for(index_t i = 0; i < count; ++i) {
+		[filters[i] seek:dir :sortID :fileID];
+	}
 }
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
 	assert(count);
@@ -419,6 +444,13 @@ static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str
 	return 0;
 }
 
+- (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
+	DB_VAL(sortID_val, 1);
+	db_bind(sortID_val, sortID);
+	int rc = db_cursor_get(metafiles, sortID_val, NULL, MDB_SET_RANGE);
+	if(MDB_NOTFOUND == rc && dir < 0) [self stepMeta:dir];
+	return [self stepMeta:-dir];
+}
 - (uint64_t)currentMeta:(int const)dir {
 	MDB_val metaFileID_val[1];
 	int rc = mdb_cursor_get(metafiles, metaFileID_val, NULL, MDB_GET_CURRENT);
@@ -505,6 +537,14 @@ static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str
 	return 0;
 }
 
+- (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
+	MDB_val token_val = { tokens[0].len, tokens[0].str };
+	DB_VAL(sortID_val, 1);
+	db_bind(sortID_val, sortID);
+	int rc = db_cursor_get(metafiles, &token_val, sortID_val, MDB_GET_BOTH_RANGE);
+	if(MDB_NOTFOUND == rc && dir < 0) [self stepMeta:dir];
+	return [self stepMeta:-dir];
+}
 - (uint64_t)currentMeta:(int const)dir {
 	MDB_val metaFileID_val[1];
 	int rc = db_cursor_get(metafiles, NULL, metaFileID_val, MDB_GET_CURRENT);
@@ -589,6 +629,16 @@ static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str
 	return 0;
 }
 
+- (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
+	DB_VAL(metadata_val, 2);
+	db_bind(metadata_val, value_id);
+	db_bind(metadata_val, field_id);
+	DB_VAL(sortID_val, 1);
+	db_bind(sortID_val, sortID);
+	int rc = db_cursor_get(metafiles, metadata_val, sortID_val, MDB_GET_BOTH_RANGE);
+	if(MDB_NOTFOUND == rc && dir < 0) [self stepMeta:dir];
+	return [self stepMeta:-dir];
+}
 - (uint64_t)currentMeta:(int const)dir {
 	MDB_val metaFileID_val[1];
 	int rc = db_cursor_get(metafiles, NULL, metaFileID_val, MDB_GET_CURRENT);
@@ -724,6 +774,9 @@ size_t EFSFilterToUserFilterString(EFSFilterRef const filter, str_t *const data,
 err_t EFSFilterPrepare(EFSFilterRef const filter, MDB_txn *const txn, EFSConnection const *const conn) {
 	assert(filter);
 	return [(EFSFilter *)filter prepare:txn :conn];
+}
+void EFSFilterSeek(EFSFilterRef const filter, int const dir, uint64_t const sortID, uint64_t const fileID) {
+	[(EFSFilter *)filter seek:dir :sortID :fileID];
 }
 bool_t EFSFilterStep(EFSFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID) {
 	assert(filter);
