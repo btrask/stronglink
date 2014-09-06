@@ -38,7 +38,7 @@ typedef int err_t;
 })
 
 #ifdef NDEBUG
-#define assertf(x, fmt, ...) ((void)(x))
+#define assertf(x, fmt, ...) (void)0
 #else
 #define assertf(x, fmt, ...) ({ \
 	if(0 == (x)) { \
@@ -49,6 +49,8 @@ typedef int err_t;
 	} \
 })
 #endif
+
+#define UNUSED(x) ((void)(x))
 
 #define FREE(ptrptr) ({ \
 	__typeof__(ptrptr) const __x = (ptrptr); \
