@@ -24,7 +24,6 @@ HEADERS := \
 	$(SRC_DIR)/async.h \
 	$(SRC_DIR)/bcrypt.h \
 	$(SRC_DIR)/EarthFS.h \
-	$(SRC_DIR)/URIList.h \
 	$(SRC_DIR)/Template.h \
 	$(SRC_DIR)/db.h \
 	$(SRC_DIR)/fts.h \
@@ -58,7 +57,6 @@ OBJECTS := \
 	$(BUILD_DIR)/EFSPull.o \
 	$(BUILD_DIR)/EFSServer.o \
 	$(BUILD_DIR)/Template.o \
-	$(BUILD_DIR)/URIList.o \
 	$(BUILD_DIR)/db.o \
 	$(BUILD_DIR)/fts.o \
 	$(BUILD_DIR)/strndup.o \

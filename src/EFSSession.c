@@ -210,24 +210,30 @@ uint64_t EFSSessionGetUserID(EFSSessionRef const session) {
 	return session->userID;
 }
 
-URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilterRef const filter, count_t const max) { // TODO: Sort order, pagination.
+str_t **EFSSessionCopyFilteredURIs(EFSSessionRef const session, EFSFilterRef const filter, count_t const max) { // TODO: Sort order, pagination.
 	if(!session) return NULL;
 	// TODO: Check session mode.
+
+	str_t **URIs = malloc(sizeof(str_t *) * (max+1));
+	if(!URIs) return NULL;
+
 //	uint64_t const then = uv_hrtime();
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	EFSConnection const *conn = EFSRepoDBOpen(repo);
-	if(!conn) return NULL;
-
-	URIListRef const URIs = URIListCreate(); // TODO: Just preallocate a regular array, since we know the maximum size. Get rid of URILists all together.
+	if(!conn) {
+		FREE(&URIs);
+		return NULL;
+	}
 
 	int rc;
 	MDB_txn *txn = NULL;
 	rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
 	assert(MDB_SUCCESS == rc);
 
+	count_t count = 0;
 	EFSFilterPrepare(filter, txn, conn);
 	EFSFilterSeek(filter, -1, UINT64_MAX, UINT64_MAX); // TODO: Pagination
-	for(;;) {
+	while(count < max) {
 		uint64_t sortID, fileID;
 		if(!EFSFilterStep(filter, -1, &sortID, &fileID)) break;
 //		fprintf(stderr, "step: %llu, %llu\n", sortID, fileID);
@@ -245,18 +251,14 @@ URIListRef EFSSessionCreateFilteredURIList(EFSSessionRef const session, EFSFilte
 
 		strarg_t const hash = db_column_text(txn, conn->schema, file_val, 0);
 		assert(hash);
-
-		str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
-		URIListAddURI(URIs, URI, -1);
-		FREE(&URI);
-		if(URIListGetCount(URIs) >= max) break;
-
+		URIs[count++] = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
 	}
 
 	mdb_txn_abort(txn); txn = NULL;
 	EFSRepoDBClose(repo, &conn);
 //	uint64_t const now = uv_hrtime();
 //	fprintf(stderr, "Query in %f ms\n", (now-then) / 1000.0 / 1000.0);
+	URIs[count] = NULL;
 	return URIs;
 }
 err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFSFileInfo *const info) {

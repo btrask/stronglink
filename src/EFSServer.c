@@ -176,7 +176,7 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 		filter = EFSFilterCreate(EFSAllFilterType);
 	}
 
-	// TODO: Use EFSSessionCreateFilteredURIList? Streaming version?
+	// TODO: Use EFSSessionCopyFilteredURIs? Streaming version?
 	HTTPMessageSendStatus(msg, 500);
 /*	sqlite3f *db = EFSRepoDBConnect(repo);
 	EFSFilterCreateTempTables(db);

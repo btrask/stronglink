@@ -48,7 +48,7 @@ err_t EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, size_t 
 	return 0;
 }
 
-URIListRef EFSHasherEnd(EFSHasherRef const hasher) {
+str_t **EFSHasherEnd(EFSHasherRef const hasher) {
 	if(!hasher) return NULL;
 
 	byte_t sha1[SHA_DIGEST_LENGTH] = {};
@@ -66,28 +66,19 @@ URIListRef EFSHasherEnd(EFSHasherRef const hasher) {
 
 	hasher->internalHash = strdup(sha256hex);
 
-	URIListRef const URIs = URIListCreate();
+	// TODO: Plugins, dynamic size.
+	str_t **const URIs = malloc(sizeof(str_t *) * (4+1));
 
 	// Make sure the preferred URI (e.g. the one used for internalHash) is first.
-	str_t *URI;
-
-	URI = EFSFormatURI("sha256", sha256hex);
-	URIListAddURI(URIs, URI, -1);
-	FREE(&URI);
-
+	URIs[0] = EFSFormatURI("sha256", sha256hex);
 	sha256hex[24] = '\0';
-	URI = EFSFormatURI("sha256", sha256hex);
-	URIListAddURI(URIs, URI, -1);
-	FREE(&URI);
+	URIs[1] = EFSFormatURI("sha256", sha256hex);
 
-	URI = EFSFormatURI("sha1", sha1hex);
-	URIListAddURI(URIs, URI, -1);
-	FREE(&URI);
-
+	URIs[2] = EFSFormatURI("sha1", sha1hex);
 	sha1hex[16] = '\0';
-	URI = EFSFormatURI("sha1", sha1hex);
-	URIListAddURI(URIs, URI, -1);
-	FREE(&URI);
+	URIs[3] = EFSFormatURI("sha1", sha1hex);
+
+	URIs[4] = NULL;
 
 	FREE(&sha1hex);
 	FREE(&sha256hex);

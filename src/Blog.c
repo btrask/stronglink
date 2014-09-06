@@ -338,7 +338,13 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 
 	EFSFilterPrint(filter, 0); // DEBUG
 
-	URIListRef URIs = EFSSessionCreateFilteredURIList(session, filter, RESULTS_MAX); // TODO: We should be able to specify a specific algorithm here.
+	str_t **URIs = EFSSessionCopyFilteredURIs(session, filter, RESULTS_MAX);
+	if(!URIs) {
+		HTTPMessageSendStatus(msg, 500);
+		EFSFilterFree(&filter);
+		EFSSessionFree(&session);
+		return true;
+	}
 
 	HTTPMessageWriteResponse(msg, 200, "OK");
 	HTTPMessageWriteHeader(msg, "Content-Type", "text/html; charset=utf-8");
@@ -371,13 +377,12 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 		}
 	}
 
-	for(index_t i = 0; i < URIListGetCount(URIs); ++i) {
-		strarg_t const URI = URIListGetURI(URIs, i);
+	for(index_t i = 0; URIs[i]; ++i) {
 		str_t algo[EFS_ALGO_SIZE]; // EFS_INTERNAL_ALGO
 		str_t hash[EFS_HASH_SIZE];
-		EFSParseURI(URI, algo, hash);
+		EFSParseURI(URIs[i], algo, hash);
 		str_t *previewPath = BlogCopyPreviewPath(blog, hash);
-		sendPreview(blog, msg, session, URI, previewPath);
+		sendPreview(blog, msg, session, URIs[i], previewPath);
 		FREE(&previewPath);
 	}
 
@@ -388,7 +393,8 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
 	HTTPMessageEnd(msg);
 
-	URIListFree(&URIs);
+	for(index_t i = 0; URIs[i]; ++i) FREE(&URIs[i]);
+	FREE(&URIs);
 	EFSFilterFree(&filter);
 	EFSSessionFree(&session);
 	return true;

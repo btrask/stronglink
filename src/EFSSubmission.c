@@ -17,7 +17,7 @@ struct EFSSubmission {
 	EFSHasherRef hasher;
 	EFSMetaFileRef meta;
 
-	URIListRef URIs;
+	str_t **URIs;
 	str_t *internalHash;
 };
 
@@ -59,7 +59,8 @@ void EFSSubmissionFree(EFSSubmissionRef *const subptr) {
 	FREE(&sub->tmppath);
 	EFSHasherFree(&sub->hasher);
 	EFSMetaFileFree(&sub->meta);
-	URIListFree(&sub->URIs);
+	if(sub->URIs) for(index_t i = 0; sub->URIs[i]; ++i) FREE(&sub->URIs[i]);
+	FREE(&sub->URIs);
 	FREE(&sub->internalHash);
 	FREE(subptr); sub = NULL;
 }
@@ -116,7 +117,8 @@ err_t EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *,
 
 strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub) {
 	if(!sub) return NULL;
-	return URIListGetURI(sub->URIs, 0);
+	if(!sub->URIs) return NULL;
+	return sub->URIs[0];
 }
 
 err_t EFSSubmissionAddFile(EFSSubmissionRef const sub) {
@@ -176,8 +178,8 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 	rc = mdb_put(txn, conn->fileByID, fileID_val, file_val, MDB_NOOVERWRITE);
 	if(MDB_SUCCESS != rc && MDB_KEYEXIST != rc) return -1;
 
-	for(index_t i = 0; i < URIListGetCount(sub->URIs); ++i) {
-		strarg_t const URI = URIListGetURI(sub->URIs, i);
+	for(index_t i = 0; sub->URIs[i]; ++i) {
+		strarg_t const URI = sub->URIs[i];
 		uint64_t const URI_id = db_string_id(txn, conn->schema, URI);
 		DB_VAL(URI_val, 1);
 		db_bind(URI_val, URI_id);
