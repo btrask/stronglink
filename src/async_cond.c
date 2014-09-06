@@ -54,7 +54,7 @@ void async_cond_wait(async_cond_t *const cond, async_mutex_t *const mutex) {
 	assert(rc >= 0);
 	UNUSED(rc);
 }
-int async_cond_timedwait(async_cond_t *const cond, async_mutex_t *const mutex, uint64_t const timeout) {
+int async_cond_timedwait(async_cond_t *const cond, async_mutex_t *const mutex, uint64_t const future) {
 	assert(async_mutex_check(mutex));
 
 	async_mutex_lock(cond->internalMutex);
@@ -62,7 +62,7 @@ int async_cond_timedwait(async_cond_t *const cond, async_mutex_t *const mutex, u
 	async_mutex_unlock(mutex);
 	async_mutex_unlock(cond->internalMutex);
 
-	int const rc = async_sem_timedwait(cond->sem, timeout);
+	int const rc = async_sem_timedwait(cond->sem, future);
 
 	async_mutex_lock(mutex);
 	return rc;

@@ -70,7 +70,7 @@ int async_sem_trywait(async_sem_t *const sem) {
 	--sem->value;
 	return 0;
 }
-int async_sem_timedwait(async_sem_t *const sem, uint64_t const timeout) {
+int async_sem_timedwait(async_sem_t *const sem, uint64_t const future) {
 	assert(sem);
 	assert(yield);
 	assert(co_active() != yield);
@@ -89,13 +89,13 @@ int async_sem_timedwait(async_sem_t *const sem, uint64_t const timeout) {
 	sem->tail = us;
 
 	uv_timer_t timer[1];
-	if(timeout < UINT64_MAX) {
+	if(future < UINT64_MAX) {
 		timer->data = us;
 		uv_timer_init(loop, timer);
-		uv_timer_start(timer, timeout_cb, timeout, 0);
+		uv_timer_start(timer, timeout_cb, future - uv_now(loop), 0);
 	}
 	async_yield();
-	if(timeout < UINT64_MAX) {
+	if(future < UINT64_MAX) {
 		uv_close((uv_handle_t *)&timer, async_close_cb);
 		async_yield();
 	}

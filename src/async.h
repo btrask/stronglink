@@ -103,7 +103,7 @@ void async_sem_free(async_sem_t *const sem);
 void async_sem_post(async_sem_t *const sem);
 void async_sem_wait(async_sem_t *const sem);
 int async_sem_trywait(async_sem_t *const sem);
-int async_sem_timedwait(async_sem_t *const sem, uint64_t const timeout);
+int async_sem_timedwait(async_sem_t *const sem, uint64_t const future);
 
 // async_mutex.c
 typedef struct async_mutex_s async_mutex_t;
@@ -134,7 +134,7 @@ void async_cond_free(async_cond_t *const cond);
 void async_cond_signal(async_cond_t *const cond);
 void async_cond_broadcast(async_cond_t *const cond);
 void async_cond_wait(async_cond_t *const cond, async_mutex_t *const mutex);
-int async_cond_timedwait(async_cond_t *const cond, async_mutex_t *const mutex, uint64_t const timeout);
+int async_cond_timedwait(async_cond_t *const cond, async_mutex_t *const mutex, uint64_t const future);
 
 // async_worker.c
 typedef struct async_worker_s async_worker_t;
