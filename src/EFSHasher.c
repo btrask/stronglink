@@ -51,8 +51,8 @@ err_t EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, size_t 
 str_t **EFSHasherEnd(EFSHasherRef const hasher) {
 	if(!hasher) return NULL;
 
-	byte_t sha1[SHA_DIGEST_LENGTH] = {};
-	byte_t sha256[SHA256_DIGEST_LENGTH] = {};
+	byte_t sha1[SHA_DIGEST_LENGTH];
+	byte_t sha256[SHA256_DIGEST_LENGTH];
 	if(SHA1_Final(sha1, &hasher->sha1) < 0) return NULL;
 	if(SHA256_Final(sha256, &hasher->sha256) < 0) return NULL;
 	str_t *sha1hex = tohex(sha1, SHA_DIGEST_LENGTH);
