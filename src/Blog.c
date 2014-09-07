@@ -389,8 +389,7 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	TemplateWriteHTTPChunk(blog->footer, &TemplateStaticCBs, args, msg);
 	FREE(&q_HTMLSafe);
 
-	HTTPMessageWriteChunkLength(msg, 0);
-	HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
+	HTTPMessageWriteChunkv(msg, NULL, 0);
 	HTTPMessageEnd(msg);
 
 	for(index_t i = 0; URIs[i]; ++i) FREE(&URIs[i]);
@@ -415,8 +414,7 @@ static bool_t getCompose(BlogRef const blog, HTTPMessageRef const msg, HTTPMetho
 	HTTPMessageWriteHeader(msg, "Transfer-Encoding", "chunked");
 	HTTPMessageBeginBody(msg);
 	TemplateWriteHTTPChunk(blog->compose, NULL, NULL, msg);
-	HTTPMessageWriteChunkLength(msg, 0);
-	HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
+	HTTPMessageWriteChunkv(msg, NULL, 0);
 	HTTPMessageEnd(msg);
 
 	EFSSessionFree(&session);

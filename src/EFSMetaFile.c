@@ -9,6 +9,8 @@
 struct EFSMetaFile {
 	byte_t *buf;
 	size_t len;
+
+	uint64_t metaFileID;
 };
 
 static yajl_callbacks const callbacks;
@@ -33,6 +35,7 @@ void EFSMetaFileFree(EFSMetaFileRef *const metaptr) {
 	if(!meta) return;
 	FREE(&meta->buf);
 	meta->len = 0;
+	meta->metaFileID = 0;
 	FREE(metaptr); meta = NULL;
 }
 
@@ -98,12 +101,12 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_
 		return 0; // TODO: Should this warrant an actual error? Or should we ignore it since we can still store the data?
 	}
 
-	uint64_t const metaFileID = add_metafile(txn, conn, fileID, targetURI);
+	meta->metaFileID = add_metafile(txn, conn, fileID, targetURI);
 
 	parser_context context = {
 		.conn = conn,
 		.txn = txn,
-		.metaFileID = metaFileID,
+		.metaFileID = meta->metaFileID,
 		.targetURI = targetURI,
 		.state = s_start,
 		.field = NULL,
@@ -125,6 +128,10 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_
 	FREE(&context.field);
 	yajl_free(parser); parser = NULL;
 	return 0;
+}
+uint64_t EFSMetaFileGetID(EFSMetaFileRef const meta) {
+	if(!meta) return 0;
+	return meta->metaFileID;
 }
 
 

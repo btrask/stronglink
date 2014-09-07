@@ -149,7 +149,7 @@ int db_cursor(MDB_txn *const txn, MDB_dbi const dbi, MDB_cursor **const cur) {
 int db_cursor_get(MDB_cursor *const cur, MDB_val *const key, MDB_val *const val, MDB_cursor_op const op) {
 	assert(cur);
 	// MDB workarounds
-	// - Inconsistent dupsort cursor initialization rules (prev/next init, first/last don't)
+	// - Keys should be optional for MDB_NEXT/PREV_DUP (without them, fail instead of initializing)
 	switch(op) {
 		case MDB_PREV_DUP:
 		case MDB_NEXT_DUP: {

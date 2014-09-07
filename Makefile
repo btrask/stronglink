@@ -61,6 +61,7 @@ OBJECTS := \
 	$(BUILD_DIR)/fts.o \
 	$(BUILD_DIR)/strndup.o \
 	$(BUILD_DIR)/async.o \
+	$(BUILD_DIR)/async_cond.o \
 	$(BUILD_DIR)/async_fs.o \
 	$(BUILD_DIR)/async_sem.o \
 	$(BUILD_DIR)/async_mutex.o \

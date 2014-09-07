@@ -208,11 +208,17 @@ static MDB_cursor_op op(int const dir, MDB_cursor_op const x) {
 	uint64_t const targetURI_id = db_column(metaFile_val, 1);
 	DB_VAL(targetURI_val, 1);
 	db_bind(targetURI_val, targetURI_id);
-	DB_VAL(fileID_val, 1);
-	db_bind(fileID_val, fileID);
-	rc = mdb_cursor_get(step_files, targetURI_val, fileID_val, MDB_GET_BOTH_RANGE);
-	if(MDB_NOTFOUND == rc && dir < 0) [self step:dir];
-	[self step:-dir];
+	if(sortID == actualSortID) {
+		DB_VAL(fileID_val, 1);
+		db_bind(fileID_val, fileID);
+		rc = mdb_cursor_get(step_files, targetURI_val, fileID_val, MDB_GET_BOTH_RANGE);
+		if(MDB_SUCCESS != rc) return;
+		uint64_t const actual = db_column(fileID_val, 0);
+		if(fileID == actual) return (void)[self step:-dir];
+		if(dir > 0) return (void)[self step:-1];
+	} else {
+		db_cursor_get(step_files, targetURI_val, NULL, MDB_SET);
+	}
 }
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
 	MDB_val fileID_val[1];
@@ -448,8 +454,10 @@ static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str
 	DB_VAL(sortID_val, 1);
 	db_bind(sortID_val, sortID);
 	int rc = db_cursor_get(metafiles, sortID_val, NULL, MDB_SET_RANGE);
-	if(MDB_NOTFOUND == rc && dir < 0) [self stepMeta:dir];
-	return [self stepMeta:-dir];
+	if(MDB_SUCCESS != rc) return invalid(dir);
+	uint64_t const actual = db_column(sortID_val, 0);
+	if(sortID != actual && dir > 0) return [self stepMeta:-1];
+	return actual;
 }
 - (uint64_t)currentMeta:(int const)dir {
 	MDB_val metaFileID_val[1];
@@ -459,9 +467,9 @@ static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str
 }
 - (uint64_t)stepMeta:(int const)dir {
 	MDB_val metaFileID_val[1];
-	int rc = mdb_cursor_get(metafiles, metaFileID_val, NULL, op(dir, MDB_NEXT));
-	if(MDB_SUCCESS != rc) return invalid(dir);
-	return db_column(metaFileID_val, 0);
+	int rc = db_cursor_get(metafiles, metaFileID_val, NULL, op(dir, MDB_NEXT));
+	if(MDB_SUCCESS == rc) return db_column(metaFileID_val, 0);
+	return invalid(dir);
 }
 - (bool_t)match:(uint64_t const)metaFileID {
 	return true;
@@ -542,8 +550,10 @@ static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str
 	DB_VAL(sortID_val, 1);
 	db_bind(sortID_val, sortID);
 	int rc = db_cursor_get(metafiles, &token_val, sortID_val, MDB_GET_BOTH_RANGE);
-	if(MDB_NOTFOUND == rc && dir < 0) [self stepMeta:dir];
-	return [self stepMeta:-dir];
+	if(MDB_SUCCESS != rc) return invalid(dir);
+	uint64_t const actual = db_column(sortID_val, 0);
+	if(sortID != actual && dir > 0) return [self stepMeta:-1];
+	return actual;
 }
 - (uint64_t)currentMeta:(int const)dir {
 	MDB_val metaFileID_val[1];
@@ -556,13 +566,11 @@ static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str
 	MDB_val metaFileID_val[1];
 	rc = db_cursor_get(metafiles, NULL, metaFileID_val, op(dir, MDB_NEXT_DUP));
 	if(MDB_SUCCESS == rc) return db_column(metaFileID_val, 0);
-	if(MDB_NOTFOUND == rc) return invalid(dir);
+	// MDB bug workaround: MDB_NEXT/PREV_DUP with key doesn't initialize cursor.
 	MDB_val token_val = { tokens[0].len, tokens[0].str };
-	rc = db_cursor_get(metafiles, &token_val, NULL, MDB_SET);
-	if(MDB_SUCCESS != rc) return invalid(dir);
-	rc = db_cursor_get(metafiles, NULL, metaFileID_val, op(dir, MDB_FIRST_DUP));
-	if(MDB_SUCCESS != rc) return invalid(dir);
-	return db_column(metaFileID_val, 0);
+	rc = db_cursor_get(metafiles, &token_val, metaFileID_val, op(dir, MDB_FIRST_DUP));
+	if(MDB_SUCCESS == rc) return db_column(metaFileID_val, 0);
+	return invalid(dir);
 }
 - (bool_t)match:(uint64_t const)metaFileID {
 	MDB_val token_val = { tokens[0].len, tokens[0].str };
@@ -636,8 +644,10 @@ static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str
 	DB_VAL(sortID_val, 1);
 	db_bind(sortID_val, sortID);
 	int rc = db_cursor_get(metafiles, metadata_val, sortID_val, MDB_GET_BOTH_RANGE);
-	if(MDB_NOTFOUND == rc && dir < 0) [self stepMeta:dir];
-	return [self stepMeta:-dir];
+	if(MDB_SUCCESS != rc) return invalid(dir);
+	uint64_t const actual = db_column(sortID_val, 0);
+	if(sortID != actual && dir > 0) return [self stepMeta:-1];
+	return actual;
 }
 - (uint64_t)currentMeta:(int const)dir {
 	MDB_val metaFileID_val[1];
@@ -650,15 +660,13 @@ static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str
 	MDB_val metaFileID_val[1];
 	rc = db_cursor_get(metafiles, NULL, metaFileID_val, op(dir, MDB_NEXT_DUP));
 	if(MDB_SUCCESS == rc) return db_column(metaFileID_val, 0);
-	if(MDB_NOTFOUND == rc) return invalid(dir);
+	// MDB bug workaround: MDB_NEXT/PREV_DUP with key doesn't initialize cursor.
 	DB_VAL(metadata_val, 2);
 	db_bind(metadata_val, value_id);
 	db_bind(metadata_val, field_id);
-	rc = db_cursor_get(metafiles, metadata_val, NULL, MDB_SET);
-	if(MDB_SUCCESS != rc) return invalid(dir);
-	rc = db_cursor_get(metafiles, NULL, metaFileID_val, op(dir, MDB_FIRST_DUP));
-	if(MDB_SUCCESS != rc) return invalid(dir);
-	return db_column(metaFileID_val, 0);
+	rc = db_cursor_get(metafiles, metadata_val, metaFileID_val, op(dir, MDB_FIRST_DUP));
+	if(MDB_SUCCESS == rc) return db_column(metaFileID_val, 0);
+	return invalid(dir);
 }
 - (bool_t)match:(uint64_t const)metaFileID {
 	DB_VAL(metadata_val, 2);
@@ -780,7 +788,7 @@ void EFSFilterSeek(EFSFilterRef const filter, int const dir, uint64_t const sort
 }
 bool_t EFSFilterStep(EFSFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID) {
 	assert(filter);
-	if(![(EFSFilter *)filter step:dir]) return false;
+	if(dir && ![(EFSFilter *)filter step:dir]) return false;
 	[(EFSFilter *)filter current:dir :sortID :fileID];
 	return true;
 }
@@ -788,4 +796,26 @@ uint64_t EFSFilterAge(EFSFilterRef const filter, uint64_t const sortID, uint64_t
 	assert(filter);
 	return [(EFSFilter *)filter age:sortID :fileID];
 }
+str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, MDB_txn *const txn, EFSConnection const *const conn) {
+	for(;;) {
+		uint64_t sortID, fileID;
+		if(!EFSFilterStep(filter, dir, &sortID, &fileID)) return NULL;
+//		fprintf(stderr, "step: %llu, %llu\n", sortID, fileID);
+
+		uint64_t const age = EFSFilterAge(filter, sortID, fileID);
+//		fprintf(stderr, "{%llu, %llu} -> %llu\n", sortID, fileID, age);
+		if(age != sortID) continue;
+
+		DB_VAL(fileID_val, 1);
+		db_bind(fileID_val, fileID);
+		MDB_val file_val[1];
+		int rc = mdb_get(txn, conn->fileByID, fileID_val, file_val);
+		assertf(MDB_SUCCESS == rc, "Database error %s", mdb_strerror(rc));
+
+		strarg_t const hash = db_column_text(txn, conn->schema, file_val, 0);
+		assert(hash);
+		return EFSFormatURI(EFS_INTERNAL_ALGO, hash);
+	}
+}
+
 

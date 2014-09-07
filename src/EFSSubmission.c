@@ -220,21 +220,7 @@ EFSSubmissionRef EFSSubmissionCreateAndAdd(EFSSessionRef const session, strarg_t
 	err_t err = 0;
 	err = err < 0 ? err : EFSSubmissionWriteFrom(sub, read, context);
 	err = err < 0 ? err : EFSSubmissionAddFile(sub);
-	if(err >= 0) {
-		EFSRepoRef const repo = EFSSubmissionGetRepo(sub);
-		EFSConnection const *conn = EFSRepoDBOpen(repo);
-		int rc;
-		MDB_txn *txn = NULL;
-		rc = mdb_txn_begin(conn->env, NULL, MDB_RDWR, &txn);
-		if(MDB_SUCCESS != rc) err = -1;
-		err = err < 0 ? err : EFSSubmissionStore(sub, conn, txn);
-		if(err < 0) {
-			mdb_txn_abort(txn); txn = NULL;
-		} else {
-			rc = mdb_txn_commit(txn); txn = NULL;
-		}
-		EFSRepoDBClose(repo, &conn);
-	}
+	err = err < 0 ? err : EFSSubmissionBatchStore(&sub, 1);
 	if(err < 0) EFSSubmissionFree(&sub);
 	return sub;
 }
@@ -344,11 +330,14 @@ err_t EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const 
 		return -1;
 	}
 	err_t err = 0;
+	uint64_t sortID = 0;
 	for(index_t i = 0; i < count; ++i) {
 		assert(list[i]);
 		assert(repo == EFSSessionGetRepo(list[i]->session));
 		err = EFSSubmissionStore(list[i], conn, txn);
 		if(err < 0) break;
+		uint64_t const metaFileID = EFSMetaFileGetID(list[i]->meta);
+		if(metaFileID > sortID) sortID = metaFileID;
 	}
 	if(err < 0) {
 		mdb_txn_abort(txn); txn = NULL;
@@ -357,6 +346,7 @@ err_t EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const 
 		if(MDB_SUCCESS != rc) err = -1;
 	}
 	EFSRepoDBClose(repo, &conn);
+	if(err >= 0) EFSRepoSubmissionEmit(repo, sortID);
 	return err;
 }
 

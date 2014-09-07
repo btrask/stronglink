@@ -357,12 +357,14 @@ ssize_t HTTPMessageWriteChunkv(HTTPMessageRef const msg, uv_buf_t const parts[],
 	uint64_t total = 0;
 	for(index_t i = 0; i < count; ++i) total += parts[i].len;
 	HTTPMessageWriteChunkLength(msg, total);
-	async_state state = { .thread = co_active() };
-	uv_write_t req;
-	req.data = &state;
-	uv_write(&req, (uv_stream_t *)&msg->conn->stream, parts, count, async_write_cb);
-	async_yield();
-	// TODO: We have to ensure that uv_write() really wrote everything or else we're messing up the chunked encoding. Returning partial writes doesn't cut it.
+	if(total > 0) {
+		async_state state = { .thread = co_active() };
+		uv_write_t req;
+		req.data = &state;
+		uv_write(&req, (uv_stream_t *)&msg->conn->stream, parts, count, async_write_cb);
+		async_yield();
+		// TODO: We have to ensure that uv_write() really wrote everything or else we're messing up the chunked encoding. Returning partial writes doesn't cut it.
+	}
 	HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
 	return total;//state.status;
 	// TODO: Hack? The status is always zero for me even when it wrote, so is uv_write() guaranteed to write everything?

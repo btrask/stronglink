@@ -78,6 +78,11 @@ int async_sem_timedwait(async_sem_t *const sem, uint64_t const future) {
 		--sem->value;
 		return 0;
 	}
+	uint64_t now = 0;
+	if(future < UINT64_MAX) {
+		now = uv_now(loop);
+		if(now >= future) return UV_ETIMEDOUT;
+	}
 	thread_list us[1];
 	us->sem = sem;
 	us->thread = co_active();
@@ -92,10 +97,11 @@ int async_sem_timedwait(async_sem_t *const sem, uint64_t const future) {
 	if(future < UINT64_MAX) {
 		timer->data = us;
 		uv_timer_init(loop, timer);
-		uv_timer_start(timer, timeout_cb, future - uv_now(loop), 0);
+		uv_timer_start(timer, timeout_cb, future - now, 0);
 	}
 	async_yield();
 	if(future < UINT64_MAX) {
+		timer->data = us->thread;
 		uv_close((uv_handle_t *)&timer, async_close_cb);
 		async_yield();
 	}

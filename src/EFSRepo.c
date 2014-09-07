@@ -17,6 +17,10 @@ struct EFSRepo {
 	count_t conn_count;
 	async_sem_t *conn_sem;
 
+	async_mutex_t *sub_mutex;
+	async_cond_t *sub_cond;
+	uint64_t sub_latest;
+
 	EFSPullRef *pulls;
 	count_t pull_count;
 	count_t pull_size;
@@ -93,7 +97,9 @@ EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 	}
 	repo->conn_count = CONNECTION_COUNT;
 	repo->conn_sem = async_sem_create(CONNECTION_COUNT);
-	if(!repo->conn_sem) {
+	repo->sub_mutex = async_mutex_create();
+	repo->sub_cond = async_cond_create();
+	if(!repo->conn_sem || !repo->sub_mutex || !repo->sub_cond) {
 		EFSRepoFree(&repo);
 		return NULL;
 	}
@@ -116,6 +122,9 @@ void EFSRepoFree(EFSRepoRef *const repoptr) {
 	repo->conn_count = 0;
 	async_sem_free(repo->conn_sem); repo->conn_sem = NULL;
 
+	async_mutex_free(repo->sub_mutex); repo->sub_mutex = NULL;
+	async_cond_free(repo->sub_cond); repo->sub_cond = NULL;
+
 	FREE(&repo->dir);
 	FREE(&repo->dataDir);
 	FREE(&repo->tempDir);
@@ -123,6 +132,7 @@ void EFSRepoFree(EFSRepoRef *const repoptr) {
 	FREE(&repo->DBPath);
 	FREE(repoptr); repo = NULL;
 }
+
 strarg_t EFSRepoGetDir(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->dir;
@@ -149,6 +159,7 @@ strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->cacheDir;
 }
+
 EFSConnection const *EFSRepoDBOpen(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	async_sem_wait(repo->conn_sem);
@@ -168,6 +179,24 @@ void EFSRepoDBClose(EFSRepoRef const repo, EFSConnection const **const connptr) 
 	++repo->conn_count;
 	async_sem_post(repo->conn_sem);
 	*connptr = NULL;
+}
+
+void EFSRepoSubmissionEmit(EFSRepoRef const repo, uint64_t const sortID) {
+	assert(repo);
+	async_mutex_lock(repo->sub_mutex);
+	if(sortID > repo->sub_latest) {
+		repo->sub_latest = sortID;
+		async_cond_broadcast(repo->sub_cond);
+	}
+	async_mutex_unlock(repo->sub_mutex);
+}
+bool_t EFSRepoSubmissionWait(EFSRepoRef const repo, uint64_t const sortID, uint64_t const future) {
+	assert(repo);
+	async_mutex_lock(repo->sub_mutex);
+	while(repo->sub_latest <= sortID && async_cond_timedwait(repo->sub_cond, repo->sub_mutex, future) >= 0);
+	bool_t const res = repo->sub_latest > sortID;
+	async_mutex_unlock(repo->sub_mutex);
+	return res;
 }
 
 // TODO: Separate methods for loading and starting?

@@ -9,15 +9,15 @@
 // Monitor (synchronization)
 
 struct async_cond_s {
-	unsigned numWriters;
+	unsigned numWaiters;
 	async_sem_t *sem;
 	async_mutex_t *internalMutex;
-}
+};
 
 async_cond_t *async_cond_create(void) {
-	async_cond_t *const cond = calloc(sizeof(struct async_cond_s));
+	async_cond_t *const cond = calloc(1, sizeof(struct async_cond_s));
 	if(!cond) return NULL;
-	cond->numWriters = 0;
+	cond->numWaiters = 0;
 	cond->sem = async_sem_create(0);
 	cond->internalMutex = async_mutex_create();
 	if(!cond->sem || !cond->internalMutex) {
@@ -28,7 +28,7 @@ async_cond_t *async_cond_create(void) {
 }
 void async_cond_free(async_cond_t *const cond) {
 	if(!cond) return;
-	assert(0 == cond->numWriters);
+	assert(0 == cond->numWaiters);
 	async_sem_free(cond->sem); cond->sem = NULL;
 	async_mutex_free(cond->internalMutex); cond->internalMutex = NULL;
 	free(cond);

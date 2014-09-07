@@ -234,24 +234,9 @@ str_t **EFSSessionCopyFilteredURIs(EFSSessionRef const session, EFSFilterRef con
 	EFSFilterPrepare(filter, txn, conn);
 	EFSFilterSeek(filter, -1, UINT64_MAX, UINT64_MAX); // TODO: Pagination
 	while(count < max) {
-		uint64_t sortID, fileID;
-		if(!EFSFilterStep(filter, -1, &sortID, &fileID)) break;
-//		fprintf(stderr, "step: %llu, %llu\n", sortID, fileID);
-
-		uint64_t const age = EFSFilterAge(filter, sortID, fileID);
-//		fprintf(stderr, "{%llu, %llu} -> %llu\n", sortID, fileID, age);
-		if(age != sortID) continue;
-
-		DB_VAL(fileID_val, 1);
-		db_bind(fileID_val, fileID);
-		MDB_val file_val[1];
-		rc = mdb_get(txn, conn->fileByID, fileID_val, file_val);
-		if(MDB_NOTFOUND == rc) continue;
-		assert(MDB_SUCCESS == rc);
-
-		strarg_t const hash = db_column_text(txn, conn->schema, file_val, 0);
-		assert(hash);
-		URIs[count++] = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
+		str_t *const URI = EFSFilterCopyNextURI(filter, -1, txn, conn);
+		if(!URI) break;
+		URIs[count++] = URI;
 	}
 
 	mdb_txn_abort(txn); txn = NULL;

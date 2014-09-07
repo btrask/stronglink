@@ -1,9 +1,13 @@
 #define _GNU_SOURCE
+#include <assert.h>
+#include "async.h"
 #include "common.h"
 #include "EarthFS.h"
 #include "http/HTTPServer.h"
 #include "http/MultipartForm.h"
 #include "http/QueryString.h"
+
+#define QUERY_BATCH_SIZE 50
 
 typedef struct {
 	strarg_t cookie;
@@ -176,41 +180,93 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 		filter = EFSFilterCreate(EFSAllFilterType);
 	}
 
-	// TODO: Use EFSSessionCopyFilteredURIs? Streaming version?
-	HTTPMessageSendStatus(msg, 500);
-/*	sqlite3f *db = EFSRepoDBConnect(repo);
-	EFSFilterCreateTempTables(db);
-	EFSFilterExec(filter, db, 0);
-	sqlite3_stmt *const select = QUERY(db,
-		"SELECT f.internal_hash\n"
-		"FROM files AS f\n"
-		"INNER JOIN results AS r ON (f.file_id = r.file_id)\n"
-		"ORDER BY r.sort DESC LIMIT 50");
+	str_t **URIs = malloc(sizeof(str_t *) * QUERY_BATCH_SIZE);
+	if(!URIs) {
+		HTTPMessageSendStatus(msg, 500);
+		EFSFilterFree(&filter);
+		EFSJSONFilterParserFree(&parser);
+		EFSSessionFree(&session);
+		return true;
+	}
+
+	EFSConnection const *conn = EFSRepoDBOpen(repo);
+	assert(conn);
+	MDB_txn *txn = NULL;
+	int rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
+	assertf(MDB_SUCCESS == rc, "Database error %s", mdb_strerror(rc));
+
+	EFSFilterPrepare(filter, txn, conn);
+
+	uint64_t sortID = 0;
+	count_t count = 0;
+	while(count < QUERY_BATCH_SIZE) { // TODO: History query parameter?
+		str_t *const URI = EFSFilterCopyNextURI(filter, -1, txn, conn);
+		if(!URI) break;
+		URIs[count++] = URI;
+		if(!sortID) EFSFilterStep(filter, 0, &sortID, NULL);
+	}
+
+	mdb_txn_abort(txn); txn = NULL;
+	EFSRepoDBClose(repo, &conn);
 
 	HTTPMessageWriteResponse(msg, 200, "OK");
 	HTTPMessageWriteHeader(msg, "Transfer-Encoding", "chunked");
-	// TODO: Ugh, more stuff to support.
 	HTTPMessageWriteHeader(msg, "Content-Type", "text/uri-list; charset=utf-8");
 	HTTPMessageBeginBody(msg);
 
-	while(SQLITE_ROW == STEP(select)) {
-		strarg_t const hash = (strarg_t)sqlite3_column_text(select, 0);
-		str_t *URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
+	index_t i = count;
+	while(i--) {
 		uv_buf_t const parts[] = {
-			uv_buf_init((char *)URI, strlen(URI)),
-			uv_buf_init("\n", 1),
+			uv_buf_init((char *)URIs[i], strlen(URIs[i])),
 			uv_buf_init("\r\n", 2),
 		};
-		HTTPMessageWritev(msg, parts, numberof(parts));
+		HTTPMessageWriteChunkv(msg, parts, numberof(parts));
+		FREE(&URIs[i]);
 	}
-	sqlite3f_finalize(select);
+	count = 0;
 
-	HTTPMessageWriteChunkLength(msg, 0);
-	HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
+
+	for(;;) {
+		uint64_t const timeout = uv_now(loop)+(1000 * 30);
+		bool_t const ready = EFSRepoSubmissionWait(repo, sortID, timeout);
+		if(!ready) {
+			uv_buf_t const parts[] = { uv_buf_init("\r\n", 2) };
+			if(HTTPMessageWriteChunkv(msg, parts, numberof(parts)) < 0) break;
+			continue;
+		}
+
+		conn = EFSRepoDBOpen(repo);
+		assert(conn);
+		rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
+		assertf(MDB_SUCCESS == rc, "Database error %s", mdb_strerror(rc));
+		EFSFilterPrepare(filter, txn, conn);
+		EFSFilterSeek(filter, +1, sortID+1, 0);
+		while(count < QUERY_BATCH_SIZE) {
+			str_t *const URI = EFSFilterCopyNextURI(filter, 1, txn, conn);
+			if(!URI) break;
+			URIs[count++] = URI;
+		}
+		EFSFilterStep(filter, 0, &sortID, NULL);
+		mdb_txn_abort(txn); txn = NULL;
+		EFSRepoDBClose(repo, &conn);
+
+
+		for(i = 0; i < count; ++i) {
+			uv_buf_t const parts[] = {
+				uv_buf_init((char *)URIs[i], strlen(URIs[i])),
+				uv_buf_init("\r\n", 2),
+			};
+			HTTPMessageWriteChunkv(msg, parts, numberof(parts));
+			FREE(&URIs[i]);
+		}
+		count = 0;
+	}
+
+
+	HTTPMessageWriteChunkv(msg, NULL, 0);
 	HTTPMessageEnd(msg);
 
-	EFSRepoDBClose(repo, &db);*/
-
+	FREE(&URIs);
 	EFSFilterFree(&filter);
 	EFSJSONFilterParserFree(&parser);
 	EFSSessionFree(&session);

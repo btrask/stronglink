@@ -50,6 +50,8 @@ str_t *EFSRepoCopyTempPath(EFSRepoRef const repo);
 strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo);
 EFSConnection const *EFSRepoDBOpen(EFSRepoRef const repo);
 void EFSRepoDBClose(EFSRepoRef const repo, EFSConnection const **const dbptr);
+void EFSRepoSubmissionEmit(EFSRepoRef const repo, uint64_t const sortID);
+bool_t EFSRepoSubmissionWait(EFSRepoRef const repo, uint64_t const sortID, uint64_t const future);
 void EFSRepoStartPulls(EFSRepoRef const repo);
 
 typedef struct {
@@ -94,6 +96,7 @@ void EFSMetaFileFree(EFSMetaFileRef *const metaptr);
 err_t EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len);
 err_t EFSMetaFileEnd(EFSMetaFileRef const meta);
 err_t EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_t const URI, EFSConnection const *const conn, MDB_txn *const txn);
+uint64_t EFSMetaFileGetID(EFSMetaFileRef const meta);
 
 typedef enum {
 	EFSFilterTypeInvalid = 0,
@@ -121,6 +124,7 @@ err_t EFSFilterPrepare(EFSFilterRef const filter, MDB_txn *const txn, EFSConnect
 void EFSFilterSeek(EFSFilterRef const filter, int const dir, uint64_t const sortID, uint64_t const fileID);
 bool_t EFSFilterStep(EFSFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID);
 uint64_t EFSFilterAge(EFSFilterRef const filter, uint64_t const sortID, uint64_t const fileID);
+str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, MDB_txn *const txn, EFSConnection const *const conn);
 
 EFSJSONFilterParserRef EFSJSONFilterParserCreate(void);
 void EFSJSONFilterParserFree(EFSJSONFilterParserRef *const parserptr);
