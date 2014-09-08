@@ -13,7 +13,7 @@ struct cached_cookie {
 static struct cached_cookie cookie_cache[COOKIE_CACHE_SIZE] = {};
 
 static bool_t cookie_cache_lookup(uint64_t const sessionID, strarg_t const sessionKey) {
-	assert(!async_worker_get_current());
+	assert(!async_pool_get_worker());
 	if(sessionID <= 0 || !sessionKey) return false;
 	index_t const x = sessionID+sessionKey[0] % COOKIE_CACHE_SIZE;
 	if(cookie_cache[x].sessionID != sessionID) return false;
@@ -21,7 +21,7 @@ static bool_t cookie_cache_lookup(uint64_t const sessionID, strarg_t const sessi
 	return 0 == passcmp(sessionKey, cookie_cache[x].sessionKey);
 }
 static void cookie_cache_store(uint64_t const sessionID, strarg_t const sessionKey) {
-	assert(!async_worker_get_current());
+	assert(!async_pool_get_worker());
 	if(sessionID <= 0 || !sessionKey) return;
 	index_t const x = sessionID+sessionKey[0] % COOKIE_CACHE_SIZE;
 	FREE(&cookie_cache[x].sessionKey);

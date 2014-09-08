@@ -142,9 +142,14 @@ async_worker_t *async_worker_create(void);
 void async_worker_free(async_worker_t *const worker);
 void async_worker_enter(async_worker_t *const worker);
 void async_worker_leave(async_worker_t *const worker);
-async_worker_t *async_worker_get_current(void);
 
-// async_sqlite.c
-void async_sqlite_register(void);
+// async_pool.c
+typedef struct async_pool_s async_pool_t;
+async_pool_t *async_pool_get_shared(void);
+async_pool_t *async_pool_create(void);
+void async_pool_free(async_pool_t *const pool);
+void async_pool_enter(async_pool_t *const pool);
+void async_pool_leave(async_pool_t *const pool);
+async_worker_t *async_pool_get_worker(void);
 
 #endif

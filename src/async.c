@@ -9,6 +9,7 @@ thread_local uv_loop_t *loop = NULL;
 thread_local cothread_t yield = NULL;
 
 void async_init(void) {
+	if(!getenv("UV_THREADPOOL_SIZE")) putenv("UV_THREADPOOL_SIZE=1");
 	uv_loop_init(&_loop);
 	loop = &_loop;
 	yield = co_active();
@@ -57,38 +58,12 @@ void async_wakeup(cothread_t const thread) {
 	yield = original;
 }
 
-typedef struct {
-	cothread_t thread;
-	unsigned char *buf;
-	size_t len;
-	int status;
-} random_state;
-static void random_cb(uv_work_t *const req) {
-	random_state *const state = req->data;
-	if(RAND_bytes(state->buf, state->len) <= 0) state->status = -1;
-	// Apparently zero is an error too.
-}
-static void after_random_cb(uv_work_t *const req, int const status) {
-	random_state *const state = req->data;
-	if(status < 0) state->status = status;
-	co_switch(state->thread);
-}
 int async_random(unsigned char *const buf, size_t const len) {
-	random_state state;
-	state.buf = buf;
-	state.len = len;
-	state.status = 0;
-	uv_work_t req;
-	req.data = &state;
-	if(!yield) {
-		random_cb(&req);
-		return state.status;
-	}
-	state.thread = co_active();
-	int const err = uv_queue_work(loop, &req, random_cb, after_random_cb);
-	if(err < 0) return err;
-	async_yield();
-	return state.status;
+	async_pool_enter(NULL);
+	int const rc = RAND_bytes(buf, len);
+	async_pool_leave(NULL);
+	if(rc <= 0) return -1; // Zero is an error too.
+	return 0;
 }
 
 typedef struct {

@@ -3,8 +3,6 @@
 #include "async.h"
 #include "EarthFS.h"
 
-#define CONNECTION_COUNT 4
-
 struct EFSRepo {
 	str_t *dir;
 	str_t *dataDir;
@@ -12,10 +10,7 @@ struct EFSRepo {
 	str_t *cacheDir;
 	str_t *DBPath;
 
-	EFSConnection conn;
-	async_worker_t *workers[CONNECTION_COUNT];
-	count_t conn_count;
-	async_sem_t *conn_sem;
+	EFSConnection conn[1];
 
 	async_mutex_t *sub_mutex;
 	async_cond_t *sub_cond;
@@ -45,7 +40,7 @@ EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 	}
 
 
-	EFSConnection *const conn = &repo->conn;
+	EFSConnection *const conn = repo->conn;
 	mdb_env_create(&conn->env);
 	mdb_env_set_mapsize(conn->env, 1024 * 1024 * 256);
 	mdb_env_set_maxreaders(conn->env, 126); // Default
@@ -88,18 +83,9 @@ EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 	debug_data(conn);
 
 
-	for(index_t i = 0; i < CONNECTION_COUNT; ++i) {
-		repo->workers[i] = async_worker_create();
-		if(!repo->workers[i]) {
-			EFSRepoFree(&repo);
-			return NULL;
-		}
-	}
-	repo->conn_count = CONNECTION_COUNT;
-	repo->conn_sem = async_sem_create(CONNECTION_COUNT);
 	repo->sub_mutex = async_mutex_create();
 	repo->sub_cond = async_cond_create();
-	if(!repo->conn_sem || !repo->sub_mutex || !repo->sub_cond) {
+	if(!repo->sub_mutex || !repo->sub_cond) {
 		EFSRepoFree(&repo);
 		return NULL;
 	}
@@ -109,27 +95,22 @@ void EFSRepoFree(EFSRepoRef *const repoptr) {
 	EFSRepoRef repo = *repoptr;
 	if(!repo) return;
 
-	for(index_t i = 0; i < repo->pull_count; ++i) {
-		EFSPullFree(&repo->pulls[i]);
-	}
-	FREE(&repo->pulls);
-
-	EFSConnection *const conn = &repo->conn;
-	mdb_env_close(conn->env); conn->env = NULL;
-	for(index_t i = 0; i < CONNECTION_COUNT; ++i) {
-		async_worker_free(repo->workers[i]); repo->workers[i] = NULL;
-	}
-	repo->conn_count = 0;
-	async_sem_free(repo->conn_sem); repo->conn_sem = NULL;
-
-	async_mutex_free(repo->sub_mutex); repo->sub_mutex = NULL;
-	async_cond_free(repo->sub_cond); repo->sub_cond = NULL;
-
 	FREE(&repo->dir);
 	FREE(&repo->dataDir);
 	FREE(&repo->tempDir);
 	FREE(&repo->cacheDir);
 	FREE(&repo->DBPath);
+
+	mdb_env_close(repo->conn->env); repo->conn->env = NULL;
+
+	async_mutex_free(repo->sub_mutex); repo->sub_mutex = NULL;
+	async_cond_free(repo->sub_cond); repo->sub_cond = NULL;
+
+	for(index_t i = 0; i < repo->pull_count; ++i) {
+		EFSPullFree(&repo->pulls[i]);
+	}
+	FREE(&repo->pulls);
+
 	FREE(repoptr); repo = NULL;
 }
 
@@ -161,23 +142,13 @@ strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo) {
 }
 
 EFSConnection const *EFSRepoDBOpen(EFSRepoRef const repo) {
-	if(!repo) return NULL;
-	async_sem_wait(repo->conn_sem);
-	assert(repo->conn_count > 0);
-	--repo->conn_count;
-	async_worker_t *const worker = repo->workers[repo->conn_count];
-	repo->workers[repo->conn_count] = NULL;
-	async_worker_enter(worker);
-	return &repo->conn;
+	assert(repo);
+	async_pool_enter(NULL);
+	return repo->conn;
 }
 void EFSRepoDBClose(EFSRepoRef const repo, EFSConnection const **const connptr) {
-	if(!repo) return;
-	async_worker_t *const worker = async_worker_get_current();
-	async_worker_leave(worker);
-	assert(repo->conn_count < CONNECTION_COUNT);
-	repo->workers[repo->conn_count] = worker;
-	++repo->conn_count;
-	async_sem_post(repo->conn_sem);
+	assert(repo);
+	async_pool_leave(NULL);
 	*connptr = NULL;
 }
 

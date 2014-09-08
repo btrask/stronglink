@@ -108,8 +108,7 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 	}
 
 
-	// TODO: Have real thread pool functions instead of abusing the database connection.
-	EFSConnection const *conn = EFSRepoDBOpen(blog->repo);
+	async_pool_enter(NULL);
 	str_t *tmpPath = NULL;
 	int fd = -1;
 	byte_t const *buf = NULL;
@@ -156,7 +155,7 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 
 	munmap((byte_t *)buf, info->size);
 
-	EFSRepoDBClose(blog->repo, &conn);
+	async_pool_leave(NULL);
 
 	FREE(&tmpPath);
 	EFSFileInfoCleanup(info);
@@ -170,7 +169,7 @@ err:
 	munmap((byte_t *)buf, info->size); buf = NULL;
 	if(fd >= 0) { close(fd); fd = -1; }
 	EFSFileInfoCleanup(info);
-	EFSRepoDBClose(blog->repo, &conn);
+	async_pool_leave(NULL);
 	return -1;
 }
 typedef struct {

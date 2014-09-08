@@ -10,12 +10,9 @@ struct async_worker_s {
 	uv_async_t async;
 };
 
-static thread_local async_worker_t *current = NULL;
-
 static void work(void *const arg) {
 	async_worker_t *const worker = arg;
 	async_init();
-	current = worker;
 	worker->main = yield;
 	yield = NULL;
 	for(;;) {
@@ -60,9 +57,9 @@ void async_worker_free(async_worker_t *const worker) {
 	async_yield();
 	free(worker);
 }
+
 void async_worker_enter(async_worker_t *const worker) {
 	assert(worker);
-	assert(!current);
 	assert(!worker->work);
 	worker->work = co_active();
 	async_call(enter, worker);
@@ -70,13 +67,8 @@ void async_worker_enter(async_worker_t *const worker) {
 }
 void async_worker_leave(async_worker_t *const worker) {
 	assert(worker);
-	assert(current);
-	assert(worker == current);
 	assert(co_active() == worker->work);
 	co_switch(worker->main);
 	// Now on original thread
-}
-async_worker_t *async_worker_get_current(void) {
-	return current;
 }
 
