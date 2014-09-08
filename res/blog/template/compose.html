@@ -11,13 +11,16 @@
 .textarea { left: 0; width: 50%; outline: none; }
 .preview { right: 0; width: 50%; border-left: 1px solid #555; }
 .scroll { overflow: auto; overflow-x: hidden; }
+.button { background: -webkit-linear-gradient(top, #eee, #ddd); background: -moz-linear-gradient(top, #eee, #ddd); }
+.button:active { background: -webkit-linear-gradient(top, #ddd, #eee); background: -moz-linear-gradient(top, #ddd, #eee); }
+.submit { position: absolute; left: 0; top: 0; bottom: 0; width: 8em; border-width: 0 1px 0 0; }
 </style>
 <script src="/marked.js"></script>
 
 <form method="POST" action="/submission" enctype="multipart/form-data">
 	<div class="absolute full">
 		<div class="absolute toolbar">
-			<input type="submit">
+			<input class="border button submit" type="submit">
 		</div>
 		<div class="absolute editor">
 			<textarea id="input" name="markdown" class="absolute textarea"></textarea>
