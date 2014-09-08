@@ -1,5 +1,5 @@
 #include <yajl/yajl_parse.h>
-#include "EarthFS.h"
+#include "../EarthFS.h"
 
 #define DEPTH_MAX 5
 
@@ -50,8 +50,9 @@ EFSFilterType EFSFilterTypeFromString(strarg_t const type, size_t const len) {
 	if(substr("intersection", type, len)) return EFSIntersectionFilterType;
 	if(substr("union", type, len)) return EFSUnionFilterType;
 	if(substr("fulltext", type, len)) return EFSFulltextFilterType;
-	if(substr("backlink", type, len)) return EFSBacklinkFilterType;
 	if(substr("metadata", type, len)) return EFSMetadataFilterType;
+	if(substr("links-to", type, len)) return EFSLinksToFilterType;
+	if(substr("linked-from", type, len)) return EFSLinkedFromFilterType;
 	return EFSFilterTypeInvalid;
 }
 

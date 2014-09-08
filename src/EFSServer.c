@@ -158,7 +158,7 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 	}
 
 	EFSJSONFilterParserRef parser = NULL;
-	EFSFilterRef filter = NULL;
+	EFSFilterRef filter = EFSFilterCreate(EFSMetaFileFilterType);
 
 	if(HTTP_POST == method) {
 		// TODO: Check Content-Type header for JSON.
@@ -175,9 +175,9 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 
 			EFSJSONFilterParserWrite(parser, (str_t const *)buf, len);
 		}
-		filter = EFSJSONFilterParserEnd(parser);
+		EFSFilterAddFilterArg(filter, EFSJSONFilterParserEnd(parser));
 	} else {
-		filter = EFSFilterCreate(EFSAllFilterType);
+		EFSFilterAddFilterArg(filter, EFSFilterCreate(EFSAllFilterType));
 	}
 
 	str_t **URIs = malloc(sizeof(str_t *) * QUERY_BATCH_SIZE);
@@ -203,7 +203,7 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 		str_t *const URI = EFSFilterCopyNextURI(filter, -1, txn, conn);
 		if(!URI) break;
 		URIs[count++] = URI;
-		if(!sortID) EFSFilterStep(filter, 0, &sortID, NULL);
+		if(!sortID) EFSFilterCurrent(filter, -1, &sortID, NULL);
 	}
 
 	mdb_txn_abort(txn); txn = NULL;
@@ -242,11 +242,11 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 		EFSFilterPrepare(filter, txn, conn);
 		EFSFilterSeek(filter, +1, sortID+1, 0);
 		while(count < QUERY_BATCH_SIZE) {
-			str_t *const URI = EFSFilterCopyNextURI(filter, 1, txn, conn);
+			str_t *const URI = EFSFilterCopyNextURI(filter, +1, txn, conn);
 			if(!URI) break;
 			URIs[count++] = URI;
 		}
-		EFSFilterStep(filter, 0, &sortID, NULL);
+		EFSFilterCurrent(filter, +1, &sortID, NULL);
 		mdb_txn_abort(txn); txn = NULL;
 		EFSRepoDBClose(repo, &conn);
 

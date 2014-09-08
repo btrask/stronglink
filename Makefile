@@ -24,6 +24,7 @@ HEADERS := \
 	$(SRC_DIR)/async.h \
 	$(SRC_DIR)/bcrypt.h \
 	$(SRC_DIR)/EarthFS.h \
+	$(SRC_DIR)/filter/EFSFilter.h \
 	$(SRC_DIR)/Template.h \
 	$(SRC_DIR)/db.h \
 	$(SRC_DIR)/fts.h \
@@ -51,9 +52,12 @@ OBJECTS := \
 	$(BUILD_DIR)/EFSSubmission.o \
 	$(BUILD_DIR)/EFSHasher.o \
 	$(BUILD_DIR)/EFSMetaFile.o \
-	$(BUILD_DIR)/EFSFilter.o \
-	$(BUILD_DIR)/EFSJSONFilterParser.o \
-	$(BUILD_DIR)/EFSUserFilterParser.o \
+	$(BUILD_DIR)/filter/EFSFilter.o \
+	$(BUILD_DIR)/filter/EFSIndividualFilter.o \
+	$(BUILD_DIR)/filter/EFSCollectionFilter.o \
+	$(BUILD_DIR)/filter/EFSMetaFileFilter.o \
+	$(BUILD_DIR)/filter/EFSJSONFilterParser.o \
+	$(BUILD_DIR)/filter/EFSUserFilterParser.o \
 	$(BUILD_DIR)/EFSPull.o \
 	$(BUILD_DIR)/EFSServer.o \
 	$(BUILD_DIR)/Template.o \
@@ -158,7 +162,7 @@ $(BUILD_DIR)/sundown/%.o: $(DEPS_DIR)/sundown/%.c
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) #-I$(DEPS_DIR)/sundown/src
 
-$(BUILD_DIR)/EFSFilter.o: $(SRC_DIR)/EFSFilter.m $(HEADERS)
+$(BUILD_DIR)/filter/%.o: $(SRC_DIR)/filter/%.m $(HEADERS)
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) -Werror -Wall -Wno-unused-function -Wno-unused-variable -Wno-unused-parameter -Wno-unused-value
 

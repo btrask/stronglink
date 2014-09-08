@@ -1,6 +1,6 @@
 #include <assert.h>
 #include <ctype.h>
-#include "EarthFS.h"
+#include "../EarthFS.h"
 
 static EFSFilterRef parse_and(strarg_t *const query);
 static EFSFilterRef parse_or(strarg_t *const query);
