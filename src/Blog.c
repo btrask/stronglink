@@ -80,7 +80,7 @@ static int markdown_link(struct buf *ob, const struct buf *link, const struct bu
 
 	bufputs(ob, "<sup>[");
 	struct buf icon = BUF_STATIC("#");
-	struct buf info = BUF_STATIC("Raw hash address");
+	struct buf info = BUF_STATIC("Hash address");
 	state->link(ob, link, &info, &icon, opaque);
 	bufputs(ob, "]</sup>");
 
