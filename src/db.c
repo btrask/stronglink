@@ -148,27 +148,43 @@ int db_cursor(MDB_txn *const txn, MDB_dbi const dbi, MDB_cursor **const cur) {
 }
 int db_cursor_get(MDB_cursor *const cur, MDB_val *const key, MDB_val *const val, MDB_cursor_op const op) {
 	assert(cur);
-	// MDB workarounds
-	// - Keys should be optional for MDB_NEXT/PREV_DUP (without them, fail instead of initializing)
 	switch(op) {
+		case MDB_FIRST_DUP:
+		case MDB_LAST_DUP:
 		case MDB_PREV_DUP:
 		case MDB_NEXT_DUP: {
-			if(key) break;
 			size_t ignore;
 			int rc = mdb_cursor_count(cur, &ignore);
+			if(MDB_SUCCESS == rc) break;
+
+			// Key should be optional even if cursor isn't initialized
+			if(!key) return rc;
+
+			// Cursor isn't initialized but we have a key
+			MDB_val ignore_val;
+			MDB_val *const v = val ? val : &ignore_val;
+			rc = mdb_cursor_get(cur, key, v, MDB_SET);
 			if(MDB_SUCCESS != rc) return rc;
+			switch(op) {
+				case MDB_FIRST_DUP:
+				case MDB_NEXT_DUP:
+					return rc;
+				case MDB_LAST_DUP:
+				case MDB_PREV_DUP:
+					return mdb_cursor_get(cur, key, v, MDB_LAST_DUP);
+				default: assert(0);
+			}
 			break;
 		}
 		default: break;
 	}
-	// - Keys required when they shouldn't be
-	// - NULL values having unexpected side effects (mainly/exclusively for dupsort tables?)
 	switch(op) {
 		case MDB_GET_CURRENT:
 		case MDB_FIRST_DUP:
 		case MDB_LAST_DUP:
 		case MDB_PREV_DUP:
 		case MDB_NEXT_DUP: {
+			// Keys and values should be optional for these ops
 			MDB_val ignore1;
 			MDB_val ignore2;
 			MDB_val *const k = key ? key : &ignore1;
@@ -179,9 +195,17 @@ int db_cursor_get(MDB_cursor *const cur, MDB_val *const key, MDB_val *const val,
 		case MDB_SET:
 		case MDB_SET_KEY:
 		case MDB_SET_RANGE: {
+			// NULL values have weird side effects (DUPSORT only?)
 			MDB_val ignore;
 			MDB_val *const v = val ? val : &ignore;
 			int rc = mdb_cursor_get(cur, key, v, op);
+			return rc;
+		}
+		case MDB_GET_BOTH_RANGE: {
+			// Don't leave the cursor half-initialized
+			int rc = mdb_cursor_get(cur, key, val, op);
+			if(MDB_NOTFOUND != rc) return rc;
+			mdb_cursor_renew(mdb_cursor_txn(cur), cur);
 			return rc;
 		}
 		default:

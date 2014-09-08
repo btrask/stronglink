@@ -248,14 +248,11 @@
 }
 - (uint64_t)stepMeta:(int const)dir {
 	int rc;
-	MDB_val metaFileID_val[1];
-	rc = db_cursor_get(metafiles, NULL, metaFileID_val, op(dir, MDB_NEXT_DUP));
-	if(MDB_SUCCESS == rc) return db_column(metaFileID_val, 0);
-	// MDB bug workaround: MDB_NEXT/PREV_DUP with key doesn't initialize cursor.
 	MDB_val token_val = { tokens[0].len, tokens[0].str };
-	rc = db_cursor_get(metafiles, &token_val, metaFileID_val, op(dir, MDB_FIRST_DUP));
-	if(MDB_SUCCESS == rc) return db_column(metaFileID_val, 0);
-	return invalid(dir);
+	MDB_val metaFileID_val[1];
+	rc = db_cursor_get(metafiles, &token_val, metaFileID_val, op(dir, MDB_NEXT_DUP));
+	if(MDB_SUCCESS != rc) return invalid(dir);
+	return db_column(metaFileID_val, 0);
 }
 - (bool_t)match:(uint64_t const)metaFileID {
 	MDB_val token_val = { tokens[0].len, tokens[0].str };
@@ -341,17 +338,13 @@
 	return db_column(metaFileID_val, 0);
 }
 - (uint64_t)stepMeta:(int const)dir {
-	int rc;
-	MDB_val metaFileID_val[1];
-	rc = db_cursor_get(metafiles, NULL, metaFileID_val, op(dir, MDB_NEXT_DUP));
-	if(MDB_SUCCESS == rc) return db_column(metaFileID_val, 0);
-	// MDB bug workaround: MDB_NEXT/PREV_DUP with key doesn't initialize cursor.
 	DB_VAL(metadata_val, 2);
 	db_bind(metadata_val, value_id);
 	db_bind(metadata_val, field_id);
-	rc = db_cursor_get(metafiles, metadata_val, metaFileID_val, op(dir, MDB_FIRST_DUP));
-	if(MDB_SUCCESS == rc) return db_column(metaFileID_val, 0);
-	return invalid(dir);
+	MDB_val metaFileID_val[1];
+	int rc = db_cursor_get(metafiles, metadata_val, metaFileID_val, op(dir, MDB_NEXT_DUP));
+	if(MDB_SUCCESS != rc) return invalid(dir);
+	return db_column(metaFileID_val, 0);
 }
 - (bool_t)match:(uint64_t const)metaFileID {
 	DB_VAL(metadata_val, 2);
