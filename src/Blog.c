@@ -77,14 +77,13 @@ static int markdown_link(struct buf *ob, const struct buf *link, const struct bu
 	bufput(rel, link->data, link->size);
 	int const r = state->link(ob, rel, title, content, opaque);
 	bufrelease(rel);
-	if(link->size != content->size || 0 != memcmp(link->data, content->data, link->size)) {
-		// TODO: Better styling / semantic markup?
-		bufputs(ob, "<sub><small>");
-		struct buf icon = BUF_STATIC("#");
-		struct buf info = BUF_STATIC("Hash link");
-		state->link(ob, link, &info, &icon, opaque);
-		bufputs(ob, "</small></sub>");
-	}
+
+	bufputs(ob, "<sup>[");
+	struct buf icon = BUF_STATIC("#");
+	struct buf info = BUF_STATIC("Raw hash address");
+	state->link(ob, link, &info, &icon, opaque);
+	bufputs(ob, "]</sup>");
+
 	return r;
 }
 static int markdown_autolink(struct buf *ob, const struct buf *link, enum mkd_autolink type, void *opaque) {
