@@ -88,10 +88,14 @@ static int markdown_link(struct buf *ob, const struct buf *link, const struct bu
 }
 static int markdown_autolink(struct buf *ob, const struct buf *link, enum mkd_autolink type, void *opaque) {
 	struct markdown_state *const state = opaque;
-	if(MKDA_NORMAL != type || 0 != bufprefix(link, "hash://")) {
+	if(MKDA_NORMAL != type) {
 		return state->autolink(ob, link, type, opaque);
 	}
-	return markdown_link(ob, link, NULL, link, opaque);
+	str_t *decoded = QSUnescape((strarg_t)link->data, link->size, false);
+	struct buf content = BUF_VOLATILE(decoded);
+	int const rc = markdown_link(ob, link, NULL, &content, opaque);
+	FREE(&decoded);
+	return rc;
 }
 
 static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {

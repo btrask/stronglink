@@ -50,7 +50,7 @@ struct buf {
 
 /* VOLATILE_BUF: macro for creating a volatile buffer on the stack */
 #define BUF_VOLATILE(strname) \
-	{ (uint8_t *)strname, strlen(strname), 0, 0, 0 }
+	{ (uint8_t *)strname, strlen(strname), 0, 0 }
 
 /* BUFPUTSL: optimized bufputs of a string litteral */
 #define BUFPUTSL(output, literal) \
