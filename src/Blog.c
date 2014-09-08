@@ -174,8 +174,8 @@ err:
 typedef struct {
 	BlogRef blog;
 	strarg_t fileURI;
-} md_state;
-static str_t *md_lookup(md_state const *const state, strarg_t const var) {
+} preview_state;
+static str_t *preview_metadata(preview_state const *const state, strarg_t const var) {
 	strarg_t unsafe = NULL;
 	str_t buf[URI_MAX];
 	if(0 == strcmp(var, "rawURI")) {
@@ -249,12 +249,12 @@ static str_t *md_lookup(md_state const *const state, strarg_t const var) {
 	EFSRepoDBClose(state->blog->repo, &conn);
 	return result;
 }
-static void md_free(md_state const *const state, strarg_t const var, str_t **const val) {
+static void preview_free(preview_state const *const state, strarg_t const var, str_t **const val) {
 	FREE(val);
 }
-static TemplateArgCBs const md_cbs = {
-	.lookup = (str_t *(*)())md_lookup,
-	.free = (void (*)())md_free,
+static TemplateArgCBs const preview_cbs = {
+	.lookup = (str_t *(*)())preview_metadata,
+	.free = (void (*)())preview_free,
 };
 static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {
 	if(genMarkdownPreview(blog, session, URI, previewPath) >= 0) return 0;
@@ -265,11 +265,11 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 	uv_file file = async_fs_open(tmpPath, O_CREAT | O_EXCL | O_WRONLY, 0400);
 	err_t err = file;
 
-	md_state const state = {
+	preview_state const state = {
 		.blog = blog,
 		.fileURI = URI,
 	};
-	err = err < 0 ? err : TemplateWriteFile(blog->preview, &md_cbs, &state, file); // TODO: Dynamic lookup function.
+	err = err < 0 ? err : TemplateWriteFile(blog->preview, &preview_cbs, &state, file);
 
 	async_fs_close(file); file = -1;
 
@@ -285,28 +285,21 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 static void sendPreview(BlogRef const blog, HTTPMessageRef const msg, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {
 	if(!previewPath) return;
 
-	str_t *URI_HTMLSafe = htmlenc(URI);
-	str_t *URIEncoded_HTMLSafe = htmlenc(URI); // TODO: URI enc
-	TemplateStaticArg const args[] = {
-		{"URI", URI_HTMLSafe},
-		{"URIEncoded", URIEncoded_HTMLSafe},
-		{NULL, NULL},
+	preview_state const state = {
+		.blog = blog,
+		.fileURI = URI,
 	};
-
-	TemplateWriteHTTPChunk(blog->entry_start, &TemplateStaticCBs, args, msg);
+	TemplateWriteHTTPChunk(blog->entry_start, &preview_cbs, &state, msg);
 
 	if(
 		HTTPMessageWriteChunkFile(msg, previewPath) < 0 &&
 		(genPreview(blog, session, URI, previewPath) < 0 ||
 		HTTPMessageWriteChunkFile(msg, previewPath) < 0)
 	) {
-		TemplateWriteHTTPChunk(blog->empty, &TemplateStaticCBs, args, msg);
+		TemplateWriteHTTPChunk(blog->empty, &preview_cbs, &state, msg);
 	}
 
-	TemplateWriteHTTPChunk(blog->entry_end, &TemplateStaticCBs, args, msg);
-
-	FREE(&URI_HTMLSafe);
-	FREE(&URIEncoded_HTMLSafe);
+	TemplateWriteHTTPChunk(blog->entry_end, &preview_cbs, &state, msg);
 }
 
 typedef struct {
