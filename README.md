@@ -3,17 +3,17 @@ EarthFS - High Level Content Addressable File System
 
 EarthFS is a storage system that uses content addressing and search to organize and retrieve information. It exposes content addressing to the user as `hash:` links to immutable files.
 
-EarthFS is well suited for personal notetaking. Its interface bears some similarity to [Notational Velocity](http://notational.net/). It makes linking between notes trivial, similar to a wiki such as [VoodooPad](TODO), but because notes are immutable, each note contains the changes as of a single point in time. This basically means turning the change log into the first class object, rather than the page. Instead of viewing a page that was built up over time, you search for a term and see each of the notes on that topic in order. Sync between repositories is fast, powerful (with full query support), and real-time.
+EarthFS is well suited for personal notetaking. Its interface bears some similarity to [Notational Velocity](http://notational.net/). It makes linking between notes trivial, similar to a wiki such as [VoodooPad](https://plausible.coop/voodoopad/), but because notes are immutable, each note contains the changes as of a single point in time. This basically means turning the change log into the first class object, rather than the page. Instead of viewing a page that was built up over time, you search for a term and see each of the notes on that topic in order. Sync between repositories is fast, powerful (with full query support), and real-time.
 
-The main interface runs in the web browser and can be used as a blog platform. Notes written locally (even while offline) can be automatically synced to a remote server, and it's easy to configure queries to control which files are published. The interface follows Dave Winer's design principle, [river of news](TODO). EarthFS is nearly as fast as a static site but also has full search functionality. Entries in [GitHub-flavored Markdown](TODO) are rendered using [Sundown](TODO).
+The main interface runs in the web browser and can be used as a blog platform. Notes written locally (even while offline) can be automatically synced to a remote server, and it's easy to configure queries to control which files are published. The interface follows Dave Winer's design principle, [river of news](http://www.reallysimplesyndication.com/riverOfNews) \[broken link\]. EarthFS is nearly as fast as a static site but also has full search functionality. Entries in [GitHub-flavored Markdown](https://help.github.com/articles/github-flavored-markdown) are rendered using [Sundown](https://github.com/vmg/sundown).
 
 EarthFS provides a complete API over HTTP (and HTTPS) so that other applications can access it directly. One such client, a Firefox extension for archiving web pages and making them content-addressable, is already in development.
 
-EarthFS is written in C with a small amount of low-level, cross-platform Objective-C for the filter system. It uses the low level, high performance database [LMDB](http://symas.com/mdb/) to perform queries. Files are stored directly in the OS file system under their content hashes (with atomic operations and fsync). The server is asynchronous and uses [libco](TODO) from BSNES.
+EarthFS is written in C with a small amount of low-level, cross-platform Objective-C for the filter system. It uses the low level, high performance database [LMDB](http://symas.com/mdb/) to perform queries. Files are stored directly in the OS file system under their content hashes (with atomic operations and fsync). The server is asynchronous and uses [libco](http://byuu.org/programming/libco/) from BSNES.
 
 Like anything, EarthFS has some limitations and makes some tradeoffs. There is no FUSE interface because EarthFS just isn't good at the same things as a traditional file system. This is true for [any storage system built on an ACID database](http://www.mail-archive.com/sqlite-users@sqlite.org/msg73451.html), and doubly true for content addressing systems, given their preference for immutability.
 
-Rather than emulating mutable files via block de-duplication, EarthFS clients that need mutability (which is not expected to be many) should store diffs and use `hash:` links to track history relationships, similar to [how Git works](TODO). EarthFS's sync system is _available_ and _eventually consistent_ per the [CAP theorem](TODO), which makes mutability difficult to get right, but EarthFS gives application developers the best tools to do it if they choose.
+Rather than emulating mutable files via block de-duplication, EarthFS clients that need mutability (which is not expected to be many) should store diffs and use `hash:` links to track history relationships, similar to [how Git works](http://www.git-scm.com/book/en/Git-Internals-Git-Objects). EarthFS's sync system is _available_ and _eventually consistent_ per the [CAP theorem](http://aphyr.com/posts/278-timelike-2-everything-fails-all-the-time), which makes mutability difficult to get right, but EarthFS gives application developers the best tools to do it if they choose.
 
 Building
 --------
@@ -34,37 +34,37 @@ FAQ
 ---
 
 **What about security?**
-I know the climate, especially around new projects written in C. I believe I've taken reasonable precautions to avoid obvious bugs. For overall security I'd give myself a B. If you want a communication platform written by a real cryptographer where security is the top priority (above usability, etc.), try [Pond](TODO).
+I know the climate, especially around new projects written in C. I believe I've taken reasonable precautions to avoid obvious bugs. For overall security I'd give myself a B. If you want a communication platform written by a real cryptographer where security is the top priority (above usability, etc.), try [Pond](https://pond.imperialviolet.org/).
 
-The cryptography in EarthFS is plain HTTPS with OpenSSL (for portability; LibreSSL support is planned), based on [stud/stunnel](TODO). Disk encryption is left to the underlying file system or disk.
+The cryptography in EarthFS is plain HTTPS with OpenSSL (for portability; LibreSSL support is planned), based on [stud](https://github.com/bumptech/stud)/[stunnel](https://www.stunnel.org/index.html). Disk encryption is left to the underlying file system or disk.
 
 You can use it locally for your own notes without any network access at all. Syncing can be done over LAN.
 
-**How does this project compare to [Camlistore](TODO)?**
-I have immense respect for Brad Fitzpatrick and the Camlistore team, and I only wish Camlistore the best. That said, I think they're making several mistakes regarding content addressing and I hope they learn from EarthFS.
+**How does this project compare to [Camlistore](http://camlistore.org/)?**
+I have immense respect for Brad Fitzpatrick and the Camlistore team, and I only wish Camlistore the best. That said, I think they're making several _technical_ mistakes regarding content addressing and I hope they learn from EarthFS.
 
-- Content addresses are not links (mantra: "raise high the [merkle DAG](TODO)!")
-- Content addresses aren't portable (they're ["namespaced"](TODO) because they encode all sorts of Camlistore-specific meta-data)
+- Content addresses are not links (mantra: "raise high the [merkle DAG](https://en.wikipedia.org/wiki/Merkle_tree)!")
+- Content addresses aren't portable (they're ["namespaced"](http://www.bentrask.com/notes/content-addressing.html) because they encode all sorts of Camlistore-specific meta-data)
 - Random data (perma-nodes) are given content addresses (it's no longer a content addressing system because random data is not content; it can't handle network partitions where the same data is added on both sides)
 - Only one pre-baked content addressing scheme (not sure about the validity of this criticism; they could easily add more if they haven't already)
 - No concept of semantic hashes (more abstract/longer term problem)
 
 I don't get the impression that Camlistore is the best at any of the many things it does. EarthFS is starting with a very narrow focus (notetaking and then maybe blogging) and definitely trying to beat existing players on their own turf (and it's hard enough even with such a narrow focus).
 
-Camlistore is "multi-layer" (it says it right in the name) which I just don't think is generally a good idea. For example, block-level de-duplication is better done in the file system or disk controller than in an application that also syncs photos. Block de-dup also comes with [significant overhead](TODO) when the (OS) file system doesn't know you're doing it.
+Camlistore is "multi-layer" (it says it right in the name) which I just don't think is generally a good idea. For example, block-level de-duplication is better done in the file system or disk controller than in an application that also syncs photos. Block de-dup also comes with [significant overhead](https://code.google.com/p/camlistore/issues/detail?id=197) when the (OS) file system doesn't know you're doing it.
 
-**How does this project compare to [IPFS](TODO)?**
+**How does this project compare to [IPFS](http://ipfs.io/)?**
 I exchanged emails with Juan Batiz-Benet and he was supportive and gave me some great feedback. I'm very thankful to him.
 
 I'm very sorry about the similarity of the name, but I've been using this name privately for two years and I never managed to come up with a better one. But I'm happy with EarthFS being seen as a smaller project than InterPlanetaryFS. (Next up is PodunkFS.)
 
-By providing mutability support and a FUSE layer I think IPFS has its work cut out for it. If someone opens up a file that uses [SQLite as its application format](TODO) and starts doing lots of changes and transactions, what's going to happen? But on the other hand, no one seems to complain about Dropbox, so maybe it isn't a problem or can be easily resolved.
+By providing mutability support and a FUSE layer I think IPFS has its work cut out for it. If someone opens up a file that uses [SQLite as its application format](https://sqlite.org/appfileformat.html) and starts doing lots of changes and transactions, what's going to happen? But on the other hand, no one seems to complain about Dropbox, so maybe it isn't a problem or can be easily resolved.
 
 Juan didn't like the idea of content addresses as links, which I think is critical for a notetaking system. If IPFS has a standard mount-point, then for example `file:///ipfs/[hash]` could work.
 
-I think that algorithm names should be human readable in links, whereas he wants to [encode them in hexadecimal](TODO).
+I think that algorithm names should be human readable in links, whereas he wants to [encode them in hexadecimal](https://github.com/jbenet/multihash).
 
-**How does this project compare to [Named Data Networking](TODO)?**
+**How does this project compare to [Named Data Networking](https://en.wikipedia.org/wiki/Named_data_networking)?**
 I didn't hear about NDN until fairly recently, but it sounds like close to the same thing done at the networking layer rather than the application/storage layer. On top of the difficulty of deploying a new network, I suspect NDN has an incentive problem. When you shout your request into the network, why would any given system bother to respond? Maybe if it can attach its own ads to the content you requested, it would, but I don't think we (users or content producers) want that. Or maybe the expectation is for everyone's ISP to become their resolver, but I don't want them to have any more power than they already do.
 
 With EarthFS, content address resolution is always performed by a single pre-configured repository (typically your own, run locally), so the responsibilities and incentives are clear.
@@ -110,7 +110,7 @@ And I like that it's four letters and begins with H, like `http:`.
 **Why LMDB instead of SQLite or <my favorite DB>?**
 I started with SQLite (actually, I started with PostgreSQL, before deciding that a single process design was too important to pass up). I even wrote a [custom VFS](res/async_sqlite.c) that turns SQLite into a completely asynchronous database (without changing its API! Disclaimer: don't use, it's slow and not production-ready).
 
-Translating arbitrary user queries into efficient SQL is nearly impossible. I came up with three basic approaches but all of them had significant downsides. When I feel like a conspiracy theorist, I wonder if SQL is a tool promoted by Google to keep regular developers from [writing decent search engines](TODO).
+Translating arbitrary user queries into efficient SQL is nearly impossible. I came up with three basic approaches but all of them had significant downsides. When I feel like a conspiracy theorist, I wonder if SQL is a tool promoted by Google to keep regular developers from [writing decent search engines](http://sommarskog.se/dyn-search-2008.html).
 
 I also considered several LSM-tree databases, but LMDB has a very efficient implementation and I didn't end up completely sold that LSM-trees are worth it over b-trees.
 
