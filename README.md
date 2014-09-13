@@ -105,7 +105,7 @@ Because it's the most descriptive word for the requirements. All valid content a
 
 And I like that it's four letters and begins with H, like `http:`.
 
-For the record, `hash:` isn't a protocol, just like `data:` isn't a protocol. Each of them specify the format of the URI, not a communication mechanism used during resolution. `hash:` URIs can be resolved by any application that hashes files and maintains a mapping of which files have which hashes. I'd like to write a demo resolver in probably 30 lines of Python at some point. No need for EarthFS.
+`hash:` URIs can be resolved by any application that hashes files and maintains a mapping of which files have which hashes. I'd like to write a demo resolver in probably 30 lines of Python at some point. No need for EarthFS.
 
 **Why LMDB instead of SQLite or <my favorite DB>?**
 I started with SQLite (actually, I started with PostgreSQL, before deciding that a single process design was too important to pass up). I even wrote a [custom VFS](res/async_sqlite.c) that turns SQLite into a completely asynchronous database (without changing its API! Disclaimer: don't use, it's slow and not production-ready).
