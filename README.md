@@ -3,7 +3,7 @@ EarthFS - High Level Content Addressable File System
 
 EarthFS is a storage system that uses content addressing and search to organize and retrieve information. It exposes content addressing to the user as `hash:` links to immutable files.
 
-EarthFS is well suited for personal notetaking. Its interface bears some similarity to [Notational Velocity](http://notational.net/). It makes linking between notes trivial, similar to a wiki such as [VoodooPad](https://plausible.coop/voodoopad/), but because notes are immutable, each note contains the changes as of a single point in time. This basically means turning the change log into the first class object, rather than the page. Instead of viewing a page that was built up over time, you search for a term and see each of the notes on that topic in order. Sync between repositories is fast, powerful (with full query support), and real-time.
+EarthFS is well suited for personal notetaking. Its interface bears some similarity to [Notational Velocity](http://notational.net/). It makes linking between notes trivial, similar to a wiki such as [VoodooPad](https://plausible.coop/voodoopad/), but because notes are immutable, each note contains the changes as of a single point in time. This basically means turning the change log into the primary view, rather than the page. Instead of reading a page that was built up over time, you search for a term and see each of the notes on that topic in order. Sync between repositories is fast, powerful (with full query support), and real-time.
 
 The main interface runs in the web browser and can be used as a blog platform. Notes written locally (even while offline) can be automatically synced to a remote server, and it's easy to configure queries to control which files are published. The interface follows Dave Winer's design principle, [river of news](http://www.reallysimplesyndication.com/riverOfNews) \[broken link\]. EarthFS is nearly as fast as a static site but also has full search functionality. Entries in [GitHub-flavored Markdown](https://help.github.com/articles/github-flavored-markdown) are rendered using [Sundown](https://github.com/vmg/sundown).
 
@@ -34,7 +34,7 @@ FAQ
 ---
 
 **What about security?**
-I know the climate, especially around new projects written in C. I believe I've taken reasonable precautions to avoid obvious bugs. For overall security I'd give myself a B. If you want a communication platform written by a real cryptographer where security is the top priority (above usability, etc.), try [Pond](https://pond.imperialviolet.org/).
+I know the climate, especially around new projects written in C. I believe I've taken reasonable precautions to avoid obvious bugs. For overall security I'd give myself a B. If you want a communication platform written by a professional cryptographer where security is the top priority (above usability, etc.), try Adam Langley's [Pond](https://pond.imperialviolet.org/).
 
 The cryptography in EarthFS is plain HTTPS with OpenSSL (for portability; LibreSSL support is planned), based on [stud](https://github.com/bumptech/stud)/[stunnel](https://www.stunnel.org/index.html). Disk encryption is left to the underlying file system or disk.
 
@@ -43,7 +43,7 @@ You can use it locally for your own notes without any network access at all. Syn
 **How does this project compare to [Camlistore](http://camlistore.org/)?**
 I have immense respect for Brad Fitzpatrick and the Camlistore team, and I only wish Camlistore the best. That said, I think they're making several _technical_ mistakes regarding content addressing and I hope they learn from EarthFS.
 
-- Content addresses are not links (mantra: "raise high the [merkle DAG](https://en.wikipedia.org/wiki/Merkle_tree)!")
+- Content addresses are not links (the [merkle DAG](https://en.wikipedia.org/wiki/Merkle_tree) should be composed of _user documents_)
 - Content addresses aren't portable (they're ["namespaced"](http://www.bentrask.com/notes/content-addressing.html) because they encode all sorts of Camlistore-specific meta-data)
 - Random data (perma-nodes) are given content addresses (it's no longer a content addressing system because random data is not content; it can't handle network partitions where the same data is added on both sides)
 - Only one pre-baked content addressing scheme (not sure about the validity of this criticism; they could easily add more if they haven't already)
@@ -81,9 +81,9 @@ Most people will probably find it easier to use than a static site generator.
 EarthFS can be configured to accept comments directly. However, much of that functionality is still incomplete.
 
 **Why would a content addressing system focus on notetaking?**
-For me, the priority is notetaking (and, to a lesser extent, organizing other files). Content addressing is just a means to an end. If I could've made do with an existing notetaking system or something simpler without content addressing, I would've.
+For me, the priority is notetaking (and, to a lesser extent, organizing other files). Content addressing is just a means to an end. If I could've made do with an existing notetaking system or something simpler without content addressing, I would have.
 
-Immutability eliminates the (for me, crippling) mental pressure to go back and fix up old notes. Now I consider my old notes a record of exactly how stupid I was at any given point in time. They're evidence of what I didn't know as much as of what I did. That keeps me honest and saves me from the burden of maintaining a lie.
+Immutability eliminates the (for me, crippling) mental pressure to go back and fix up old notes. Now I consider my old notes a record of exactly how stupid I was at any given point in time. They're evidence of what I didn't know as much as of what I did. That keeps me honest and saves me from the burden of maintaining a lie. (I think the internet and society as a whole could benefit from this too.)
 
 At the same time, hash links let me reference any note unambiguously, in a way that won't break, and without making me come up with unique names for each note. They're less fragile than time stamps or UUIDs. So when I want to correct something, I can reliably cite the original.
 
@@ -97,15 +97,17 @@ This fundamental shift of incentives explains a lot of decisions about how Earth
 For my notes, on my screen, 50 is about the maximum before the scroll bar becomes completely unusable.
 
 **Why doesn't it use URNs?**
-TODO
+I believe URNs failed to catch on due to technical problems as much as social ones. At the time, Uniform Resource Identifiers were seen as split into Uniform Resource Locators and Uniform Resource Names. I believe that locators and names have effectively the same characteristics: they are both dynamically assigned by a central authority (a server or agency). I believe there is a third type of resource identifier, hashes, that are distinct: they are decentralized because they can be assigned by anyone who knows the algorithm, and they are static because the algorithm is fixed.
+
+The only [officially registered URN namespaces](https://www.iana.org/assignments/urn-namespaces/urn-namespaces.xhtml) were for names like ISBN, not for hashes. Some projects, most notably BitTorrent, use non-standard SHA-1 URNs, but BitTorrent hashes aren't portable since they encode BitTorrent-specific data, so compatibility is impossible either way. For a new system to use URNs when it can't support _any_ of the existing addresses seems pointlessly confusing. Enough has changed that it makes sense to have a clean break.
 
 **Why doesn't it use magnet links?**
-TODO
+Magnet links were originally designed for tunneling other, arbitrary URIs over a single scheme, with the intended purpose of having a JavaScript handler on each web page be able to pop up and ask the user which application to resolve the magnet link with. They aren't technically connected to content addresses at all. BitTorrent just uses them to wrap URNs.
 
 **Why `hash:`?**
 Because it's the most descriptive word for the requirements. All valid content addresses are hashes of one sort or another. `content:` could be a content literal, like `data:`.
 
-And I like that it's four letters and begins with H, like `http:`.
+I like that it's four letters and begins with H, like `http:`.
 
 `hash:` URIs can be resolved by any application that hashes files and maintains a mapping of which files have which hashes. I'd like to write a demo resolver in probably 30 lines of Python at some point. No need for EarthFS.
 
