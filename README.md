@@ -18,10 +18,7 @@ Rather than emulating mutable files via block de-duplication, EarthFS clients th
 Building
 --------
 
-External dependencies (TODO):
-
-- YAJL
-- libarchive (TODO)
+Currently the only external dependency is YAJL for JSON encoding/decoding. (TODO)
 
 Commands:
 
@@ -36,7 +33,7 @@ FAQ
 **What about security?**
 I know the climate, especially around new projects written in C. I believe I've taken reasonable precautions to avoid obvious bugs. For overall security I'd give myself a B. If you want a communication platform written by a professional cryptographer where security is the top priority (above usability, etc.), try Adam Langley's [Pond](https://pond.imperialviolet.org/).
 
-The cryptography in EarthFS is plain HTTPS with OpenSSL (for portability; LibreSSL support is planned), based on [stud](https://github.com/bumptech/stud)/[stunnel](https://www.stunnel.org/index.html). Disk encryption is left to the underlying file system or disk.
+The cryptography in EarthFS is plain HTTPS with OpenSSL (for portability; LibreSSL support is planned), based on [stud](https://github.com/bumptech/stud)/[stunnel](https://www.stunnel.org/index.html) (TODO). Disk encryption is left to the underlying file system or disk.
 
 You can use it locally for your own notes without any network access at all. Syncing can be done over LAN.
 
@@ -56,9 +53,9 @@ Camlistore is "multi-layer" (it says it right in the name) which I just don't th
 **How does this project compare to [IPFS](http://ipfs.io/)?**
 I exchanged emails with Juan Batiz-Benet and he was supportive and gave me some great feedback. I'm very thankful to him.
 
-I'm very sorry about the similarity of the name, but I've been using this name privately for two years and I never managed to come up with a better one. But I'm happy with EarthFS being seen as a smaller project than InterPlanetaryFS. (Next up is PodunkFS.)
+I'm sorry about the similarity of the name, but I've been using this name privately for two years and I never managed to come up with a better one. But I'm happy with EarthFS being seen as a smaller project than InterPlanetaryFS. (Next up is PodunkFS.)
 
-By providing mutability support and a FUSE layer I think IPFS has its work cut out for it. If someone opens up a file that uses [SQLite as its application format](https://sqlite.org/appfileformat.html) and starts doing lots of changes and transactions, what's going to happen? But on the other hand, no one seems to complain about Dropbox, so maybe it isn't a problem or can be easily resolved.
+By providing mutability support and a FUSE layer I think IPFS has its work cut out for it. How is it going to perform if someone tries to run a database on top of it (and remember, [SQLite is an application file format](https://sqlite.org/appfileformat.html))? But on the other hand, no one seems to complain about Dropbox, so maybe it isn't a problem or can be easily resolved.
 
 Juan didn't like the idea of content addresses as links, which I think is critical for a notetaking system. If IPFS has a standard mount-point, then for example `file:///ipfs/[hash]` could work.
 
@@ -72,7 +69,7 @@ With EarthFS, content address resolution is always performed by a single pre-con
 **How does this project compare to a static blog?**
 When hosted, EarthFS works similar to how a static site generator plus web server work. Its server is extremely high performance and written in C, using http_parser from Node.js and async network I/O from libuv. Files are converted to HTML once and then cached (forever, since they're immutable).
 
-The biggest difference is that EarthFS directly supports user searches, which means that that the relevant files are opened and concatenated together into the output (which is by far the slowest part). Most queries take literally under a millisecond for 50 results (each additional search term adds around 500 _micro_seconds). Sending 50 files (180KB total) takes around 100 milliseconds on [my ancient laptop](TODO).
+The biggest difference is that EarthFS directly supports user searches, which means that that the relevant files are opened and concatenated together into the output (which is by far the slowest part). Most queries take literally under a millisecond for 50 results (each additional search term adds around 500 _micro_seconds). Sending 50 files (180KB total) takes around 100 milliseconds on my ancient laptop.
 
 The attack surface is significantly larger at present. The web server itself is small, and there are only a few APIs, but EarthFS currently does HTML conversion (from Markdown, etc.) in-process. Supporting fully sandboxed parsing/conversion would be a very good idea.
 
@@ -87,7 +84,7 @@ Immutability eliminates the (for me, crippling) mental pressure to go back and f
 
 At the same time, hash links let me reference any note unambiguously, in a way that won't break, and without making me come up with unique names for each note. They're less fragile than time stamps or UUIDs. So when I want to correct something, I can reliably cite the original.
 
-In my experience, personal wikis tend to accumulate cruft over time. Some pages grow without bound, while others never get more than a couple words. EarthFS shows search results in reverse chronological order, so the system is able to naturally "forget" stale or irrelevant information without actually throwing anything away. I believe this is critical for [any system with a human in the loop](TODO).
+In my experience, personal wikis tend to accumulate cruft over time. Some pages grow without bound, while others never get more than a couple words. EarthFS shows search results in reverse chronological order, so the system is able to naturally "forget" stale or irrelevant information without actually throwing anything away. I believe this is critical for [any system with a human in the loop](http://www.c2.com/cgi/wiki?RecentChangesJunkie).
 
 **Why 50 results per page (by default)?**
 Because I'm not getting paid by the page view, unlike so many web sites, including search engines.
