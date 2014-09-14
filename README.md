@@ -62,7 +62,7 @@ By providing mutability support and a FUSE layer I think IPFS has its work cut o
 
 Juan didn't like the idea of content addresses as links, which I think is critical for a notetaking system. If IPFS has a standard mount-point, then for example `file:///ipfs/[hash]` could work.
 
-I think that algorithm names should be human readable in links, whereas he wants to [encode them in hexadecimal](https://github.com/jbenet/multihash).
+I think that algorithm names should be human readable in links, whereas he proposes to [encode them in hexadecimal](https://github.com/jbenet/multihash).
 
 **How does this project compare to [Named Data Networking](https://en.wikipedia.org/wiki/Named_data_networking)?**
 I didn't hear about NDN until fairly recently, but it sounds like close to the same thing done at the networking layer rather than the application/storage layer. On top of the difficulty of deploying a new network, I suspect NDN has an incentive problem. When you shout your request into the network, why would any given system bother to respond? Maybe if it can attach its own ads to the content you requested, it would, but I don't think we (users or content producers) want that. Or maybe the expectation is for everyone's ISP to become their resolver, but I don't want them to have any more power than they already do.
@@ -72,7 +72,7 @@ With EarthFS, content address resolution is always performed by a single pre-con
 **How does this project compare to a static blog?**
 When hosted, EarthFS works similar to how a static site generator plus web server work. Its server is extremely high performance and written in C, using http_parser from Node.js and async network I/O from libuv. Files are converted to HTML once and then cached (forever, since they're immutable).
 
-The biggest difference is that EarthFS directly supports user searches, which means that that the relevant files are opened and concatenated together into the output (which is by far the slowest part). Most queries take literally under a millisecond for 50 results (each additional search term adds around 500 _micro_seconds). Sending 50 files (180KB total) takes around 100 milliseconds on my ancient laptop.
+The biggest difference is that EarthFS directly supports user searches, which means that that the relevant files are opened and concatenated together into the output (which is by far the slowest part). Most queries take literally under a millisecond for 50 results (each additional search term adds around 500 _micro_seconds). Sending 50 files (180KB total) takes around 100 milliseconds on [my ancient laptop](TODO).
 
 The attack surface is significantly larger at present. The web server itself is small, and there are only a few APIs, but EarthFS currently does HTML conversion (from Markdown, etc.) in-process. Supporting fully sandboxed parsing/conversion would be a very good idea.
 
@@ -81,24 +81,26 @@ Most people will probably find it easier to use than a static site generator.
 EarthFS can be configured to accept comments directly. However, much of that functionality is still incomplete.
 
 **Why would a content addressing system focus on notetaking?**
-I built this system for my notes. Several times over the course of the project (the past two years) I asked myself whether I could simplify by getting rid of content addressing, but the answer always came back no.
+For me, the priority is notetaking (and, to a lesser extent, organizing other files). Content addressing is just a means to an end. If I could've made do with an existing notetaking system or something simpler without content addressing, I would've.
 
-So I can't explain why a content addressing system should focus on notetaking, but I can explain why a notetaking system should use content addressing.
+Immutability eliminates the (for me, crippling) mental pressure to go back and fix up old notes. Now I consider my old notes a record of exactly how stupid I was at any given point in time. They're evidence of what I didn't know as much as of what I did. That keeps me honest and saves me from the burden of maintaining a lie.
 
+At the same time, hash links let me reference any note unambiguously, in a way that won't break, and without making me come up with unique names for each note. They're less fragile than time stamps or UUIDs. So when I want to correct something, I can reliably cite the original.
 
-TODO
-
+In my experience, personal wikis tend to accumulate cruft over time. Some pages grow without bound, while others never get more than a couple words. EarthFS shows search results in reverse chronological order, so the system is able to naturally "forget" stale or irrelevant information without actually throwing anything away. I believe this is critical for [any system with a human in the loop](TODO).
 
 **Why 50 results per page (by default)?**
-Because I'm not getting paid by the page, unlike so many web sites, including search engines.
+Because I'm not getting paid by the page view, unlike so many web sites, including search engines.
 
 This fundamental shift of incentives explains a lot of decisions about how EarthFS works. For example, the filter system is very particular about the order it returns results in (basically reverse chronological, but with some deep subtleties) because it doesn't cost the user anything (not even a measureable amount of battery life) to generate results in that order. Google, on the other hand, could probably save millions if it shaved 0.1% without most people noticing the difference in results. They also have to index the whole Web, fight spammers, etc.
 
 For my notes, on my screen, 50 is about the maximum before the scroll bar becomes completely unusable.
 
 **Why doesn't it use URNs?**
+TODO
 
 **Why doesn't it use magnet links?**
+TODO
 
 **Why `hash:`?**
 Because it's the most descriptive word for the requirements. All valid content addresses are hashes of one sort or another. `content:` could be a content literal, like `data:`.
