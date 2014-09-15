@@ -38,7 +38,7 @@ The cryptography in EarthFS is plain HTTPS with OpenSSL (for portability; LibreS
 You can use it locally for your own notes without any network access at all. Syncing can be done over LAN.
 
 **How does this project compare to [Camlistore](http://camlistore.org/)?**
-I have immense respect for Brad Fitzpatrick and the Camlistore team, and I only wish Camlistore the best. That said, I think they're making several _technical_ mistakes regarding content addressing and I hope they learn from EarthFS.
+I have immense respect for Brad Fitzpatrick and the Camlistore team, and I only wish Camlistore the best. That said, I think they're making several _technical_ mistakes regarding content addressing and I hope they consider these ideas.
 
 - Content addresses are not links (the [merkle DAG](https://en.wikipedia.org/wiki/Merkle_tree) should be composed of _user documents_)
 - Content addresses aren't portable (they're ["namespaced"](http://www.bentrask.com/notes/content-addressing.html) because they encode all sorts of Camlistore-specific meta-data)
