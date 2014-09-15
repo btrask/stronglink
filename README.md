@@ -9,7 +9,7 @@ The main interface runs in the web browser and can be used as a blog platform. N
 
 EarthFS provides a complete API over HTTP (and HTTPS) so that other applications can access it directly. One such client, a Firefox extension for archiving web pages and making them content-addressable, is already in development.
 
-EarthFS is written in C with a small amount of low-level, cross-platform Objective-C for the filter system. It uses the low level, high performance database [LMDB](http://symas.com/mdb/) to perform queries. Files are stored directly in the OS file system under their content hashes (with atomic operations and fsync). The server is asynchronous and uses [libco](http://byuu.org/programming/libco/) from BSNES.
+EarthFS is written in C with a small amount of low-level, cross-platform Objective-C for the filter system. It uses the low level, high performance database [LMDB](http://symas.com/mdb/) to perform queries. Files are stored directly in the OS file system under their content hashes (with atomic operations and `fsync`). The server is asynchronous and uses [libco](http://byuu.org/programming/libco/) from BSNES.
 
 Like anything, EarthFS has some limitations and makes some tradeoffs. There is no FUSE interface because EarthFS just isn't good at the same things as a traditional file system. This is true for [any storage system built on an ACID database](http://www.mail-archive.com/sqlite-users@sqlite.org/msg73451.html), and doubly true for content addressing systems, given their preference for immutability.
 
@@ -27,11 +27,16 @@ $ make
 $ sudo make install (TODO)
 ```
 
+Running
+-------
+
+TODO
+
 FAQ
 ---
 
 **What about security?**
-I know the climate, especially around new projects written in C. I believe I've taken reasonable precautions to avoid obvious bugs. For overall security I'd give myself a B. If you want a communication platform written by a professional cryptographer where security is the top priority (above usability, etc.), try Adam Langley's [Pond](https://pond.imperialviolet.org/).
+I know the current climate, especially around new projects written in C. I believe I've taken reasonable precautions to avoid obvious bugs. For overall security I'd give myself a B. If you want a communication platform written by a professional cryptographer where security is the top priority (above usability, etc.), try Adam Langley's [Pond](https://pond.imperialviolet.org/).
 
 The cryptography in EarthFS is plain HTTPS with OpenSSL (for portability; LibreSSL support is planned), based on [stud](https://github.com/bumptech/stud)/[stunnel](https://www.stunnel.org/index.html) (TODO). Disk encryption is left to the underlying file system or disk.
 
@@ -93,13 +98,35 @@ This fundamental shift of incentives explains a lot of decisions about how Earth
 
 For my notes, on my screen, 50 is about the maximum before the scroll bar becomes completely unusable.
 
+**Is it a backup system?**
+EarthFS is append-only and low-latency, which means it has a lot of the benefits of an online backup system without many of the drawbacks. Edits and deletions are synchronized as diffs so the data cannot be permanently lost. Underlying files can be deleted (e.g. to save space), but these deletions are not synced. EarthFS has no way to permanently delete files remotely. By default, synchronization is one-way.
+
+Like any automated backup system, EarthFS mirrors could be obliterated by a bug or security exploit. It's possible to keep mirrors offline and synchronize them less frequently to guard against these risks.
+
+**What do hash links look like?**
+Here is the hash for a random note of mine:
+
+`hash://sha256/d3cab4a85dcef3b10e2e2e7cdc23a7d12ba3153354310e59786409d534b62694`
+`hash://sha256/d3cab4a85dcef3b10e2e2e7c` (short version)
+
+The short version is intended to be robust against accidental collisions, but not against intentional collisions (e.g. malicious attacks). With a billion files on the network, the odds of an accidental collision for a short hash are (TODO); for a full hash (TODO). Note that a full hash collision for SHA-1 (which is already considered obsolete) has never been found (or publicly revealed).
+
+In this scheme, the hash algorithm takes the role of the URI authority (instead of e.g. DNS). These URIs have to be resolved relative to a known location, which in EarthFS is usually a repository running locally. When displayed on a web site, hash links are normally resolved through the site itself (the same way a wiki resolves its own wiki-links).
+
+Hash links typically don't need to be displayed to the user, although the algorithm used might be relevant sometimes (for example, for audio fingerprint hashes). Short hashes are useful for the case where a link must be entered manually.
+
 **Why doesn't it use URNs?**
 I believe URNs failed to catch on due to technical problems as much as social ones. At the time, Uniform Resource Identifiers were seen as split into Uniform Resource Locators and Uniform Resource Names. I believe that locators and names have effectively the same characteristics: they are both dynamically assigned by a central authority (a server or agency). I believe there is a third type of resource identifier, hashes, that are distinct: they are decentralized because they can be assigned by anyone who knows the algorithm, and they are static because the algorithm is fixed.
 
-The only [officially registered URN namespaces](https://www.iana.org/assignments/urn-namespaces/urn-namespaces.xhtml) were for names like ISBN, not for hashes. Some projects, most notably BitTorrent, use non-standard SHA-1 URNs, but BitTorrent hashes aren't portable since they encode BitTorrent-specific data, so compatibility is impossible either way. For a new system to use URNs when it can't support _any_ of the existing addresses seems pointlessly confusing. Enough has changed that it makes sense to have a clean break.
+http://www.w3.org/Provider/Style/URI
+Cool URIs don't change
+
+> Most URN schemes I have seen look something like an authority ID followed by either a date and a string you choose, or just a string you choose. This looks very like an HTTP URI. In other words, if you think your organization will be capable of creating URNs which will last, then prove it by doing it now and using them for your HTTP URIs.
+
+Furthermore, the only [officially registered URN namespaces](https://www.iana.org/assignments/urn-namespaces/urn-namespaces.xhtml) were for names like ISBN. No hash algorithm was ever registered. Some projects, most notably BitTorrent, use (non-standard) SHA-1 URNs, but BitTorrent hashes aren't portable since they encode BitTorrent-specific data, so compatibility is impossible either way. For a new system to use URNs when it can't support _any_ of the existing addresses seems pointlessly confusing. Enough has changed that it makes sense to have a clean break.
 
 **Why doesn't it use magnet links?**
-Magnet links were originally designed for tunneling other, arbitrary URIs over a single scheme, with the intended purpose of having a JavaScript handler on each web page be able to pop up and ask the user which application to resolve the magnet link with. They aren't technically connected to content addresses at all. BitTorrent just uses them to wrap URNs.
+Magnet links were originally designed for tunneling other, arbitrary URIs over a single scheme, with the intended purpose of having a JavaScript handler on each web page be able to pop up and ask the user which application to resolve the magnet link with. They aren't technically related to content addressing at all. BitTorrent just uses them to wrap URNs.
 
 **Why `hash:`?**
 Because it's the most descriptive word for the requirements. All valid content addresses are hashes of one sort or another. `content:` could be a content literal, like `data:`.
@@ -108,7 +135,7 @@ I like that it's four letters and begins with H, like `http:`.
 
 `hash:` URIs can be resolved by any application that hashes files and maintains a mapping of which files have which hashes. I'd like to write a demo resolver in probably 30 lines of Python at some point. No need for EarthFS.
 
-**Why LMDB instead of SQLite or <my favorite DB>?**
+**Why LMDB instead of SQLite or \[my favorite DB\]?**
 I started with SQLite (actually, I started with PostgreSQL, before deciding that a single process design was too important to pass up). I even wrote a [custom VFS](res/async_sqlite.c) that turns SQLite into a completely asynchronous database (without changing its API! Disclaimer: don't use, it's slow and not production-ready).
 
 Translating arbitrary user queries into efficient SQL is nearly impossible. I came up with three basic approaches but all of them had significant downsides. When I feel like a conspiracy theorist, I wonder if SQL is a tool promoted by Google to keep regular developers from [writing decent search engines](http://sommarskog.se/dyn-search-2008.html).
@@ -116,6 +143,15 @@ Translating arbitrary user queries into efficient SQL is nearly impossible. I ca
 I also considered several LSM-tree databases, but LMDB has a very efficient implementation and I didn't end up completely sold that LSM-trees are worth it over b-trees.
 
 Once SQLite4 is released, the plan is to switch to its back-end API so you can drop in any back-end that supports SQLite.
+
+**Why build a "high level file system" on top of the real (OS) file system?**
+EarthFS is built on top of the file system for the same reason most databases are built on top of the file system: because file systems are completely effective at their core purpose of multiplexing block devices between multiple applications.
+
+EarthFS uses the file system as much as it can to provide concurrent write access, and uses a low level database to efficiently and atomically track meta-data. The database doesn't support concurrent writes, and the file system doesn't support ACID (directly).
+
+EarthFS can't replace low level file systems and doesn't try. Carelessly mapping content addresses to file names, without all of features EarthFS provides to make them usable, doesn't work. EarthFS can track file names as meta-data, but it can't guarantee that names are unique. EarthFS files are immutable, and handling edits safely (in the face of network partitions) and efficiently requires extra planning.
+
+Asking users to throw away their existing file systems in order to run EarthFS would be a show-stopper. The World Wide Web is fairly popular (to put it lightly), but ChromeOS still hasn't supplanted traditional operating system.
 
 **What about copyright?**
 Don't upload things you don't own the copyright to. You're free to ask people not to republish your content and send takedown requests to their web host or ISP if they don't comply. The laws don't magically change just because a new technology comes along.
@@ -130,6 +166,17 @@ Once more people start using EarthFS (or other content addressing systems), I th
 **How many files have you tested it with?**
 Currently only around 15,000 (half files, half meta-files), which is my personal collection of notes. Most of these files are indexed for full-text search.
 
+**Is it a platform?**
+This might be better phrased as, "does EarthFS have value to offer other developers?"
+
+The single biggest benefit of a platform is the audience of established users. Developers put up with a lot of abuse from companies like Facebook and Apple because they want access to a huge audience. Obviously, EarthFS isn't doing much on that front, and won't be for a while, at least.
+
+If your application needs extremely robust decentralized sync support, then EarthFS might be of some use to you. If you can run EarthFS as a separate process, its HTTP API is very simple and powerful. If you want to embed it (which might be more practical for users who aren't already running it), the C API isn't stable yet.
+
+From a practical, self-interested standpoint, you may be better off studying how EarthFS works and reimplementing just the parts you need. But if you need a significant chunk of it (e.g. the query system), it may be worth using directly.
+
+If you need the features EarthFS provides _and_ would like to see it succeed, then using it in your applications would be mutually beneficial.
+
 **What was influenced by your ego as a designer?**
 Using (low level, portable) Objective-C instead of C++ for the filter system was partly due to my skill-set and partly due to the soft spot I have for that language. That was probably the biggest conceit I allowed. All (?) of the other decisions have stronger justifications.
 
@@ -137,12 +184,14 @@ Using (low level, portable) Objective-C instead of C++ for the filter system was
 A lot:
 
 - Digital signatures, unfortunately (time constraints, crypto inexperience)
+- Stable C API (libefs)
+- Even lower latency by re-transmitting before validating
 - Meta-data user interface
+- Real-time blog interface (using the barest amount of JS)
 - Blog statistics
-- Real-time blog interface (using a pinch of JS)
 - Full-text search spelling correction
 - RSS publishing and subscribing
-- Dump/reload (can be separate from the core project)
+- Dump/reload
 - Gzip compression (still needs `content-range` support)
 - Sharding
 - And more, of course
