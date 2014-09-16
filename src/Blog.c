@@ -147,17 +147,15 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 		if(written >= out->size) break;
 	}
 	if(async_fs_fdatasync(file) < 0) goto err;
+
 	int const close_err = async_fs_close(file); file = -1;
 	if(close_err < 0) goto err;
-
-	munmap((byte_t *)buf, info->size);
-
+	munmap((byte_t *)buf, info->size); buf = NULL;
 	async_pool_leave(NULL);
-
 	return 0;
 
 err:
-	if(tmp) async_fs_unlink(tmp);
+	async_fs_unlink(tmp);
 	async_fs_close(file); file = -1;
 	munmap((byte_t *)buf, info->size); buf = NULL;
 	async_pool_leave(NULL);
