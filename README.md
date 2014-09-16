@@ -85,7 +85,7 @@ EarthFS can be configured to accept comments directly. However, much of that fun
 **Why would a content addressing system focus on notetaking?**
 For me, the priority is notetaking (and, to a lesser extent, organizing other files). Content addressing is just a means to an end. If I could've made do with an existing notetaking system or something simpler without content addressing, I would have.
 
-Immutability eliminates the (for me, crippling) mental pressure to go back and fix up old notes. Now I consider my old notes a record of exactly how stupid I was at any given point in time. They're evidence of what I didn't know as much as of what I did. That keeps me honest and saves me from the burden of maintaining a lie. (I think the internet and society as a whole could benefit from this too.)
+Immutability eliminates the (for me, crippling) mental pressure to go back and fix up old notes. Now I consider my old notes a record of exactly how stupid I was at any given point in time. They're evidence of what I didn't know as much as of what I did. That keeps me honest with myself and saves me from the burden of maintaining the illusion of perfection. (I think the internet and society as a whole could benefit from this too.)
 
 At the same time, hash links let me reference any note unambiguously, in a way that won't break, and without making me come up with unique names for each note. They're less fragile than time stamps or UUIDs. So when I want to correct something, I can reliably cite the original.
 
@@ -113,7 +113,7 @@ The short version is intended to be robust against accidental collisions, but no
 
 In this scheme, the hash algorithm takes the role of the URI authority (instead of e.g. DNS). These URIs have to be resolved relative to a known location, which in EarthFS is usually a repository running locally. When displayed on a web site, hash links are normally resolved through the site itself (the same way a wiki resolves its own wiki-links).
 
-Hash links typically don't need to be displayed to the user, although the algorithm used might be relevant sometimes (for example, for audio fingerprint hashes). Short hashes are useful for the case where a link must be entered manually.
+Hash links typically don't need to be displayed to the user since they are opaque pointers, although the algorithm used might be relevant sometimes (for example, for audio fingerprint hashes). Short hashes are useful for the case where a link must be entered manually.
 
 **Why doesn't it use URNs?**
 I believe URNs failed to catch on due to technical problems as much as social ones. At the time, Uniform Resource Identifiers were seen as split into Uniform Resource Locators and Uniform Resource Names. I believe that locators and names have effectively the same characteristics: they are both dynamically assigned by a central authority (a server or agency). I believe there is a third type of resource identifier, hashes, that are distinct: they are decentralized because they can be assigned by anyone who knows the algorithm, and they are static because the algorithm is fixed.
