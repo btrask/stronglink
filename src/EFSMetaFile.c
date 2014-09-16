@@ -272,7 +272,7 @@ static void add_metadata(MDB_txn *const txn, EFSConnection const *const conn, ui
 	DB_VAL(metaFileID_val, 1);
 	db_bind(metaFileID_val, metaFileID);
 	int rc = mdb_put(txn, conn->metaFileIDByMetadata, metadata_val, metaFileID_val, MDB_NODUPDATA);
-	assert(MDB_SUCCESS == rc);
+	assertf(MDB_SUCCESS == rc || MDB_KEYEXIST == rc, "Database error %s", mdb_strerror(rc));
 
 	DB_VAL(metaFileIDField_val, 2);
 	db_bind(metaFileIDField_val, metaFileID);
@@ -280,7 +280,7 @@ static void add_metadata(MDB_txn *const txn, EFSConnection const *const conn, ui
 	DB_VAL(value_val, 1);
 	db_bind(value_val, value_id);
 	rc = mdb_put(txn, conn->valueByMetaFileIDField, metaFileIDField_val, value_val, MDB_NODUPDATA);
-	assert(MDB_SUCCESS == rc);
+	assertf(MDB_SUCCESS == rc || MDB_KEYEXIST == rc, "Database error %s", mdb_strerror(rc));
 }
 static void add_fulltext(MDB_txn *const txn, EFSConnection const *const conn, uint64_t const metaFileID, strarg_t const str, size_t const len) {
 	int rc;

@@ -1,6 +1,8 @@
 #define _GNU_SOURCE
 #include <assert.h>
+#include <ctype.h>
 #include <fcntl.h>
+#include <regex.h>
 #include <yajl/yajl_gen.h>
 #include "async.h"
 #include "EarthFS.h"
@@ -294,12 +296,33 @@ err_t EFSSubmissionCreatePair(EFSSessionRef const session, strarg_t const type, 
 	if(fulltextlen) {
 		yajl_gen_string(json, (byte_t const *)"fulltext", strlen("fulltext"));
 		yajl_gen_string(json, (byte_t const *)fulltext, fulltextlen);
-	}
 
-	yajl_gen_string(json, (byte_t const *)"link", strlen("link"));
-	yajl_gen_array_open(json);
-	// TODO: Parse fulltext for links
-	yajl_gen_array_close(json);
+
+		yajl_gen_string(json, (byte_t const *)"link", strlen("link"));
+		yajl_gen_array_open(json);
+
+		regex_t linkify[1];
+		// <http://daringfireball.net/2010/07/improved_regex_for_matching_urls>
+		// Painstakingly ported to POSIX
+		int rc = regcomp(linkify, "([a-z][a-z0-9_-]+:(/{1,3}|[a-z0-9%])|www[0-9]{0,3}[.]|[a-z0-9.-]+[.][a-z]{2,4}/)([^[:space:]()<>]+|\\(([^[:space:]()<>]+|(\\([^[:space:]()<>]+\\)))*\\))+(\\(([^[:space:]()<>]+|(\\([^[:space:]()<>]+\\)))*\\)|[^][[:space:]`!(){};:'\".,<>?«»“”‘’])", REG_ICASE | REG_EXTENDED);
+		assert(0 == rc);
+
+		strarg_t pos = fulltext;
+		regmatch_t match;
+		while(0 == regexec(linkify, pos, 1, &match, 0)) {
+			regoff_t const loc = match.rm_so;
+			regoff_t const len = match.rm_eo - match.rm_so;
+			// Manually check for leading \b
+			if(0 == loc || isspace(pos[loc-1])) {
+				yajl_gen_string(json, (byte_t const *)pos+loc, len);
+			}
+			pos += loc+len;
+		}
+
+		regfree(linkify);
+
+		yajl_gen_array_close(json);
+	}
 
 	yajl_gen_map_close(json);
 	yajl_gen_free(json); json = NULL;
