@@ -312,10 +312,7 @@ err_t EFSSubmissionCreatePair(EFSSessionRef const session, strarg_t const type, 
 		while(0 == regexec(linkify, pos, 1, &match, 0)) {
 			regoff_t const loc = match.rm_so;
 			regoff_t const len = match.rm_eo - match.rm_so;
-			// Manually check for leading \b
-			if(0 == loc || isspace(pos[loc-1])) {
-				yajl_gen_string(json, (byte_t const *)pos+loc, len);
-			}
+			yajl_gen_string(json, (byte_t const *)pos+loc, len);
 			pos += loc+len;
 		}
 
