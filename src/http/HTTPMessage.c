@@ -374,14 +374,14 @@ err_t HTTPMessageWriteChunkFile(HTTPMessageRef const msg, strarg_t const path) {
 	if(file < 0) {
 		return -1;
 	}
-	uv_stat_t stats;
-	if(async_fs_fstat(file, &stats) < 0) {
+	uv_fs_t req;
+	if(async_fs_fstat(file, &req) < 0) {
 		async_fs_close(file);
 		return -1;
 	}
 
-	if(stats.st_size) {
-		HTTPMessageWriteChunkLength(msg, stats.st_size);
+	if(req.statbuf.st_size) {
+		HTTPMessageWriteChunkLength(msg, req.statbuf.st_size);
 		HTTPMessageWriteFile(msg, file);
 		HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
 	}
@@ -423,11 +423,11 @@ void HTTPMessageSendFile(HTTPMessageRef const msg, strarg_t const path, strarg_t
 	uv_file const file = async_fs_open(path, O_RDONLY, 0000);
 	if(file < 0) return HTTPMessageSendStatus(msg, 400); // TODO: Error conversion.
 	if(size < 0) {
-		uv_stat_t stats;
-		if(async_fs_fstat(file, &stats) < 0) {
+		uv_fs_t req;
+		if(async_fs_fstat(file, &req) < 0) {
 			return HTTPMessageSendStatus(msg, 400);
 		}
-		size = stats.st_size;
+		size = req.statbuf.st_size;
 	}
 	HTTPMessageWriteResponse(msg, 200, "OK");
 	HTTPMessageWriteContentLength(msg, size);

@@ -86,9 +86,8 @@ int async_fs_fdatasync(uv_file file);
 int async_fs_mkdir(const char* path, int mode);
 int async_fs_ftruncate(uv_file file, int64_t offset);
 
-int async_fs_fstat(uv_file file, uv_stat_t *stats);
-int async_fs_fstat_size(uv_file file, uint64_t *size); // Avoids copying the whole stat buffer.
-int async_fs_stat_mode(const char* path, uint64_t *mode);
+int async_fs_fstat(uv_file file, uv_fs_t *const req);
+int async_fs_stat(const char* path, uv_fs_t *const req);
 
 int async_fs_mkdirp_fast(char *const path, size_t const len, int const mode);
 int async_fs_mkdirp(char const *const path, int const mode);

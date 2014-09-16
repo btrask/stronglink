@@ -11,9 +11,9 @@
 
 #define ASYNC_FS_WRAP(name, args...) \
 	async_pool_enter(NULL); \
-	uv_fs_t req; \
-	int const err = uv_fs_##name(loop, &req, ##args, NULL); \
-	uv_fs_req_cleanup(&req); \
+	uv_fs_t req[1]; \
+	int const err = uv_fs_##name(loop, req, ##args, NULL); \
+	uv_fs_req_cleanup(req); \
 	async_pool_leave(NULL); \
 	return err;
 
@@ -48,31 +48,20 @@ int async_fs_ftruncate(uv_file file, int64_t offset) {
 	ASYNC_FS_WRAP(ftruncate, file, offset)
 }
 
-int async_fs_fstat(uv_file file, uv_stat_t *stats) {
+int async_fs_fstat(uv_file file, uv_fs_t *const req) {
 	async_pool_enter(NULL);
-	uv_fs_t req;
-	int const err = uv_fs_fstat(loop, &req, file, NULL);
+	uv_fs_t _req[1];
+	int const err = uv_fs_fstat(loop, req ? req : _req, file, NULL);
+	uv_fs_req_cleanup(req ? req : _req);
 	async_pool_leave(NULL);
-	if(err >= 0) memcpy(stats, &req.statbuf, sizeof(uv_stat_t));
-	uv_fs_req_cleanup(&req);
 	return err;
 }
-int async_fs_fstat_size(uv_file file, uint64_t *size) {
+int async_fs_stat_mode(const char* path, uv_fs_t *const req) {
 	async_pool_enter(NULL);
-	uv_fs_t req;
-	int const err = uv_fs_fstat(loop, &req, file, NULL);
+	uv_fs_t _req[1];
+	int const err = uv_fs_stat(loop, req ? req : _req, path, NULL);
+	uv_fs_req_cleanup(req ? req : _req);
 	async_pool_leave(NULL);
-	*size = req.statbuf.st_size;
-	uv_fs_req_cleanup(&req);
-	return err;
-}
-int async_fs_stat_mode(const char* path, uint64_t *mode) {
-	async_pool_enter(NULL);
-	uv_fs_t req;
-	int const err = uv_fs_stat(loop, &req, path, NULL);
-	async_pool_leave(NULL);
-	*mode = req.statbuf.st_mode;
-	uv_fs_req_cleanup(&req);
 	return err;
 }
 

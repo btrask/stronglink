@@ -13,6 +13,7 @@
 #include "http/QueryString.h"
 
 #define RESULTS_MAX 50
+#define PENDING_MAX 4
 #define BUFFER_SIZE (1024 * 8)
 
 typedef struct {
@@ -36,10 +37,12 @@ typedef struct Blog* BlogRef;
 
 struct Blog {
 	EFSRepoRef repo;
+
 	str_t *dir;
 	str_t *staticDir;
 	str_t *templateDir;
 	str_t *cacheDir;
+
 	TemplateRef header;
 	TemplateRef footer;
 	TemplateRef entry_start;
@@ -47,6 +50,10 @@ struct Blog {
 	TemplateRef preview;
 	TemplateRef empty;
 	TemplateRef compose;
+
+	async_mutex_t *pending_mutex;
+	async_cond_t *pending_cond;
+	strarg_t pending[PENDING_MAX];
 };
 
 // TODO: Real public API.
@@ -98,28 +105,26 @@ static int markdown_autolink(struct buf *ob, const struct buf *link, enum mkd_au
 	return rc;
 }
 
-static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath, EFSFileInfo const *const info) {
+static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const tmp, EFSFileInfo const *const info) {
 	if(
 		0 != strcasecmp("text/markdown; charset=utf-8", info->type) &&
 		0 != strcasecmp("text/markdown", info->type)
 	) return -1; // TODO: Other types, plugins, w/e.
 
+	if(info->size > 1024 * 1024 * 1) return -1;
+
 	async_pool_enter(NULL);
-	str_t *tmpPath = NULL;
-	int fd = -1;
-	byte_t const *buf = NULL;
 	uv_file file = -1;
+	byte_t const *buf = NULL;
 
-	if(async_fs_mkdirp_dirname(previewPath, 0700) < 0) goto err;
-
-	tmpPath = EFSRepoCopyTempPath(EFSSessionGetRepo(session));
-	if(async_fs_mkdirp_dirname(tmpPath, 0700) < 0) goto err;
+	file = async_fs_open(tmp, O_CREAT | O_EXCL | O_RDWR, 0400);
+	if(file < 0) goto err;
 
 	// TODO: Portable wrapper
-	fd = open(info->path, O_RDONLY, 0000);
+	int fd = open(info->path, O_RDONLY, 0000);
 	buf = mmap(NULL, info->size, PROT_READ, MAP_SHARED, fd, 0);
-	if(!buf) goto err;
 	close(fd); fd = -1;
+	if(!buf) goto err;
 
 	struct sd_callbacks callbacks;
 	struct markdown_state state;
@@ -129,12 +134,10 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 	callbacks.link = markdown_link;
 	callbacks.autolink = markdown_autolink;
 	struct sd_markdown *parser = sd_markdown_new(MKDEXT_AUTOLINK | MKDEXT_FENCED_CODE | MKDEXT_NO_INTRA_EMPHASIS | MKDEXT_SUPERSCRIPT, 10, &callbacks, &state);
-	struct buf *out = bufnew(1);
+	struct buf *out = bufnew(1024 * 8);
 	sd_markdown_render(out, buf, info->size, parser);
 	sd_markdown_free(parser); parser = NULL;
 
-	file = async_fs_open(tmpPath, O_CREAT | O_EXCL | O_RDWR, 0600);
-	if(file < 0) goto err;
 	int written = 0;
 	for(;;) {
 		uv_buf_t bufs = uv_buf_init((char *)out->data+written, out->size-written);
@@ -146,27 +149,21 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 	if(async_fs_fdatasync(file) < 0) goto err;
 	int const close_err = async_fs_close(file); file = -1;
 	if(close_err < 0) goto err;
-	if(async_fs_link(tmpPath, previewPath) < 0) goto err;
-	async_fs_unlink(tmpPath);
 
 	munmap((byte_t *)buf, info->size);
 
 	async_pool_leave(NULL);
 
-	FREE(&tmpPath);
-
 	return 0;
 
 err:
-	if(tmpPath) async_fs_unlink(tmpPath);
-	FREE(&tmpPath);
+	if(tmp) async_fs_unlink(tmp);
 	async_fs_close(file); file = -1;
 	munmap((byte_t *)buf, info->size); buf = NULL;
-	if(fd >= 0) { close(fd); fd = -1; }
 	async_pool_leave(NULL);
 	return -1;
 }
-static err_t genPlainTextPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath, EFSFileInfo const *const info) {
+static err_t genPlainTextPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const tmp, EFSFileInfo const *const info) {
 	if(
 		0 != strcasecmp("text/plain; charset=utf-8", info->type) &&
 		0 != strcasecmp("text/plain", info->type)
@@ -193,7 +190,7 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 	}
 	if(0 == strcmp(var, "queryURI")) {
 		// TODO: Query string escaping
-		snprintf(buf, sizeof(buf), "?q=%s", state->fileURI);
+		snprintf(buf, sizeof(buf), "/?q=%s", state->fileURI);
 		unsafe = buf;
 	}
 	if(0 == strcmp(var, "hashURI")) {
@@ -262,40 +259,76 @@ static TemplateArgCBs const preview_cbs = {
 	.lookup = (str_t *(*)())preview_metadata,
 	.free = (void (*)())preview_free,
 };
-static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {
-	EFSFileInfo info[1];
-	if(EFSSessionGetFileInfo(session, URI, info) < 0) return -1;
-	bool_t success = false;
-	success = success || genMarkdownPreview(blog, session, URI, previewPath, info) >= 0;
-	success = success || genPlainTextPreview(blog, session, URI, previewPath, info) >= 0;
-	EFSFileInfoCleanup(info);
-	if(success) return 0;
 
-	if(async_fs_mkdirp_dirname(previewPath, 0700) < 0) return -1;
-	str_t *tmpPath = EFSRepoCopyTempPath(blog->repo);
-	async_fs_mkdirp_dirname(tmpPath, 0700);
-	uv_file file = async_fs_open(tmpPath, O_CREAT | O_EXCL | O_WRONLY, 0400);
-	err_t err = file;
+static err_t genGenericPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const tmp, EFSFileInfo const *const info) {
+	uv_file file = async_fs_open(tmp, O_CREAT | O_EXCL | O_WRONLY, 0400);
+	if(file < 0) return -1;
 
 	preview_state const state = {
 		.blog = blog,
 		.fileURI = URI,
 	};
-	err = err < 0 ? err : TemplateWriteFile(blog->preview, &preview_cbs, &state, file);
+	err_t const e1 = TemplateWriteFile(blog->preview, &preview_cbs, &state, file);
 
-	async_fs_close(file); file = -1;
-
-	err = err < 0 ? err : async_fs_link(tmpPath, previewPath);
-
-	async_fs_unlink(tmpPath);
-
-	FREE(&tmpPath);
-
-	if(err < 0) return -1;
+	err_t const e2 = async_fs_close(file); file = -1;
+	if(e1 < 0 || e2 < 0) {
+		async_fs_unlink(tmp);
+		return -1;
+	}
 	return 0;
 }
-static void sendPreview(BlogRef const blog, HTTPMessageRef const msg, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {
-	if(!previewPath) return;
+
+static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const path) {
+	EFSFileInfo info[1];
+	if(EFSSessionGetFileInfo(session, URI, info) < 0) return -1;
+	str_t *tmp = EFSRepoCopyTempPath(blog->repo);
+	if(!tmp) {
+		EFSFileInfoCleanup(info);
+		return -1;
+	}
+
+	bool_t success = false;
+	success = success || genMarkdownPreview(blog, session, URI, tmp, info) >= 0;
+	success = success || genPlainTextPreview(blog, session, URI, tmp, info) >= 0;
+	success = success || genGenericPreview(blog, session, URI, tmp, info) >= 0;
+	if(!success) async_fs_mkdirp_dirname(tmp, 0700);
+	success = success || genMarkdownPreview(blog, session, URI, tmp, info) >= 0;
+	success = success || genPlainTextPreview(blog, session, URI, tmp, info) >= 0;
+	success = success || genGenericPreview(blog, session, URI, tmp, info) >= 0;
+
+	EFSFileInfoCleanup(info);
+	if(!success) {
+		FREE(&tmp);
+		return -1;
+	}
+
+	success = false;
+	success = success || async_fs_link(tmp, path) >= 0;
+	if(!success) async_fs_mkdirp_dirname(path, 0700);
+	success = success || async_fs_link(tmp, path) >= 0;
+
+	async_fs_unlink(tmp);
+	FREE(&tmp);
+	return success ? 0 : -1;
+}
+
+static bool_t pending(BlogRef const blog, strarg_t const path) {
+	for(index_t i = 0; i < PENDING_MAX; ++i) {
+		if(!blog->pending[i]) continue;
+		if(0 == strcmp(blog->pending[i], path)) return true;
+	}
+	return false;
+}
+static bool_t available(BlogRef const blog, index_t *const x) {
+	for(index_t i = 0; i < PENDING_MAX; ++i) {
+		if(blog->pending[i]) continue;
+		*x = i;
+		return true;
+	}
+	return false;
+}
+static void sendPreview(BlogRef const blog, HTTPMessageRef const msg, EFSSessionRef const session, strarg_t const URI, strarg_t const path) {
+	if(!path) return;
 
 	preview_state const state = {
 		.blog = blog,
@@ -303,11 +336,35 @@ static void sendPreview(BlogRef const blog, HTTPMessageRef const msg, EFSSession
 	};
 	TemplateWriteHTTPChunk(blog->entry_start, &preview_cbs, &state, msg);
 
-	if(
-		HTTPMessageWriteChunkFile(msg, previewPath) < 0 &&
-		(genPreview(blog, session, URI, previewPath) < 0 ||
-		HTTPMessageWriteChunkFile(msg, previewPath) < 0)
-	) {
+	if(HTTPMessageWriteChunkFile(msg, path) >= 0) {
+		TemplateWriteHTTPChunk(blog->entry_end, &preview_cbs, &state, msg);
+		return;
+	}
+
+	// It's okay to accidentally regenerate a preview
+	// It's okay to send an error if another thread tried to gen and failed
+	// We want to minimize false positives and false negatives
+	// In particular, if a million connections request a new file at once, we want to avoid starting gen for each connection before any of them have finished
+	// Capping the total number of concurrent gens to PENDING_MAX is not a bad side effect
+	index_t x = 0;
+	async_mutex_lock(blog->pending_mutex);
+	for(;; async_cond_wait(blog->pending_cond, blog->pending_mutex)) {
+		if(pending(blog, path)) { x = PENDING_MAX; continue; }
+		if(x >= PENDING_MAX) break;
+		if(available(blog, &x)) break;
+	}
+	async_mutex_unlock(blog->pending_mutex);
+
+	if(x < PENDING_MAX) {
+		(void)genPreview(blog, session, URI, path);
+
+		async_mutex_lock(blog->pending_mutex);
+		blog->pending[x] = NULL;
+		async_cond_broadcast(blog->pending_cond);
+		async_mutex_unlock(blog->pending_mutex);
+	}
+
+	if(HTTPMessageWriteChunkFile(msg, path) < 0) {
 		TemplateWriteHTTPChunk(blog->empty, &preview_cbs, &state, msg);
 	}
 
@@ -483,7 +540,11 @@ BlogRef BlogCreate(EFSRepoRef const repo) {
 	assertf(repo, "Blog requires valid repo");
 
 	BlogRef const blog = calloc(1, sizeof(struct Blog));
+	if(!blog) return NULL;
 	blog->repo = repo;
+
+	// TODO: Check for failures
+
 	asprintf(&blog->dir, "%s/blog", EFSRepoGetDir(repo));
 	asprintf(&blog->staticDir, "%s/static", blog->dir);
 	asprintf(&blog->templateDir, "%s/template", blog->dir);
@@ -506,15 +567,20 @@ BlogRef BlogCreate(EFSRepoRef const repo) {
 	blog->compose = TemplateCreateFromPath(path);
 	FREE(&path);
 
+	blog->pending_mutex = async_mutex_create();
+	blog->pending_cond = async_cond_create();
+
 	return blog;
 }
 void BlogFree(BlogRef *const blogptr) {
 	BlogRef blog = *blogptr;
 	if(!blog) return;
+
 	FREE(&blog->dir);
 	FREE(&blog->staticDir);
 	FREE(&blog->templateDir);
 	FREE(&blog->cacheDir);
+
 	TemplateFree(&blog->header);
 	TemplateFree(&blog->footer);
 	TemplateFree(&blog->entry_start);
@@ -522,6 +588,10 @@ void BlogFree(BlogRef *const blogptr) {
 	TemplateFree(&blog->preview);
 	TemplateFree(&blog->empty);
 	TemplateFree(&blog->compose);
+
+	async_mutex_free(blog->pending_mutex); blog->pending_mutex = NULL;
+	async_cond_free(blog->pending_cond); blog->pending_cond = NULL;
+
 	FREE(blogptr); blog = NULL;
 }
 bool_t BlogDispatch(BlogRef const blog, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {

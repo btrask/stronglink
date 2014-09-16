@@ -62,12 +62,12 @@ TemplateRef TemplateCreate(strarg_t const str) {
 TemplateRef TemplateCreateFromPath(strarg_t const path) {
 	uv_file const file = async_fs_open(path, O_RDONLY, 0000);
 	if(file < 0) return NULL;
-	uv_stat_t stats;
-	if(async_fs_fstat(file, &stats) < 0) {
+	uv_fs_t req;
+	if(async_fs_fstat(file, &req) < 0) {
 		async_fs_close(file);
 		return NULL;
 	}
-	int64_t const size = stats.st_size;
+	int64_t const size = req.statbuf.st_size;
 	if(!size || size > TEMPLATE_MAX) {
 		async_fs_close(file);
 		return NULL;
