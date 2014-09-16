@@ -98,18 +98,11 @@ static int markdown_autolink(struct buf *ob, const struct buf *link, enum mkd_au
 	return rc;
 }
 
-static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {
-	EFSFileInfo info[1];
-	if(EFSSessionGetFileInfo(session, URI, info) < 0) return -1;
-
+static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath, EFSFileInfo const *const info) {
 	if(
 		0 != strcasecmp("text/markdown; charset=utf-8", info->type) &&
 		0 != strcasecmp("text/markdown", info->type)
-	) {
-		EFSFileInfoCleanup(info);
-		return -1; // TODO: Other types, plugins, w/e.
-	}
-
+	) return -1; // TODO: Other types, plugins, w/e.
 
 	async_pool_enter(NULL);
 	str_t *tmpPath = NULL;
@@ -161,7 +154,6 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 	async_pool_leave(NULL);
 
 	FREE(&tmpPath);
-	EFSFileInfoCleanup(info);
 
 	return 0;
 
@@ -171,10 +163,20 @@ err:
 	async_fs_close(file); file = -1;
 	munmap((byte_t *)buf, info->size); buf = NULL;
 	if(fd >= 0) { close(fd); fd = -1; }
-	EFSFileInfoCleanup(info);
 	async_pool_leave(NULL);
 	return -1;
 }
+static err_t genPlainTextPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath, EFSFileInfo const *const info) {
+	if(
+		0 != strcasecmp("text/plain; charset=utf-8", info->type) &&
+		0 != strcasecmp("text/plain", info->type)
+	) return -1; // TODO: Other types, plugins, w/e.
+
+	// TODO
+	return -1;
+}
+
+
 typedef struct {
 	BlogRef blog;
 	strarg_t fileURI;
@@ -261,7 +263,13 @@ static TemplateArgCBs const preview_cbs = {
 	.free = (void (*)())preview_free,
 };
 static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const previewPath) {
-	if(genMarkdownPreview(blog, session, URI, previewPath) >= 0) return 0;
+	EFSFileInfo info[1];
+	if(EFSSessionGetFileInfo(session, URI, info) < 0) return -1;
+	bool_t success = false;
+	success = success || genMarkdownPreview(blog, session, URI, previewPath, info) >= 0;
+	success = success || genPlainTextPreview(blog, session, URI, previewPath, info) >= 0;
+	EFSFileInfoCleanup(info);
+	if(success) return 0;
 
 	if(async_fs_mkdirp_dirname(previewPath, 0700) < 0) return -1;
 	str_t *tmpPath = EFSRepoCopyTempPath(blog->repo);
