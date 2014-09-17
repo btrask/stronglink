@@ -125,7 +125,7 @@ size_t EFSFilterToUserFilterString(EFSFilterRef const filter, str_t *const data,
 err_t EFSFilterPrepare(EFSFilterRef const filter, MDB_txn *const txn, EFSConnection const *const conn);
 void EFSFilterSeek(EFSFilterRef const filter, int const dir, uint64_t const sortID, uint64_t const fileID);
 void EFSFilterCurrent(EFSFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID);
-bool_t EFSFilterStep(EFSFilterRef const filter, int const dir);
+void EFSFilterStep(EFSFilterRef const filter, int const dir);
 uint64_t EFSFilterAge(EFSFilterRef const filter, uint64_t const sortID, uint64_t const fileID);
 str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, MDB_txn *const txn, EFSConnection const *const conn);
 

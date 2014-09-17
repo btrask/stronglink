@@ -40,7 +40,7 @@
 		rc = mdb_cursor_get(step_files, targetURI_val, fileID_val, MDB_GET_BOTH_RANGE);
 		if(MDB_SUCCESS != rc) return;
 		uint64_t const actualFileID = db_column(fileID_val, 0);
-		if(fileID == actualFileID) return (void)[self step:-dir];
+		if(fileID == actualFileID) return;
 		if(dir > 0) return (void)[self step:-1];
 	} else {
 		rc = db_cursor_get(step_files, targetURI_val, NULL, MDB_SET);
@@ -58,12 +58,12 @@
 		if(fileID) *fileID = invalid(dir);
 	}
 }
-- (bool_t)step:(int const)dir {
+- (void)step:(int const)dir {
 	int rc;
 	MDB_val fileID_val[1];
 
 	rc = db_cursor_get(step_files, NULL, fileID_val, op(dir, MDB_NEXT_DUP));
-	if(MDB_SUCCESS == rc) return true;
+	if(MDB_SUCCESS == rc) return;
 
 	for(uint64_t sortID = [self stepMeta:dir]; valid(sortID); sortID = [self stepMeta:dir]) {
 		DB_VAL(metaFileID_val, 1);
@@ -78,9 +78,8 @@
 		if(MDB_SUCCESS != rc) continue;
 		rc = db_cursor_get(step_files, NULL, fileID_val, op(dir, MDB_FIRST_DUP));
 		if(MDB_SUCCESS != rc) continue;
-		return true;
+		return;
 	}
-	return false;
 }
 - (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID {
 	uint64_t earliest = UINT64_MAX;

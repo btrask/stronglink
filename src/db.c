@@ -174,7 +174,7 @@ int db_cursor_get(MDB_cursor *const cur, MDB_val *const key, MDB_val *const val,
 					return mdb_cursor_get(cur, key, v, MDB_LAST_DUP);
 				default: assert(0);
 			}
-			break;
+			assert(0);
 		}
 		default: break;
 	}
@@ -183,13 +183,18 @@ int db_cursor_get(MDB_cursor *const cur, MDB_val *const key, MDB_val *const val,
 		case MDB_FIRST_DUP:
 		case MDB_LAST_DUP:
 		case MDB_PREV_DUP:
-		case MDB_NEXT_DUP: {
+		case MDB_NEXT_DUP:
+		case MDB_NEXT:
+		case MDB_PREV: {
 			// Keys and values should be optional for these ops
 			MDB_val ignore1;
 			MDB_val ignore2;
 			MDB_val *const k = key ? key : &ignore1;
 			MDB_val *const v = val ? val : &ignore2;
 			int rc = mdb_cursor_get(cur, k, v, op);
+			if(MDB_NOTFOUND != rc) return rc;
+			// Fall off when we reach the end
+			mdb_cursor_renew(mdb_cursor_txn(cur), cur);
 			return rc;
 		}
 		case MDB_SET:

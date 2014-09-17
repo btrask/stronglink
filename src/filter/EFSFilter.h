@@ -27,7 +27,7 @@
 - (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn;
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
-- (bool_t)step:(int const)dir;
+- (void)step:(int const)dir;
 - (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID;
 @end
 
@@ -43,7 +43,7 @@
 - (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn;
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
-- (bool_t)step:(int const)dir;
+- (void)step:(int const)dir;
 - (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID;
 @end
 @interface EFSIndividualFilter (Abstract)
@@ -98,7 +98,7 @@ struct token {
 - (err_t)addFilterArg:(EFSFilter *const)filter;
 
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
-- (bool_t)step:(int const)dir;
+- (void)step:(int const)dir;
 - (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID;
 
 - (void)sort:(int const)dir;
@@ -111,16 +111,10 @@ struct token {
 // EFSMetaFileFilter.m
 @interface EFSMetaFileFilter : EFSFilter
 {
-	EFSFilter *subfilter;
-	MDB_cursor *metafiles;
-	MDB_cursor *age_metafile;
-	MDB_cursor *age_uri;
-	MDB_cursor *age_files;
+	EFSUnionFilter *main;
+	EFSFilter *internal; // weak ref
+	EFSFilter *subfilter; // weak ref
 }
-- (void)_seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
-- (void)_current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
-- (bool_t)_step:(int const)dir;
-- (uint64_t)_age:(uint64_t const)sortID :(uint64_t const)fileID;
 @end
 
 static bool_t valid(uint64_t const x) {

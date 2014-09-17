@@ -235,7 +235,7 @@ static void debug_data(EFSConnection const *const conn) {
 	db_bind(username_val, username_id);
 	mdb_put(txn, conn->userIDByName, username_val, userID_val, MDB_NOOVERWRITE);
 
-	DB_VAL(pullID_val, 1);
+/*	DB_VAL(pullID_val, 1);
 	db_bind(pullID_val, 1);
 
 	uint64_t const host_id = db_string_id(txn, conn->schema, "localhost:8009");
@@ -257,6 +257,6 @@ static void debug_data(EFSConnection const *const conn) {
 
 	mdb_put(txn, conn->pullByID, pullID_val, pull_val, MDB_NOOVERWRITE);
 
-	mdb_txn_commit(txn); txn = NULL;
+	mdb_txn_commit(txn); txn = NULL;*/
 }
 

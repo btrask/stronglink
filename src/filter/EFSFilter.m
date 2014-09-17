@@ -88,10 +88,10 @@ void EFSFilterCurrent(EFSFilterRef const filter, int const dir, uint64_t *const 
 	assert(dir);
 	[(EFSFilter *)filter current:dir :sortID :fileID];
 }
-bool_t EFSFilterStep(EFSFilterRef const filter, int const dir) {
+void EFSFilterStep(EFSFilterRef const filter, int const dir) {
 	assert(filter);
 	assert(dir);
-	return [(EFSFilter *)filter step:dir];
+	[(EFSFilter *)filter step:dir];
 }
 uint64_t EFSFilterAge(EFSFilterRef const filter, uint64_t const sortID, uint64_t const fileID) {
 	assert(filter);
@@ -99,9 +99,10 @@ uint64_t EFSFilterAge(EFSFilterRef const filter, uint64_t const sortID, uint64_t
 }
 str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, MDB_txn *const txn, EFSConnection const *const conn) {
 	for(;;) {
-		if(!EFSFilterStep(filter, dir)) return NULL;
+		EFSFilterStep(filter, dir);
 		uint64_t sortID, fileID;
 		EFSFilterCurrent(filter, dir, &sortID, &fileID);
+		if(!valid(fileID)) return NULL;
 
 //		fprintf(stderr, "step: %llu, %llu\n", sortID, fileID);
 

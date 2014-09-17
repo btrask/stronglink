@@ -4,10 +4,10 @@ static int filtercmp(EFSFilter *const a, EFSFilter *const b, int const dir) {
 	uint64_t asort, afile, bsort, bfile;
 	[a current:+1*dir :&asort :&afile];
 	[b current:+1*dir :&bsort :&bfile];
-	if(asort < bsort) return +1*dir;
-	if(asort > bsort) return -1*dir;
-	if(afile < bfile) return +1*dir;
-	if(afile > bfile) return -1*dir;
+	if(asort > bsort) return +1*dir;
+	if(asort < bsort) return -1*dir;
+	if(afile > bfile) return +1*dir;
+	if(afile < bfile) return -1*dir;
 	return 0;
 }
 static int filtercmp_fwd(EFSFilter *const *const a, EFSFilter *const *const b) {
@@ -47,35 +47,47 @@ static int filtercmp_rev(EFSFilter *const *const a, EFSFilter *const *const b) {
 	return 0;
 }
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
+	assert(count);
 	for(index_t i = 0; i < count; ++i) {
 		[filters[i] seek:dir :sortID :fileID];
 	}
+	[self sort:dir];
+	// The last filter is the one in the closest to the correct position.
+	// Any filters behind it must be stepped once.
+	uint64_t actualSortID, actualFileID;
+	[filters[count-1] current:dir :&actualSortID :&actualFileID];
+	for(index_t i = 0; i < count; ++i) {
+		uint64_t curSortID, curFileID;
+		[filters[i] current:dir :&curSortID :&curFileID];
+		if(curSortID == actualSortID && curFileID == actualFileID) break;
+		[filters[i] step:dir];
+	}
+	sort = 0;
 }
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
 	assert(count);
 	if(sort != dir) [self sort:dir];
 	[filters[0] current:dir :sortID :fileID];
 }
-- (bool_t)step:(int const)dir {
+- (void)step:(int const)dir {
 	assert(count);
 	if(sort != dir) [self sort:dir];
 	uint64_t oldSortID, oldFileID;
 	[filters[0] current:dir :&oldSortID :&oldFileID];
-	bool_t step = [filters[0] step:dir];
+	[filters[0] step:dir];
 	for(index_t i = 1; i < count; ++i) {
 		uint64_t curSortID, curFileID;
 		[filters[i] current:dir :&curSortID :&curFileID];
-		if(curSortID != oldSortID) break;
-		if(curFileID != oldFileID) break;
-		if([filters[i] step:dir]) step = true;
+		if(curSortID != oldSortID || curFileID != oldFileID) break;
+		[filters[i] step:dir];
 	}
-	[self sort:dir];
-	return step;
+	sort = 0;
 }
 - (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID {
 	EFSFilterType const type = [self type]; // TODO: Polymorphism
 	bool_t hit = false;
 	// TODO: Maybe better to check in reverse order?
+	// May have to sort first
 	for(index_t i = 0; i < count; ++i) {
 		uint64_t const age = [filters[i] age:sortID :fileID];
 		if(age == sortID) {
