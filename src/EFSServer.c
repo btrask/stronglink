@@ -128,8 +128,8 @@ static bool_t postFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMeth
 		context = msg;
 	}
 
-	EFSSubmissionRef sub = EFSSubmissionCreateAndAdd(session, type, read, context);
-	if(sub) {
+	EFSSubmissionRef sub = EFSSubmissionCreateQuick(session, type, read, context);
+	if(sub && EFSSubmissionBatchStore(&sub, 1) >= 0) {
 		HTTPMessageWriteResponse(msg, 201, "Created");
 		HTTPMessageWriteHeader(msg, "X-Location", EFSSubmissionGetPrimaryURI(sub)); // TODO: X-Content-Address or something? Or X-Name?
 		HTTPMessageWriteContentLength(msg, 0);

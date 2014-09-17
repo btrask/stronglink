@@ -216,17 +216,16 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 	return 0;
 }
 
-EFSSubmissionRef EFSSubmissionCreateAndAdd(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context) {
+EFSSubmissionRef EFSSubmissionCreateQuick(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context) {
 	EFSSubmissionRef sub = EFSSubmissionCreate(session, type);
 	if(!sub) return NULL;
 	err_t err = 0;
 	err = err < 0 ? err : EFSSubmissionWriteFrom(sub, read, context);
 	err = err < 0 ? err : EFSSubmissionAddFile(sub);
-	err = err < 0 ? err : EFSSubmissionBatchStore(&sub, 1);
 	if(err < 0) EFSSubmissionFree(&sub);
 	return sub;
 }
-err_t EFSSubmissionCreatePair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title, EFSSubmissionRef *const outSub, EFSSubmissionRef *const outMeta) {
+err_t EFSSubmissionCreateQuickPair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title, EFSSubmissionRef *const outSub, EFSSubmissionRef *const outMeta) {
 	EFSSubmissionRef sub = EFSSubmissionCreate(session, type);
 	EFSSubmissionRef meta = EFSSubmissionCreate(session, "text/efs-meta+json; charset=utf-8");
 	if(!sub || !meta) {

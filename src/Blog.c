@@ -505,7 +505,7 @@ static bool_t postSubmission(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 
 	EFSSubmissionRef sub = NULL;
 	EFSSubmissionRef meta = NULL;
-	if(EFSSubmissionCreatePair(session, type, (ssize_t (*)())FormPartGetBuffer, part, title, &sub, &meta) < 0) {
+	if(EFSSubmissionCreateQuickPair(session, type, (ssize_t (*)())FormPartGetBuffer, part, title, &sub, &meta) < 0) {
 		HTTPMessageSendStatus(msg, 500);
 		MultipartFormFree(&form);
 		EFSSessionFree(&session);

@@ -81,8 +81,8 @@ strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub);
 err_t EFSSubmissionAddFile(EFSSubmissionRef const sub);
 err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const conn, MDB_txn *const txn);
 // Convenience methods
-EFSSubmissionRef EFSSubmissionCreateAndAdd(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context);
-err_t EFSSubmissionCreatePair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title, EFSSubmissionRef *const outSub, EFSSubmissionRef *const outMeta);
+EFSSubmissionRef EFSSubmissionCreateQuick(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context);
+err_t EFSSubmissionCreateQuickPair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title, EFSSubmissionRef *const outSub, EFSSubmissionRef *const outMeta);
 err_t EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const count);
 
 EFSHasherRef EFSHasherCreate(strarg_t const type);

@@ -83,7 +83,7 @@ static void reader(EFSPullRef const pull) {
 		}
 
 		assertf(!pull->blocked_reader, "Reader already waiting");
-		while(pull->count + 2 > QUEUE_SIZE) {
+		while(pull->count + 1 > QUEUE_SIZE) {
 			pull->blocked_reader = co_active();
 			async_yield();
 			pull->blocked_reader = NULL;
@@ -93,7 +93,7 @@ static void reader(EFSPullRef const pull) {
 			}
 		}
 		index_t pos = (pull->cur + pull->count) % QUEUE_SIZE;
-		pull->count += 2;
+		pull->count += 1;
 
 		async_mutex_unlock(pull->connlock);
 
@@ -300,7 +300,8 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 	}
 
 	EFSImportHeaders const *const headers = HTTPMessageGetHeaders(msg, EFSImportFields, numberof(EFSImportFields));
-	if(EFSSubmissionCreatePair(pull->session, headers->content_type, (ssize_t (*)())HTTPMessageGetBuffer, msg, NULL, &sub, &meta) < 0) {
+	sub = EFSSubmissionCreateQuick(pull->session, headers->content_type, (ssize_t (*)())HTTPMessageGetBuffer, msg);
+	if(!sub) {
 		fprintf(stderr, "Pull import submission error\n");
 		goto fail;
 	}
@@ -312,10 +313,8 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 	HTTPMessageFree(&msg);
 
 enqueue:
-	pull->queue[(pos+0) % QUEUE_SIZE] = sub; sub = NULL;
-	pull->queue[(pos+1) % QUEUE_SIZE] = meta; meta = NULL;
-	pull->filled[(pos+0) % QUEUE_SIZE] = true;
-	pull->filled[(pos+1) % QUEUE_SIZE] = true;
+	pull->queue[pos] = sub; sub = NULL;
+	pull->filled[pos] = true;
 	if(pull->blocked_writer) async_wakeup(pull->blocked_writer);
 
 	return 0;
