@@ -146,6 +146,45 @@ static bool_t postFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMeth
 	EFSSessionFree(&session);
 	return true;
 }
+
+static count_t getURIs(EFSSessionRef const session, EFSFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID, str_t **const URIs, count_t const max) {
+	EFSRepoRef const repo = EFSSessionGetRepo(session);
+	EFSConnection const *conn = EFSRepoDBOpen(repo);
+	assert(conn);
+	MDB_txn *txn = NULL;
+	int rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
+	assertf(MDB_SUCCESS == rc, "Database error %s", mdb_strerror(rc));
+
+	EFSFilterPrepare(filter, txn, conn);
+	EFSFilterSeek(filter, dir, *sortID, *fileID);
+
+	count_t count = 0;
+	while(count < max) {
+		str_t *const URI = EFSFilterCopyNextURI(filter, dir, txn, conn);
+		if(!URI) break;
+		URIs[count++] = URI;
+	}
+
+	EFSFilterCurrent(filter, dir, sortID, fileID);
+
+	mdb_txn_abort(txn); txn = NULL;
+	EFSRepoDBClose(repo, &conn);
+	return count;
+}
+static void sendURIs(HTTPMessageRef const msg, str_t *const *const URIs, count_t const count) {
+	for(index_t i = 0; i < count; ++i) {
+		uv_buf_t const parts[] = {
+			uv_buf_init((char *)URIs[i], strlen(URIs[i])),
+			uv_buf_init("\r\n", 2),
+		};
+		HTTPMessageWriteChunkv(msg, parts, numberof(parts));
+	}
+}
+static void cleanupURIs(str_t **const URIs, count_t const count) {
+	for(index_t i = 0; i < count; ++i) {
+		FREE(&URIs[i]);
+	}
+}
 static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_POST != method && HTTP_GET != method) return false;
 	if(!URIPath(URI, "/efs/query", NULL)) return false;
@@ -194,45 +233,14 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 	HTTPMessageWriteHeader(msg, "Content-Type", "text/uri-list; charset=utf-8");
 	HTTPMessageBeginBody(msg);
 
-	EFSConnection const *conn = NULL;
-	MDB_txn *txn = NULL;
-	int rc;
-	count_t count;
 	uint64_t sortID = 0;
 	uint64_t fileID = 0;
 
 	for(;;) {
-		conn = EFSRepoDBOpen(repo);
-		assert(conn);
-		rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
-		assertf(MDB_SUCCESS == rc, "Database error %s", mdb_strerror(rc));
-
-		EFSFilterPrepare(filter, txn, conn);
-		EFSFilterSeek(filter, +1, sortID, fileID);
-
-		count = 0;
-		bool_t done = false;
-		while(count < QUERY_BATCH_SIZE) { // TODO: History query parameter?
-			str_t *const URI = EFSFilterCopyNextURI(filter, +1, txn, conn);
-			if(!URI) { done = true; break; }
-			URIs[count++] = URI;
-		}
-
-		EFSFilterCurrent(filter, +1, &sortID, &fileID);
-
-		mdb_txn_abort(txn); txn = NULL;
-		EFSRepoDBClose(repo, &conn);
-
-		for(index_t i = 0; i < count; ++i) {
-			uv_buf_t const parts[] = {
-				uv_buf_init((char *)URIs[i], strlen(URIs[i])),
-				uv_buf_init("\r\n", 2),
-			};
-			HTTPMessageWriteChunkv(msg, parts, numberof(parts));
-			FREE(&URIs[i]);
-		}
-
-		if(done) break;
+		count_t const count = getURIs(session, filter, +1, &sortID, &fileID, URIs, QUERY_BATCH_SIZE);
+		sendURIs(msg, URIs, count);
+		cleanupURIs(URIs, count);
+		if(count < QUERY_BATCH_SIZE) break;
 	}
 
 
@@ -245,35 +253,9 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 			continue;
 		}
 
-		conn = EFSRepoDBOpen(repo);
-		assert(conn);
-		rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
-		assertf(MDB_SUCCESS == rc, "Database error %s", mdb_strerror(rc));
-
-		EFSFilterPrepare(filter, txn, conn);
-		EFSFilterSeek(filter, +1, sortID, 0);
-
-		count = 0;
-		while(count < QUERY_BATCH_SIZE) {
-			str_t *const URI = EFSFilterCopyNextURI(filter, +1, txn, conn);
-			if(!URI) break;
-			URIs[count++] = URI;
-		}
-
-		EFSFilterCurrent(filter, +1, &sortID, NULL);
-
-		mdb_txn_abort(txn); txn = NULL;
-		EFSRepoDBClose(repo, &conn);
-
-
-		for(index_t i = 0; i < count; ++i) {
-			uv_buf_t const parts[] = {
-				uv_buf_init((char *)URIs[i], strlen(URIs[i])),
-				uv_buf_init("\r\n", 2),
-			};
-			HTTPMessageWriteChunkv(msg, parts, numberof(parts));
-			FREE(&URIs[i]);
-		}
+		count_t const count = getURIs(session, filter, +1, &sortID, &fileID, URIs, QUERY_BATCH_SIZE);
+		sendURIs(msg, URIs, count);
+		cleanupURIs(URIs, count);
 	}
 
 
