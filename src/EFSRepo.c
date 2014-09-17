@@ -235,13 +235,13 @@ static void debug_data(EFSConnection const *const conn) {
 	db_bind(username_val, username_id);
 	mdb_put(txn, conn->userIDByName, username_val, userID_val, MDB_NOOVERWRITE);
 
-/*	DB_VAL(pullID_val, 1);
+	DB_VAL(pullID_val, 1);
 	db_bind(pullID_val, 1);
 
 	uint64_t const host_id = db_string_id(txn, conn->schema, "localhost:8009");
 	uint64_t const remote_username_id = db_string_id(txn, conn->schema, "ben");
 	uint64_t const remote_password_id = db_string_id(txn, conn->schema, "testing");
-	uint64_t const cookie_id = db_string_id(txn, conn->schema, "s=2012%3AijcBbbphmfGRynG677nyQAYBcXE%3D");
+	uint64_t const cookie_id = db_string_id(txn, conn->schema, "s=1:not-very-random");
 	uint64_t const query_id = db_string_id(txn, conn->schema, "");
 	assert(host_id);
 	assert(remote_username_id);
@@ -257,6 +257,6 @@ static void debug_data(EFSConnection const *const conn) {
 
 	mdb_put(txn, conn->pullByID, pullID_val, pull_val, MDB_NOOVERWRITE);
 
-	mdb_txn_commit(txn); txn = NULL;*/
+	mdb_txn_commit(txn); txn = NULL;
 }
 
