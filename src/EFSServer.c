@@ -253,9 +253,12 @@ static bool_t query(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod 
 			continue;
 		}
 
-		count_t const count = getURIs(session, filter, +1, &sortID, &fileID, URIs, QUERY_BATCH_SIZE);
-		sendURIs(msg, URIs, count);
-		cleanupURIs(URIs, count);
+		for(;;) {
+			count_t const count = getURIs(session, filter, +1, &sortID, &fileID, URIs, QUERY_BATCH_SIZE);
+			sendURIs(msg, URIs, count);
+			cleanupURIs(URIs, count);
+			if(count < QUERY_BATCH_SIZE) break;
+		}
 	}
 
 
