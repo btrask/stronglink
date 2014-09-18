@@ -24,7 +24,7 @@ static int filtercmp_rev(EFSFilter *const *const a, EFSFilter *const *const b) {
 }
 
 - (EFSFilter *)unwrap {
-	if(1 == count) return filters[0];
+	if(1 == count) return [filters[0] unwrap];
 	return nil;
 }
 - (err_t)addFilterArg:(EFSFilter *const)filter {

@@ -422,9 +422,10 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	// TODO: This is pretty broken. We probably need a whole separate mode.
 	EFSFilterRef const coreFilter = EFSFilterUnwrap(filter);
 	if(coreFilter && EFSMetadataFilterType == EFSFilterGetType(coreFilter)) {
+		strarg_t const field = EFSFilterGetStringArg(coreFilter, 0);
 		strarg_t const URI = EFSFilterGetStringArg(coreFilter, 1);
 		EFSFileInfo info[1];
-		if(EFSSessionGetFileInfo(session, URI, info) >= 0) {
+		if(0 == strcmp("link", field) && EFSSessionGetFileInfo(session, URI, info) >= 0) {
 			str_t *canonical = EFSFormatURI(EFS_INTERNAL_ALGO, info->hash);
 			str_t *previewPath = BlogCopyPreviewPath(blog, info->hash);
 			sendPreview(blog, msg, session, canonical, previewPath);
