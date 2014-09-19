@@ -317,14 +317,14 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 	return success ? 0 : -1;
 }
 
-static bool_t pending(BlogRef const blog, strarg_t const path) {
+static bool_t gen_pending(BlogRef const blog, strarg_t const path) {
 	for(index_t i = 0; i < PENDING_MAX; ++i) {
 		if(!blog->pending[i]) continue;
 		if(0 == strcmp(blog->pending[i], path)) return true;
 	}
 	return false;
 }
-static bool_t available(BlogRef const blog, strarg_t const path, index_t *const x) {
+static bool_t gen_available(BlogRef const blog, strarg_t const path, index_t *const x) {
 	for(index_t i = 0; i < PENDING_MAX; ++i) {
 		if(blog->pending[i]) continue;
 		blog->pending[i] = path;
@@ -332,6 +332,13 @@ static bool_t available(BlogRef const blog, strarg_t const path, index_t *const 
 		return true;
 	}
 	return false;
+}
+static void gen_done(BlogRef const blog, strarg_t const path, index_t const x) {
+	async_mutex_lock(blog->pending_mutex);
+	assert(path == blog->pending[x]);
+	blog->pending[x] = NULL;
+	async_cond_broadcast(blog->pending_cond);
+	async_mutex_unlock(blog->pending_mutex);
 }
 static void sendPreview(BlogRef const blog, HTTPMessageRef const msg, EFSSessionRef const session, strarg_t const URI, strarg_t const path) {
 	if(!path) return;
@@ -355,19 +362,15 @@ static void sendPreview(BlogRef const blog, HTTPMessageRef const msg, EFSSession
 	index_t x = 0;
 	async_mutex_lock(blog->pending_mutex);
 	for(;; async_cond_wait(blog->pending_cond, blog->pending_mutex)) {
-		if(pending(blog, path)) { x = PENDING_MAX; continue; }
+		if(gen_pending(blog, path)) { x = PENDING_MAX; continue; }
 		if(x >= PENDING_MAX) break;
-		if(available(blog, path, &x)) break;
+		if(gen_available(blog, path, &x)) break;
 	}
 	async_mutex_unlock(blog->pending_mutex);
 
 	if(x < PENDING_MAX) {
 		(void)genPreview(blog, session, URI, path);
-
-		async_mutex_lock(blog->pending_mutex);
-		blog->pending[x] = NULL;
-		async_cond_broadcast(blog->pending_cond);
-		async_mutex_unlock(blog->pending_mutex);
+		gen_done(blog, path, x);
 	}
 
 	if(HTTPMessageWriteChunkFile(msg, path) < 0) {
