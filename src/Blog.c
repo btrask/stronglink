@@ -122,9 +122,16 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 
 	// TODO: Portable wrapper
 	int fd = open(info->path, O_RDONLY, 0000);
+	if(fd < 0) {
+		fprintf(stderr, "Preview open failed (%s)\n", strerror(errno));
+		goto err;
+	}
 	buf = mmap(NULL, info->size, PROT_READ, MAP_SHARED, fd, 0);
 	close(fd); fd = -1;
-	if(!buf) goto err;
+	if(MAP_FAILED == buf) {
+		fprintf(stderr, "Preview mmap failed (%s)\n", strerror(errno));
+		goto err;
+	}
 
 	struct sd_callbacks callbacks;
 	struct markdown_state state;
@@ -394,7 +401,7 @@ static bool_t getResultsPage(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 	if(!filter) filter = EFSFilterCreate(EFSAllFilterType);
 	QSValuesFree((QSValues *)&params, numberof(BlogQueryFields));
 
-	EFSFilterPrint(filter, 0); // DEBUG
+//	EFSFilterPrint(filter, 0); // DEBUG
 
 	str_t **URIs = EFSSessionCopyFilteredURIs(session, filter, RESULTS_MAX);
 	if(!URIs) {
