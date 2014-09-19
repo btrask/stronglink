@@ -345,11 +345,10 @@ err_t HTTPMessageWriteFile(HTTPMessageRef const msg, uv_file const file) {
 }
 err_t HTTPMessageWriteChunkLength(HTTPMessageRef const msg, uint64_t const length) {
 	if(!msg) return 0;
-	str_t *str;
-	int const slen = asprintf(&str, "%llx\r\n", (unsigned long long)length);
+	str_t str[16];
+	int const slen = snprintf(str, sizeof(str), "%llx\r\n", (unsigned long long)length);
 	if(slen < 0) return -1;
 	ssize_t const wlen = HTTPMessageWrite(msg, (byte_t const *)str, slen);
-	FREE(&str);
 	return wlen < 0 ? -1 : 0;
 }
 ssize_t HTTPMessageWriteChunkv(HTTPMessageRef const msg, uv_buf_t const parts[], unsigned int const count) {
