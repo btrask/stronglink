@@ -324,9 +324,10 @@ static bool_t pending(BlogRef const blog, strarg_t const path) {
 	}
 	return false;
 }
-static bool_t available(BlogRef const blog, index_t *const x) {
+static bool_t available(BlogRef const blog, strarg_t const path, index_t *const x) {
 	for(index_t i = 0; i < PENDING_MAX; ++i) {
 		if(blog->pending[i]) continue;
+		blog->pending[i] = path;
 		*x = i;
 		return true;
 	}
@@ -356,7 +357,7 @@ static void sendPreview(BlogRef const blog, HTTPMessageRef const msg, EFSSession
 	for(;; async_cond_wait(blog->pending_cond, blog->pending_mutex)) {
 		if(pending(blog, path)) { x = PENDING_MAX; continue; }
 		if(x >= PENDING_MAX) break;
-		if(available(blog, &x)) break;
+		if(available(blog, path, &x)) break;
 	}
 	async_mutex_unlock(blog->pending_mutex);
 
