@@ -96,10 +96,10 @@ OBJECTS := \
 	$(BUILD_DIR)/sundown/html/houdini_href_e.o \
 	$(BUILD_DIR)/sundown/html/houdini_html_e.o
 
-OBJECTS += $(BUILD_DIR)/libco/$(LIBCO_VER).o
-#HEADERS += $(DEPS_DIR)/libcoro/coro.h
-#OBJECTS += $(BUILD_DIR)/libcoro/coro.o $(BUILD_DIR)/libco_coro.o
-#CFLAGS += -DCORO_USE_VALGRIND
+#OBJECTS += $(BUILD_DIR)/libco/$(LIBCO_VER).o
+HEADERS += $(DEPS_DIR)/libcoro/coro.h
+OBJECTS += $(BUILD_DIR)/libcoro/coro.o $(BUILD_DIR)/libco_coro.o
+CFLAGS += -DCORO_USE_VALGRIND
 
 OBJECTS += \
 	$(BUILD_DIR)/Blog.o
