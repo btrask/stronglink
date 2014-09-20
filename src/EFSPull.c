@@ -17,16 +17,15 @@ struct EFSPull {
 	str_t *cookie;
 	str_t *query;
 
-	cothread_t stop;
-	cothread_t blocked_reader;
-	cothread_t blocked_writer;
-
 	async_mutex_t *connlock;
 	HTTPConnectionRef conn;
 	HTTPMessageRef msg;
 
-	// Lock omitted due to cooperative multitasking.
-	// async_mutex_t *queuelock;
+	// TODO: This could probably be rewritten to use a condition lock.
+	cothread_t stop;
+	cothread_t blocked_reader;
+	cothread_t blocked_writer;
+
 	EFSSubmissionRef queue[QUEUE_SIZE];
 	bool_t filled[QUEUE_SIZE];
 	index_t cur;
