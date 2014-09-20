@@ -134,11 +134,11 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 	if(!repo) return NULL;
 	if(!cookie) return NULL;
 
-	long long sessionID = -1;
+	unsigned long long sessionID = -1;
 	str_t *sessionKey = calloc(strlen(cookie)+1, 1);
 	if(!sessionKey) return NULL;
-	sscanf(cookie, "s=%lld:%s", &sessionID, sessionKey);
-	if(sessionID <= 0 || '\0' == sessionKey[0]) {
+	sscanf(cookie, "s=%llu:%s", &sessionID, sessionKey);
+	if(!sessionID || '\0' == sessionKey[0]) {
 		FREE(&sessionKey);
 		return NULL;
 	}
@@ -168,7 +168,7 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 	mdb_txn_abort(txn); txn = NULL;
 	EFSRepoDBClose(repo, &conn);
 
-	if(userID <= 0) {
+	if(!userID) {
 		FREE(&sessionKey);
 		FREE(&sessionHash);
 		return NULL;
@@ -198,7 +198,8 @@ void EFSSessionFree(EFSSessionRef *const sessionptr) {
 	EFSSessionRef session = *sessionptr;
 	if(!session) return;
 	session->repo = NULL;
-	session->userID = -1;
+	session->userID = 0;
+	assert_zeroed(session, 1);
 	FREE(sessionptr); session = NULL;
 }
 EFSRepoRef EFSSessionGetRepo(EFSSessionRef const session) {

@@ -15,7 +15,8 @@ struct EFSSubmission {
 
 	str_t *tmppath;
 	uv_file tmpfile;
-	int64_t size;
+	uint64_t size;
+
 	EFSHasherRef hasher;
 	EFSMetaFileRef meta;
 
@@ -55,15 +56,23 @@ EFSSubmissionRef EFSSubmissionCreate(EFSSessionRef const session, strarg_t const
 void EFSSubmissionFree(EFSSubmissionRef *const subptr) {
 	EFSSubmissionRef sub = *subptr;
 	if(!sub) return;
+
 	sub->session = NULL;
 	FREE(&sub->type);
+
 	if(sub->tmppath) async_fs_unlink(sub->tmppath);
 	FREE(&sub->tmppath);
+	assert(sub->tmpfile < 0); sub->tmpfile = 0;
+	sub->size = 0;
+
 	EFSHasherFree(&sub->hasher);
 	EFSMetaFileFree(&sub->meta);
+
 	if(sub->URIs) for(index_t i = 0; sub->URIs[i]; ++i) FREE(&sub->URIs[i]);
 	FREE(&sub->URIs);
 	FREE(&sub->internalHash);
+
+	assert_zeroed(sub, 1);
 	FREE(subptr); sub = NULL;
 }
 

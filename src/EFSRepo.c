@@ -101,16 +101,22 @@ void EFSRepoFree(EFSRepoRef *const repoptr) {
 	FREE(&repo->cacheDir);
 	FREE(&repo->DBPath);
 
-	mdb_env_close(repo->conn->env); repo->conn->env = NULL;
+	EFSConnection *const conn = repo->conn;
+	mdb_env_close(conn->env); conn->env = NULL;
+	memset(conn, 0, sizeof(*conn));
 
 	async_mutex_free(repo->sub_mutex); repo->sub_mutex = NULL;
 	async_cond_free(repo->sub_cond); repo->sub_cond = NULL;
+	repo->sub_latest = 0;
 
 	for(index_t i = 0; i < repo->pull_count; ++i) {
 		EFSPullFree(&repo->pulls[i]);
 	}
 	FREE(&repo->pulls);
+	repo->pull_count = 0;
+	repo->pull_size = 0;
 
+	assert_zeroed(repo, 1);
 	FREE(repoptr); repo = NULL;
 }
 

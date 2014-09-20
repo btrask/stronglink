@@ -36,6 +36,7 @@ void EFSMetaFileFree(EFSMetaFileRef *const metaptr) {
 	FREE(&meta->buf);
 	meta->len = 0;
 	meta->metaFileID = 0;
+	assert_zeroed(meta, 1);
 	FREE(metaptr); meta = NULL;
 }
 

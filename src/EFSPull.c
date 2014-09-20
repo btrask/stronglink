@@ -30,8 +30,6 @@ struct EFSPull {
 	bool_t filled[QUEUE_SIZE];
 	index_t cur;
 	count_t count;
-
-	double time;
 };
 
 static err_t reconnect(EFSPullRef const pull);
@@ -52,12 +50,20 @@ EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, uint64_t const pullID, uint6
 void EFSPullFree(EFSPullRef *const pullptr) {
 	EFSPullRef pull = *pullptr;
 	if(!pull) return;
-	pull->pullID = -1;
+	pull->pullID = 0;
 	EFSSessionFree(&pull->session);
 	FREE(&pull->host);
 	FREE(&pull->username);
 	FREE(&pull->password);
+	FREE(&pull->cookie);
 	FREE(&pull->query);
+	for(index_t i = 0; i < QUEUE_SIZE; ++i) {
+		EFSSubmissionFree(&pull->queue[i]);
+		pull->filled[i] = false;
+	}
+	pull->cur = 0;
+	pull->count = 0;
+	assert_zeroed(pull, 1);
 	FREE(pullptr); pull = NULL;
 }
 
@@ -113,6 +119,7 @@ static void writer(EFSPullRef const pull) {
 	EFSSubmissionRef queue[QUEUE_SIZE];
 	count_t count = 0;
 	count_t skipped = 0;
+	double time = uv_now(loop) / 1000.0;
 	for(;;) {
 		if(pull->stop) goto stop;
 
@@ -123,6 +130,7 @@ static void writer(EFSPullRef const pull) {
 				async_yield();
 				pull->blocked_writer = NULL;
 				if(pull->stop) goto stop;
+				if(!count) time = uv_now(loop) / 1000.0;
 			}
 			assert(pull->filled[pos]);
 			// Skip any bubbles in the queue.
@@ -145,14 +153,18 @@ static void writer(EFSPullRef const pull) {
 		}
 
 		double const now = uv_now(loop) / 1000.0;
-		fprintf(stderr, "Pulled %f files per second\n", count / (now - pull->time));
-		pull->time = now;
+		fprintf(stderr, "Pulled %f files per second\n", count / (now - time));
+		time = now;
 		count = 0;
 		skipped = 0;
 
 	}
 
 stop:
+	for(index_t i = 0; i < count; ++i) {
+		EFSSubmissionFree(&queue[i]);
+	}
+	assert_zeroed(queue, QUEUE_SIZE);
 	assertf(pull->stop, "Writer ended early");
 	async_wakeup(pull->stop);
 }
@@ -164,7 +176,6 @@ err_t EFSPullStart(EFSPullRef const pull) {
 	for(index_t i = 0; i < READER_COUNT; ++i) {
 		async_thread(STACK_DEFAULT, (void (*)())reader, pull);
 	}
-	pull->time = uv_now(loop) / 1000.0;
 	async_thread(STACK_DEFAULT, (void (*)())writer, pull);
 	// TODO: It'd be even better to have one writer shared between all pulls...
 

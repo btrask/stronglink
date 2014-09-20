@@ -39,12 +39,22 @@ typedef int err_t;
 
 #ifdef NDEBUG
 #define assertf(x, fmt, ...) (void)0
+#define assert_zeroed(buf, type) (void)0
 #else
 #define assertf(x, fmt, ...) ({ \
 	if(0 == (x)) { \
-		fprintf(stderr, "%s:%d %s: assertion '%s' failed\n", __FILE__, __LINE__, __PRETTY_FUNCTION__, #x); \
+		fprintf(stderr, "%s:%d %s: assertion '%s' failed\n", \
+			__FILE__, __LINE__, __PRETTY_FUNCTION__, #x); \
 		fprintf(stderr, fmt, ##__VA_ARGS__); \
 		fprintf(stderr, "\n"); \
+		abort(); \
+	} \
+})
+#define assert_zeroed(buf, count) ({ \
+	for(index_t i = 0; i < sizeof(*buf) * count; ++i) { \
+		if(0 == ((byte_t const *)(buf))[i]) continue; \
+		fprintf(stderr, "Buffer at %p not zeroed (%ld)\n", \
+			(buf), i); \
 		abort(); \
 	} \
 })

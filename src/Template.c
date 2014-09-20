@@ -89,6 +89,7 @@ void TemplateFree(TemplateRef *const tptr) {
 		FREE(&t->steps[i].var);
 	}
 	FREE(&t->steps);
+	assert_zeroed(t, 1);
 	FREE(tptr); t = NULL;
 }
 err_t TemplateWrite(TemplateRef const t, TemplateArgCBs const *const cbs, void const *const actx, TemplateWritev const writev, void *wctx) {

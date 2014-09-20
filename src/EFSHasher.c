@@ -36,7 +36,10 @@ void EFSHasherFree(EFSHasherRef *const hasherptr) {
 	EFSHasherRef hasher = *hasherptr;
 	if(!hasher) return;
 	FREE(&hasher->type);
+	memset(&hasher->sha1, 0, sizeof(hasher->sha1));
+	memset(&hasher->sha256, 0, sizeof(hasher->sha256));
 	FREE(&hasher->internalHash);
+	assert_zeroed(hasher, 1);
 	FREE(hasherptr); hasher = NULL;
 }
 err_t EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, size_t const len) {
