@@ -76,11 +76,15 @@ HTTPConnectionRef HTTPConnectionCreateOutgoing(strarg_t const domain) {
 void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
 	HTTPConnectionRef conn = *connptr;
 	if(!conn) return;
+
 	conn->stream.data = co_active();
 	uv_close((uv_handle_t *)&conn->stream, async_close_cb);
 	async_yield();
-	conn->stream.data = NULL;
+	memset(&conn->stream, 0, sizeof(conn->stream));
+	memset(&conn->parser, 0, sizeof(conn->parser));
 	FREE(&conn->buf);
+
+	assert_zeroed(conn, 1);
 	FREE(connptr); conn = NULL;
 }
 err_t HTTPConnectionError(HTTPConnectionRef const conn) {
@@ -136,10 +140,17 @@ HTTPMessageRef HTTPMessageCreate(HTTPConnectionRef const conn) {
 void HTTPMessageFree(HTTPMessageRef *const msgptr) {
 	HTTPMessageRef msg = *msgptr;
 	if(!msg) return;
-	FREE(&msg->requestURI);
-	HeadersFree(&msg->headers);
+
 	msg->conn->parser.data = NULL;
 	msg->conn = NULL;
+	msg->pos = 0;
+	msg->remaining = 0;
+
+	FREE(&msg->requestURI);
+	HeadersFree(&msg->headers);
+	msg->eof = false;
+
+	assert_zeroed(msg, 1);
 	FREE(msgptr); msg = NULL;
 }
 

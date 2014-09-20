@@ -17,7 +17,7 @@ struct MultipartForm {
 	byte_t const *buf;
 	size_t len;
 	bool_t eof;
-	struct FormPart part;
+	struct FormPart part[1];
 };
 
 static multipart_parser_settings const callbacks;
@@ -40,14 +40,14 @@ MultipartFormRef MultipartFormCreate(HTTPMessageRef const msg, strarg_t const ty
 		MultipartFormFree(&form);
 		return NULL;
 	}
-	FormPartRef const part = &form->part;
+	FormPartRef const part = form->part;
 	part->form = form;
 	part->headers = HeadersCreate(fields, count);
 	if(!part->headers) {
 		MultipartFormFree(&form);
 		return NULL;
 	}
-	part->eof = 1;
+	part->eof = true;
 	multipart_parser_set_data(form->parser, part);
 	FREE(&boundary);
 	return form;
@@ -55,15 +55,27 @@ MultipartFormRef MultipartFormCreate(HTTPMessageRef const msg, strarg_t const ty
 void MultipartFormFree(MultipartFormRef *const formptr) {
 	MultipartFormRef form = *formptr;
 	if(!form) return;
-	FormPartRef const part = &form->part;
-	HeadersFree(&part->headers);
+
+	form->msg = NULL;
 	multipart_parser_free(form->parser); form->parser = NULL;
+	form->buf = NULL;
+	form->len = 0;
+	form->eof = false;
+
+	FormPartRef const part = form->part;
+	part->form = NULL;
+	HeadersFree(&part->headers);
+	part->chunk = NULL;
+	part->chunkLength = 0;
+	part->eof = false;
+
+	assert_zeroed(form, 1);
 	FREE(formptr); form = NULL;
 }
 FormPartRef MultipartFormGetPart(MultipartFormRef const form) {
 	if(!form) return NULL;
 	if(form->eof) return NULL;
-	FormPartRef const part = &form->part;
+	FormPartRef const part = form->part;
 	if(!part->eof) {
 		do {
 			part->chunk = NULL;
@@ -71,7 +83,7 @@ FormPartRef MultipartFormGetPart(MultipartFormRef const form) {
 		} while(readOnce(part) >= 0);
 	}
 	HeadersClear(part->headers);
-	part->eof = 0;
+	part->eof = false;
 	for(;;) {
 		if(-1 == readOnce(part)) return NULL;
 		if(part->chunkLength || part->eof) break;
@@ -103,8 +115,8 @@ static err_t readOnce(FormPartRef const part) {
 	if(!form->len) {
 		ssize_t const rlen = HTTPMessageGetBuffer(form->msg, &form->buf);
 		if(!rlen) {
-			form->eof = 1;
-			part->eof = 1; // Should already be set...
+			form->eof = true;
+			part->eof = true; // Should already be set...
 		}
 		if(rlen <= 0) return -1;
 		form->len = rlen;
@@ -141,7 +153,7 @@ static int on_part_data(multipart_parser *const parser, char const *const at, si
 static int on_part_data_end(multipart_parser *const parser) {
 	FormPartRef const part = multipart_parser_get_data(parser);
 	assertf(!part->eof, "Form part duplicate end of file");
-	part->eof = 1;
+	part->eof = true;
 	return -1; // Always stop after the end of a part.
 }
 static multipart_parser_settings const callbacks = {

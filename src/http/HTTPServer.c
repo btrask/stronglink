@@ -23,6 +23,9 @@ void HTTPServerFree(HTTPServerRef *const serverptr) {
 	HTTPServerRef server = *serverptr;
 	if(!server) return;
 	HTTPServerClose(server);
+	server->listener = NULL;
+	server->context = NULL;
+	assert_zeroed(server, 1);
 	FREE(serverptr); server = NULL;
 }
 

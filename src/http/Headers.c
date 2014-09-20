@@ -3,6 +3,7 @@
 struct Headers {
 	str_t *field;
 	strarg_t const *fields;
+
 	count_t count;
 	index_t current;
 	str_t **data;
@@ -30,11 +31,19 @@ HeadersRef HeadersCreate(strarg_t const fields[], count_t const count) {
 void HeadersFree(HeadersRef *const headersptr) {
 	HeadersRef headers = *headersptr;
 	if(!headers) return;
+
 	FREE(&headers->field);
+	headers->fields = NULL;
+
 	for(index_t i = 0; i < headers->count; ++i) {
 		FREE(&headers->data[i]);
 	}
+	assert_zeroed(headers->data, headers->count);
 	FREE(&headers->data);
+	headers->count = 0;
+	headers->current = 0;
+
+	assert_zeroed(headers, 1);
 	FREE(headersptr); headers = NULL;
 }
 err_t HeadersAppendFieldChunk(HeadersRef const headers, strarg_t const chunk, size_t const len) {
