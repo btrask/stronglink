@@ -44,7 +44,6 @@ static size_t varint_seek(byte_t const *const data, size_t const size, index_t c
 }
 
 
-// http://commandcenter.blogspot.co.uk/2012/04/byte-order-fallacy.html
 uint64_t db_column(MDB_val const *const val, index_t const col) {
 	size_t const pos = varint_seek(val->mv_data, val->mv_size, col);
 	return varint_decode(val->mv_data+pos, val->mv_size-pos);
