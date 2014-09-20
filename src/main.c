@@ -35,12 +35,13 @@ static void init(void *const unused) {
 	HTTPServerListen(server, "8000", INADDR_ANY); //INADDR_LOOPBACK);
 	EFSRepoPullsStart(repo);
 
-
 	uv_signal_init(loop, sigint);
 	uv_signal_start(sigint, stop, SIGINT);
+	uv_unref((uv_handle_t *)sigint);
 }
 static void term(void *const unused) {
-	fprintf(stderr, "Shutting down...\n");
+	fprintf(stderr, "\nStopping EarthFS...\n");
+	uv_ref((uv_handle_t *)sigint);
 	uv_signal_stop(sigint);
 	sigint->data = co_active();
 	uv_close((uv_handle_t *)sigint, async_close_cb);

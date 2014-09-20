@@ -148,6 +148,8 @@ void HTTPMessageFree(HTTPMessageRef *const msgptr) {
 
 	FREE(&msg->requestURI);
 	HeadersFree(&msg->headers);
+	msg->next.at = NULL;
+	msg->next.len = 0;
 	msg->eof = false;
 
 	assert_zeroed(msg, 1);

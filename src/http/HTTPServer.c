@@ -58,17 +58,12 @@ err_t HTTPServerListen(HTTPServerRef const server, strarg_t const port, uint32_t
 	}
 	return 0;
 }
-static void socket_close_cb(uv_handle_t *const handle) {
-	bool_t *const safe = handle->data;
-	*safe = true;
-}
 void HTTPServerClose(HTTPServerRef const server) {
 	if(!server) return;
 	if(!server->socket) return;
-	bool_t safe = false;
-	server->socket->data = &safe;
-	uv_close((uv_handle_t *)server->socket, socket_close_cb);
-	while(!safe) uv_run(loop, UV_RUN_ONCE);
+	server->socket->data = co_active();
+	uv_close((uv_handle_t *)server->socket, async_close_cb);
+	async_yield();
 	FREE(&server->socket);
 }
 

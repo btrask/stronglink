@@ -35,16 +35,29 @@ static void leave(uv_async_t *const async) {
 
 async_worker_t *async_worker_create(void) {
 	async_worker_t *worker = calloc(1, sizeof(struct async_worker_s));
-	if(!worker) goto bail;
-	if(uv_sem_init(&worker->sem, 0) < 0) goto bail;
+	if(!worker) {
+		return NULL;
+	}
+	if(uv_sem_init(&worker->sem, 0) < 0) {
+		free(worker);
+		return NULL;
+	}
 	worker->async.data = worker;
-	if(uv_async_init(loop, &worker->async, leave) < 0) goto bail;
-	if(uv_thread_create(&worker->thread, work, worker) < 0) goto bail;
+	if(uv_async_init(loop, &worker->async, leave) < 0) {
+		uv_sem_destroy(&worker->sem);
+		free(worker);
+		return NULL;
+	}
+	if(uv_thread_create(&worker->thread, work, worker) < 0) {
+		uv_sem_destroy(&worker->sem);
+		worker->async.data = co_active();
+		uv_close((uv_handle_t *)&worker->async, async_close_cb);
+		async_yield();
+		free(worker);
+		return NULL;
+	}
+	uv_unref((uv_handle_t *)&worker->async);
 	return worker;
-
-bail:
-	async_worker_free(worker);
-	return NULL;
 }
 void async_worker_free(async_worker_t *const worker) {
 	if(!worker) return;
@@ -52,6 +65,7 @@ void async_worker_free(async_worker_t *const worker) {
 	uv_sem_post(&worker->sem);
 	uv_thread_join(&worker->thread);
 	uv_sem_destroy(&worker->sem);
+	uv_ref((uv_handle_t *)&worker->async);
 	worker->async.data = co_active();
 	uv_close((uv_handle_t *)&worker->async, async_close_cb);
 	async_yield();
@@ -62,6 +76,7 @@ void async_worker_enter(async_worker_t *const worker) {
 	assert(worker);
 	assert(!worker->work);
 	worker->work = co_active();
+	uv_ref((uv_handle_t *)&worker->async);
 	async_call(enter, worker);
 	// Now on worker thread
 }
@@ -70,5 +85,6 @@ void async_worker_leave(async_worker_t *const worker) {
 	assert(co_active() == worker->work);
 	co_switch(worker->main);
 	// Now on original thread
+	uv_unref((uv_handle_t *)&worker->async);
 }
 

@@ -21,11 +21,10 @@ struct EFSPull {
 	HTTPConnectionRef conn;
 	HTTPMessageRef msg;
 
-	// TODO: This could probably be rewritten to use a condition lock.
-	cothread_t stop;
-	cothread_t blocked_reader;
-	cothread_t blocked_writer;
-
+	async_mutex_t *mutex;
+	async_cond_t *cond;
+	bool_t stop;
+	count_t tasks;
 	EFSSubmissionRef queue[QUEUE_SIZE];
 	bool_t filled[QUEUE_SIZE];
 	index_t cur;
@@ -61,13 +60,6 @@ void EFSPullFree(EFSPullRef *const pullptr) {
 	FREE(&pull->cookie);
 	FREE(&pull->query);
 
-	for(index_t i = 0; i < QUEUE_SIZE; ++i) {
-		EFSSubmissionFree(&pull->queue[i]);
-		pull->filled[i] = false;
-	}
-	pull->cur = 0;
-	pull->count = 0;
-
 	assert_zeroed(pull, 1);
 	FREE(pullptr); pull = NULL;
 }
@@ -92,18 +84,18 @@ static void reader(EFSPullRef const pull) {
 			continue;
 		}
 
-		assertf(!pull->blocked_reader, "Reader already waiting");
+		async_mutex_lock(pull->mutex);
 		while(pull->count + 1 > QUEUE_SIZE) {
-			pull->blocked_reader = co_active();
-			async_yield();
-			pull->blocked_reader = NULL;
+			async_cond_wait(pull->cond, pull->mutex);
 			if(pull->stop) {
+				async_mutex_unlock(pull->mutex);
 				async_mutex_unlock(pull->connlock);
 				goto stop;
 			}
 		}
 		index_t pos = (pull->cur + pull->count) % QUEUE_SIZE;
 		pull->count += 1;
+		async_mutex_unlock(pull->mutex);
 
 		async_mutex_unlock(pull->connlock);
 
@@ -117,8 +109,12 @@ static void reader(EFSPullRef const pull) {
 
 stop:
 	HTTPConnectionFree(&conn);
+	async_mutex_lock(pull->mutex);
 	assertf(pull->stop, "Reader ended early");
-	async_wakeup(pull->stop);
+	assert(pull->tasks > 0);
+	pull->tasks--;
+	async_cond_broadcast(pull->cond);
+	async_mutex_unlock(pull->mutex);
 }
 static void writer(EFSPullRef const pull) {
 	EFSSubmissionRef queue[QUEUE_SIZE];
@@ -128,13 +124,15 @@ static void writer(EFSPullRef const pull) {
 	for(;;) {
 		if(pull->stop) goto stop;
 
+		async_mutex_lock(pull->mutex);
 		while(0 == count || (count < QUEUE_SIZE && pull->count > 0)) {
 			index_t const pos = pull->cur;
 			while(!pull->filled[pos]) {
-				pull->blocked_writer = co_active();
-				async_yield();
-				pull->blocked_writer = NULL;
-				if(pull->stop) goto stop;
+				async_cond_wait(pull->cond, pull->mutex);
+				if(pull->stop) {
+					async_mutex_unlock(pull->mutex);
+					goto stop;
+				}
 				if(!count) time = uv_now(loop) / 1000.0;
 			}
 			assert(pull->filled[pos]);
@@ -145,8 +143,9 @@ static void writer(EFSPullRef const pull) {
 			pull->filled[pos] = false;
 			pull->cur = (pull->cur + 1) % QUEUE_SIZE;
 			pull->count--;
-			if(pull->blocked_reader) async_wakeup(pull->blocked_reader);
+			async_cond_broadcast(pull->cond);
 		}
+		async_mutex_unlock(pull->mutex);
 		assert(count <= QUEUE_SIZE);
 
 		for(;;) {
@@ -170,17 +169,32 @@ stop:
 		EFSSubmissionFree(&queue[i]);
 	}
 	assert_zeroed(queue, QUEUE_SIZE);
+
+	async_mutex_lock(pull->mutex);
 	assertf(pull->stop, "Writer ended early");
-	async_wakeup(pull->stop);
+	assert(pull->tasks > 0);
+	pull->tasks--;
+	async_cond_broadcast(pull->cond);
+	async_mutex_unlock(pull->mutex);
 }
 err_t EFSPullStart(EFSPullRef const pull) {
 	if(!pull) return 0;
 	assertf(!pull->connlock, "Pull already running");
+	assert(0 == pull->tasks);
 	pull->connlock = async_mutex_create();
-	if(!pull->connlock) return -1;
+	pull->mutex = async_mutex_create();
+	pull->cond = async_cond_create();
+	if(!pull->connlock || !pull->mutex || !pull->cond) {
+		async_mutex_free(pull->connlock); pull->connlock = NULL;
+		async_mutex_free(pull->mutex); pull->mutex = NULL;
+		async_cond_free(pull->cond); pull->cond = NULL;
+		return -1;
+	}
 	for(index_t i = 0; i < READER_COUNT; ++i) {
+		pull->tasks++;
 		async_thread(STACK_DEFAULT, (void (*)())reader, pull);
 	}
+	pull->tasks++;
 	async_thread(STACK_DEFAULT, (void (*)())writer, pull);
 	// TODO: It'd be even better to have one writer shared between all pulls...
 
@@ -190,22 +204,27 @@ void EFSPullStop(EFSPullRef const pull) {
 	if(!pull) return;
 	if(!pull->connlock) return;
 
-	pull->stop = co_active();
-	if(pull->blocked_reader) async_wakeup(pull->blocked_reader);
-	if(pull->blocked_writer) async_wakeup(pull->blocked_writer);
-
-	fprintf(stderr, "stopping pulls\n");
-	count_t wait = READER_COUNT + 1;
-	while(wait) {
-		async_yield();
-		wait--;
+	async_mutex_lock(pull->mutex);
+	pull->stop = true;
+	while(pull->tasks > 0) {
+		async_cond_wait(pull->cond, pull->mutex);
 	}
-	fprintf(stderr, "pulls stopped\n");
+	async_mutex_unlock(pull->mutex);
 
-	pull->stop = NULL;
 	async_mutex_free(pull->connlock); pull->connlock = NULL;
 	HTTPMessageFree(&pull->msg);
 	HTTPConnectionFree(&pull->conn);
+
+	async_mutex_free(pull->mutex); pull->mutex = NULL;
+	async_cond_free(pull->cond); pull->cond = NULL;
+	pull->stop = false;
+
+	for(index_t i = 0; i < QUEUE_SIZE; ++i) {
+		EFSSubmissionFree(&pull->queue[i]);
+		pull->filled[i] = false;
+	}
+	pull->cur = 0;
+	pull->count = 0;
 }
 
 static err_t auth(EFSPullRef const pull);
@@ -332,9 +351,11 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 	HTTPMessageFree(&msg);
 
 enqueue:
+	async_mutex_lock(pull->mutex);
 	pull->queue[pos] = sub; sub = NULL;
 	pull->filled[pos] = true;
-	if(pull->blocked_writer) async_wakeup(pull->blocked_writer);
+	async_cond_broadcast(pull->cond);
+	async_mutex_unlock(pull->mutex);
 
 	return 0;
 
