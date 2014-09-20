@@ -74,7 +74,7 @@ static void reader(EFSPullRef const pull) {
 
 		async_mutex_lock(pull->connlock);
 
-		if(HTTPMessageReadLine(pull->msg, URI, URI_MAX) < 0) {
+		if(HTTPMessageReadLine(pull->msg, URI, sizeof(URI)) < 0) {
 			for(;;) {
 				if(reconnect(pull) >= 0) break;
 				if(pull->stop) break;
@@ -206,6 +206,7 @@ void EFSPullStop(EFSPullRef const pull) {
 
 	async_mutex_lock(pull->mutex);
 	pull->stop = true;
+	async_cond_broadcast(pull->cond);
 	while(pull->tasks > 0) {
 		async_cond_wait(pull->cond, pull->mutex);
 	}
