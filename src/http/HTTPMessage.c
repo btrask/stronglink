@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "../async.h"
 #include "HTTPMessage.h"
 #include "status.h"
@@ -268,53 +267,75 @@ err_t HTTPMessageWriteRequest(HTTPMessageRef const msg, HTTPMethod const method,
 	ssize_t const wlen = HTTPMessageWritev(msg, parts, numberof(parts));
 	return wlen < 0 ? -1 : 0;
 }
+
+#define str_len(str) (str), (sizeof(str)-1)
+
 err_t HTTPMessageWriteResponse(HTTPMessageRef const msg, uint16_t const status, strarg_t const message) {
 	if(!msg) return 0;
-	// TODO: TCP_CORK?
-	// TODO: Suppply our own message for known status codes.
-	str_t *str;
-	int const slen = asprintf(&str, "HTTP/1.1 %d %s\r\n", status, message);
-	if(slen < 0) return -1;
-	ssize_t const wlen = HTTPMessageWrite(msg, (byte_t *)str, slen);
-	FREE(&str);
-	return wlen < 0 ? -1 : 0;
+	if(status > 599) return -1;
+	if(status < 100) return -1;
+
+	str_t status_str[4+1];
+	int status_len = snprintf(status_str, sizeof(status_str), "%d", status);
+	assert(3 == status_len);
+
+	uv_buf_t parts[] = {
+		uv_buf_init(str_len("HTTP/1.1 ")),
+		uv_buf_init(status_str, status_len),
+		uv_buf_init(str_len(" ")),
+		uv_buf_init((char *)message, strlen(message)),
+		uv_buf_init(str_len("\r\n")),
+	};
+	ssize_t const rc = HTTPMessageWritev(msg, parts, numberof(parts));
+	return rc < 0 ? -1 : 0;
 }
 err_t HTTPMessageWriteHeader(HTTPMessageRef const msg, strarg_t const field, strarg_t const value) {
 	if(!msg) return 0;
 	uv_buf_t parts[] = {
 		uv_buf_init((char *)field, strlen(field)),
-		uv_buf_init(": ", 2),
+		uv_buf_init(str_len(": ")),
 		uv_buf_init((char *)value, strlen(value)),
-		uv_buf_init("\r\n", 2),
+		uv_buf_init(str_len("\r\n")),
 	};
-	ssize_t const wlen = HTTPMessageWritev(msg, parts, numberof(parts));
-	return wlen < 0 ? -1 : 0;
+	ssize_t const rc = HTTPMessageWritev(msg, parts, numberof(parts));
+	return rc < 0 ? -1 : 0;
 }
 err_t HTTPMessageWriteContentLength(HTTPMessageRef const msg, uint64_t const length) {
 	if(!msg) return 0;
-	str_t *str;
-	int const slen = asprintf(&str, "Content-Length: %llu\r\n", (unsigned long long)length);
-	if(slen < 0) return -1;
-	ssize_t const wlen = HTTPMessageWrite(msg, (byte_t *)str, slen);
-	FREE(&str);
-	return wlen < 0 ? -1 : 0;
+	str_t str[16];
+	int const len = snprintf(str, sizeof(str), "%llu", (unsigned long long)length);
+	uv_buf_t parts[] = {
+		uv_buf_init(str_len("Content-Length: ")),
+		uv_buf_init(str, len),
+		uv_buf_init(str_len("\r\n")),
+	};
+	ssize_t const rc = HTTPMessageWritev(msg, parts, numberof(parts));
+	return rc < 0 ? -1 : 0;
 }
 err_t HTTPMessageWriteSetCookie(HTTPMessageRef const msg, strarg_t const field, strarg_t const value, strarg_t const path, uint64_t const maxage) {
 	if(!msg) return 0;
-	str_t *str;
-	unsigned long long const x = maxage;
-	int const slen = asprintf(&str, "Set-Cookie: %s=%s; Path=%s; Max-Age=%llu; HttpOnly\r\n", field, value, path, x);
-	if(slen < 0) return -1;
-	ssize_t const wlen = HTTPMessageWrite(msg, (byte_t *)str, slen);
-	FREE(&str);
-	return wlen < 0 ? -1 : 0;
+	str_t maxage_str[16];
+	int const maxage_len = snprintf(maxage_str, sizeof(maxage_str), "%llu", (unsigned long long)maxage);
+	uv_buf_t parts[] = {
+		uv_buf_init(str_len("Set-Cookie: ")),
+		uv_buf_init((char *)field, strlen(field)),
+		uv_buf_init(str_len("=")),
+		uv_buf_init((char *)value, strlen(value)),
+		uv_buf_init(str_len("; Path=")),
+		uv_buf_init((char *)path, strlen(path)),
+		uv_buf_init(str_len("; Max-Age=")),
+		uv_buf_init(maxage_str, maxage_len),
+		uv_buf_init(str_len("; HttpOnly\r\n")),
+	};
+	ssize_t const rc = HTTPMessageWritev(msg, parts, numberof(parts));
+	return rc < 0 ? -1 : 0;
 }
 err_t HTTPMessageBeginBody(HTTPMessageRef const msg) {
 	if(!msg) return 0;
-	if(HTTPMessageWriteHeader(msg, "Connection", "keep-alive") < 0) return -1; // TODO: Make sure we're doing this right.
-	if(HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2) < 0) return -1; // TODO: Safe for HEAD requests?
-	// TODO: TCP_CORK?
-	return 0;
+	ssize_t const rc = HTTPMessageWrite(msg, (byte_t *)str_len(
+		"Connection: keep-alive\r\n" // TODO
+		"\r\n"));
+	return rc < 0 ? -1 : 0;
 }
 err_t HTTPMessageWriteFile(HTTPMessageRef const msg, uv_file const file) {
 	// TODO: How do we use uv_fs_sendfile to a TCP stream? Is it impossible?
