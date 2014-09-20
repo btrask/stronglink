@@ -52,7 +52,8 @@ EFSConnection const *EFSRepoDBOpen(EFSRepoRef const repo);
 void EFSRepoDBClose(EFSRepoRef const repo, EFSConnection const **const dbptr);
 void EFSRepoSubmissionEmit(EFSRepoRef const repo, uint64_t const sortID);
 bool_t EFSRepoSubmissionWait(EFSRepoRef const repo, uint64_t const sortID, uint64_t const future);
-void EFSRepoStartPulls(EFSRepoRef const repo);
+void EFSRepoPullsStart(EFSRepoRef const repo);
+void EFSRepoPullsStop(EFSRepoRef const repo);
 
 typedef struct {
 	str_t *hash; // Internal hash

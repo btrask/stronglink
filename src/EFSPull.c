@@ -50,6 +50,9 @@ EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, uint64_t const pullID, uint6
 void EFSPullFree(EFSPullRef *const pullptr) {
 	EFSPullRef pull = *pullptr;
 	if(!pull) return;
+
+	EFSPullStop(pull);
+
 	pull->pullID = 0;
 	EFSSessionFree(&pull->session);
 	FREE(&pull->host);
@@ -57,12 +60,14 @@ void EFSPullFree(EFSPullRef *const pullptr) {
 	FREE(&pull->password);
 	FREE(&pull->cookie);
 	FREE(&pull->query);
+
 	for(index_t i = 0; i < QUEUE_SIZE; ++i) {
 		EFSSubmissionFree(&pull->queue[i]);
 		pull->filled[i] = false;
 	}
 	pull->cur = 0;
 	pull->count = 0;
+
 	assert_zeroed(pull, 1);
 	FREE(pullptr); pull = NULL;
 }
@@ -189,14 +194,18 @@ void EFSPullStop(EFSPullRef const pull) {
 	if(pull->blocked_reader) async_wakeup(pull->blocked_reader);
 	if(pull->blocked_writer) async_wakeup(pull->blocked_writer);
 
+	fprintf(stderr, "stopping pulls\n");
 	count_t wait = READER_COUNT + 1;
 	while(wait) {
 		async_yield();
 		wait--;
 	}
+	fprintf(stderr, "pulls stopped\n");
 
 	pull->stop = NULL;
 	async_mutex_free(pull->connlock); pull->connlock = NULL;
+	HTTPMessageFree(&pull->msg);
+	HTTPConnectionFree(&pull->conn);
 }
 
 static err_t auth(EFSPullRef const pull);

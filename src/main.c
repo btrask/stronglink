@@ -16,6 +16,7 @@ static str_t *path = NULL;
 static EFSRepoRef repo = NULL;
 static BlogRef blog = NULL;
 static HTTPServerRef server = NULL;
+static uv_signal_t sigint[1];
 
 static void listener(void *ctx, HTTPMessageRef const msg) {
 	HTTPMethod const method = HTTPMessageGetRequestMethod(msg);
@@ -24,15 +25,28 @@ static void listener(void *ctx, HTTPMessageRef const msg) {
 	if(BlogDispatch(blog, msg, method, URI)) return;
 	HTTPMessageSendStatus(msg, 400);
 }
+static void stop(uv_signal_t *const handle, int const signum) {
+	uv_stop(loop);
+}
 static void init(void *const unused) {
 	repo = EFSRepoCreate(path);
 	blog = BlogCreate(repo);
 	server = HTTPServerCreate((HTTPListener)listener, blog);
 	HTTPServerListen(server, "8000", INADDR_ANY); //INADDR_LOOPBACK);
-	EFSRepoStartPulls(repo);
+	EFSRepoPullsStart(repo);
+
+
+	uv_signal_init(loop, sigint);
+	uv_signal_start(sigint, stop, SIGINT);
 }
 static void term(void *const unused) {
-	// TODO: EFSRepoStopPulls(repo);
+	fprintf(stderr, "Shutting down...\n");
+	uv_signal_stop(sigint);
+	sigint->data = co_active();
+	uv_close((uv_handle_t *)sigint, async_close_cb);
+	async_yield();
+
+	EFSRepoPullsStop(repo);
 	HTTPServerClose(server);
 	HTTPServerFree(&server);
 	BlogFree(&blog);

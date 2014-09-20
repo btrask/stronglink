@@ -86,9 +86,12 @@ void TemplateFree(TemplateRef *const tptr) {
 	if(!t) return;
 	for(index_t i = 0; i < t->count; ++i) {
 		FREE(&t->steps[i].str);
+		t->steps[i].len = 0;
 		FREE(&t->steps[i].var);
 	}
+	assert_zeroed(t->steps, t->count);
 	FREE(&t->steps);
+	t->count = 0;
 	assert_zeroed(t, 1);
 	FREE(tptr); t = NULL;
 }
