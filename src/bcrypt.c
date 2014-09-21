@@ -26,9 +26,14 @@ str_t *hashpass(strarg_t const pass) {
 		return NULL;
 	}
 	char *salt = crypt_gensalt_ra("$2a$", 8, input, GENSALT_INPUT_SIZE); // TODO: Use `$2y$` now? bcrypt library needs updating.
+	if(!salt) {
+		async_pool_leave(NULL);
+		return NULL;
+	}
 	int size = 0;
 	void *data = NULL;
-	str_t *hash = strdup(crypt_ra(pass, salt, &data, &size));
+	strarg_t orig = crypt_ra(pass, salt, &data, &size);
+	str_t *hash = orig ? strdup(orig) : NULL;
 	FREE(&salt);
 	FREE(&data);
 	async_pool_leave(NULL);
