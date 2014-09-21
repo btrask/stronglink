@@ -1,6 +1,6 @@
 #include <yajl/yajl_parse.h>
 #include "strndup.h"
-#include "async.h"
+#include "async/async.h"
 #include "fts.h"
 #include "EarthFS.h"
 

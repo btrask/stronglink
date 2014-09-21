@@ -3,8 +3,8 @@
 
 #include <assert.h>
 #include <stdio.h> /* Debugging */
-#include "../deps/uv/include/uv.h"
-#include "../deps/libco/libco.h"
+#include "../../deps/uv/include/uv.h"
+#include "../../deps/libco/libco.h"
 
 // TODO: Get page size at runtime?
 #define STACK_SIZE(kb) (1024 * (kb) * sizeof(void *) / 4)

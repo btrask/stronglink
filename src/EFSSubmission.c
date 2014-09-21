@@ -4,7 +4,7 @@
 #include <fcntl.h>
 #include <regex.h>
 #include <yajl/yajl_gen.h>
-#include "async.h"
+#include "async/async.h"
 #include "EarthFS.h"
 
 #define FTS_MAX (1024 * 50)

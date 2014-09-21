@@ -1,7 +1,7 @@
 #define _GNU_SOURCE
 #include <assert.h>
 #include "EarthFS.h"
-#include "async.h"
+#include "async/async.h"
 #include "http/HTTPMessage.h"
 
 #define URI_MAX 1023

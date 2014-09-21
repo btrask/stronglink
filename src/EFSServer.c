@@ -1,6 +1,6 @@
 #define _GNU_SOURCE
 #include <assert.h>
-#include "async.h"
+#include "async/async.h"
 #include "common.h"
 #include "EarthFS.h"
 #include "http/HTTPServer.h"

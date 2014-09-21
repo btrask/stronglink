@@ -2,7 +2,7 @@
 #include <stdio.h> /* For debugging */
 #include <stdlib.h>
 #include <string.h>
-#include "strndup.h"
+#include "../strndup.h"
 
 #define ASYNC_DEBUG
 #include "async.h"

@@ -1,6 +1,6 @@
 #include "../deps/crypt_blowfish-1.0.4/ow-crypt.h"
 #include "bcrypt.h"
-#include "async.h"
+#include "async/async.h"
 
 int passcmp(volatile strarg_t const a, volatile strarg_t const b) {
 	int r = 0;
@@ -19,6 +19,7 @@ bool_t checkpass(strarg_t const pass, strarg_t const hash) {
 	return success;
 }
 str_t *hashpass(strarg_t const pass) {
+	async_pool_enter(NULL);
 	int size = 0;
 	void *data = NULL;
 	char input[GENSALT_INPUT_SIZE];
@@ -27,6 +28,7 @@ str_t *hashpass(strarg_t const pass) {
 	str_t *hash = strdup(crypt_ra(pass, salt, &data, &size));
 	FREE(&salt);
 	FREE(&data);
+	async_pool_leave(NULL);
 	return hash;
 }
 

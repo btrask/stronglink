@@ -21,7 +21,7 @@ TOOLS_DIR := $(ROOT_DIR)/tools
 
 HEADERS := \
 	$(SRC_DIR)/common.h \
-	$(SRC_DIR)/async.h \
+	$(SRC_DIR)/async/async.h \
 	$(SRC_DIR)/bcrypt.h \
 	$(SRC_DIR)/EarthFS.h \
 	$(SRC_DIR)/filter/EFSFilter.h \
@@ -64,14 +64,14 @@ OBJECTS := \
 	$(BUILD_DIR)/db.o \
 	$(BUILD_DIR)/fts.o \
 	$(BUILD_DIR)/strndup.o \
-	$(BUILD_DIR)/async.o \
-	$(BUILD_DIR)/async_cond.o \
-	$(BUILD_DIR)/async_fs.o \
-	$(BUILD_DIR)/async_sem.o \
-	$(BUILD_DIR)/async_mutex.o \
-	$(BUILD_DIR)/async_rwlock.o \
-	$(BUILD_DIR)/async_worker.o \
-	$(BUILD_DIR)/async_pool.o \
+	$(BUILD_DIR)/async/async.o \
+	$(BUILD_DIR)/async/async_cond.o \
+	$(BUILD_DIR)/async/async_fs.o \
+	$(BUILD_DIR)/async/async_sem.o \
+	$(BUILD_DIR)/async/async_mutex.o \
+	$(BUILD_DIR)/async/async_rwlock.o \
+	$(BUILD_DIR)/async/async_worker.o \
+	$(BUILD_DIR)/async/async_pool.o \
 	$(BUILD_DIR)/bcrypt.o \
 	$(BUILD_DIR)/http/Headers.o \
 	$(BUILD_DIR)/http/HTTPMessage.o \
