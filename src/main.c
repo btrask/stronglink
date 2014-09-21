@@ -25,9 +25,14 @@ static void listener(void *ctx, HTTPMessageRef const msg) {
 	if(BlogDispatch(blog, msg, method, URI)) return;
 	HTTPMessageSendStatus(msg, 400);
 }
-static void stop(uv_signal_t *const handle, int const signum) {
+
+static void ignore(uv_signal_t *const signal, int const signum) {
+	// Do nothing
+}
+static void stop(uv_signal_t *const signal, int const signum) {
 	uv_stop(loop);
 }
+
 static void init(void *const unused) {
 	repo = EFSRepoCreate(path);
 	blog = BlogCreate(repo);
@@ -54,8 +59,11 @@ static void term(void *const unused) {
 	EFSRepoFree(&repo);
 }
 int main(int const argc, char const *const *const argv) {
-	signal(SIGPIPE, SIG_IGN);
 	async_init();
+	uv_signal_t sigpipe[1];
+	uv_signal_init(loop, sigpipe);
+	uv_signal_start(sigpipe, ignore, SIGPIPE);
+	uv_unref((uv_handle_t *)sigpipe);
 
 	if(argc > 1) {
 		path = strdup(argv[1]);
@@ -75,6 +83,9 @@ int main(int const argc, char const *const *const argv) {
 	uv_run(loop, UV_RUN_DEFAULT); // Allows term() to execute.
 
 	FREE(&path);
+	uv_ref((uv_handle_t *)sigpipe);
+	uv_signal_stop(sigpipe);
+	uv_close((uv_handle_t *)sigpipe, NULL);
 
 	return EXIT_SUCCESS;
 }
