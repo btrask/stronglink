@@ -20,11 +20,14 @@ bool_t checkpass(strarg_t const pass, strarg_t const hash) {
 }
 str_t *hashpass(strarg_t const pass) {
 	async_pool_enter(NULL);
+	char input[GENSALT_INPUT_SIZE];
+	if(async_random((byte_t *)input, GENSALT_INPUT_SIZE) < 0) {
+		async_pool_leave(NULL);
+		return NULL;
+	}
+	char *salt = crypt_gensalt_ra("$2a$", 8, input, GENSALT_INPUT_SIZE); // TODO: Use `$2y$` now? bcrypt library needs updating.
 	int size = 0;
 	void *data = NULL;
-	char input[GENSALT_INPUT_SIZE];
-	async_random((byte_t *)input, GENSALT_INPUT_SIZE);
-	char *salt = crypt_gensalt_ra("$2a$", 8, input, GENSALT_INPUT_SIZE); // TODO: Use `$2y$` now? bcrypt library needs updating.
 	str_t *hash = strdup(crypt_ra(pass, salt, &data, &size));
 	FREE(&salt);
 	FREE(&data);
