@@ -206,7 +206,7 @@ ssize_t HTTPMessageReadLine(HTTPMessageRef const msg, str_t *const buf, size_t c
 		if(readChunk(msg) < 0) break;
 		if('\r' == msg->next.at[0]) break;
 		if('\n' == msg->next.at[0]) break;
-		buf[MIN(pos++, len)] = msg->next.at[0];
+		if(pos < len-1) buf[pos++] = msg->next.at[0];
 		msg->next.at++;
 		msg->next.len--;
 	}
@@ -220,8 +220,8 @@ ssize_t HTTPMessageReadLine(HTTPMessageRef const msg, str_t *const buf, size_t c
 		msg->next.at++;
 		msg->next.len--;
 	}
-	buf[MIN(pos++, len)] = '\0';
-	return MIN(pos++, len);
+	if(0 != len) buf[pos] = '\0';
+	return pos;
 }
 ssize_t HTTPMessageGetBuffer(HTTPMessageRef const msg, byte_t const **const buf) {
 	if(!msg) return -1;
