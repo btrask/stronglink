@@ -370,6 +370,9 @@ err_t EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const 
 	if(err < 0) {
 		mdb_txn_abort(txn); txn = NULL;
 	} else {
+		lsmdb_autocompact(txn, conn->schema->value_stringID, "value->stringID");
+		lsmdb_autocompact(txn, conn->schema->hash_stringID, "hash->stringID");
+		lsmdb_autocompact(txn, conn->fulltext_metaFileID, "fulltext");
 		rc = mdb_txn_commit(txn); txn = NULL;
 		if(MDB_SUCCESS != rc) err = -1;
 	}

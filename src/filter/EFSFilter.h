@@ -60,7 +60,7 @@
 @end
 
 struct token {
-	str_t *str;
+	byte_t *buf;
 	size_t len;
 };
 @interface EFSFulltextFilter : EFSIndividualFilter
@@ -69,9 +69,9 @@ struct token {
 	struct token *tokens;
 	count_t count;
 	count_t asize;
-	MDB_cursor *metafiles;
-	MDB_cursor *phrase; // TODO
-	MDB_cursor *match;
+	LSMDB_cursor *metafiles;
+	LSMDB_cursor *phrase; // TODO
+	LSMDB_cursor *match;
 }
 @end
 

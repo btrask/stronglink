@@ -294,10 +294,6 @@ static void add_fulltext(MDB_txn *const txn, EFSConnection const *const conn, ui
 	rc = fts->xOpen(tokenizer, str, len, &tcur);
 	assert(SQLITE_OK == rc);
 
-	MDB_cursor *cur = NULL;
-	rc = mdb_cursor_open(txn, conn->metaFileIDByFulltext, &cur);
-	assert(MDB_SUCCESS == rc);
-
 	for(;;) {
 		strarg_t token;
 		int tlen;
@@ -306,16 +302,16 @@ static void add_fulltext(MDB_txn *const txn, EFSConnection const *const conn, ui
 		rc = fts->xNext(tcur, &token, &tlen, &ignored1, &ignored2, &tpos);
 		if(SQLITE_OK != rc) break;
 
-		MDB_val token_val[1] = {{ tlen, (void *)token }};
-		DB_VAL(metaFileID_val, 1);
-		db_bind(metaFileID_val, metaFileID);
+		byte_t buf[1+40+DB_VARINT_MAX];
+		buf[0] = tlen;
+		memcpy(buf+1, token, tlen);
 		// TODO: Store tpos
+		size_t vlen = varint_encode(buf+1+tlen, DB_VARINT_MAX, metaFileID);
 
-		rc = mdb_cursor_put(cur, token_val, metaFileID_val, MDB_NODUPDATA);
-		assert(MDB_SUCCESS == rc || MDB_KEYEXIST == rc);
+		MDB_val x = { 1+tlen+vlen, buf };
+		rc = lsmdb_put(txn, conn->fulltext_metaFileID, &x, NULL, 0);
+		assert(MDB_SUCCESS == rc);
 	}
-
-	mdb_cursor_close(cur); cur = NULL;
 
 	fts->xClose(tcur); tcur = NULL;
 }

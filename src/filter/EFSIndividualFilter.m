@@ -164,11 +164,11 @@
 - (void)free {
 	FREE(&term);
 	for(index_t i = 0; i < count; ++i) {
-		FREE(&tokens[i].str);
+		FREE(&tokens[i].buf);
 	}
 	FREE(&tokens);
-	mdb_cursor_close(metafiles); metafiles = NULL;
-	mdb_cursor_close(match); match = NULL;
+	lsmdb_cursor_close(metafiles); metafiles = NULL;
+	lsmdb_cursor_close(match); match = NULL;
 	[super free];
 }
 
@@ -206,7 +206,9 @@
 			tokens = realloc(tokens, sizeof(tokens[0]) * asize);
 			assert(tokens); // TODO
 		}
-		tokens[count].str = strndup(token, tlen);
+		tokens[count].buf = malloc(1+tlen);
+		tokens[count].buf[0] = tlen;
+		memcpy(tokens[count].buf+1, token, tlen);
 		tokens[count].len = tlen;
 		count++;
 	}
@@ -221,19 +223,19 @@
 - (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth {
 	return wr_quoted(data, size, term);
 }
-
+/* TODO
 - (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn {
 	if([super prepare:txn :conn] < 0) return -1;
-	db_cursor(txn, conn->metaFileIDByFulltext, &metafiles);
-	db_cursor(txn, conn->metaFileIDByFulltext, &match);
+	lsdb_cursor(txn, conn->fulltext_metaFileID, &metafiles);
+	lsdb_cursor(txn, conn->fulltext_metaFileID, &match);
 	return 0;
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
-	MDB_val token_val = { tokens[0].len, tokens[0].str };
+	MDB_val token_val = { tokens[0].len, tokens[0].buf };
 	DB_VAL(sortID_val, 1);
 	db_bind(sortID_val, sortID);
-	int rc = db_cursor_get(metafiles, &token_val, sortID_val, MDB_GET_BOTH_RANGE);
+	int rc = lsmdb_cursor_get(metafiles, &token_val, sortID_val, MDB_GET_BOTH_RANGE);
 	if(MDB_SUCCESS != rc) return invalid(dir);
 	uint64_t const actual = db_column(sortID_val, 0);
 	if(sortID != actual && dir > 0) return [self stepMeta:-1];
@@ -241,27 +243,27 @@
 }
 - (uint64_t)currentMeta:(int const)dir {
 	MDB_val metaFileID_val[1];
-	int rc = db_cursor_get(metafiles, NULL, metaFileID_val, MDB_GET_CURRENT);
+	int rc = lsmdb_cursor_get(metafiles, NULL, metaFileID_val, MDB_GET_CURRENT);
 	if(MDB_SUCCESS != rc) return invalid(dir);
 	return db_column(metaFileID_val, 0);
 }
 - (uint64_t)stepMeta:(int const)dir {
 	int rc;
-	MDB_val token_val = { tokens[0].len, tokens[0].str };
+	MDB_val token_val = { tokens[0].len, tokens[0].buf };
 	MDB_val metaFileID_val[1];
 	rc = db_cursor_get(metafiles, &token_val, metaFileID_val, op(dir, MDB_NEXT_DUP));
 	if(MDB_SUCCESS != rc) return invalid(dir);
 	return db_column(metaFileID_val, 0);
 }
 - (bool_t)match:(uint64_t const)metaFileID {
-	MDB_val token_val = { tokens[0].len, tokens[0].str };
+	MDB_val token_val = { tokens[0].len, tokens[0].buf };
 	DB_VAL(metaFileID_val, 1);
 	db_bind(metaFileID_val, metaFileID);
 	int rc = mdb_cursor_get(match, &token_val, metaFileID_val, MDB_GET_BOTH);
 	if(MDB_SUCCESS == rc) return true;
 	if(MDB_NOTFOUND == rc) return false;
 	assertf(0, "Database error %s", mdb_strerror(rc));
-}
+}*/
 @end
 
 @implementation EFSMetadataFilter

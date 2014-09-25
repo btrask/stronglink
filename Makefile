@@ -26,6 +26,7 @@ HEADERS := \
 	$(SRC_DIR)/EarthFS.h \
 	$(SRC_DIR)/filter/EFSFilter.h \
 	$(SRC_DIR)/Template.h \
+	$(SRC_DIR)/lsmdb.h \
 	$(SRC_DIR)/db.h \
 	$(SRC_DIR)/fts.h \
 	$(SRC_DIR)/strndup.h \
@@ -61,6 +62,7 @@ OBJECTS := \
 	$(BUILD_DIR)/EFSPull.o \
 	$(BUILD_DIR)/EFSServer.o \
 	$(BUILD_DIR)/Template.o \
+	$(BUILD_DIR)/lsmdb.o \
 	$(BUILD_DIR)/db.o \
 	$(BUILD_DIR)/fts.o \
 	$(BUILD_DIR)/strndup.o \
@@ -107,7 +109,7 @@ OBJECTS += \
 LIBUV_DIR := $(DEPS_DIR)/uv/out/Debug/obj.target
 #LIBUV_DIR := $(DEPS_DIR)/uv/build/Release
 
-LIBS := -luv -lcrypto -lyajl -lpthread -lobjc
+LIBS := -luv -lcrypto -lyajl -lpthread -lobjc -lm
 LIBS += -lrt
 
 .DEFAULT_GOAL := all
