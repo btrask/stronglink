@@ -468,8 +468,11 @@ static int lsmdb_compact_auto(LSMDB_compacter *const c) {
 	size_t const growth = 10;
 	size_t const min = 1000;
 
-	LSMDB_level worstl = 0;
-	size_t worstf = 0;
+	LSMDB_level depth = 0;
+	LSMDB_level worst_level = 0;
+	size_t worst_bloat = 0;
+	size_t total_bloat = 0;
+	size_t incoming = 0;
 	int rc;
 	MDB_val level_val, ignored;
 	rc = mdb_cursor_get(c->src, &level_val, &ignored, MDB_FIRST);
@@ -480,30 +483,34 @@ static int lsmdb_compact_auto(LSMDB_compacter *const c) {
 		LSMDB_level level;
 		rc = lsmdb_level(&level_val, &level);
 		if(MDB_SUCCESS != rc) return MDB_CORRUPTED;
+		if(level > depth) depth = level;
 
 		size_t count;
 		rc = mdb_cursor_count(c->src, &count);
 		assert(0 == rc);
 		size_t const target = base * (size_t)pow(growth, level);
-//		fprintf(stderr, "%s: autocompact level %d: %zu / %zu\n", c->name, level, count, level ? target+min : 2);
+		fprintf(stderr, "%s: autocompact level %d: %zu / %zu\n", c->name, level, count, level ? target+min : 2);
 
-		size_t const overflow = count > target ? count - target : 0;
-		if(overflow > worstf) {
-			worstf = overflow;
-			worstl = ((uint8_t *)level_val.mv_data)[0];
+		size_t const bloat = count > target ? count - target : 0;
+		if(bloat > worst_bloat) {
+			worst_bloat = overflow;
+			worst_level = level;
 		}
+		total_bloat += bloat;
+		if(0 == level) incoming = count;
 
 		rc = mdb_cursor_get(c->src, &level_val, &ignored, MDB_NEXT_NODUP);
 	}
 
-	if(worstf < min) return MDB_SUCCESS;
-	return lsmdb_compact_manual(c, worstl, worstf*2);
+	(void)incoming;
+	if(worst_size < min) return MDB_SUCCESS;
+	return lsmdb_compact_manual(c, worst_level, worst_bloat*2);
 }
 int lsmdb_autocompact(MDB_txn *const txn, LSMDB_dbi const dbi, char const *const name) {
 	LSMDB_compacter *c = NULL;
 	int rc = lsmdb_compacter_open(txn, dbi, name, &c); // TODO: Eliminate allocation
 	if(MDB_SUCCESS != rc) return rc;
-	rc = rc ? rc : lsmdb_compact_auto(c);
+	rc = lsmdb_compact_auto(c);
 	lsmdb_compacter_close(c);
 	return rc;
 }
