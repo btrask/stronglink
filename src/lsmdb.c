@@ -103,6 +103,64 @@ static int lsmdb_depth(MDB_cursor *const cursor, LSMDB_level *const out) {
 	return MDB_SUCCESS;
 }
 
+static int lsmdb_level_pair_gt(MDB_cursor **const a, MDB_cursor **const b, LSMDB_level *const c, LSMDB_level *const d) {
+//	assert(0);
+	return MDB_SUCCESS;
+}
+static int lsmdb_level_pair_eq(MDB_cursor **const a, MDB_cursor **const b, LSMDB_level *const c, LSMDB_level *const d) {
+//	assert(0);
+	return MDB_SUCCESS;
+}
+static int lsmdb_level_pair_lt(MDB_cursor **const a, MDB_cursor **const b, LSMDB_level *const c, LSMDB_level *const d) {
+//	assert(0);
+	MDB_cursor *swap1 = *a;
+	*a = *b;
+	*b = swap1;
+	LSMDB_level swap2 = *c;
+	*c = *d;
+	*d = swap2;
+	return MDB_SUCCESS;
+}
+static int lsmdb_level_pair(MDB_cursor **const a, MDB_cursor **const b, LSMDB_level *const c, LSMDB_level *const d) {
+	assert(*c + 1 == *d || *d + 1 == *c);
+	int rca, rcb;
+
+	MDB_val c1 = { sizeof(*c), c };
+	MDB_val d1 = { sizeof(*d), d };
+	MDB_val ignored;
+	rca = mdb_cursor_get(*a, &c1, &ignored, MDB_SET);
+	rcb = mdb_cursor_get(*b, &d1, &ignored, MDB_SET);
+	// If one tree doesn't exist, consider it the high tree.
+	if(MDB_SUCCESS == rca && MDB_NOTFOUND == rcb) return lsmdb_level_pair_gt(a, b, c, d);
+	if(MDB_NOTFOUND == rca && MDB_SUCCESS == rcb) return lsmdb_level_pair_lt(a, b, c, d);
+	if(MDB_NOTFOUND == rca && MDB_NOTFOUND == rcb) return lsmdb_level_pair_eq(a, b, c, d);
+	if(MDB_SUCCESS != rca) return rca;
+	if(MDB_SUCCESS != rcb) return rcb;
+
+	MDB_val lasta, lastb;
+	rca = mdb_cursor_get(*a, NULL, &lasta, MDB_LAST_DUP);
+	rcb = mdb_cursor_get(*b, NULL, &lastb, MDB_LAST_DUP);
+	if(MDB_SUCCESS != rca) return rca;
+	if(MDB_SUCCESS != rcb) return rcb;
+
+	MDB_txn *const txn = mdb_cursor_txn(*a);
+	MDB_dbi const dbi = mdb_cursor_dbi(*a);
+	int x = mdb_dcmp(txn, dbi, &lasta, &lastb);
+	// If one tree has an earlier last key, consider it the high tree.
+	if(x > 0) return lsmdb_level_pair_gt(a, b, c, d);
+	if(x < 0) return lsmdb_level_pair_lt(a, b, c, d);
+
+	size_t sizea = 0, sizeb = 0;
+	rca = mdb_cursor_count(*a, &sizea);
+	rcb = mdb_cursor_count(*b, &sizeb);
+	if(MDB_SUCCESS != rca) return rca;
+	if(MDB_SUCCESS != rcb) return rcb;
+	// If one tree is larger, consider it the high tree.
+	if(sizea > sizeb) return lsmdb_level_pair_lt(a, b, c, d);
+	if(sizea < sizeb) return lsmdb_level_pair_gt(a, b, c, d);
+	return lsmdb_level_pair_eq(a, b, c, d);
+}
+
 
 
 int lsmdb_dbi_open(MDB_txn *const txn, char const *const name, unsigned const flags, LSMDB_dbi *const dbi) {
@@ -143,14 +201,29 @@ int lsmdb_put(MDB_txn *const txn, LSMDB_dbi const dbi, MDB_val *const key, MDB_v
 	assert((!data || 0 == data->mv_size) &&
 		"LSMDB doesn't currently support separate "
 		"payload, append to key instead");
+	int rc;
 	if(MDB_NOOVERWRITE & flags) {
-		int rc = lsmdb_get(txn, dbi, key, data);
+		rc = lsmdb_get(txn, dbi, key, data);
 		if(MDB_SUCCESS == rc) return MDB_KEYEXIST;
 		if(MDB_NOTFOUND != rc) return rc;
 	}
-	LSMDB_level i = 0;
-	MDB_val level = { sizeof(i), &i };
-	int rc = mdb_put(txn, dbi, &level, key, MDB_NODUPDATA);
+
+	// TODO: I know this is super ugly and slow...
+	LSMDB_level l0 = 0, l1 = 1;
+	MDB_cursor *c0, *c1;
+	rc = mdb_cursor_open(txn, dbi, &c0);
+	assert(!rc);
+	rc = mdb_cursor_open(txn, dbi, &c1);
+	assert(!rc);
+	rc = lsmdb_level_pair(&c0, &c1, &l0, &l1);
+	assert(!rc);
+	MDB_val level = { sizeof(l1), &l1 };
+	rc = mdb_cursor_put(c1, &level, key, MDB_NODUPDATA);
+	mdb_cursor_close(c0);
+	mdb_cursor_close(c1);
+//	LSMDB_level i = 1;
+//	MDB_val level = { sizeof(i), &i };
+//	int rc = mdb_put(txn, dbi, &level, key, MDB_NODUPDATA);
 	if(MDB_KEYEXIST == rc) return MDB_SUCCESS;
 	return rc;
 }
@@ -376,69 +449,6 @@ int lsmdb_cursor_start(LSMDB_cursor *const cursor, MDB_val *const key, MDB_val *
 	return lsmdb_cursor_get(cursor, key, data);
 }
 
-static int lsmdb_level_pair_gt(MDB_cursor **const a, MDB_cursor **const b, LSMDB_level *const c, LSMDB_level *const d) {
-//	assert(0);
-	assert(1 != *c);
-	assert(0 != *d);
-	return MDB_SUCCESS;
-}
-static int lsmdb_level_pair_eq(MDB_cursor **const a, MDB_cursor **const b, LSMDB_level *const c, LSMDB_level *const d) {
-//	assert(0);
-	assert(1 != *c);
-	assert(0 != *d);
-	return MDB_SUCCESS;
-}
-static int lsmdb_level_pair_lt(MDB_cursor **const a, MDB_cursor **const b, LSMDB_level *const c, LSMDB_level *const d) {
-//	assert(0);
-	MDB_cursor *swap1 = *a;
-	*a = *b;
-	*b = swap1;
-	LSMDB_level swap2 = *c;
-	*c = *d;
-	*d = swap2;
-	assert(1 != *c);
-	assert(0 != *d);
-	return MDB_SUCCESS;
-}
-static int lsmdb_level_pair(MDB_cursor **const a, MDB_cursor **const b, LSMDB_level *const c, LSMDB_level *const d) {
-	assert(*c + 1 == *d || *d + 1 == *c);
-	int rca, rcb;
-
-	MDB_val c1 = { sizeof(*c), c };
-	MDB_val d1 = { sizeof(*d), d };
-	MDB_val ignored;
-	rca = mdb_cursor_get(*a, &c1, &ignored, MDB_SET);
-	rcb = mdb_cursor_get(*b, &d1, &ignored, MDB_SET);
-	// If one tree doesn't exist, consider it the high tree.
-	if(MDB_SUCCESS == rca && MDB_NOTFOUND == rcb) return lsmdb_level_pair_gt(a, b, c, d);
-	if(MDB_NOTFOUND == rca && MDB_SUCCESS == rcb) return lsmdb_level_pair_lt(a, b, c, d);
-	if(MDB_NOTFOUND == rca && MDB_NOTFOUND == rcb) return lsmdb_level_pair_eq(a, b, c, d);
-	if(MDB_SUCCESS != rca) return rca;
-	if(MDB_SUCCESS != rcb) return rcb;
-
-	MDB_val lasta, lastb;
-	rca = mdb_cursor_get(*a, NULL, &lasta, MDB_LAST_DUP);
-	rcb = mdb_cursor_get(*b, NULL, &lastb, MDB_LAST_DUP);
-	if(MDB_SUCCESS != rca) return rca;
-	if(MDB_SUCCESS != rcb) return rcb;
-
-	MDB_txn *const txn = mdb_cursor_txn(*a);
-	MDB_dbi const dbi = mdb_cursor_dbi(*a);
-	int x = mdb_dcmp(txn, dbi, &lasta, &lastb);
-	// If one tree has an earlier last key, consider it the high tree.
-	if(x > 0) return lsmdb_level_pair_gt(a, b, c, d);
-	if(x < 0) return lsmdb_level_pair_lt(a, b, c, d);
-
-	size_t sizea = 0, sizeb = 0;
-	rca = mdb_cursor_count(*a, &sizea);
-	rcb = mdb_cursor_count(*b, &sizeb);
-	if(MDB_SUCCESS != rca) return rca;
-	if(MDB_SUCCESS != rcb) return rcb;
-	// If one tree is larger, consider it the high tree.
-	if(sizea > sizeb) return lsmdb_level_pair_lt(a, b, c, d);
-	if(sizea < sizeb) return lsmdb_level_pair_gt(a, b, c, d);
-	return lsmdb_level_pair_eq(a, b, c, d);
-}
 
 
 
@@ -522,6 +532,12 @@ static int lsmdb_compact_manual(LSMDB_compacter *const c, LSMDB_level const leve
 		rc2 = mdb_cursor_get(c->n2, &level2, &k2, MDB_SET);
 		if(MDB_SUCCESS != rc2 && MDB_NOTFOUND != rc2) assert(0); //return rc;
 //		fprintf(stderr, "starting from scratch\n");
+/*		size_t c1, c2;
+		rc = mdb_cursor_count(c->n0, &c1);
+		if(rc) c1 = 0;
+		rc = mdb_cursor_count(c->n2, &c2);
+		if(rc) c2 = 0;
+		fprintf(stderr, "merging %d (%zu) + %d (%zu) -> %d\n", l0, c1, l2, c2, l3);*/
 	}
 
 	size_t i = 0;
@@ -534,6 +550,17 @@ static int lsmdb_compact_manual(LSMDB_compacter *const c, LSMDB_level const leve
 
 		if(MDB_NOTFOUND == rc0 && MDB_NOTFOUND == rc2) {
 //			fprintf(stderr, "DONE MERGING %d\n", level);
+
+/*		size_t c1, c2, c3;
+		rc = mdb_cursor_count(c->n0, &c1);
+		if(rc) c1 = 0;
+		rc = mdb_cursor_count(c->n2, &c2);
+		if(rc) c2 = 0;
+		rc = mdb_cursor_count(c->n3, &c3);
+		if(rc) c3 = 0;
+		fprintf(stderr, "merged %d (%zu) + %d (%zu) -> %d (%zu) : %zu dups\n", l0, c1, l2, c2, l3, c3, (c1+c2)-c3);*/
+
+
 			rc = mdb_del(c->txn, c->dbi, &level0, NULL);
 			if(MDB_SUCCESS != rc && MDB_NOTFOUND != rc) assert(0);
 			rc = mdb_del(c->txn, c->dbi, &level2, NULL);
@@ -604,12 +631,15 @@ static int lsmdb_compact_auto(LSMDB_compacter *const c) {
 		rc = lsmdb_level_pair(&c->n2, &c->n3, &l2, &l3);
 		if(MDB_SUCCESS != rc) assert(0);
 
-		size_t count;
-		rc = mdb_cursor_count(c->n2, &count);
-		if(MDB_SUCCESS != rc) count = 0;
+		size_t c2, c3;
+		rc = mdb_cursor_count(c->n2, &c2);
+		if(MDB_SUCCESS != rc) c2 = 0;
+		rc = mdb_cursor_count(c->n3, &c3);
+		if(MDB_SUCCESS != rc) c3 = 0;
+		size_t const count = c2+c3; // TODO: We have to be more clever than this.
 
 		size_t const target = base * (size_t)pow(growth, i);
-//		fprintf(stderr, "%s: autocompact level %d: %zu / %zu\n", c->name, i, count, i ? target+min : 0);
+		fprintf(stderr, "%s: autocompact level %d: %zu / %zu\n", c->name, i, count, target+min);
 
 		size_t const bloat = count > target ? count - target : 0;
 		if(bloat > worst_bloat) {
