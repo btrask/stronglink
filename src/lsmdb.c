@@ -32,8 +32,9 @@ typedef struct {
 	MDB_txn *txn;
 	MDB_dbi dbi;
 	char const *name;
-	MDB_cursor *src;
-	MDB_cursor *dst;
+	MDB_cursor *n0;
+	MDB_cursor *n2;
+	MDB_cursor *n3;
 } LSMDB_compacter;
 
 
@@ -90,11 +91,15 @@ static int lsmdb_level(MDB_val const *const level, LSMDB_level *const out) {
 static int lsmdb_depth(MDB_cursor *const cursor, LSMDB_level *const out) {
 	MDB_val last;
 	int rc = mdb_cursor_get(cursor, &last, NULL, MDB_LAST);
+	if(MDB_NOTFOUND == rc) {
+		*out = 0;
+		return MDB_SUCCESS;
+	}
 	if(MDB_SUCCESS != rc) return rc;
 	LSMDB_level x;
 	rc = lsmdb_level(&last, &x);
 	if(MDB_SUCCESS != rc) return rc;
-	*out = x+1;
+	*out = x/2+2;
 	return MDB_SUCCESS;
 }
 
@@ -121,7 +126,7 @@ int lsmdb_get(MDB_txn *const txn, LSMDB_dbi const dbi, MDB_val *const key, MDB_v
 	LSMDB_level depth;
 	rc = lsmdb_depth(tmp, &depth);
 	if(MDB_SUCCESS != rc) depth = 0;
-	for(LSMDB_level i = 0; i < depth; ++i) {
+	for(LSMDB_level i = 0; i < depth*2; ++i) {
 		MDB_val level = { sizeof(i), &i };
 		rc = mdb_cursor_get_dup_pfx(tmp, &level, key);
 		if(MDB_NOTFOUND == rc) continue;
@@ -131,6 +136,7 @@ int lsmdb_get(MDB_txn *const txn, LSMDB_dbi const dbi, MDB_val *const key, MDB_v
 		return MDB_SUCCESS;
 	}
 	mdb_cursor_close(tmp);
+	if(MDB_SUCCESS == rc) return MDB_NOTFOUND;
 	return rc;
 }
 int lsmdb_put(MDB_txn *const txn, LSMDB_dbi const dbi, MDB_val *const key, MDB_val *const data, unsigned const flags) {
@@ -156,7 +162,7 @@ int lsmdb_del(MDB_txn *const txn, LSMDB_dbi const dbi, MDB_val *const key) {
 	rc = lsmdb_depth(tmp, &depth);
 	if(MDB_SUCCESS != rc) depth = 0;
 
-	LSMDB_level i = depth;
+	LSMDB_level i = depth*2;
 	int found = 0;
 	while(i--) {
 		for(;;) {
@@ -235,6 +241,7 @@ static int lsmdb_cursor_grow(LSMDB_cursor *const cursor) {
 	int const olddir = cursor->dir;
 	cursor->dir = 0;
 
+	// TODO: Use lsmdb_level_pair to get the lower cursor for this level. We also have to store the index, so use LSMDB_xcursor for cursor->cursors?
 	for(LSMDB_level i = ocount; i < ncount; ++i) {
 		MDB_cursor *c = NULL;
 		rc = mdb_cursor_open(cursor->txn, cursor->dbi, &c);
@@ -369,6 +376,72 @@ int lsmdb_cursor_start(LSMDB_cursor *const cursor, MDB_val *const key, MDB_val *
 	return lsmdb_cursor_get(cursor, key, data);
 }
 
+static int lsmdb_level_pair_gt(MDB_cursor **const a, MDB_cursor **const b, LSMDB_level *const c, LSMDB_level *const d) {
+//	assert(0);
+	assert(1 != *c);
+	assert(0 != *d);
+	return MDB_SUCCESS;
+}
+static int lsmdb_level_pair_eq(MDB_cursor **const a, MDB_cursor **const b, LSMDB_level *const c, LSMDB_level *const d) {
+//	assert(0);
+	assert(1 != *c);
+	assert(0 != *d);
+	return MDB_SUCCESS;
+}
+static int lsmdb_level_pair_lt(MDB_cursor **const a, MDB_cursor **const b, LSMDB_level *const c, LSMDB_level *const d) {
+//	assert(0);
+	MDB_cursor *swap1 = *a;
+	*a = *b;
+	*b = swap1;
+	LSMDB_level swap2 = *c;
+	*c = *d;
+	*d = swap2;
+	assert(1 != *c);
+	assert(0 != *d);
+	return MDB_SUCCESS;
+}
+static int lsmdb_level_pair(MDB_cursor **const a, MDB_cursor **const b, LSMDB_level *const c, LSMDB_level *const d) {
+	assert(*c + 1 == *d || *d + 1 == *c);
+	int rca, rcb;
+
+	MDB_val c1 = { sizeof(*c), c };
+	MDB_val d1 = { sizeof(*d), d };
+	MDB_val ignored;
+	rca = mdb_cursor_get(*a, &c1, &ignored, MDB_SET);
+	rcb = mdb_cursor_get(*b, &d1, &ignored, MDB_SET);
+	// If one tree doesn't exist, consider it the high tree.
+	if(MDB_SUCCESS == rca && MDB_NOTFOUND == rcb) return lsmdb_level_pair_gt(a, b, c, d);
+	if(MDB_NOTFOUND == rca && MDB_SUCCESS == rcb) return lsmdb_level_pair_lt(a, b, c, d);
+	if(MDB_NOTFOUND == rca && MDB_NOTFOUND == rcb) return lsmdb_level_pair_eq(a, b, c, d);
+	if(MDB_SUCCESS != rca) return rca;
+	if(MDB_SUCCESS != rcb) return rcb;
+
+	MDB_val lasta, lastb;
+	rca = mdb_cursor_get(*a, NULL, &lasta, MDB_LAST_DUP);
+	rcb = mdb_cursor_get(*b, NULL, &lastb, MDB_LAST_DUP);
+	if(MDB_SUCCESS != rca) return rca;
+	if(MDB_SUCCESS != rcb) return rcb;
+
+	MDB_txn *const txn = mdb_cursor_txn(*a);
+	MDB_dbi const dbi = mdb_cursor_dbi(*a);
+	int x = mdb_dcmp(txn, dbi, &lasta, &lastb);
+	// If one tree has an earlier last key, consider it the high tree.
+	if(x > 0) return lsmdb_level_pair_gt(a, b, c, d);
+	if(x < 0) return lsmdb_level_pair_lt(a, b, c, d);
+
+	size_t sizea = 0, sizeb = 0;
+	rca = mdb_cursor_count(*a, &sizea);
+	rcb = mdb_cursor_count(*b, &sizeb);
+	if(MDB_SUCCESS != rca) return rca;
+	if(MDB_SUCCESS != rcb) return rcb;
+	// If one tree is larger, consider it the high tree.
+	if(sizea > sizeb) return lsmdb_level_pair_lt(a, b, c, d);
+	if(sizea < sizeb) return lsmdb_level_pair_gt(a, b, c, d);
+	return lsmdb_level_pair_eq(a, b, c, d);
+}
+
+
+
 
 static void lsmdb_compacter_close(LSMDB_compacter *const c);
 static int lsmdb_compacter_open(MDB_txn *const txn, LSMDB_dbi const dbi, char const *const name, LSMDB_compacter **const out) {
@@ -378,8 +451,9 @@ static int lsmdb_compacter_open(MDB_txn *const txn, LSMDB_dbi const dbi, char co
 	c->dbi = dbi;
 	c->name = name;
 	int rc = 0;
-	rc = rc ? rc : mdb_cursor_open(txn, dbi, &c->src);
-	rc = rc ? rc : mdb_cursor_open(txn, dbi, &c->dst);
+	rc = rc ? rc : mdb_cursor_open(txn, dbi, &c->n0);
+	rc = rc ? rc : mdb_cursor_open(txn, dbi, &c->n2);
+	rc = rc ? rc : mdb_cursor_open(txn, dbi, &c->n3);
 	if(MDB_SUCCESS != rc) {
 		lsmdb_compacter_close(c);
 		return rc;
@@ -389,76 +463,110 @@ static int lsmdb_compacter_open(MDB_txn *const txn, LSMDB_dbi const dbi, char co
 }
 static void lsmdb_compacter_close(LSMDB_compacter *const c) {
 	if(!c) return;
-	mdb_cursor_close(c->src);
-	mdb_cursor_close(c->dst);
+	mdb_cursor_close(c->n0);
+	mdb_cursor_close(c->n2);
+	mdb_cursor_close(c->n3);
 	free(c);
 }
-static int lsmdb_compact_step(LSMDB_compacter *const c, LSMDB_level const level) {
-	int rc;
-	MDB_val slevel, skey;
-	rc = mdb_cursor_get(c->src, &slevel, &skey, MDB_GET_CURRENT);
-	if(EINVAL == rc) return MDB_NOTFOUND; // We deleted the last item from this level
-	if(MDB_SUCCESS != rc) { fprintf(stderr, "%d\n", rc) ; assert(0); } //return rc;
 
-	MDB_val dlevel, dkey;
-	rc = mdb_cursor_get(c->dst, &dlevel, &dkey, MDB_GET_CURRENT);
-	for(;;) {
-		if(MDB_NOTFOUND == rc || EINVAL == rc) break; // TODO: Use MDB_APPEND from here on
-		if(MDB_SUCCESS != rc) assert(0); //return rc;
-		if(mdb_dcmp(c->txn, c->dbi, &skey, &dkey) >= 0) break;
-		rc = mdb_cursor_get(c->dst, &dlevel, &dkey, MDB_NEXT_DUP);
-	}
-
-	LSMDB_level x = level+1;
-	MDB_val x2 = { sizeof(x), &x };
-	rc = mdb_cursor_put(c->dst, &x2, &skey, 0);
-	if(MDB_SUCCESS != rc) assert(0); //return rc;
-
-	rc = mdb_del(c->txn, c->dbi, &slevel, &skey);
-	if(MDB_SUCCESS != rc) { fprintf(stderr, "rc=%d\n", rc); assert(0); } //return rc;
-
-	return MDB_SUCCESS;
-}
 static int lsmdb_compact_manual(LSMDB_compacter *const c, LSMDB_level const level, size_t const steps) {
 	if(!c) return EINVAL;
 	if(steps < 1) return EINVAL;
+	assert(0 == level % 2);
 
-	// TODO: Rolling compactions using level pairs and
-	// MDB_APPEND. Would require twice as many levels,
-	// but each level would be half as full, so it'd be
-	// an even trade. Once we finish merging x and y
-	// into z, swap y and z and start over.
-	// 
-	// But I suspect MDB_APPEND would actually be less
-	// of a win than one might think.
 	int rc;
-	LSMDB_level l1 = level+0;
-	LSMDB_level l2 = level+1;
-	MDB_val level1 = { sizeof(l1), &l1 };
+	LSMDB_level l0 = level+0;
+	LSMDB_level l1 = level+1;
+	LSMDB_level l2 = level+2;
+	LSMDB_level l3 = level+3;
+	rc = lsmdb_level_pair(&c->n0, &c->n2, &l0, &l1);
+	assert(0 == rc);
+	rc = lsmdb_level_pair(&c->n2, &c->n3, &l2, &l3);
+	assert(0 == rc);
+
+	MDB_val level0 = { sizeof(l0), &l0 };
 	MDB_val level2 = { sizeof(l2), &l2 };
-	MDB_val first = {};
+	MDB_val level3 = { sizeof(l3), &l3 };
+	MDB_val k0, k2;
+	int rc0, rc2;
+	MDB_val last;
 
-	rc = mdb_cursor_get(c->src, &level1, &first, MDB_SET);
-	if(MDB_NOTFOUND == rc) return MDB_SUCCESS; // Nothing to merge
-	if(MDB_SUCCESS != rc) assert(0); //return rc;
 
-	size_t max;
-	rc = mdb_cursor_count(c->src, &max);
-	if(MDB_SUCCESS != rc) return rc;
-	if(max <= 2) return MDB_SUCCESS;
-	max = steps > max-2 ? max-2 : steps;
+	rc = mdb_cursor_get(c->n3, &level3, &last, MDB_SET);
+	if(MDB_SUCCESS == rc) {
+		rc = mdb_cursor_get(c->n3, NULL, &last, MDB_LAST_DUP);
+		assert(MDB_SUCCESS == rc);
+	}
+	if(MDB_SUCCESS == rc) {
+		k0 = last;
+		k2 = last;
+		rc0 = mdb_cursor_get(c->n0, &level0, &k0, MDB_GET_BOTH_RANGE);
+		if(MDB_SUCCESS != rc0 && MDB_NOTFOUND != rc0) assert(0); //return rc;
+		rc2 = mdb_cursor_get(c->n2, &level2, &k2, MDB_GET_BOTH_RANGE);
+		if(MDB_SUCCESS != rc2 && MDB_NOTFOUND != rc2) assert(0); //return rc;
 
-	rc = mdb_cursor_get(c->dst, &level2, &first, MDB_GET_BOTH_RANGE);
-	if(MDB_SUCCESS != rc && MDB_NOTFOUND != rc) assert(0); //return rc;
+		if(0 == mdb_dcmp(c->txn, c->dbi, &k0, &last)) {
+			rc0 = mdb_cursor_get(c->n0, &level0, &k0, MDB_NEXT_DUP);
+			if(MDB_SUCCESS != rc0 && MDB_NOTFOUND != rc0) assert(0);
+		}
+		if(0 == mdb_dcmp(c->txn, c->dbi, &k2, &last)) {
+			rc2 = mdb_cursor_get(c->n0, &level2, &k2, MDB_NEXT_DUP);
+			if(MDB_SUCCESS != rc2 && MDB_NOTFOUND != rc2) assert(0);
+		}
 
-	size_t i = 0;
-	for(; i < max; ++i) {
-		rc = lsmdb_compact_step(c, level);
-		if(MDB_NOTFOUND == rc) break;
-		if(MDB_SUCCESS != rc) assert(0); //return rc;
+//		fprintf(stderr, "continuing\n");
+	} else {
+		rc0 = mdb_cursor_get(c->n0, &level0, &k0, MDB_SET);
+		if(MDB_SUCCESS != rc0 && MDB_NOTFOUND != rc0) assert(0); //return rc;
+		rc2 = mdb_cursor_get(c->n2, &level2, &k2, MDB_SET);
+		if(MDB_SUCCESS != rc2 && MDB_NOTFOUND != rc2) assert(0); //return rc;
+//		fprintf(stderr, "starting from scratch\n");
 	}
 
-	fprintf(stderr, "%s: compacted level %u by %u items\n", c->name, level, i);
+	size_t i = 0;
+	for(; i < steps; ++i) {
+		if(MDB_NOTFOUND == rc0 && MDB_NOTFOUND == rc2) {
+//			fprintf(stderr, "DONE MERGING %d\n", level);
+			rc = mdb_del(c->txn, c->dbi, &level0, NULL);
+			if(MDB_SUCCESS != rc && MDB_NOTFOUND != rc) assert(0);
+			rc = mdb_del(c->txn, c->dbi, &level2, NULL);
+			if(MDB_SUCCESS != rc && MDB_NOTFOUND != rc) assert(0);
+			break;
+		}
+
+		int x = 0;
+		if(MDB_NOTFOUND == rc0) x = +1;
+		if(MDB_NOTFOUND == rc2) x = -1;
+		if(0 == x) x = mdb_dcmp(c->txn, c->dbi, &k0, &k2);
+		if(x <= 0) {
+			rc = mdb_cursor_put(c->n3, &level3, &k0, MDB_APPENDDUP | MDB_NODUPDATA);
+			assert(MDB_KEYEXIST != rc);
+			if(MDB_SUCCESS != rc) assert(0);
+
+			// WORKAROUND
+			rc0 = mdb_cursor_get(c->n0, &level0, &k0, MDB_GET_BOTH);
+			if(MDB_SUCCESS != rc0) assert(0); //return rc;
+
+			rc0 = mdb_cursor_get(c->n0, &level0, &k0, MDB_NEXT_DUP);
+			if(MDB_SUCCESS != rc0 && MDB_NOTFOUND != rc0) assert(0);
+		}
+		if(x > 0) {
+			rc = mdb_cursor_put(c->n3, &level3, &k2, MDB_APPENDDUP | MDB_NODUPDATA);
+			assert(MDB_KEYEXIST != rc);
+			if(MDB_SUCCESS != rc) assert(0);
+		}
+		if(x >= 0) {
+
+			// WORKAROUND
+			rc2 = mdb_cursor_get(c->n2, &level2, &k2, MDB_GET_BOTH);
+			if(MDB_SUCCESS != rc2) assert(0); //return rc;
+
+			rc2 = mdb_cursor_get(c->n2, &level2, &k2, MDB_NEXT_DUP);
+			if(MDB_SUCCESS != rc2 && MDB_NOTFOUND != rc2) assert(0);
+		}
+	}
+
+//	fprintf(stderr, "%s: compacted level %u by %u items\n", c->name, level, i);
 	return MDB_SUCCESS;
 }
 static int lsmdb_compact_auto(LSMDB_compacter *const c) {
@@ -468,42 +576,36 @@ static int lsmdb_compact_auto(LSMDB_compacter *const c) {
 	size_t const growth = 10;
 	size_t const min = 1000;
 
-	LSMDB_level depth = 0;
+	LSMDB_level depth;
+	int rc = lsmdb_depth(c->n0, &depth);
+	if(MDB_SUCCESS != rc) assert(0);
+
 	LSMDB_level worst_level = 0;
 	size_t worst_bloat = 0;
 	size_t total_bloat = 0;
-	size_t incoming = 0;
-	int rc;
-	MDB_val level_val, ignored;
-	rc = mdb_cursor_get(c->src, &level_val, &ignored, MDB_FIRST);
-	for(;;) {
-		if(MDB_NOTFOUND == rc) break;
-		if(MDB_SUCCESS != rc) return rc;
 
-		LSMDB_level level;
-		rc = lsmdb_level(&level_val, &level);
-		if(MDB_SUCCESS != rc) return MDB_CORRUPTED;
-		if(level > depth) depth = level;
+	for(LSMDB_level i = 0; i < depth; ++i) {
+		LSMDB_level l2 = i*2+0;
+		LSMDB_level l3 = i*2+1;
+		rc = lsmdb_level_pair(&c->n2, &c->n3, &l2, &l3);
+		if(MDB_SUCCESS != rc) assert(0);
 
 		size_t count;
-		rc = mdb_cursor_count(c->src, &count);
-		assert(0 == rc);
-		size_t const target = base * (size_t)pow(growth, level);
-		fprintf(stderr, "%s: autocompact level %d: %zu / %zu\n", c->name, level, count, level ? target+min : 2);
+		rc = mdb_cursor_count(c->n2, &count);
+		if(MDB_SUCCESS != rc) count = 0;
+
+		size_t const target = base * (size_t)pow(growth, i);
+//		fprintf(stderr, "%s: autocompact level %d: %zu / %zu\n", c->name, i, count, i ? target+min : 0);
 
 		size_t const bloat = count > target ? count - target : 0;
 		if(bloat > worst_bloat) {
-			worst_bloat = overflow;
-			worst_level = level;
+			worst_bloat = bloat;
+			worst_level = i*2;
 		}
 		total_bloat += bloat;
-		if(0 == level) incoming = count;
-
-		rc = mdb_cursor_get(c->src, &level_val, &ignored, MDB_NEXT_NODUP);
 	}
 
-	(void)incoming;
-	if(worst_size < min) return MDB_SUCCESS;
+	if(worst_bloat < min) return MDB_SUCCESS;
 	return lsmdb_compact_manual(c, worst_level, worst_bloat*2);
 }
 int lsmdb_autocompact(MDB_txn *const txn, LSMDB_dbi const dbi, char const *const name) {
