@@ -641,8 +641,8 @@ static int lsmdb_compact_auto(LSMDB_compacter *const c) {
 	if(MDB_SUCCESS != rc) assert(0);
 
 	LSMDB_level worst_level = 0;
-	size_t worst_bloat = 0;
-	size_t total_bloat = 0;
+	double worst_bloat = 0;
+	double total_bloat = 0;
 
 	for(LSMDB_level i = 0; i < depth; ++i) {
 		LSMDB_level l2 = i*2+0;
@@ -657,9 +657,9 @@ static int lsmdb_compact_auto(LSMDB_compacter *const c) {
 		if(MDB_SUCCESS != rc) c3 = 0;
 		size_t const count = c2;
 		size_t const target = base * (size_t)pow(growth, i);
-		size_t const bloat = count > target ? count - target : 0;
+		double const bloat = (double)count / target;
 
-		fprintf(stderr, "%s: autocompact level %d: %zu + %zu / %zu (%zu)\n", c->name, i, c2, c3, target+min, bloat);
+		fprintf(stderr, "%s: autocompact level %d: %zu + %zu / %zu (%f)\n", c->name, i, c2, c3, target+min, bloat);
 
 		if(bloat > worst_bloat) {
 			worst_bloat = bloat;
@@ -668,8 +668,8 @@ static int lsmdb_compact_auto(LSMDB_compacter *const c) {
 		total_bloat += bloat;
 	}
 
-	if(worst_bloat < min) return MDB_SUCCESS;
-	return lsmdb_compact_manual(c, worst_level, 0 == worst_level ? SIZE_MAX : worst_bloat*2);
+	if(worst_bloat < 0.5) return MDB_SUCCESS;
+	return lsmdb_compact_manual(c, worst_level, 0 == worst_level ? SIZE_MAX : 5000);
 }
 int lsmdb_autocompact(MDB_txn *const txn, LSMDB_dbi const dbi, char const *const name) {
 	LSMDB_compacter *c = NULL;
