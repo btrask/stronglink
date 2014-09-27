@@ -12,6 +12,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "lsmdb.h"
 
 typedef struct {
@@ -36,6 +37,21 @@ typedef struct {
 	MDB_cursor *n2;
 	MDB_cursor *n3;
 } LSMDB_compacter;
+
+
+static char *debug_val(MDB_val const *const x) {
+	char const map[] = "0123456789abcdef";
+	char *const hex = calloc(x->mv_size*2+1, 1);
+	for(size_t i = 0; i < x->mv_size; ++i) {
+		hex[i*2+0] = map[0xf & (((char *)x->mv_data)[i] >> 4)];
+		hex[i*2+1] = map[0xf & (((char *)x->mv_data)[i] >> 0)];
+	}
+	return hex;
+}
+static void debug_dups(MDB_cursor *const cursor, MDB_val const *const key) {
+	
+}
+
 
 
 static int mdb_get_op(MDB_txn *const txn, MDB_dbi const dbi, MDB_val *const key, MDB_val *const data, MDB_cursor_op const op) {
@@ -507,29 +523,34 @@ static int lsmdb_compact_manual(LSMDB_compacter *const c, LSMDB_level const leve
 		rc2 = mdb_cursor_get(c->n2, &tmp2, &k2, MDB_GET_BOTH_RANGE);
 		if(MDB_SUCCESS != rc2 && MDB_NOTFOUND != rc2) assert(0); //return rc;
 
+//		fprintf(stderr, "continuing\n");
+
 		if(0 == mdb_dcmp(c->txn, c->dbi, &k0, &last)) {
 			rc0 = mdb_cursor_get(c->n0, NULL, &k0, MDB_NEXT_DUP);
 			if(MDB_SUCCESS != rc0 && MDB_NOTFOUND != rc0) assert(0);
 		}
 		if(0 == mdb_dcmp(c->txn, c->dbi, &k2, &last)) {
-			rc2 = mdb_cursor_get(c->n0, NULL, &k2, MDB_NEXT_DUP);
+			rc2 = mdb_cursor_get(c->n2, NULL, &k2, MDB_NEXT_DUP);
 			if(MDB_SUCCESS != rc2 && MDB_NOTFOUND != rc2) assert(0);
 		}
 
-//		fprintf(stderr, "continuing\n");
 	} else {
 		rc0 = mdb_cursor_get(c->n0, &level0, &k0, MDB_SET);
 		if(MDB_SUCCESS != rc0 && MDB_NOTFOUND != rc0) assert(0); //return rc;
 		rc2 = mdb_cursor_get(c->n2, &level2, &k2, MDB_SET);
 		if(MDB_SUCCESS != rc2 && MDB_NOTFOUND != rc2) assert(0); //return rc;
-//		fprintf(stderr, "starting from scratch\n");
-		size_t c1, c2;
+/*		size_t c1, c2, c3;
 		rc = mdb_cursor_count(c->n0, &c1);
 		if(rc) c1 = 0;
 		rc = mdb_cursor_count(c->n2, &c2);
 		if(rc) c2 = 0;
-		fprintf(stderr, "merging %d (%zu) + %d (%zu) -> %d\n", l0, c1, l2, c2, l3);
+		rc = mdb_cursor_count(c->n3, &c3);
+		if(rc) c3 = 0;
+		fprintf(stderr, "merging %d (%zu) + %d (%zu) -> %d (%zu)\n", l0, c1, l2, c2, l3, c3);*/
 	}
+
+	uint8_t b0[500];
+	uint8_t b2[500];
 
 	size_t i = 0;
 	for(; i < steps; ++i) {
@@ -538,29 +559,41 @@ static int lsmdb_compact_manual(LSMDB_compacter *const c, LSMDB_level const leve
 		assert(&l2 == level2.mv_data);
 		assert(&l3 == level3.mv_data);
 
+		if(MDB_NOTFOUND == rc0) {
+			rc = mdb_del(c->txn, c->dbi, &level0, NULL);
+			if(MDB_SUCCESS != rc && MDB_NOTFOUND != rc) assert(0);
+		}
 		if(MDB_NOTFOUND == rc2) {
 			rc = mdb_del(c->txn, c->dbi, &level2, NULL);
 			if(MDB_SUCCESS != rc && MDB_NOTFOUND != rc) assert(0);
 		}
-		if(MDB_NOTFOUND == rc0) {
-			rc = mdb_del(c->txn, c->dbi, &level0, NULL);
-			if(MDB_SUCCESS != rc && MDB_NOTFOUND != rc) assert(0);
-			break;
-		}
-/*		if(MDB_NOTFOUND == rc0 || MDB_NOTFOUND == rc2) {
-//			fprintf(stderr, "DONE MERGING %d\n", level);
-			size_t c1, c2, c3;
+		if(MDB_NOTFOUND == rc0 && MDB_NOTFOUND == rc2) {
+/*			size_t c1, c2, c3;
 			rc = mdb_cursor_count(c->n0, &c1);
 			if(rc) c1 = 0;
 			rc = mdb_cursor_count(c->n2, &c2);
 			if(rc) c2 = 0;
 			rc = mdb_cursor_count(c->n3, &c3);
 			if(rc) c3 = 0;
-			fprintf(stderr, "merged %d (%zu) + %d (%zu) -> %d (%zu) : %zu dups\n", l0, c1, l2, c2, l3, c3, (c1+c2)-c3);
+			fprintf(stderr, "merged %d (%zu) + %d (%zu) -> %d (%zu) : %zu dups\n", l0, c1, l2, c2, l3, c3, (c1+c2)-c3);*/
 			break;
-		}*/
+		}
+
+		// WORKAROUND: We wouldn't need this if our cursors
+		// didn't break after putting to a different tree.
+		// deps/liblmdb/mdb.c:5306: Assertion 'IS_BRANCH(mc->mc_pg[mc->mc_top])'
+		// failed in mdb_cursor_sibling()
+		if(MDB_NOTFOUND != rc0 && b0 != k0.mv_data) {
+			memcpy(b0, k0.mv_data, k0.mv_size);
+			k0.mv_data = b0;
+		}
+		if(MDB_NOTFOUND != rc2 && b2 != k2.mv_data) {
+			memcpy(b2, k2.mv_data, k2.mv_size);
+			k2.mv_data = b2;
+		}
 
 		int x = 0;
+		if(MDB_NOTFOUND == rc0) x = +1;
 		if(MDB_NOTFOUND == rc2) x = -1;
 		if(0 == x) x = mdb_dcmp(c->txn, c->dbi, &k0, &k2);
 		if(x <= 0) {
@@ -570,8 +603,6 @@ static int lsmdb_compact_manual(LSMDB_compacter *const c, LSMDB_level const leve
 
 			// WORKAROUND
 			MDB_val tmp = level0;
-			rc0 = mdb_cursor_get(c->n0, &tmp, &k0, MDB_GET_CURRENT);
-			if(MDB_SUCCESS != rc0) assert(0); //return rc;
 			rc0 = mdb_cursor_get(c->n0, &tmp, &k0, MDB_GET_BOTH);
 			if(MDB_SUCCESS != rc0) assert(0); //return rc;
 
@@ -580,16 +611,13 @@ static int lsmdb_compact_manual(LSMDB_compacter *const c, LSMDB_level const leve
 		}
 		if(x > 0) {
 			rc = mdb_cursor_put(c->n3, &level3, &k2, MDB_APPENDDUP);
-			//assert(MDB_KEYEXIST != rc);
-			// TODO: Not sure why this is getting triggered.
-			if(MDB_SUCCESS != rc && MDB_KEYEXIST != rc) assert(0);
+			assert(MDB_KEYEXIST != rc);
+			if(MDB_SUCCESS != rc) assert(0);
 		}
 		if(x >= 0) {
 
 			// WORKAROUND
 			MDB_val tmp = level2;
-			rc2 = mdb_cursor_get(c->n2, &tmp, &k2, MDB_GET_CURRENT);
-			if(MDB_SUCCESS != rc2) assert(0); //return rc;
 			rc2 = mdb_cursor_get(c->n2, &tmp, &k2, MDB_GET_BOTH);
 			if(MDB_SUCCESS != rc2) assert(0); //return rc;
 
