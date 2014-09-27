@@ -105,10 +105,14 @@ static int lsmdb_depth(MDB_cursor *const cursor, LSMDB_level *const out) {
 
 static int lsmdb_level_pair_gt(MDB_cursor **const a, MDB_cursor **const b, LSMDB_level *const c, LSMDB_level *const d) {
 //	assert(0);
+	assert(1 != *c);
+	assert(0 != *d);
 	return MDB_SUCCESS;
 }
 static int lsmdb_level_pair_eq(MDB_cursor **const a, MDB_cursor **const b, LSMDB_level *const c, LSMDB_level *const d) {
 //	assert(0);
+	assert(1 != *c);
+	assert(0 != *d);
 	return MDB_SUCCESS;
 }
 static int lsmdb_level_pair_lt(MDB_cursor **const a, MDB_cursor **const b, LSMDB_level *const c, LSMDB_level *const d) {
@@ -119,6 +123,8 @@ static int lsmdb_level_pair_lt(MDB_cursor **const a, MDB_cursor **const b, LSMDB
 	LSMDB_level swap2 = *c;
 	*c = *d;
 	*d = swap2;
+	assert(1 != *c);
+	assert(0 != *d);
 	return MDB_SUCCESS;
 }
 static int lsmdb_level_pair(MDB_cursor **const a, MDB_cursor **const b, LSMDB_level *const c, LSMDB_level *const d) {
@@ -201,29 +207,15 @@ int lsmdb_put(MDB_txn *const txn, LSMDB_dbi const dbi, MDB_val *const key, MDB_v
 	assert((!data || 0 == data->mv_size) &&
 		"LSMDB doesn't currently support separate "
 		"payload, append to key instead");
-	int rc;
 	if(MDB_NOOVERWRITE & flags) {
-		rc = lsmdb_get(txn, dbi, key, data);
+		int rc = lsmdb_get(txn, dbi, key, data);
 		if(MDB_SUCCESS == rc) return MDB_KEYEXIST;
 		if(MDB_NOTFOUND != rc) return rc;
 	}
 
-	// TODO: I know this is super ugly and slow...
-	LSMDB_level l0 = 0, l1 = 1;
-	MDB_cursor *c0, *c1;
-	rc = mdb_cursor_open(txn, dbi, &c0);
-	assert(!rc);
-	rc = mdb_cursor_open(txn, dbi, &c1);
-	assert(!rc);
-	rc = lsmdb_level_pair(&c0, &c1, &l0, &l1);
-	assert(!rc);
-	MDB_val level = { sizeof(l1), &l1 };
-	rc = mdb_cursor_put(c1, &level, key, MDB_NODUPDATA);
-	mdb_cursor_close(c0);
-	mdb_cursor_close(c1);
-//	LSMDB_level i = 1;
-//	MDB_val level = { sizeof(i), &i };
-//	int rc = mdb_put(txn, dbi, &level, key, MDB_NODUPDATA);
+	LSMDB_level i = 0;
+	MDB_val level = { sizeof(i), &i };
+	int rc = mdb_put(txn, dbi, &level, key, MDB_NODUPDATA);
 	if(MDB_KEYEXIST == rc) return MDB_SUCCESS;
 	return rc;
 }
@@ -482,13 +474,12 @@ static void lsmdb_compacter_close(LSMDB_compacter *const c) {
 static int lsmdb_compact_manual(LSMDB_compacter *const c, LSMDB_level const level, size_t const steps) {
 	if(!c) return EINVAL;
 	if(steps < 1) return EINVAL;
-	assert(0 == level % 2);
 
 	int rc;
-	LSMDB_level l0 = level+0;
-	LSMDB_level l1 = level+1;
-	LSMDB_level l2 = level+2;
-	LSMDB_level l3 = level+3;
+	LSMDB_level l0 = level*2+0;
+	LSMDB_level l1 = level*2+1;
+	LSMDB_level l2 = level*2+2;
+	LSMDB_level l3 = level*2+3;
 	rc = lsmdb_level_pair(&c->n0, &c->n2, &l0, &l1);
 	assert(0 == rc);
 	rc = lsmdb_level_pair(&c->n2, &c->n3, &l2, &l3);
@@ -532,12 +523,12 @@ static int lsmdb_compact_manual(LSMDB_compacter *const c, LSMDB_level const leve
 		rc2 = mdb_cursor_get(c->n2, &level2, &k2, MDB_SET);
 		if(MDB_SUCCESS != rc2 && MDB_NOTFOUND != rc2) assert(0); //return rc;
 //		fprintf(stderr, "starting from scratch\n");
-/*		size_t c1, c2;
+		size_t c1, c2;
 		rc = mdb_cursor_count(c->n0, &c1);
 		if(rc) c1 = 0;
 		rc = mdb_cursor_count(c->n2, &c2);
 		if(rc) c2 = 0;
-		fprintf(stderr, "merging %d (%zu) + %d (%zu) -> %d\n", l0, c1, l2, c2, l3);*/
+		fprintf(stderr, "merging %d (%zu) + %d (%zu) -> %d\n", l0, c1, l2, c2, l3);
 	}
 
 	size_t i = 0;
@@ -547,29 +538,29 @@ static int lsmdb_compact_manual(LSMDB_compacter *const c, LSMDB_level const leve
 		assert(&l2 == level2.mv_data);
 		assert(&l3 == level3.mv_data);
 
-
-		if(MDB_NOTFOUND == rc0 && MDB_NOTFOUND == rc2) {
-//			fprintf(stderr, "DONE MERGING %d\n", level);
-
-/*		size_t c1, c2, c3;
-		rc = mdb_cursor_count(c->n0, &c1);
-		if(rc) c1 = 0;
-		rc = mdb_cursor_count(c->n2, &c2);
-		if(rc) c2 = 0;
-		rc = mdb_cursor_count(c->n3, &c3);
-		if(rc) c3 = 0;
-		fprintf(stderr, "merged %d (%zu) + %d (%zu) -> %d (%zu) : %zu dups\n", l0, c1, l2, c2, l3, c3, (c1+c2)-c3);*/
-
-
-			rc = mdb_del(c->txn, c->dbi, &level0, NULL);
-			if(MDB_SUCCESS != rc && MDB_NOTFOUND != rc) assert(0);
+		if(MDB_NOTFOUND == rc2) {
 			rc = mdb_del(c->txn, c->dbi, &level2, NULL);
+			if(MDB_SUCCESS != rc && MDB_NOTFOUND != rc) assert(0);
+		}
+		if(MDB_NOTFOUND == rc0) {
+			rc = mdb_del(c->txn, c->dbi, &level0, NULL);
 			if(MDB_SUCCESS != rc && MDB_NOTFOUND != rc) assert(0);
 			break;
 		}
+/*		if(MDB_NOTFOUND == rc0 || MDB_NOTFOUND == rc2) {
+//			fprintf(stderr, "DONE MERGING %d\n", level);
+			size_t c1, c2, c3;
+			rc = mdb_cursor_count(c->n0, &c1);
+			if(rc) c1 = 0;
+			rc = mdb_cursor_count(c->n2, &c2);
+			if(rc) c2 = 0;
+			rc = mdb_cursor_count(c->n3, &c3);
+			if(rc) c3 = 0;
+			fprintf(stderr, "merged %d (%zu) + %d (%zu) -> %d (%zu) : %zu dups\n", l0, c1, l2, c2, l3, c3, (c1+c2)-c3);
+			break;
+		}*/
 
 		int x = 0;
-		if(MDB_NOTFOUND == rc0) x = +1;
 		if(MDB_NOTFOUND == rc2) x = -1;
 		if(0 == x) x = mdb_dcmp(c->txn, c->dbi, &k0, &k2);
 		if(x <= 0) {
@@ -636,21 +627,21 @@ static int lsmdb_compact_auto(LSMDB_compacter *const c) {
 		if(MDB_SUCCESS != rc) c2 = 0;
 		rc = mdb_cursor_count(c->n3, &c3);
 		if(MDB_SUCCESS != rc) c3 = 0;
-		size_t const count = c2+c3; // TODO: We have to be more clever than this.
-
+		size_t const count = c2;
 		size_t const target = base * (size_t)pow(growth, i);
-		fprintf(stderr, "%s: autocompact level %d: %zu / %zu\n", c->name, i, count, target+min);
-
 		size_t const bloat = count > target ? count - target : 0;
+
+		fprintf(stderr, "%s: autocompact level %d: %zu + %zu / %zu (%zu)\n", c->name, i, c2, c3, target+min, bloat);
+
 		if(bloat > worst_bloat) {
 			worst_bloat = bloat;
-			worst_level = i*2;
+			worst_level = i;
 		}
 		total_bloat += bloat;
 	}
 
 	if(worst_bloat < min) return MDB_SUCCESS;
-	return lsmdb_compact_manual(c, worst_level, worst_bloat*2);
+	return lsmdb_compact_manual(c, worst_level, 0 == worst_level ? SIZE_MAX : worst_bloat*2);
 }
 int lsmdb_autocompact(MDB_txn *const txn, LSMDB_dbi const dbi, char const *const name) {
 	LSMDB_compacter *c = NULL;
