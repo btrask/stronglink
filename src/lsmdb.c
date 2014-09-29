@@ -115,7 +115,7 @@ static int lsmdb_depth(MDB_cursor *const cursor, LSMDB_level *const out) {
 	LSMDB_level x;
 	rc = lsmdb_level(&last, &x);
 	if(MDB_SUCCESS != rc) return rc;
-	*out = x/2+2;
+	*out = x/2+1;
 	return MDB_SUCCESS;
 }
 
@@ -152,6 +152,8 @@ static int lsmdb_level_pair(MDB_cursor **const a, MDB_cursor **const b, LSMDB_le
 	MDB_val ignored;
 	rca = mdb_cursor_get(*a, &c1, &ignored, MDB_SET);
 	rcb = mdb_cursor_get(*b, &d1, &ignored, MDB_SET);
+	if(MDB_SUCCESS != rca) mdb_cursor_renew(mdb_cursor_txn(*a), *a);
+	if(MDB_SUCCESS != rcb) mdb_cursor_renew(mdb_cursor_txn(*b), *b);
 	// If one tree doesn't exist, consider it the high tree.
 	if(MDB_SUCCESS == rca && MDB_NOTFOUND == rcb) return lsmdb_level_pair_gt(a, b, c, d);
 	if(MDB_NOTFOUND == rca && MDB_SUCCESS == rcb) return lsmdb_level_pair_lt(a, b, c, d);
@@ -629,7 +631,7 @@ static int lsmdb_compact_manual(LSMDB_compacter *const c, LSMDB_level const leve
 static int lsmdb_compact_auto(LSMDB_compacter *const c) {
 	if(!c) return EINVAL;
 
-	size_t const base = 100;
+	size_t const base = 1000;
 	size_t const growth = 10;
 	size_t const min = 1000;
 
@@ -637,10 +639,11 @@ static int lsmdb_compact_auto(LSMDB_compacter *const c) {
 	int rc = lsmdb_depth(c->n0, &depth);
 	if(MDB_SUCCESS != rc) assert(0);
 
+	LSMDB_level compacting = 0;
 	LSMDB_level worst_level = 0;
-	size_t worst_count = 0;
-	size_t worst_target = 0;
-	double worst_bloat = 0;
+	double worst_frac = 0.0;
+	size_t first_size = 0;
+	size_t total_size = 0;
 
 	for(LSMDB_level i = 0; i < depth; ++i) {
 		LSMDB_level l2 = i*2+0;
@@ -649,28 +652,42 @@ static int lsmdb_compact_auto(LSMDB_compacter *const c) {
 		if(MDB_SUCCESS != rc) assert(0);
 
 		size_t c2, c3;
-		rc = mdb_cursor_count(c->n2, &c2);
+		MDB_val level2 = { sizeof(l2), &l2 };
+		MDB_val level3 = { sizeof(l3), &l3 };
+		MDB_val ignored;
+		rc = mdb_cursor_get(c->n2, &level2, &ignored, MDB_SET);
+		if(MDB_SUCCESS == rc) rc = mdb_cursor_count(c->n2, &c2);
 		if(MDB_SUCCESS != rc) c2 = 0;
-		rc = mdb_cursor_count(c->n3, &c3);
+		rc = mdb_cursor_get(c->n3, &level3, &ignored, MDB_SET);
+		if(MDB_SUCCESS == rc) rc = mdb_cursor_count(c->n3, &c3);
 		if(MDB_SUCCESS != rc) c3 = 0;
+
 		size_t const count = c2;
 		size_t const target = base * (size_t)pow(growth, i);
-		double const bloat = (double)count / target;
+		double const frac = (double)count / target;
+		size_t const size = count > target ? count - target : 0;
 
-		fprintf(stderr, "%s: autocompact level %d: %zu + %zu / %zu (%f)\n", c->name, i, c2, c3, target, bloat);
+		fprintf(stderr, "%s: autocompact level %d: %zu + %zu / %zu (%f)\n", c->name, i, c2, c3, target, frac);
 
-		if(bloat > worst_bloat) {
+		total_size += size;
+		if(frac > worst_frac) {
 			worst_level = i;
-			worst_count = count;
-			worst_target = target;
-			worst_bloat = bloat;
+			worst_frac = frac;
+		}
+		if(0 == i) {
+			first_size = size;
+		}
+		if(c3 > 0) {
+			if(0 == i) assert(0);
+			if(0 != compacting) assert(0);
+			compacting = i-1;
 		}
 	}
 
-	(void)worst_target;
-	(void)worst_count;
-	if(worst_bloat < 0.5) return MDB_SUCCESS;
-	return lsmdb_compact_manual(c, worst_level, 0 == worst_level ? SIZE_MAX : 5000);
+	if(0 == worst_level && first_size >= min) return lsmdb_compact_manual(c, 0, SIZE_MAX);
+	if(total_size*2 < min) return MDB_SUCCESS;
+	if(0 != compacting) return lsmdb_compact_manual(c, compacting, total_size*2);
+	return lsmdb_compact_manual(c, worst_level, total_size*2);
 }
 int lsmdb_autocompact(MDB_txn *const txn, LSMDB_dbi const dbi, char const *const name) {
 	LSMDB_compacter *c = NULL;
