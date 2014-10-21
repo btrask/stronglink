@@ -27,7 +27,8 @@ strarg_t db_column_text(MDB_txn *const txn, DB_schema const *const schema, MDB_v
 
 void db_bind(MDB_val *const val, uint64_t const item);
 
-uint64_t db_last_id(MDB_txn *txn, MDB_dbi dbi);
+uint64_t db_last_id(MDB_txn *const txn, MDB_dbi dbi); // TODO: Remove.
+uint64_t db_next_id(MDB_txn *const txn, DB_schema const *const schema, dbid_t const table);
 
 uint64_t db_string_id(MDB_txn *const txn, DB_schema const *const schema, strarg_t const str);
 uint64_t db_string_id_len(MDB_txn *const txn, DB_schema const *const schema, strarg_t const str, size_t const len, bool_t const nulterm);

@@ -76,6 +76,20 @@ uint64_t db_last_id(MDB_txn *txn, MDB_dbi dbi) {
 	if(MDB_SUCCESS != rc) return 0;
 	return db_column(prev_val, 0);
 }
+uint64_t db_next_id(MDB_txn *const txn, DB_schema const *const schema, dbid_t const table) {
+	MDB_cursor *cur = NULL;
+	if(MDB_SUCCESS != mdb_cursor_open(txn, schema->main, &cur)) return 0;
+	DB_VAL(min, 1);
+	DB_VAL(max, 1);
+	db_bind(min, table+0);
+	db_bind(max, table+1);
+	DB_range range = { min, max };
+	MDB_val prev[1];
+	int rc = db_cursor_firstr(cur, &range, prev, NULL, -1);
+	mdb_cursor_close(cur); cur = NULL;
+	if(MDB_SUCCESS != rc) return 0;
+	return db_column(prev, 0)+1;
+}
 
 uint64_t db_string_id(MDB_txn *const txn, DB_schema const *const schema, strarg_t const str) {
 	if(!str) return 0;

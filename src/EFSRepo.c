@@ -171,12 +171,8 @@ static void createDBConnection(EFSRepoRef const repo) {
 
 
 	mdb_dbi_open(txn, "main", MDB_CREATE, &conn->schema->main);
+	conn->main = conn->schema->main;
 
-
-	mdb_dbi_open(txn, "userByID", MDB_CREATE, &conn->userByID);
-	mdb_dbi_open(txn, "userIDByName", MDB_CREATE, &conn->userIDByName);
-	mdb_dbi_open(txn, "sessionByID", MDB_CREATE, &conn->sessionByID);
-	mdb_dbi_open(txn, "pullByID", MDB_CREATE, &conn->pullByID);
 
 	mdb_dbi_open(txn, "fileByID", MDB_CREATE, &conn->fileByID);
 	mdb_dbi_open(txn, "fileIDByInfo", MDB_CREATE, &conn->fileIDByInfo);
@@ -204,14 +200,19 @@ static void loadPulls(EFSRepoRef const repo) {
 	assert(MDB_SUCCESS == rc);
 
 	MDB_cursor *cur = NULL;
-	rc = mdb_cursor_open(txn, conn->pullByID, &cur);
+	rc = mdb_cursor_open(txn, conn->main, &cur);
 	assert(MDB_SUCCESS == rc);
 
-	MDB_val pullID_val[1];
+	DB_VAL(pulls_min, 1);
+	DB_VAL(pulls_max, 1);
+	db_bind(pulls_min, EFSPullByID+0);
+	db_bind(pulls_max, EFSPullByID+1);
+	DB_range pulls = { pulls_min, pulls_max };
+	MDB_val pullID_key[1];
 	MDB_val pull_val[1];
-	rc = mdb_cursor_get(cur, pullID_val, pull_val, MDB_FIRST);
-	for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(cur, pullID_val, pull_val, MDB_NEXT)) {
-		uint64_t const pullID = db_column(pullID_val, 0);
+	rc = db_cursor_firstr(cur, &pulls, pullID_key, pull_val, +1);
+	for(; MDB_SUCCESS == rc; rc = db_cursor_nextr(cur, &pulls, pullID_key, pull_val, +1)) {
+		uint64_t const pullID = db_column(pullID_key, 1);
 		uint64_t const userID = db_column(pull_val, 0);
 		strarg_t const host = db_column_text(txn, conn->schema, pull_val, 1);
 		strarg_t const username = db_column_text(txn, conn->schema, pull_val, 2);
@@ -242,20 +243,25 @@ static void debug_data(EFSConnection const *const conn) {
 	assert(username_id);
 	assert(passhash_id);
 
-	DB_VAL(userID_val, 1);
-	db_bind(userID_val, userID);
+	DB_VAL(userID_key, 2);
+	db_bind(userID_key, EFSUserByID);
+	db_bind(userID_key, userID);
 	DB_VAL(user_val, 3);
 	db_bind(user_val, username_id);
 	db_bind(user_val, passhash_id); // passhash
 	db_bind(user_val, passhash_id); // token
-	mdb_put(txn, conn->userByID, userID_val, user_val, MDB_NOOVERWRITE);
+	mdb_put(txn, conn->main, userID_key, user_val, 0);
 
-	DB_VAL(username_val, 1);
-	db_bind(username_val, username_id);
-	mdb_put(txn, conn->userIDByName, username_val, userID_val, MDB_NOOVERWRITE);
+	DB_VAL(username_key, 2);
+	db_bind(username_key, EFSUserIDByName);
+	db_bind(username_key, username_id);
+	DB_VAL(userID_val, 1);
+	db_bind(userID_val, userID);
+	mdb_put(txn, conn->main, username_key, userID_val, 0);
 
-	DB_VAL(pullID_val, 1);
-	db_bind(pullID_val, 1);
+	DB_VAL(pullID_key, 1);
+	db_bind(pullID_key, EFSPullByID);
+	db_bind(pullID_key, 1);
 
 	uint64_t const host_id = db_string_id(txn, conn->schema, "localhost:8009");
 	uint64_t const remote_username_id = db_string_id(txn, conn->schema, "ben");
@@ -274,7 +280,7 @@ static void debug_data(EFSConnection const *const conn) {
 	db_bind(pull_val, cookie_id);
 	db_bind(pull_val, query_id);
 
-	mdb_put(txn, conn->pullByID, pullID_val, pull_val, MDB_NOOVERWRITE);
+	mdb_put(txn, conn->main, pullID_key, pull_val, 0);
 
 	mdb_txn_commit(txn); txn = NULL;
 }

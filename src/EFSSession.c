@@ -58,18 +58,25 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 		return NULL;
 	}
 
-	DB_VAL(username_val, 1);
-	db_bind(username_val, username_id);
+	DB_VAL(username_key, 2);
+	db_bind(username_key, EFSUserIDByName);
+	db_bind(username_key, username_id);
 	MDB_val userID_val[1];
+	rc = mdb_get(txn, conn->main, username_key, userID_val);
+	uint64_t userID = 0;
 	MDB_val user_val[1];
-	rc = mdb_get(txn, conn->userIDByName, username_val, userID_val);
-	if(MDB_SUCCESS == rc) rc = mdb_get(txn, conn->userByID, userID_val, user_val);
+	if(MDB_SUCCESS == rc) {
+		userID = db_column(userID_val, 0);
+		DB_VAL(userID_key, 2);
+		db_bind(userID_key, EFSUserByID);
+		db_bind(userID_key, userID);
+		rc = mdb_get(txn, conn->main, userID_key, user_val);
+	}
 	if(MDB_SUCCESS != rc) {
 		mdb_txn_abort(txn); txn = NULL;
 		EFSRepoDBClose(repo, &conn);
 		return NULL;
 	}
-	uint64_t const userID = db_column(userID_val, 0);
 	str_t *passhash = strdup(db_column_text(txn, conn->schema, user_val, 1));
 
 	mdb_txn_abort(txn); txn = NULL;
@@ -100,17 +107,17 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 		return NULL;
 	}
 
-	uint64_t const sessionID = db_last_id(txn, conn->sessionByID)+1;
+	uint64_t const sessionID = db_next_id(txn, conn->schema, EFSSessionByID);
 	uint64_t const sessionHash_id = db_string_id(txn, conn->schema, sessionHash);
 	FREE(&sessionHash);
 
-	DB_VAL(sessionID_val, 1);
-	db_bind(sessionID_val, sessionID);
-
+	DB_VAL(sessionID_key, 2);
+	db_bind(sessionID_key, EFSSessionByID);
+	db_bind(sessionID_key, sessionID);
 	DB_VAL(session_val, 2);
 	db_bind(session_val, userID);
 	db_bind(session_val, sessionHash_id);
-	rc = mdb_put(txn, conn->sessionByID, sessionID_val, session_val, MDB_NOOVERWRITE | MDB_APPEND);
+	rc = mdb_put(txn, conn->main, sessionID_key, session_val, MDB_NOOVERWRITE);
 	if(MDB_SUCCESS != rc) {
 		mdb_txn_abort(txn); txn = NULL;
 		EFSRepoDBClose(repo, &conn);
@@ -152,10 +159,11 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 	MDB_txn *txn = NULL;
 	mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
 
-	DB_VAL(sessionID_val, 1);
-	db_bind(sessionID_val, sessionID);
+	DB_VAL(sessionID_key, 2);
+	db_bind(sessionID_key, EFSSessionByID);
+	db_bind(sessionID_key, sessionID);
 	MDB_val session_val[1];
-	rc = mdb_get(txn, conn->sessionByID, sessionID_val, session_val);
+	rc = mdb_get(txn, conn->main, sessionID_key, session_val);
 	if(MDB_SUCCESS != rc) {
 		FREE(&sessionKey);
 		mdb_txn_abort(txn); txn = NULL;

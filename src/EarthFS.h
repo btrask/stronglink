@@ -18,11 +18,7 @@ typedef struct EFSPull* EFSPullRef;
 typedef struct {
 	MDB_env *env;
 	DB_schema schema[1];
-
-	MDB_dbi userByID;
-	MDB_dbi userIDByName;
-	MDB_dbi sessionByID;
-	MDB_dbi pullByID; // by user ID?
+	MDB_dbi main;
 
 	MDB_dbi fileByID;
 	MDB_dbi fileIDByInfo; // Merge with fileIDByURI?
@@ -39,6 +35,13 @@ typedef struct {
 
 	MDB_dbi valueByMetaFileIDField;
 } EFSConnection;
+enum {
+	// 0-9 are reserved for the DB layer.
+	EFSUserByID = 10,
+	EFSUserIDByName = 11,
+	EFSSessionByID = 12,
+	EFSPullByID = 13, // by user ID?
+};
 
 EFSRepoRef EFSRepoCreate(strarg_t const dir);
 void EFSRepoFree(EFSRepoRef *const repoptr);
