@@ -20,7 +20,7 @@ typedef struct {
 	DB_schema schema[1];
 	MDB_dbi main;
 
-	MDB_dbi URIByFileID;
+//	MDB_dbi URIByFileID;
 	MDB_dbi fileIDByURI;
 
 	MDB_dbi metaFileByID;
@@ -41,8 +41,8 @@ enum {
 	EFSFileByID = 20,
 	EFSFileIDByInfo = 21,
 	EFSFileIDByType = 22,
-//	EFSURIAndFileID = 23,
-//	EFSFileIDAndURI = 24,
+	EFSFileIDAndURI = 23,
+//	EFSURIAndFileID = 24,
 };
 
 EFSRepoRef EFSRepoCreate(strarg_t const dir);

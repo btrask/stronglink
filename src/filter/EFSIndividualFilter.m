@@ -18,7 +18,7 @@
 	if([super prepare:txn :conn] < 0) return -1;
 	db_cursor(txn, conn->metaFileByID, &step_target);
 	db_cursor(txn, conn->fileIDByURI, &step_files);
-	db_cursor(txn, conn->URIByFileID, &age_uris);
+	db_cursor(txn, conn->main, &age_uris);
 	db_cursor(txn, conn->metaFileIDByTargetURI, &age_metafiles);
 	return 0;
 }
@@ -85,13 +85,19 @@
 	uint64_t earliest = UINT64_MAX;
 	int rc;
 
-	DB_VAL(fileID_val, 1);
-	db_bind(fileID_val, fileID);
+	DB_VAL(URI_min, 2);
+	DB_VAL(URI_max, 2);
+	db_bind(URI_min, EFSFileIDAndURI);
+	db_bind(URI_max, EFSFileIDAndURI);
+	db_bind(URI_min, fileID+0);
+	db_bind(URI_max, fileID+1);
+	DB_range URIs = { URI_min, URI_max };
+
 	MDB_val URI_val[1];
-	rc = mdb_cursor_get(age_uris, fileID_val, URI_val, MDB_SET);
+	rc = db_cursor_firstr(age_uris, &URIs, URI_val, NULL, +1);
 	assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
-	for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(age_uris, fileID_val, URI_val, MDB_NEXT_DUP)) {
-		uint64_t const targetURI_id = db_column(URI_val, 0);
+	for(; MDB_SUCCESS == rc; rc = db_cursor_nextr(age_uris, &URIs, URI_val, NULL, +1)) {
+		uint64_t const targetURI_id = db_column(URI_val, 2);
 
 		DB_VAL(targetURI_val, 1);
 		db_bind(targetURI_val, targetURI_id);

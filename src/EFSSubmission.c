@@ -193,14 +193,19 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 	for(index_t i = 0; sub->URIs[i]; ++i) {
 		strarg_t const URI = sub->URIs[i];
 		uint64_t const URI_id = db_string_id(txn, conn->schema, URI);
+		MDB_val null = { 0, NULL };
+
+		DB_VAL(fwd, 3);
+		db_bind(fwd, EFSFileIDAndURI);
+		db_bind(fwd, fileID);
+		db_bind(fwd, URI_id);
+		rc = mdb_put(txn, conn->main, fwd, &null, MDB_NOOVERWRITE);
+		assert(MDB_SUCCESS == rc || MDB_KEYEXIST == rc);
+
 		DB_VAL(fileID_val, 1);
 		db_bind(fileID_val, fileID);
 		DB_VAL(URI_val, 1);
 		db_bind(URI_val, URI_id);
-
-		rc = mdb_put(txn, conn->URIByFileID, fileID_val, URI_val, MDB_NODUPDATA);
-		assert(MDB_SUCCESS == rc || MDB_KEYEXIST == rc);
-
 		rc = mdb_put(txn, conn->fileIDByURI, URI_val, fileID_val, MDB_NODUPDATA);
 		assert(MDB_SUCCESS == rc || MDB_KEYEXIST == rc);
 	}
