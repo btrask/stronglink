@@ -173,8 +173,8 @@ static void createDBConnection(EFSRepoRef const repo) {
 	// TODO: Separate "schema open" function.
 	mdb_dbi_open(txn, "schema", MDB_CREATE, &conn->schema->schema);
 	mdb_dbi_open(txn, "stringByID", MDB_CREATE, &conn->schema->stringByID);
-	lsmdb_dbi_open(txn, "value_stringID", MDB_CREATE, &conn->schema->value_stringID);
-	lsmdb_dbi_open(txn, "hash_stringID", MDB_CREATE, &conn->schema->hash_stringID);
+	mdb_dbi_open(txn, "stringIDByValue", MDB_CREATE, &conn->schema->stringIDByValue);
+	mdb_dbi_open(txn, "stringIDByHash", MDB_CREATE, &conn->schema->stringIDByHash);
 
 
 	mdb_dbi_open(txn, "userByID", MDB_CREATE, &conn->userByID);
@@ -193,7 +193,7 @@ static void createDBConnection(EFSRepoRef const repo) {
 	mdb_dbi_open(txn, "metaFileIDByFileID", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByFileID);
 	mdb_dbi_open(txn, "metaFileIDByTargetURI", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByTargetURI);
 	mdb_dbi_open(txn, "metaFileIDByMetadata", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByMetadata);
-	lsmdb_dbi_open(txn, "fulltext_metaFileID", MDB_CREATE, &conn->fulltext_metaFileID);
+	mdb_dbi_open(txn, "metaFileIDByFulltext", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByFulltext);
 
 	mdb_dbi_open(txn, "valueByMetaFileIDField", MDB_CREATE | MDB_DUPSORT, &conn->valueByMetaFileIDField);
 

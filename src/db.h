@@ -1,15 +1,10 @@
 #include "../deps/liblmdb/lmdb.h"
-#include "lsmdb.h"
 #include "common.h"
 
 // Makes beginning a transaction slightly clearer.
 #define MDB_RDWR 0
 
 #define DB_VARINT_MAX 9
-
-size_t varint_size(byte_t const *const data);
-uint64_t varint_decode(byte_t const *const data, size_t const size);
-size_t varint_encode(byte_t *const data, size_t const size, uint64_t const x);
 
 #define DB_VAL(name, cols) \
 	byte_t __buf_##name[DB_VARINT_MAX * cols]; \
@@ -18,8 +13,8 @@ size_t varint_encode(byte_t *const data, size_t const size, uint64_t const x);
 typedef struct {
 	MDB_dbi schema;
 	MDB_dbi stringByID;
-	LSMDB_dbi value_stringID;
-	LSMDB_dbi hash_stringID;
+	MDB_dbi stringIDByValue;
+	MDB_dbi stringIDByHash;
 } DB_schema;
 
 uint64_t db_column(MDB_val const *const val, index_t const col);

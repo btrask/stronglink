@@ -35,7 +35,7 @@ typedef struct {
 	MDB_dbi metaFileIDByFileID;
 	MDB_dbi metaFileIDByTargetURI;
 	MDB_dbi metaFileIDByMetadata;
-	LSMDB_dbi fulltext_metaFileID;
+	MDB_dbi metaFileIDByFulltext;
 
 	MDB_dbi valueByMetaFileIDField;
 } EFSConnection;

@@ -2,10 +2,10 @@
 #include <openssl/sha.h> // TODO: Switch to LibreSSL.
 #include "db.h"
 
-size_t varint_size(byte_t const *const data) {
+static size_t varint_size(byte_t const *const data) {
 	return (data[0] >> 4) + 1;
 }
-uint64_t varint_decode(byte_t const *const data, size_t const size) {
+static uint64_t varint_decode(byte_t const *const data, size_t const size) {
 	assert(size >= 1);
 	size_t const len = varint_size(data);
 	assert(len);
@@ -14,7 +14,7 @@ uint64_t varint_decode(byte_t const *const data, size_t const size) {
 	for(off_t i = 1; i < len; ++i) x = x << 8 | data[i];
 	return x;
 }
-size_t varint_encode(byte_t *const data, size_t const size, uint64_t const x) {
+static size_t varint_encode(byte_t *const data, size_t const size, uint64_t const x) {
 	assert(size >= DB_VARINT_MAX);
 	size_t rem = 8;
 	size_t out = 0;
@@ -85,37 +85,29 @@ uint64_t db_string_id_len(MDB_txn *const txn, DB_schema const *const schema, str
 	if(!str) return 0;
 	if(!len) return 1;
 
-	LSMDB_dbi lookup_table;
-	byte_t buf[1 + SHA256_DIGEST_LENGTH*2 + DB_VARINT_MAX];
-	size_t offset;
+	MDB_dbi lookup_table;
+	MDB_val lookup_val[1];
+	byte_t hash[SHA256_DIGEST_LENGTH];
 	int rc;
 
-	if(len < SHA256_DIGEST_LENGTH*2) {
-		lookup_table = schema->value_stringID;
-		buf[0] = len;
-		offset = 1+len;
-		memcpy(buf+1, str, len);
+	if(len < sizeof(hash) * 2) {
+		lookup_table = schema->stringIDByValue;
+		lookup_val->mv_size = len;
+		lookup_val->mv_data = (void *)str;
 	} else {
 		SHA256_CTX algo[1];
 		if(SHA256_Init(algo) < 0) return 0;
 		if(SHA256_Update(algo, str, len) < 0) return 0;
-		if(SHA256_Final(buf+1, algo) < 0) return 0;
-		lookup_table = schema->hash_stringID;
-		buf[0] = 0xff;
-		offset = 1+SHA256_DIGEST_LENGTH;
+		if(SHA256_Final(hash, algo) < 0) return 0;
+		lookup_table = schema->stringIDByHash;
+		lookup_val->mv_size = sizeof(hash);
+		lookup_val->mv_data = hash;
 	}
 
-	MDB_val lookup_val = { offset, buf };
-	rc = lsmdb_get(txn, lookup_table, &lookup_val, NULL);
-	if(MDB_SUCCESS == rc) {
-		assert(lookup_val.mv_size > offset);
-		uint64_t x = varint_decode(
-			lookup_val.mv_data+offset,
-			lookup_val.mv_size-offset);
-//		fprintf(stderr, "Load %s as %llu (%d; %u)\n", str, x, ((char *)lookup_val.mv_data)[0], lookup_val.mv_size);
-		return x;
-	}
-	assertf(MDB_NOTFOUND == rc, "Database err %s", mdb_strerror(rc));
+	MDB_val existingStringID_val[1];
+	rc = mdb_get(txn, lookup_table, lookup_val, existingStringID_val);
+	if(MDB_SUCCESS == rc) return db_column(existingStringID_val, 0);
+	assertf(MDB_NOTFOUND == rc, "mdb err %s", mdb_strerror(rc));
 
 	MDB_cursor *cur = NULL;
 	rc = mdb_cursor_open(txn, schema->stringByID, &cur);
@@ -130,7 +122,7 @@ uint64_t db_string_id_len(MDB_txn *const txn, DB_schema const *const schema, str
 	} else if(MDB_NOTFOUND == rc) {
 		lastID = 1;
 	} else {
-		assertf(0, "Database err %s", mdb_strerror(rc));
+		assertf(0, "mdb err %s", mdb_strerror(rc));
 	}
 
 	uint64_t const nextID = lastID+1;
@@ -143,13 +135,9 @@ uint64_t db_string_id_len(MDB_txn *const txn, DB_schema const *const schema, str
 	else FREE(&str2);
 	mdb_cursor_close(cur); cur = NULL;
 	if(EACCES == rc) return 0; // Read-only transaction.
-	assertf(MDB_SUCCESS == rc, "Database err %s", mdb_strerror(rc));
-
-	lookup_val.mv_size += varint_encode(buf+offset, DB_VARINT_MAX, nextID);
-	rc = lsmdb_put(txn, lookup_table, &lookup_val, NULL, 0);
-	assertf(MDB_SUCCESS == rc, "Database err %s", mdb_strerror(rc));
-
-//	fprintf(stderr, "Store %s as %llu\n", strndup(str, len), nextID);
+	assertf(MDB_SUCCESS == rc, "mdb err %s", mdb_strerror(rc));
+	rc = mdb_put(txn, lookup_table, lookup_val, nextID_val, MDB_NOOVERWRITE);
+	assertf(MDB_SUCCESS == rc, "mdb err %s", mdb_strerror(rc));
 	return nextID;
 }
 

@@ -6,7 +6,7 @@
 
 #define URI_MAX 1023
 #define READER_COUNT 16
-#define QUEUE_SIZE 32
+#define QUEUE_SIZE 512
 
 struct EFSPull {
 	uint64_t pullID;
@@ -120,8 +120,6 @@ static void writer(EFSPullRef const pull) {
 	EFSSubmissionRef queue[QUEUE_SIZE];
 	count_t count = 0;
 	count_t skipped = 0;
-	count_t total_pulled = 0;
-	double total_time = 0;
 	double time = uv_now(loop) / 1000.0;
 	for(;;) {
 		if(pull->stop) goto stop;
@@ -159,9 +157,7 @@ static void writer(EFSPullRef const pull) {
 		}
 
 		double const now = uv_now(loop) / 1000.0;
-		total_pulled += count;
-		total_time += now-time;
-		fprintf(stderr, "Pulled %f files per second (avg: %f)\n", count / (now - time), (double)total_pulled / total_time);
+		fprintf(stderr, "Pulled %f files per second\n", count / (now - time));
 		time = now;
 		count = 0;
 		skipped = 0;

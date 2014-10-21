@@ -6,8 +6,8 @@ LIBCO_VER := libco
 # Use sjlj for clang on x86
 
 #CFLAGS += -arch i386
-#CFLAGS += -g -O2 -fno-omit-frame-pointer -Wno-unused-result
-CFLAGS += -g -O0
+CFLAGS += -g -O2 -fno-omit-frame-pointer -Wno-unused-result
+#CFLAGS += -g -O0
 #CFLAGS += -DNDEBUG -Wno-unused-but-set-variable
 CFLAGS += -DHTTP_PARSER_DEBUG
 CFLAGS += -DLIBCO_MP
@@ -26,7 +26,6 @@ HEADERS := \
 	$(SRC_DIR)/EarthFS.h \
 	$(SRC_DIR)/filter/EFSFilter.h \
 	$(SRC_DIR)/Template.h \
-	$(SRC_DIR)/lsmdb.h \
 	$(SRC_DIR)/db.h \
 	$(SRC_DIR)/fts.h \
 	$(SRC_DIR)/strndup.h \
@@ -62,7 +61,6 @@ OBJECTS := \
 	$(BUILD_DIR)/EFSPull.o \
 	$(BUILD_DIR)/EFSServer.o \
 	$(BUILD_DIR)/Template.o \
-	$(BUILD_DIR)/lsmdb.o \
 	$(BUILD_DIR)/db.o \
 	$(BUILD_DIR)/fts.o \
 	$(BUILD_DIR)/strndup.o \
@@ -109,7 +107,7 @@ OBJECTS += \
 LIBUV_DIR := $(DEPS_DIR)/uv/out/Debug/obj.target
 #LIBUV_DIR := $(DEPS_DIR)/uv/build/Release
 
-LIBS := -luv -lcrypto -lyajl -lpthread -lobjc -lm
+LIBS := -luv -lcrypto -lyajl -lpthread -lobjc
 LIBS += -lrt
 
 .DEFAULT_GOAL := all
