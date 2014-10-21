@@ -170,11 +170,7 @@ static void createDBConnection(EFSRepoRef const repo) {
 	mdb_txn_begin(conn->env, NULL, MDB_RDWR, &txn);
 
 
-	// TODO: Separate "schema open" function.
-	mdb_dbi_open(txn, "schema", MDB_CREATE, &conn->schema->schema);
-	mdb_dbi_open(txn, "stringByID", MDB_CREATE, &conn->schema->stringByID);
-	mdb_dbi_open(txn, "stringIDByValue", MDB_CREATE, &conn->schema->stringIDByValue);
-	mdb_dbi_open(txn, "stringIDByHash", MDB_CREATE, &conn->schema->stringIDByHash);
+	mdb_dbi_open(txn, "main", MDB_CREATE, &conn->schema->main);
 
 
 	mdb_dbi_open(txn, "userByID", MDB_CREATE, &conn->userByID);

@@ -52,10 +52,11 @@ strarg_t db_column_text(MDB_txn *const txn, DB_schema const *const schema, MDB_v
 	uint64_t const stringID = db_column(val, col);
 	if(0 == stringID) return NULL;
 	if(1 == stringID) return "";
-	DB_VAL(stringID_val, 1);
-	db_bind(stringID_val, stringID);
+	DB_VAL(stringID_key, 2);
+	db_bind(stringID_key, DBStringByID);
+	db_bind(stringID_key, stringID);
 	MDB_val string_val[1];
-	int rc = mdb_get(txn, schema->stringByID, stringID_val, string_val);
+	int rc = mdb_get(txn, schema->main, stringID_key, string_val);
 	if(MDB_SUCCESS != rc) return NULL;
 	return string_val->mv_data;
 }
@@ -85,59 +86,66 @@ uint64_t db_string_id_len(MDB_txn *const txn, DB_schema const *const schema, str
 	if(!str) return 0;
 	if(!len) return 1;
 
-	MDB_dbi lookup_table;
-	MDB_val lookup_val[1];
-	byte_t hash[SHA256_DIGEST_LENGTH];
+	byte_t buf[DB_VARINT_MAX + SHA256_DIGEST_LENGTH*2 + DB_VARINT_MAX];
+	MDB_val lookup_key[1] = {{ 0, buf }};
 	int rc;
 
-	if(len < sizeof(hash) * 2) {
-		lookup_table = schema->stringIDByValue;
-		lookup_val->mv_size = len;
-		lookup_val->mv_data = (void *)str;
+	if(len+1 < SHA256_DIGEST_LENGTH*2) {
+		db_bind(lookup_key, DBStringIDByValue);
+		memcpy(buf+lookup_key->mv_size, str, len+1);
+		lookup_key->mv_size += len+1;
 	} else {
+		db_bind(lookup_key, DBStringIDByHash);
 		SHA256_CTX algo[1];
 		if(SHA256_Init(algo) < 0) return 0;
 		if(SHA256_Update(algo, str, len) < 0) return 0;
-		if(SHA256_Final(hash, algo) < 0) return 0;
-		lookup_table = schema->stringIDByHash;
-		lookup_val->mv_size = sizeof(hash);
-		lookup_val->mv_data = hash;
+		if(SHA256_Final(buf+lookup_key->mv_size, algo) < 0) return 0;
+		lookup_key->mv_size += SHA256_DIGEST_LENGTH;
 	}
 
 	MDB_val existingStringID_val[1];
-	rc = mdb_get(txn, lookup_table, lookup_val, existingStringID_val);
+	rc = mdb_get(txn, schema->main, lookup_key, existingStringID_val);
 	if(MDB_SUCCESS == rc) return db_column(existingStringID_val, 0);
-	assertf(MDB_NOTFOUND == rc, "mdb err %s", mdb_strerror(rc));
+	assertf(MDB_NOTFOUND == rc, "Database err %s", mdb_strerror(rc));
 
 	MDB_cursor *cur = NULL;
-	rc = mdb_cursor_open(txn, schema->stringByID, &cur);
+	rc = mdb_cursor_open(txn, schema->main, &cur);
 	assert(MDB_SUCCESS == rc);
 
+	DB_VAL(strings_min, 1);
+	DB_VAL(strings_max, 1);
+	db_bind(strings_min, DBStringByID+0);
+	db_bind(strings_max, DBStringByID+1);
+	DB_range strings = { strings_min, strings_max };
+	MDB_val lastID_key[1];
+	rc = db_cursor_firstr(cur, &strings, lastID_key, NULL, -1);
 	uint64_t lastID;
-	MDB_val lastID_val[1];
-	MDB_val ignored_val[1];
-	rc = mdb_cursor_get(cur, lastID_val, ignored_val, MDB_LAST);
 	if(MDB_SUCCESS == rc) {
-		lastID = db_column(lastID_val, 0);
+		assert(DBStringByID == db_column(lastID_key, 0));
+		lastID = db_column(lastID_key, 1);
 	} else if(MDB_NOTFOUND == rc) {
 		lastID = 1;
 	} else {
-		assertf(0, "mdb err %s", mdb_strerror(rc));
+		assertf(0, "Database err %s", mdb_strerror(rc));
 	}
 
 	uint64_t const nextID = lastID+1;
-	DB_VAL(nextID_val, 1);
-	db_bind(nextID_val, nextID);
+	DB_VAL(nextID_key, 2);
+	db_bind(nextID_key, DBStringByID);
+	db_bind(nextID_key, nextID);
 	str_t *str2 = nulterm ? (str_t *)str : strndup(str, len);
 	MDB_val str_val = { len+1, str2 };
-	rc = mdb_put(txn, schema->stringByID, nextID_val, &str_val, MDB_NOOVERWRITE | MDB_APPEND);
+	rc = mdb_put(txn, schema->main, nextID_key, &str_val, MDB_NOOVERWRITE);
 	if(nulterm) str2 = NULL;
 	else FREE(&str2);
 	mdb_cursor_close(cur); cur = NULL;
 	if(EACCES == rc) return 0; // Read-only transaction.
-	assertf(MDB_SUCCESS == rc, "mdb err %s", mdb_strerror(rc));
-	rc = mdb_put(txn, lookup_table, lookup_val, nextID_val, MDB_NOOVERWRITE);
-	assertf(MDB_SUCCESS == rc, "mdb err %s", mdb_strerror(rc));
+	assertf(MDB_SUCCESS == rc, "Database err %s", mdb_strerror(rc));
+
+	DB_VAL(nextID_val, 1);
+	db_bind(nextID_val, nextID);
+	rc = mdb_put(txn, schema->main, lookup_key, nextID_val, MDB_NOOVERWRITE);
+	assertf(MDB_SUCCESS == rc, "Database err %s", mdb_strerror(rc));
 	return nextID;
 }
 
@@ -217,4 +225,84 @@ int db_cursor_get(MDB_cursor *const cur, MDB_val *const key, MDB_val *const val,
 	}
 }
 
+
+
+
+
+
+
+
+
+int db_cursor_seek(MDB_cursor *const cursor, MDB_val *const key, MDB_val *const data, int const dir) {
+	if(!key) return EINVAL;
+	MDB_val const orig = *key;
+	MDB_cursor_op const op = 0 == dir ? MDB_SET : MDB_SET_RANGE;
+	int rc = mdb_cursor_get(cursor, key, data, op);
+	if(dir >= 0) return rc;
+	if(MDB_SUCCESS == rc) {
+		MDB_txn *const txn = mdb_cursor_txn(cursor);
+		MDB_dbi const dbi = mdb_cursor_dbi(cursor);
+		if(0 == mdb_cmp(txn, dbi, &orig, key)) return rc;
+		return mdb_cursor_get(cursor, key, data, MDB_PREV);
+	} else if(MDB_NOTFOUND == rc) {
+		return mdb_cursor_get(cursor, key, data, MDB_LAST);
+	} else return rc;
+}
+int db_cursor_first(MDB_cursor *const cursor, MDB_val *const key, MDB_val *const data, int const dir) {
+	if(0 == dir) return EINVAL;
+	MDB_cursor_op const op = dir < 0 ? MDB_FIRST : MDB_LAST;
+	return mdb_cursor_get(cursor, key, data, op);
+}
+int db_cursor_next(MDB_cursor *const cursor, MDB_val *const key, MDB_val *const data, int const dir) {
+	if(0 == dir) return EINVAL;
+	MDB_cursor_op const op = dir < 0 ? MDB_PREV : MDB_NEXT;
+	return mdb_cursor_get(cursor, key, data, op);
+}
+
+
+int db_cursor_seekr(MDB_cursor *const cursor, DB_range const *const range, MDB_val *const key, MDB_val *const data, int const dir) {
+	int rc = db_cursor_seek(cursor, key, data, dir);
+	if(MDB_SUCCESS != rc) return rc;
+	MDB_val const *const limit = dir < 0 ? range->min : range->max;
+	MDB_txn *const txn = mdb_cursor_txn(cursor);
+	MDB_dbi const dbi = mdb_cursor_dbi(cursor);
+	int x = mdb_cmp(txn, dbi, key, limit);
+	if(x * dir < 0) return MDB_SUCCESS;
+	mdb_cursor_renew(txn, cursor);
+	return MDB_NOTFOUND;
+}
+int db_cursor_firstr(MDB_cursor *const cursor, DB_range const *const range, MDB_val *const key, MDB_val *const data, int const dir) {
+	if(0 == dir) return EINVAL;
+	MDB_val const *const first = dir > 0 ? range->min : range->max;
+	MDB_val k = *first;
+	int rc = db_cursor_seek(cursor, &k, data, dir);
+	if(MDB_SUCCESS != rc) return rc;
+	MDB_txn *const txn = mdb_cursor_txn(cursor);
+	MDB_dbi const dbi = mdb_cursor_dbi(cursor);
+	int x = mdb_cmp(txn, dbi, first, &k);
+	if(0 == x) {
+		rc = db_cursor_next(cursor, &k, data, dir);
+		if(MDB_SUCCESS != rc) return rc;
+	}
+	MDB_val const *const last = dir < 0 ? range->min : range->max;
+	x = mdb_cmp(txn, dbi, &k, last);
+	if(x * dir < 0) {
+		if(key) *key = k;
+		return MDB_SUCCESS;
+	} else {
+		mdb_cursor_renew(txn, cursor);
+		return MDB_NOTFOUND;
+	}
+}
+int db_cursor_nextr(MDB_cursor *const cursor, DB_range const *const range, MDB_val *const key, MDB_val *const data, int const dir) {
+	int rc = db_cursor_next(cursor, key, data, dir);
+	if(MDB_SUCCESS != rc) return rc;
+	MDB_val const *const limit = dir < 0 ? range->min : range->max;
+	MDB_txn *const txn = mdb_cursor_txn(cursor);
+	MDB_dbi const dbi = mdb_cursor_dbi(cursor);
+	int x = mdb_cmp(txn, dbi, key, limit);
+	if(x * dir < 0) return MDB_SUCCESS;
+	mdb_cursor_renew(txn, cursor);
+	return MDB_NOTFOUND;
+}
 

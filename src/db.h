@@ -11,11 +11,16 @@
 	MDB_val name[1] = {{ 0, __buf_##name }};
 
 typedef struct {
-	MDB_dbi schema;
-	MDB_dbi stringByID;
-	MDB_dbi stringIDByValue;
-	MDB_dbi stringIDByHash;
+	MDB_dbi main;
 } DB_schema;
+
+typedef uint64_t dbid_t;
+enum {
+	DBSchema = 0,
+	DBStringByID = 1,
+	DBStringIDByValue = 2,
+	DBStringIDByHash = 3,
+};
 
 uint64_t db_column(MDB_val const *const val, index_t const col);
 strarg_t db_column_text(MDB_txn *const txn, DB_schema const *const schema, MDB_val const *const val, index_t const col);
@@ -29,4 +34,23 @@ uint64_t db_string_id_len(MDB_txn *const txn, DB_schema const *const schema, str
 
 int db_cursor(MDB_txn *const txn, MDB_dbi const dbi, MDB_cursor **const cur);
 int db_cursor_get(MDB_cursor *const cur, MDB_val *const key, MDB_val *const val, MDB_cursor_op const op);
+
+
+
+
+
+
+int db_cursor_seek(MDB_cursor *const cursor, MDB_val *const key, MDB_val *const data, int const dir);
+int db_cursor_first(MDB_cursor *const cursor, MDB_val *const key, MDB_val *const data, int const dir);
+int db_cursor_next(MDB_cursor *const cursor, MDB_val *const key, MDB_val *const data, int const dir);
+
+typedef struct {
+	MDB_val *min;
+	MDB_val *max;
+} DB_range;
+
+int db_cursor_seekr(MDB_cursor *const cursor, DB_range const *const range, MDB_val *const key, MDB_val *const data, int const dir);
+int db_cursor_firstr(MDB_cursor *const cursor, DB_range const *const range, MDB_val *const key, MDB_val *const data, int const dir);
+int db_cursor_nextr(MDB_cursor *const cursor, DB_range const *const range, MDB_val *const key, MDB_val *const data, int const dir);
+
 
