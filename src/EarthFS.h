@@ -20,7 +20,7 @@ typedef struct {
 	DB_schema schema[1];
 	MDB_dbi main;
 
-	MDB_dbi fileByID;
+//	MDB_dbi fileByID;
 	MDB_dbi fileIDByInfo; // Merge with fileIDByURI?
 	MDB_dbi fileIDByType;
 
@@ -41,6 +41,8 @@ enum {
 	EFSUserIDByName = 11,
 	EFSSessionByID = 12,
 	EFSPullByID = 13, // by user ID?
+
+	EFSFileByID = 20,
 };
 
 EFSRepoRef EFSRepoCreate(strarg_t const dir);

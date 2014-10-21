@@ -280,9 +280,14 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 	DB_VAL(URI_val, 1);
 	db_bind(URI_val, URI_id);
 	MDB_val fileID_val[1];
-	MDB_val file_val[1];
 	rc = mdb_get(txn, conn->fileIDByURI, URI_val, fileID_val);
-	if(MDB_SUCCESS == rc) rc = mdb_get(txn, conn->fileByID, fileID_val, file_val);
+	MDB_val file_val[1];
+	if(MDB_SUCCESS == rc) {
+		DB_VAL(fileID_key, 2);
+		db_bind(fileID_key, EFSFileByID);
+		db_bind(fileID_key, db_column(fileID_val, 0));
+		rc = mdb_get(txn, conn->main, fileID_key, file_val);
+	}
 	if(MDB_SUCCESS != rc) {
 		mdb_txn_abort(txn); txn = NULL;
 		EFSRepoDBClose(repo, &conn);

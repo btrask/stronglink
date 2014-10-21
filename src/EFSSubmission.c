@@ -164,7 +164,7 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 	EFSRepoRef const repo = EFSSubmissionGetRepo(sub);
 	int64_t const userID = EFSSessionGetUserID(session);
 
-	int64_t fileID = db_last_id(txn, conn->fileByID)+1;
+	int64_t fileID = db_next_id(txn, conn->schema, EFSFileByID);
 	int rc;
 
 	DB_VAL(dupFileID_val, 1);
@@ -179,19 +179,21 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 	if(MDB_KEYEXIST == rc) fileID = db_column(dupFileID_val, 0);
 	else if(MDB_SUCCESS != rc) return -1;
 
-	DB_VAL(fileID_val, 1);
-	db_bind(fileID_val, fileID);
-
+	DB_VAL(fileID_key, 2);
+	db_bind(fileID_key, EFSFileByID);
+	db_bind(fileID_key, fileID);
 	DB_VAL(file_val, 3);
 	db_bind(file_val, internalHash_id);
 	db_bind(file_val, type_id);
 	db_bind(file_val, sub->size);
-	rc = mdb_put(txn, conn->fileByID, fileID_val, file_val, MDB_NOOVERWRITE);
+	rc = mdb_put(txn, conn->main, fileID_key, file_val, MDB_NOOVERWRITE);
 	if(MDB_SUCCESS != rc && MDB_KEYEXIST != rc) return -1;
 
 	for(index_t i = 0; sub->URIs[i]; ++i) {
 		strarg_t const URI = sub->URIs[i];
 		uint64_t const URI_id = db_string_id(txn, conn->schema, URI);
+		DB_VAL(fileID_val, 1);
+		db_bind(fileID_val, fileID);
 		DB_VAL(URI_val, 1);
 		db_bind(URI_val, URI_id);
 
