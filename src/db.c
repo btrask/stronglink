@@ -87,6 +87,7 @@ uint64_t db_next_id(MDB_txn *const txn, DB_schema const *const schema, dbid_t co
 	MDB_val prev[1];
 	int rc = db_cursor_firstr(cur, &range, prev, NULL, -1);
 	mdb_cursor_close(cur); cur = NULL;
+	if(MDB_NOTFOUND == rc) return 1;
 	if(MDB_SUCCESS != rc) return 0;
 	return db_column(prev, 0)+1;
 }
