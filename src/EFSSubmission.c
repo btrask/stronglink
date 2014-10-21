@@ -172,10 +172,11 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 
 	uint64_t const internalHash_id = db_string_id(txn, conn->schema, sub->internalHash);
 	uint64_t const type_id = db_string_id(txn, conn->schema, sub->type);
-	DB_VAL(fileInfo_val, 2);
-	db_bind(fileInfo_val, internalHash_id);
-	db_bind(fileInfo_val, type_id);
-	rc = mdb_put(txn, conn->fileIDByInfo, fileInfo_val, dupFileID_val, MDB_NOOVERWRITE);
+	DB_VAL(fileInfo_key, 3);
+	db_bind(fileInfo_key, EFSFileIDByInfo);
+	db_bind(fileInfo_key, internalHash_id);
+	db_bind(fileInfo_key, type_id);
+	rc = mdb_put(txn, conn->main, fileInfo_key, dupFileID_val, MDB_NOOVERWRITE);
 	if(MDB_KEYEXIST == rc) fileID = db_column(dupFileID_val, 0);
 	else if(MDB_SUCCESS != rc) return -1;
 
