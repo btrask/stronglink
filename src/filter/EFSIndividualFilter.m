@@ -17,8 +17,8 @@
 - (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn {
 	if([super prepare:txn :conn] < 0) return -1;
 	db_cursor(txn, conn->metaFileByID, &step_target);
-	db_cursor(txn, conn->fileIDByURI, &step_files);
-	db_cursor(txn, conn->main, &age_uris);
+	db_cursor(txn, conn->fileIDByURI, &step_files); // EFSURIAndFileID
+	db_cursor(txn, conn->main, &age_uris); // EFSFileIDAndURI
 	db_cursor(txn, conn->metaFileIDByTargetURI, &age_metafiles);
 	return 0;
 }
