@@ -209,8 +209,8 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 	rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
 	assert(MDB_SUCCESS == rc);
 
-	MDB_cursor *metaFiles = NULL;
-	rc = mdb_cursor_open(txn, conn->metaFileIDByTargetURI, &metaFiles);
+	MDB_cursor *metafiles = NULL;
+	rc = mdb_cursor_open(txn, conn->main, &metafiles);
 	assert(MDB_SUCCESS == rc);
 
 	MDB_cursor *values = NULL;
@@ -220,13 +220,16 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 	uint64_t const targetURI_id = db_string_id(txn, conn->schema, state->fileURI);
 	uint64_t const field_id = db_string_id(txn, conn->schema, var);
 
-	DB_VAL(targetURI_val, 1);
-	db_bind(targetURI_val, targetURI_id);
-	MDB_val metaFileID_val[1];
-	rc = mdb_cursor_get(metaFiles, targetURI_val, metaFileID_val, MDB_SET);
+	DB_RANGE(metaFileIDs, 2);
+	db_bind(metaFileIDs->min, EFSTargetURIAndMetaFileID);
+	db_bind(metaFileIDs->max, EFSTargetURIAndMetaFileID);
+	db_bind(metaFileIDs->min, targetURI_id+0);
+	db_bind(metaFileIDs->max, targetURI_id+1);
+	MDB_val metaFileID_key[1];
+	rc = db_cursor_firstr(metafiles, metaFileIDs, metaFileID_key, NULL, +1);
 	assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
-	for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(metaFiles, targetURI_val, metaFileID_val, MDB_NEXT_DUP)) {
-		uint64_t const metaFileID = db_column(metaFileID_val, 0);
+	for(; MDB_SUCCESS == rc; rc = db_cursor_nextr(metafiles, metaFileIDs, metaFileID_key, NULL, +1)) {
+		uint64_t const metaFileID = db_column(metaFileID_key, 2);
 		DB_VAL(metaFileIDField_val, 2);
 		db_bind(metaFileIDField_val, metaFileID);
 		db_bind(metaFileIDField_val, field_id);
@@ -244,7 +247,7 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 	}
 
 	mdb_cursor_close(values); values = NULL;
-	mdb_cursor_close(metaFiles); metaFiles = NULL;
+	mdb_cursor_close(metafiles); metafiles = NULL;
 
 	if(!unsafe) {
 		if(0 == strcmp(var, "thumbnailURI")) unsafe = "/file.png";

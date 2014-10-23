@@ -242,6 +242,7 @@ static uint64_t add_metafile(MDB_txn *const txn, EFSConnection const *const conn
 	assert(metaFileID);
 	assert(targetURI_id);
 	int rc;
+	MDB_val null = { 0, NULL };
 
 	DB_VAL(metaFileID_key, 2);
 	db_bind(metaFileID_key, EFSMetaFileByID);
@@ -252,17 +253,18 @@ static uint64_t add_metafile(MDB_txn *const txn, EFSConnection const *const conn
 	rc = mdb_put(txn, conn->main, metaFileID_key, metaFile_val, MDB_NOOVERWRITE);
 	assert(!rc);
 
-	DB_VAL(metaFileID_val, 1);
-	db_bind(metaFileID_val, metaFileID);
-
-	DB_VAL(fileID_val, 1);
-	db_bind(fileID_val, fileID);
-	rc = mdb_put(txn, conn->metaFileIDByFileID, fileID_val, metaFileID_val, MDB_NODUPDATA);
+	DB_VAL(fileID_key, 3);
+	db_bind(fileID_key, EFSFileIDAndMetaFileID);
+	db_bind(fileID_key, fileID);
+	db_bind(fileID_key, metaFileID);
+	rc = mdb_put(txn, conn->main, fileID_key, &null, MDB_NOOVERWRITE);
 	assert(!rc);
 
-	DB_VAL(targetURI_val, 1);
-	db_bind(targetURI_val, targetURI_id);
-	rc = mdb_put(txn, conn->metaFileIDByTargetURI, targetURI_val, metaFileID_val, MDB_NODUPDATA);
+	DB_VAL(targetURI_key, 3);
+	db_bind(targetURI_key, EFSTargetURIAndMetaFileID);
+	db_bind(targetURI_key, targetURI_id);
+	db_bind(targetURI_key, metaFileID);
+	rc = mdb_put(txn, conn->main, targetURI_key, &null, MDB_NOOVERWRITE);
 	assert(!rc);
 
 	return metaFileID;

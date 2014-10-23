@@ -97,7 +97,7 @@
 	assert(subfilter);
 	if([super prepare:txn :conn] < 0) return -1;
 	db_cursor(txn, conn->main, &metafiles); // EFSMetaFileByID
-	db_cursor(txn, conn->metaFileIDByFileID, &age_metafile);
+	db_cursor(txn, conn->main, &age_metafile); // EFSFileIDAndMetaFileID
 	db_cursor(txn, conn->main, &age_uri); // EFSMetaFileByID
 	db_cursor(txn, conn->main, &age_files);
 	return 0;
@@ -135,12 +135,15 @@
 }
 - (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID {
 	assert(subfilter);
-	DB_VAL(fileID_val, 1);
-	db_bind(fileID_val, fileID);
-	MDB_val metaFileID_val[1];
-	int rc = mdb_cursor_get(age_metafile, fileID_val, metaFileID_val, MDB_SET);
+	DB_RANGE(metaFileIDs, 2);
+	db_bind(metaFileIDs->min, EFSFileIDAndMetaFileID);
+	db_bind(metaFileIDs->max, EFSFileIDAndMetaFileID);
+	db_bind(metaFileIDs->min, fileID+0);
+	db_bind(metaFileIDs->max, fileID+1);
+	MDB_val fileIDAndMetaFileID_key[1];
+	int rc = db_cursor_firstr(age_metafile, metaFileIDs, fileIDAndMetaFileID_key, NULL, +1);
 	if(MDB_SUCCESS != rc) return UINT64_MAX;
-	uint64_t const metaFileID = db_column(metaFileID_val, 0);
+	uint64_t const metaFileID = db_column(fileIDAndMetaFileID_key, 2);
 	DB_VAL(metaFileID_key, 2);
 	db_bind(metaFileID_key, EFSMetaFileByID);
 	db_bind(metaFileID_key, metaFileID);

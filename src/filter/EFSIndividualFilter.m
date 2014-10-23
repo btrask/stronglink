@@ -19,7 +19,7 @@
 	db_cursor(txn, conn->main, &step_target); // EFSMetaFileByID
 	db_cursor(txn, conn->main, &step_files); // EFSURIAndFileID
 	db_cursor(txn, conn->main, &age_uris); // EFSFileIDAndURI
-	db_cursor(txn, conn->metaFileIDByTargetURI, &age_metafiles);
+	db_cursor(txn, conn->main, &age_metafiles); // EFSTargetURIAndMetaFileID
 	return 0;
 }
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
@@ -102,27 +102,28 @@
 	uint64_t earliest = UINT64_MAX;
 	int rc;
 
-	DB_VAL(URI_min, 2);
-	DB_VAL(URI_max, 2);
-	db_bind(URI_min, EFSFileIDAndURI);
-	db_bind(URI_max, EFSFileIDAndURI);
-	db_bind(URI_min, fileID+0);
-	db_bind(URI_max, fileID+1);
-	DB_range URIs = { URI_min, URI_max };
-
+	DB_RANGE(URIs, 2);
+	db_bind(URIs->min, EFSFileIDAndURI);
+	db_bind(URIs->max, EFSFileIDAndURI);
+	db_bind(URIs->min, fileID+0);
+	db_bind(URIs->max, fileID+1);
 	MDB_val URI_val[1];
-	rc = db_cursor_firstr(age_uris, &URIs, URI_val, NULL, +1);
+	rc = db_cursor_firstr(age_uris, URIs, URI_val, NULL, +1);
 	assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
-	for(; MDB_SUCCESS == rc; rc = db_cursor_nextr(age_uris, &URIs, URI_val, NULL, +1)) {
+
+	for(; MDB_SUCCESS == rc; rc = db_cursor_nextr(age_uris, URIs, URI_val, NULL, +1)) {
 		uint64_t const targetURI_id = db_column(URI_val, 2);
 
-		DB_VAL(targetURI_val, 1);
-		db_bind(targetURI_val, targetURI_id);
-		MDB_val metaFileID_val[1];
-		rc = mdb_cursor_get(age_metafiles, targetURI_val, metaFileID_val, MDB_SET);
+		DB_RANGE(metafiles, 2);
+		db_bind(metafiles->min, EFSTargetURIAndMetaFileID);
+		db_bind(metafiles->max, EFSTargetURIAndMetaFileID);
+		db_bind(metafiles->min, targetURI_id+0);
+		db_bind(metafiles->max, targetURI_id+1);
+		MDB_val metaFileID_key[1];
+		rc = db_cursor_firstr(age_metafiles, metafiles, metaFileID_key, NULL, +1);
 		assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
-		for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(age_metafiles, targetURI_val, metaFileID_val, MDB_NEXT_DUP)) {
-			uint64_t const metaFileID = db_column(metaFileID_val, 0);
+		for(; MDB_SUCCESS == rc; rc = db_cursor_nextr(age_metafiles, metafiles, metaFileID_key, NULL, +1)) {
+			uint64_t const metaFileID = db_column(metaFileID_key, 2);
 			if(metaFileID > sortID) break;
 			if(![self match:metaFileID]) continue;
 			if(metaFileID < earliest) earliest = metaFileID;
