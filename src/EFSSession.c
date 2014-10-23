@@ -285,12 +285,12 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 	db_bind(fileIDs->max, EFSURIAndFileID);
 	db_bind(fileIDs->min, URI_id+0);
 	db_bind(fileIDs->max, URI_id+1);
-	MDB_val fileID_key[1];
-	rc = db_cursor_firstr(cursor, fileIDs, fileID_key, NULL, +1);
+	MDB_val URIAndFileID_key[1];
+	rc = db_cursor_firstr(cursor, fileIDs, URIAndFileID_key, NULL, +1);
 	mdb_cursor_close(cursor); cursor = NULL;
 	MDB_val file_val[1];
 	if(MDB_SUCCESS == rc) {
-		uint64_t const fileID = db_column(fileID_key, 2);
+		uint64_t const fileID = db_column(URIAndFileID_key, 2);
 		DB_VAL(fileID_key, 2);
 		db_bind(fileID_key, EFSFileByID);
 		db_bind(fileID_key, fileID);
