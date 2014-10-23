@@ -99,7 +99,7 @@
 	db_cursor(txn, conn->metaFileByID, &metafiles);
 	db_cursor(txn, conn->metaFileIDByFileID, &age_metafile);
 	db_cursor(txn, conn->metaFileByID, &age_uri);
-	db_cursor(txn, conn->fileIDByURI, &age_files);
+	db_cursor(txn, conn->main, &age_files);
 	return 0;
 }
 
@@ -151,12 +151,15 @@
 	if(MDB_SUCCESS != rc) return UINT64_MAX;
 	uint64_t const targetURI_id = db_column(metaFile_val, 1);
 
-	DB_VAL(targetURI_val, 1);
-	db_bind(targetURI_val, targetURI_id);
-	MDB_val targetFileID_val[1];
-	rc = mdb_cursor_get(age_files, targetURI_val, targetFileID_val, MDB_SET);
-	for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(age_files, targetURI_val, targetFileID_val, MDB_NEXT_DUP)) {
-		uint64_t const targetFileID = db_column(targetFileID_val, 0);
+	DB_RANGE(targetFileIDs, 2);
+	db_bind(targetFileIDs->min, EFSURIAndFileID);
+	db_bind(targetFileIDs->max, EFSURIAndFileID);
+	db_bind(targetFileIDs->min, targetURI_id+0);
+	db_bind(targetFileIDs->max, targetURI_id+1);
+	MDB_val targetFileID_key[1];
+	rc = db_cursor_firstr(age_files, targetFileIDs, targetFileID_key, NULL, +0);
+	for(; MDB_SUCCESS == rc; rc = db_cursor_nextr(age_files, targetFileIDs, targetFileID_key, NULL, +1)) {
+		uint64_t const targetFileID = db_column(targetFileID_key, 2);
 		if([subfilter age:UINT64_MAX :targetFileID] < UINT64_MAX) return metaFileID;
 	}
 	return UINT64_MAX;

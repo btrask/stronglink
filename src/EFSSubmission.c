@@ -202,11 +202,11 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 		rc = mdb_put(txn, conn->main, fwd, &null, MDB_NOOVERWRITE);
 		assert(MDB_SUCCESS == rc || MDB_KEYEXIST == rc);
 
-		DB_VAL(fileID_val, 1);
-		db_bind(fileID_val, fileID);
-		DB_VAL(URI_val, 1);
-		db_bind(URI_val, URI_id);
-		rc = mdb_put(txn, conn->fileIDByURI, URI_val, fileID_val, MDB_NODUPDATA);
+		DB_VAL(rev, 1);
+		db_bind(rev, EFSURIAndFileID);
+		db_bind(rev, URI_id);
+		db_bind(rev, fileID);
+		rc = mdb_put(txn, conn->main, rev, &null, MDB_NOOVERWRITE);
 		assert(MDB_SUCCESS == rc || MDB_KEYEXIST == rc);
 	}
 

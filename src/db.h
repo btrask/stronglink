@@ -8,7 +8,12 @@
 
 #define DB_VAL(name, cols) \
 	byte_t __buf_##name[DB_VARINT_MAX * cols]; \
-	MDB_val name[1] = {{ 0, __buf_##name }};
+	MDB_val name[1] = {{ 0, __buf_##name }}
+
+#define DB_RANGE(name, cols) \
+	DB_VAL(__min_##name, cols); \
+	DB_VAL(__max_##name, cols); \
+	DB_range name[1] = {{ __min_##name, __max_##name }}
 
 typedef struct {
 	MDB_dbi main;

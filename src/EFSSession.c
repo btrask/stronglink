@@ -277,15 +277,23 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 		return -1;
 	}
 
-	DB_VAL(URI_val, 1);
-	db_bind(URI_val, URI_id);
-	MDB_val fileID_val[1];
-	rc = mdb_get(txn, conn->fileIDByURI, URI_val, fileID_val);
+	MDB_cursor *cursor;
+	rc = mdb_cursor_open(txn, conn->main, &cursor);
+	assert(!rc);
+	DB_RANGE(fileIDs, 2);
+	db_bind(fileIDs->min, EFSURIAndFileID);
+	db_bind(fileIDs->max, EFSURIAndFileID);
+	db_bind(fileIDs->min, URI_id+0);
+	db_bind(fileIDs->max, URI_id+1);
+	MDB_val fileID_key[1];
+	rc = db_cursor_firstr(cursor, fileIDs, fileID_key, NULL, +1);
+	mdb_cursor_close(cursor); cursor = NULL;
 	MDB_val file_val[1];
 	if(MDB_SUCCESS == rc) {
+		uint64_t const fileID = db_column(fileID_key, 2);
 		DB_VAL(fileID_key, 2);
 		db_bind(fileID_key, EFSFileByID);
-		db_bind(fileID_key, db_column(fileID_val, 0));
+		db_bind(fileID_key, fileID);
 		rc = mdb_get(txn, conn->main, fileID_key, file_val);
 	}
 	if(MDB_SUCCESS != rc) {
