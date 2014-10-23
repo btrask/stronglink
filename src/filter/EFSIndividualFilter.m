@@ -16,7 +16,7 @@
 
 - (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn {
 	if([super prepare:txn :conn] < 0) return -1;
-	db_cursor(txn, conn->metaFileByID, &step_target);
+	db_cursor(txn, conn->main, &step_target); // EFSMetaFileByID
 	db_cursor(txn, conn->main, &step_files); // EFSURIAndFileID
 	db_cursor(txn, conn->main, &age_uris); // EFSFileIDAndURI
 	db_cursor(txn, conn->metaFileIDByTargetURI, &age_metafiles);
@@ -26,10 +26,11 @@
 	int rc;
 	uint64_t const actualSortID = [self seekMeta:dir :sortID];
 	if(!valid(actualSortID)) return;
-	DB_VAL(metaFileID_val, 1);
-	db_bind(metaFileID_val, actualSortID);
+	DB_VAL(metaFileID_key, 2);
+	db_bind(metaFileID_key, EFSMetaFileByID);
+	db_bind(metaFileID_key, actualSortID);
 	MDB_val metaFile_val[1];
-	rc = db_cursor_seek(step_target, metaFileID_val, metaFile_val, 0);
+	rc = db_cursor_seek(step_target, metaFileID_key, metaFile_val, 0);
 	assertf(MDB_SUCCESS == rc, "Database error %s", mdb_strerror(rc));
 	uint64_t const targetURI_id = db_column(metaFile_val, 1);
 	DB_VAL(targetURI_val, 1);
@@ -79,10 +80,11 @@
 	if(MDB_SUCCESS == rc) return;
 
 	for(uint64_t sortID = [self stepMeta:dir]; valid(sortID); sortID = [self stepMeta:dir]) {
-		DB_VAL(metaFileID_val, 1);
-		db_bind(metaFileID_val, sortID);
+		DB_VAL(metaFileID_key, 2);
+		db_bind(metaFileID_key, EFSMetaFileByID);
+		db_bind(metaFileID_key, sortID);
 		MDB_val metaFile_val[1];
-		rc = db_cursor_seek(step_target, metaFileID_val, metaFile_val, 0);
+		rc = db_cursor_seek(step_target, metaFileID_key, metaFile_val, 0);
 		assertf(MDB_SUCCESS == rc, "Database error %s", mdb_strerror(rc));
 		uint64_t const targetURI_id = db_column(metaFile_val, 1);
 		DB_RANGE(fileIDs, 2);
@@ -151,30 +153,35 @@
 
 - (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn {
 	if([super prepare:txn :conn] < 0) return -1;
-	db_cursor(txn, conn->metaFileByID, &metafiles);
+	db_cursor(txn, conn->main, &metafiles); // EFSMetaFileByID
 	return 0;
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
-	DB_VAL(sortID_val, 1);
-	db_bind(sortID_val, sortID);
-	int rc = db_cursor_get(metafiles, sortID_val, NULL, MDB_SET_RANGE);
+	DB_RANGE(range, 1);
+	db_bind(range->min, EFSMetaFileByID+0);
+	db_bind(range->max, EFSMetaFileByID+1);
+	DB_VAL(sortID_key, 2);
+	db_bind(sortID_key, EFSMetaFileByID);
+	db_bind(sortID_key, sortID);
+	int rc = db_cursor_seekr(metafiles, range, sortID_key, NULL, dir);
 	if(MDB_SUCCESS != rc) return invalid(dir);
-	uint64_t const actual = db_column(sortID_val, 0);
-	if(sortID != actual && dir > 0) return [self stepMeta:-1];
-	return actual;
+	return db_column(sortID_key, 1);
 }
 - (uint64_t)currentMeta:(int const)dir {
-	MDB_val metaFileID_val[1];
-	int rc = mdb_cursor_get(metafiles, metaFileID_val, NULL, MDB_GET_CURRENT);
+	MDB_val sortID_key[1];
+	int rc = mdb_cursor_get(metafiles, sortID_key, NULL, MDB_GET_CURRENT);
 	if(MDB_SUCCESS != rc) return invalid(dir);
-	return db_column(metaFileID_val, 0);
+	return db_column(sortID_key, 1);
 }
 - (uint64_t)stepMeta:(int const)dir {
-	MDB_val metaFileID_val[1];
-	int rc = db_cursor_get(metafiles, metaFileID_val, NULL, op(dir, MDB_NEXT));
-	if(MDB_SUCCESS == rc) return db_column(metaFileID_val, 0);
-	return invalid(dir);
+	DB_RANGE(range, 1);
+	db_bind(range->min, EFSMetaFileByID+0);
+	db_bind(range->max, EFSMetaFileByID+1);
+	MDB_val sortID_key[1];
+	int rc = db_cursor_nextr(metafiles, range, sortID_key, NULL, dir);
+	if(MDB_SUCCESS != rc) return invalid(dir);
+	return db_column(sortID_key, 1);
 }
 - (bool_t)match:(uint64_t const)metaFileID {
 	return true;

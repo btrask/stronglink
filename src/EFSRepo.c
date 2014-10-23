@@ -174,7 +174,6 @@ static void createDBConnection(EFSRepoRef const repo) {
 	conn->main = conn->schema->main;
 
 
-	mdb_dbi_open(txn, "metaFileByID", MDB_CREATE, &conn->metaFileByID);
 	mdb_dbi_open(txn, "metaFileIDByFileID", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByFileID);
 	mdb_dbi_open(txn, "metaFileIDByTargetURI", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByTargetURI);
 	mdb_dbi_open(txn, "metaFileIDByMetadata", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByMetadata);

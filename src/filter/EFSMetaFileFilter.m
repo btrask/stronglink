@@ -96,37 +96,29 @@
 - (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn {
 	assert(subfilter);
 	if([super prepare:txn :conn] < 0) return -1;
-	db_cursor(txn, conn->metaFileByID, &metafiles);
+	db_cursor(txn, conn->main, &metafiles); // EFSMetaFileByID
 	db_cursor(txn, conn->metaFileIDByFileID, &age_metafile);
-	db_cursor(txn, conn->metaFileByID, &age_uri);
+	db_cursor(txn, conn->main, &age_uri); // EFSMetaFileByID
 	db_cursor(txn, conn->main, &age_files);
 	return 0;
 }
 
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
-	DB_VAL(metaFileID_val, 1);
-	db_bind(metaFileID_val, sortID);
+	DB_RANGE(range, 1);
+	db_bind(range->min, EFSMetaFileByID);
+	db_bind(range->max, EFSMetaFileByID);
+	DB_VAL(metaFileID_key, 2);
+	db_bind(metaFileID_key, EFSMetaFileByID);
+	db_bind(metaFileID_key, sortID);
 	MDB_val metaFile_val[1];
-	int rc = db_cursor_get(metafiles, metaFileID_val, metaFile_val, MDB_SET_RANGE);
-	uint64_t actualSortID, actualFileID;
-	if(MDB_SUCCESS == rc) {
-		actualSortID = db_column(metaFileID_val, 0);
-		actualFileID = db_column(metaFile_val, 0);
-	} else {
-		actualSortID = UINT64_MAX;
-		actualFileID = UINT64_MAX;
-	}
-	if(sortID == actualSortID && fileID == actualFileID) {
-		// Do nothing
-	} else {
-		if(dir > 0) [self step:-1];
-	}
+	int rc = db_cursor_seekr(metafiles, range, metaFileID_key, metaFile_val, dir);
+	assertf(MDB_SUCCESS == rc || MDB_NOTFOUND == rc, "Database error %s", mdb_strerror(rc));
 }
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
-	MDB_val metaFileID_val[1], metaFile_val[1];
-	int rc = db_cursor_get(metafiles, metaFileID_val, metaFile_val, MDB_GET_CURRENT);
+	MDB_val metaFileID_key[1], metaFile_val[1];
+	int rc = db_cursor_get(metafiles, metaFileID_key, metaFile_val, MDB_GET_CURRENT);
 	if(MDB_SUCCESS == rc) {
-		if(sortID) *sortID = db_column(metaFileID_val, 0);
+		if(sortID) *sortID = db_column(metaFileID_key, 1);
 		if(fileID) *fileID = db_column(metaFile_val, 0);
 	} else {
 		if(sortID) *sortID = invalid(dir);
@@ -134,9 +126,12 @@
 	}
 }
 - (void)step:(int const)dir {
-	int rc = db_cursor_get(metafiles, NULL, NULL, op(dir, MDB_NEXT));
-	assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
-	UNUSED(rc);
+	DB_RANGE(range, 1);
+	db_bind(range->min, EFSMetaFileByID);
+	db_bind(range->max, EFSMetaFileByID);
+	MDB_val ignore[1];
+	int rc = db_cursor_nextr(metafiles, range, ignore, NULL, dir);
+	assertf(MDB_SUCCESS == rc || MDB_NOTFOUND == rc, "Database error %s", mdb_strerror(rc));
 }
 - (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID {
 	assert(subfilter);
@@ -146,8 +141,11 @@
 	int rc = mdb_cursor_get(age_metafile, fileID_val, metaFileID_val, MDB_SET);
 	if(MDB_SUCCESS != rc) return UINT64_MAX;
 	uint64_t const metaFileID = db_column(metaFileID_val, 0);
+	DB_VAL(metaFileID_key, 2);
+	db_bind(metaFileID_key, EFSMetaFileByID);
+	db_bind(metaFileID_key, metaFileID);
 	MDB_val metaFile_val[1];
-	rc = mdb_cursor_get(age_uri, metaFileID_val, metaFile_val, MDB_SET);
+	rc = db_cursor_seek(age_uri, metaFileID_key, metaFile_val, 0);
 	if(MDB_SUCCESS != rc) return UINT64_MAX;
 	uint64_t const targetURI_id = db_column(metaFile_val, 1);
 

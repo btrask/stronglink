@@ -20,7 +20,6 @@ typedef struct {
 	DB_schema schema[1];
 	MDB_dbi main;
 
-	MDB_dbi metaFileByID;
 	MDB_dbi metaFileIDByFileID;
 	MDB_dbi metaFileIDByTargetURI;
 	MDB_dbi metaFileIDByMetadata;
@@ -29,17 +28,19 @@ typedef struct {
 	MDB_dbi valueByMetaFileIDField;
 } EFSConnection;
 enum {
-	// 0-9 are reserved for the DB layer.
-	EFSUserByID = 10,
-	EFSUserIDByName = 11,
-	EFSSessionByID = 12,
-	EFSPullByID = 13, // by user ID?
+	// 0-19 are reserved for the DB layer.
+	EFSUserByID = 20,
+	EFSUserIDByName = 21,
+	EFSSessionByID = 22,
+	EFSPullByID = 23, // by user ID?
 
-	EFSFileByID = 20,
-	EFSFileIDByInfo = 21,
-	EFSFileIDByType = 22,
-	EFSFileIDAndURI = 23,
-	EFSURIAndFileID = 24,
+	EFSFileByID = 40,
+	EFSFileIDByInfo = 41,
+	EFSFileIDByType = 42,
+	EFSFileIDAndURI = 43,
+	EFSURIAndFileID = 44,
+
+	EFSMetaFileByID = 60,
 };
 
 EFSRepoRef EFSRepoCreate(strarg_t const dir);

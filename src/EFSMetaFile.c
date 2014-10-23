@@ -237,26 +237,34 @@ static yajl_callbacks const callbacks = {
 };
 
 static uint64_t add_metafile(MDB_txn *const txn, EFSConnection const *const conn, uint64_t const fileID, strarg_t const targetURI) {
-	uint64_t const metaFileID = db_last_id(txn, conn->metaFileByID)+1;
+	uint64_t const metaFileID = db_next_id(txn, conn->schema, EFSMetaFileByID);
 	uint64_t const targetURI_id = db_string_id(txn, conn->schema, targetURI);
 	assert(metaFileID);
 	assert(targetURI_id);
+	int rc;
+
+	DB_VAL(metaFileID_key, 2);
+	db_bind(metaFileID_key, EFSMetaFileByID);
+	db_bind(metaFileID_key, metaFileID);
+	DB_VAL(metaFile_val, 2);
+	db_bind(metaFile_val, fileID);
+	db_bind(metaFile_val, targetURI_id);
+	rc = mdb_put(txn, conn->main, metaFileID_key, metaFile_val, MDB_NOOVERWRITE);
+	assert(!rc);
 
 	DB_VAL(metaFileID_val, 1);
 	db_bind(metaFileID_val, metaFileID);
 
-	DB_VAL(metaFile_val, 2);
-	db_bind(metaFile_val, fileID);
-	db_bind(metaFile_val, targetURI_id);
-	mdb_put(txn, conn->metaFileByID, metaFileID_val, metaFile_val, MDB_NOOVERWRITE | MDB_APPEND);
-
 	DB_VAL(fileID_val, 1);
 	db_bind(fileID_val, fileID);
-	mdb_put(txn, conn->metaFileIDByFileID, fileID_val, metaFileID_val, MDB_NODUPDATA);
+	rc = mdb_put(txn, conn->metaFileIDByFileID, fileID_val, metaFileID_val, MDB_NODUPDATA);
+	assert(!rc);
 
 	DB_VAL(targetURI_val, 1);
 	db_bind(targetURI_val, targetURI_id);
-	mdb_put(txn, conn->metaFileIDByTargetURI, targetURI_val, metaFileID_val, MDB_NODUPDATA);
+	rc = mdb_put(txn, conn->metaFileIDByTargetURI, targetURI_val, metaFileID_val, MDB_NODUPDATA);
+	assert(!rc);
+
 	return metaFileID;
 }
 static void add_metadata(MDB_txn *const txn, EFSConnection const *const conn, uint64_t const metaFileID, strarg_t const field, strarg_t const value, size_t const vlen) {
