@@ -25,7 +25,7 @@ typedef struct {
 //	MDB_dbi metaFileIDByMetadata;
 	MDB_dbi metaFileIDByFulltext;
 
-	MDB_dbi valueByMetaFileIDField;
+//	MDB_dbi valueByMetaFileIDField;
 } EFSConnection;
 enum {
 	// 0-19 are reserved for the DB layer.
@@ -43,7 +43,8 @@ enum {
 	EFSMetaFileByID = 60,
 	EFSFileIDAndMetaFileID = 61,
 	EFSTargetURIAndMetaFileID = 62,
-	EFSFieldValueAndMetaFileID = 63,
+	EFSMetaFileIDFieldAndValue = 63,
+	EFSFieldValueAndMetaFileID = 64,
 };
 
 EFSRepoRef EFSRepoCreate(strarg_t const dir);

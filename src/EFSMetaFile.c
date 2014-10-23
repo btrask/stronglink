@@ -277,21 +277,22 @@ static void add_metadata(MDB_txn *const txn, EFSConnection const *const conn, ui
 	assert(field_id);
 	assert(value_id);
 	MDB_val null = { 0, NULL };
+	int rc;
 
-	DB_VAL(metadata_key, 4);
-	db_bind(metadata_key, EFSFieldValueAndMetaFileID);
-	db_bind(metadata_key, field_id);
-	db_bind(metadata_key, value_id);
-	db_bind(metadata_key, metaFileID);
-	int rc = mdb_put(txn, conn->main, metadata_key, &null, MDB_NOOVERWRITE);
+	DB_VAL(fwd, 4);
+	db_bind(fwd, EFSMetaFileIDFieldAndValue);
+	db_bind(fwd, metaFileID);
+	db_bind(fwd, field_id);
+	db_bind(fwd, value_id);
+	rc = mdb_put(txn, conn->main, fwd, &null, MDB_NOOVERWRITE);
 	assertf(MDB_SUCCESS == rc || MDB_KEYEXIST == rc, "Database error %s", mdb_strerror(rc));
 
-	DB_VAL(metaFileIDField_val, 2);
-	db_bind(metaFileIDField_val, metaFileID);
-	db_bind(metaFileIDField_val, field_id);
-	DB_VAL(value_val, 1);
-	db_bind(value_val, value_id);
-	rc = mdb_put(txn, conn->valueByMetaFileIDField, metaFileIDField_val, value_val, MDB_NODUPDATA);
+	DB_VAL(rev, 4);
+	db_bind(rev, EFSFieldValueAndMetaFileID);
+	db_bind(rev, field_id);
+	db_bind(rev, value_id);
+	db_bind(rev, metaFileID);
+	rc = mdb_put(txn, conn->main, rev, &null, MDB_NOOVERWRITE);
 	assertf(MDB_SUCCESS == rc || MDB_KEYEXIST == rc, "Database error %s", mdb_strerror(rc));
 }
 static void add_fulltext(MDB_txn *const txn, EFSConnection const *const conn, uint64_t const metaFileID, strarg_t const str, size_t const len) {
