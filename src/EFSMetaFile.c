@@ -276,13 +276,14 @@ static void add_metadata(MDB_txn *const txn, EFSConnection const *const conn, ui
 	uint64_t const value_id = db_string_id_len(txn, conn->schema, value, vlen, false);
 	assert(field_id);
 	assert(value_id);
+	MDB_val null = { 0, NULL };
 
-	DB_VAL(metadata_val, 2);
-	db_bind(metadata_val, value_id);
-	db_bind(metadata_val, field_id);
-	DB_VAL(metaFileID_val, 1);
-	db_bind(metaFileID_val, metaFileID);
-	int rc = mdb_put(txn, conn->metaFileIDByMetadata, metadata_val, metaFileID_val, MDB_NODUPDATA);
+	DB_VAL(metadata_key, 4);
+	db_bind(metadata_key, EFSFieldValueAndMetaFileID);
+	db_bind(metadata_key, field_id);
+	db_bind(metadata_key, value_id);
+	db_bind(metadata_key, metaFileID);
+	int rc = mdb_put(txn, conn->main, metadata_key, &null, MDB_NOOVERWRITE);
 	assertf(MDB_SUCCESS == rc || MDB_KEYEXIST == rc, "Database error %s", mdb_strerror(rc));
 
 	DB_VAL(metaFileIDField_val, 2);

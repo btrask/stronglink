@@ -22,7 +22,7 @@ typedef struct {
 
 //	MDB_dbi metaFileIDByFileID;
 //	MDB_dbi metaFileIDByTargetURI;
-	MDB_dbi metaFileIDByMetadata;
+//	MDB_dbi metaFileIDByMetadata;
 	MDB_dbi metaFileIDByFulltext;
 
 	MDB_dbi valueByMetaFileIDField;
@@ -43,6 +43,7 @@ enum {
 	EFSMetaFileByID = 60,
 	EFSFileIDAndMetaFileID = 61,
 	EFSTargetURIAndMetaFileID = 62,
+	EFSFieldValueAndMetaFileID = 63,
 };
 
 EFSRepoRef EFSRepoCreate(strarg_t const dir);

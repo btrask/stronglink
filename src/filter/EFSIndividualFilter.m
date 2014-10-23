@@ -342,45 +342,54 @@
 	if(!field || !value) return -1;
 	if(!field_id) field_id = db_string_id(txn, conn->schema, field);
 	if(!value_id) value_id = db_string_id(txn, conn->schema, value);
-	db_cursor(txn, conn->metaFileIDByMetadata, &metafiles);
-	db_cursor(txn, conn->metaFileIDByMetadata, &match);
+	db_cursor(txn, conn->main, &metafiles); // EFSFieldValueAndMetaFileID
+	db_cursor(txn, conn->main, &match); // EFSFieldValueAndMetaFileID
 	return 0;
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
-	DB_VAL(metadata_val, 2);
-	db_bind(metadata_val, value_id);
-	db_bind(metadata_val, field_id);
-	DB_VAL(sortID_val, 1);
-	db_bind(sortID_val, sortID);
-	int rc = db_cursor_get(metafiles, metadata_val, sortID_val, MDB_GET_BOTH_RANGE);
+	DB_RANGE(range, 3);
+	db_bind(range->min, EFSFieldValueAndMetaFileID);
+	db_bind(range->max, EFSFieldValueAndMetaFileID);
+	db_bind(range->min, field_id);
+	db_bind(range->max, field_id);
+	db_bind(range->min, value_id+0);
+	db_bind(range->max, value_id+1);
+	DB_VAL(metadata_key, 4);
+	db_bind(metadata_key, EFSFieldValueAndMetaFileID);
+	db_bind(metadata_key, field_id);
+	db_bind(metadata_key, value_id);
+	db_bind(metadata_key, sortID);
+	int rc = db_cursor_seekr(metafiles, range, metadata_key, NULL, dir);
 	if(MDB_SUCCESS != rc) return invalid(dir);
-	uint64_t const actual = db_column(sortID_val, 0);
-	if(sortID != actual && dir > 0) return [self stepMeta:-1];
-	return actual;
+	return db_column(metadata_key, 3);
 }
 - (uint64_t)currentMeta:(int const)dir {
-	MDB_val metaFileID_val[1];
-	int rc = db_cursor_get(metafiles, NULL, metaFileID_val, MDB_GET_CURRENT);
+	MDB_val metadata_key[1];
+	int rc = db_cursor_get(metafiles, metadata_key, NULL, MDB_GET_CURRENT);
 	if(MDB_SUCCESS != rc) return invalid(dir);
-	return db_column(metaFileID_val, 0);
+	return db_column(metadata_key, 3);
 }
 - (uint64_t)stepMeta:(int const)dir {
-	DB_VAL(metadata_val, 2);
-	db_bind(metadata_val, value_id);
-	db_bind(metadata_val, field_id);
-	MDB_val metaFileID_val[1];
-	int rc = db_cursor_get(metafiles, metadata_val, metaFileID_val, op(dir, MDB_NEXT_DUP));
+	DB_RANGE(range, 3);
+	db_bind(range->min, EFSFieldValueAndMetaFileID);
+	db_bind(range->max, EFSFieldValueAndMetaFileID);
+	db_bind(range->min, field_id);
+	db_bind(range->max, field_id);
+	db_bind(range->min, value_id+0);
+	db_bind(range->max, value_id+1);
+	MDB_val metadata_key[1];
+	int rc = db_cursor_nextr(metafiles, range, metadata_key, NULL, dir);
 	if(MDB_SUCCESS != rc) return invalid(dir);
-	return db_column(metaFileID_val, 0);
+	return db_column(metadata_key, 3);
 }
 - (bool_t)match:(uint64_t const)metaFileID {
-	DB_VAL(metadata_val, 2);
-	db_bind(metadata_val, value_id);
-	db_bind(metadata_val, field_id);
-	DB_VAL(metaFileID_val, 1);
-	db_bind(metaFileID_val, metaFileID);
-	int rc = mdb_cursor_get(match, metadata_val, metaFileID_val, MDB_GET_BOTH);
+	DB_VAL(metadata_key, 4);
+	db_bind(metadata_key, EFSFieldValueAndMetaFileID);
+	db_bind(metadata_key, field_id);
+	db_bind(metadata_key, value_id);
+	db_bind(metadata_key, metaFileID);
+	int rc = db_cursor_seek(match, metadata_key, NULL, 0);
 	if(MDB_SUCCESS == rc) return true;
 	if(MDB_NOTFOUND == rc) return false;
 	assertf(0, "Database error %s", mdb_strerror(rc));
