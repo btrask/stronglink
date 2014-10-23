@@ -170,16 +170,9 @@ static void createDBConnection(EFSRepoRef const repo) {
 	mdb_txn_begin(conn->env, NULL, MDB_RDWR, &txn);
 
 
-	mdb_dbi_open(txn, "main", MDB_CREATE, &conn->schema->main);
+	mdb_dbi_open(txn, NULL, MDB_CREATE, &conn->schema->main);
 	conn->main = conn->schema->main;
 
-
-//	mdb_dbi_open(txn, "metaFileIDByFileID", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByFileID);
-//	mdb_dbi_open(txn, "metaFileIDByTargetURI", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByTargetURI);
-//	mdb_dbi_open(txn, "metaFileIDByMetadata", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByMetadata);
-	mdb_dbi_open(txn, "metaFileIDByFulltext", MDB_CREATE | MDB_DUPSORT, &conn->metaFileIDByFulltext);
-
-//	mdb_dbi_open(txn, "valueByMetaFileIDField", MDB_CREATE | MDB_DUPSORT, &conn->valueByMetaFileIDField);
 
 	mdb_txn_commit(txn);
 }

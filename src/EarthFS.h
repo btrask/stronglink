@@ -19,13 +19,6 @@ typedef struct {
 	MDB_env *env;
 	DB_schema schema[1];
 	MDB_dbi main;
-
-//	MDB_dbi metaFileIDByFileID;
-//	MDB_dbi metaFileIDByTargetURI;
-//	MDB_dbi metaFileIDByMetadata;
-	MDB_dbi metaFileIDByFulltext;
-
-//	MDB_dbi valueByMetaFileIDField;
 } EFSConnection;
 enum {
 	// 0-19 are reserved for the DB layer.
@@ -45,6 +38,7 @@ enum {
 	EFSTargetURIAndMetaFileID = 62,
 	EFSMetaFileIDFieldAndValue = 63,
 	EFSFieldValueAndMetaFileID = 64,
+	EFSTermMetaFileIDAndPosition = 65, // Term is inline (nul-terminated), not a string ID. Position isn't currently tracked so it's always zero.
 };
 
 EFSRepoRef EFSRepoCreate(strarg_t const dir);

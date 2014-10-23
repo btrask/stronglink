@@ -306,8 +306,8 @@ static void add_fulltext(MDB_txn *const txn, EFSConnection const *const conn, ui
 	rc = fts->xOpen(tokenizer, str, len, &tcur);
 	assert(SQLITE_OK == rc);
 
-	MDB_cursor *cur = NULL;
-	rc = mdb_cursor_open(txn, conn->metaFileIDByFulltext, &cur);
+	MDB_cursor *cursor = NULL;
+	rc = mdb_cursor_open(txn, conn->main, &cursor);
 	assert(MDB_SUCCESS == rc);
 
 	for(;;) {
@@ -318,16 +318,18 @@ static void add_fulltext(MDB_txn *const txn, EFSConnection const *const conn, ui
 		rc = fts->xNext(tcur, &token, &tlen, &ignored1, &ignored2, &tpos);
 		if(SQLITE_OK != rc) break;
 
-		MDB_val token_val[1] = {{ tlen, (void *)token }};
-		DB_VAL(metaFileID_val, 1);
-		db_bind(metaFileID_val, metaFileID);
-		// TODO: Store tpos
-
-		rc = mdb_cursor_put(cur, token_val, metaFileID_val, MDB_NODUPDATA);
+		uint64_t const token_id = db_string_id_len(txn, conn->schema, token, tlen, false);
+		DB_VAL(token_val, 4);
+		db_bind(token_val, EFSTermMetaFileIDAndPosition);
+		db_bind(token_val, token_id);
+		db_bind(token_val, metaFileID);
+		db_bind(token_val, 0); // TODO: Record tpos. Requires changes to EFSFulltextFilter so that each document only gets returned once, no matter how many times the token appears within it.
+		MDB_val null = { 0, NULL };
+		rc = mdb_cursor_put(cursor, token_val, &null, MDB_NOOVERWRITE);
 		assert(MDB_SUCCESS == rc || MDB_KEYEXIST == rc);
 	}
 
-	mdb_cursor_close(cur); cur = NULL;
+	mdb_cursor_close(cursor); cursor = NULL;
 
 	fts->xClose(tcur); tcur = NULL;
 }

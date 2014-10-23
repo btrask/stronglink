@@ -192,9 +192,10 @@
 @implementation EFSFulltextFilter
 - (void)free {
 	FREE(&term);
-	for(index_t i = 0; i < count; ++i) {
-		FREE(&tokens[i].str);
-	}
+//	for(index_t i = 0; i < count; ++i) {
+//		FREE(&tokens[i].min.mv_data);
+//		FREE(&tokens[i].max.mv_data);
+//	}
 	FREE(&tokens);
 	mdb_cursor_close(metafiles); metafiles = NULL;
 	mdb_cursor_close(match); match = NULL;
@@ -209,11 +210,26 @@
 	return term;
 }
 - (err_t)addStringArg:(strarg_t const)str :(size_t const)len {
-	assert(str);
-	assert(len);
-
+	if(!str) return -1;
+	if(0 == len) return -1;
 	if(term) return -1;
 	term = strndup(str, len);
+	return 0;
+}
+- (void)print:(count_t const)depth {
+	indent(depth);
+	fprintf(stderr, "(fulltext %s)\n", term);
+}
+- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth {
+	return wr_quoted(data, size, term);
+}
+
+- (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn {
+	if([super prepare:txn :conn] < 0) return -1;
+	db_cursor(txn, conn->main, &metafiles);
+	db_cursor(txn, conn->main, &match);
+
+	count = 0;
 
 	// TODO: libstemmer?
 	sqlite3_tokenizer_module const *fts = NULL;
@@ -221,7 +237,7 @@
 	fts_get(&fts, &tokenizer);
 
 	sqlite3_tokenizer_cursor *tcur = NULL;
-	int rc = fts->xOpen(tokenizer, str, len, &tcur);
+	int rc = fts->xOpen(tokenizer, term, strlen(term), &tcur);
 	assert(SQLITE_OK == rc);
 
 	for(;;) {
@@ -235,58 +251,54 @@
 			tokens = realloc(tokens, sizeof(tokens[0]) * asize);
 			assert(tokens); // TODO
 		}
-		tokens[count].str = strndup(token, tlen);
-		tokens[count].len = tlen;
-		count++;
+		tokens[count++].tid = db_string_id_len(txn, conn->schema, token, tlen, false);
 	}
 
 	fts->xClose(tcur);
 	return 0;
 }
-- (void)print:(count_t const)depth {
-	indent(depth);
-	fprintf(stderr, "(fulltext %s)\n", term);
-}
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth {
-	return wr_quoted(data, size, term);
-}
-
-- (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn {
-	if([super prepare:txn :conn] < 0) return -1;
-	db_cursor(txn, conn->metaFileIDByFulltext, &metafiles);
-	db_cursor(txn, conn->metaFileIDByFulltext, &match);
-	return 0;
-}
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
-	MDB_val token_val = { tokens[0].len, tokens[0].str };
-	DB_VAL(sortID_val, 1);
-	db_bind(sortID_val, sortID);
-	int rc = db_cursor_get(metafiles, &token_val, sortID_val, MDB_GET_BOTH_RANGE);
+	DB_RANGE(range, 2);
+	db_bind(range->min, EFSTermMetaFileIDAndPosition);
+	db_bind(range->max, EFSTermMetaFileIDAndPosition);
+	db_bind(range->min, tokens[0].tid+0);
+	db_bind(range->max, tokens[0].tid+1);
+	DB_VAL(sortID_key, 3);
+	db_bind(sortID_key, EFSTermMetaFileIDAndPosition);
+	db_bind(sortID_key, tokens[0].tid);
+	db_bind(sortID_key, sortID+(dir > 0 ? 0 : 1));
+	int rc = db_cursor_seekr(metafiles, range, sortID_key, NULL, dir);
 	if(MDB_SUCCESS != rc) return invalid(dir);
-	uint64_t const actual = db_column(sortID_val, 0);
-	if(sortID != actual && dir > 0) return [self stepMeta:-1];
-	return actual;
+	return db_column(sortID_key, 2);
 }
 - (uint64_t)currentMeta:(int const)dir {
-	MDB_val metaFileID_val[1];
-	int rc = db_cursor_get(metafiles, NULL, metaFileID_val, MDB_GET_CURRENT);
+	MDB_val sortID_key[1];
+	int rc = db_cursor_get(metafiles, sortID_key, NULL, MDB_GET_CURRENT);
 	if(MDB_SUCCESS != rc) return invalid(dir);
-	return db_column(metaFileID_val, 0);
+	return db_column(sortID_key, 2);
 }
 - (uint64_t)stepMeta:(int const)dir {
-	int rc;
-	MDB_val token_val = { tokens[0].len, tokens[0].str };
-	MDB_val metaFileID_val[1];
-	rc = db_cursor_get(metafiles, &token_val, metaFileID_val, op(dir, MDB_NEXT_DUP));
+	DB_RANGE(range, 2);
+	db_bind(range->min, EFSTermMetaFileIDAndPosition);
+	db_bind(range->max, EFSTermMetaFileIDAndPosition);
+	db_bind(range->min, tokens[0].tid+0);
+	db_bind(range->max, tokens[0].tid+1);
+	MDB_val sortID_key[1];
+	int rc = db_cursor_nextr(metafiles, range, sortID_key, NULL, dir);
 	if(MDB_SUCCESS != rc) return invalid(dir);
-	return db_column(metaFileID_val, 0);
+	return db_column(sortID_key, 2);
 }
 - (bool_t)match:(uint64_t const)metaFileID {
-	MDB_val token_val = { tokens[0].len, tokens[0].str };
-	DB_VAL(metaFileID_val, 1);
-	db_bind(metaFileID_val, metaFileID);
-	int rc = mdb_cursor_get(match, &token_val, metaFileID_val, MDB_GET_BOTH);
+	DB_RANGE(range, 3);
+	db_bind(range->min, EFSTermMetaFileIDAndPosition);
+	db_bind(range->max, EFSTermMetaFileIDAndPosition);
+	db_bind(range->min, tokens[0].tid);
+	db_bind(range->max, tokens[0].tid);
+	db_bind(range->min, metaFileID+0);
+	db_bind(range->max, metaFileID+1);
+	MDB_val sortID_key[1];
+	int rc = db_cursor_firstr(match, range, sortID_key, NULL, +1);
 	if(MDB_SUCCESS == rc) return true;
 	if(MDB_NOTFOUND == rc) return false;
 	assertf(0, "Database error %s", mdb_strerror(rc));

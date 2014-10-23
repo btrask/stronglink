@@ -60,8 +60,7 @@
 @end
 
 struct token {
-	str_t *str;
-	size_t len;
+	uint64_t tid;
 };
 @interface EFSFulltextFilter : EFSIndividualFilter
 {
