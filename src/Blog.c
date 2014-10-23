@@ -210,15 +210,15 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 	assert(MDB_SUCCESS == rc);
 
 	MDB_cursor *metafiles = NULL;
-	rc = mdb_cursor_open(txn, conn->main, &metafiles);
+	rc = mdb_cursor_open(txn, MDB_MAIN_DBI, &metafiles);
 	assert(MDB_SUCCESS == rc);
 
 	MDB_cursor *values = NULL;
-	rc = mdb_cursor_open(txn, conn->main, &values);
+	rc = mdb_cursor_open(txn, MDB_MAIN_DBI, &values);
 	assert(MDB_SUCCESS == rc);
 
-	uint64_t const targetURI_id = db_string_id(txn, conn->schema, state->fileURI);
-	uint64_t const field_id = db_string_id(txn, conn->schema, var);
+	uint64_t const targetURI_id = db_string_id(txn, state->fileURI);
+	uint64_t const field_id = db_string_id(txn, var);
 
 	DB_RANGE(metaFileIDs, 2);
 	db_bind(metaFileIDs->min, EFSTargetURIAndMetaFileID);
@@ -241,7 +241,7 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 		rc = db_cursor_firstr(values, vrange, value_val, NULL, +1);
 		assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
 		for(; MDB_SUCCESS == rc; rc = db_cursor_nextr(values, vrange, value_val, NULL, +1)) {
-			strarg_t const value = db_column_text(txn, conn->schema, value_val, 3);
+			strarg_t const value = db_column_text(txn, value_val, 3);
 			if(0 == strcmp("", value)) continue;
 			unsafe = value;
 			break;

@@ -237,8 +237,8 @@ static yajl_callbacks const callbacks = {
 };
 
 static uint64_t add_metafile(MDB_txn *const txn, EFSConnection const *const conn, uint64_t const fileID, strarg_t const targetURI) {
-	uint64_t const metaFileID = db_next_id(txn, conn->schema, EFSMetaFileByID);
-	uint64_t const targetURI_id = db_string_id(txn, conn->schema, targetURI);
+	uint64_t const metaFileID = db_next_id(txn, EFSMetaFileByID);
+	uint64_t const targetURI_id = db_string_id(txn, targetURI);
 	assert(metaFileID);
 	assert(targetURI_id);
 	int rc;
@@ -250,21 +250,21 @@ static uint64_t add_metafile(MDB_txn *const txn, EFSConnection const *const conn
 	DB_VAL(metaFile_val, 2);
 	db_bind(metaFile_val, fileID);
 	db_bind(metaFile_val, targetURI_id);
-	rc = mdb_put(txn, conn->main, metaFileID_key, metaFile_val, MDB_NOOVERWRITE);
+	rc = mdb_put(txn, MDB_MAIN_DBI, metaFileID_key, metaFile_val, MDB_NOOVERWRITE);
 	assert(!rc);
 
 	DB_VAL(fileID_key, 3);
 	db_bind(fileID_key, EFSFileIDAndMetaFileID);
 	db_bind(fileID_key, fileID);
 	db_bind(fileID_key, metaFileID);
-	rc = mdb_put(txn, conn->main, fileID_key, &null, MDB_NOOVERWRITE);
+	rc = mdb_put(txn, MDB_MAIN_DBI, fileID_key, &null, MDB_NOOVERWRITE);
 	assert(!rc);
 
 	DB_VAL(targetURI_key, 3);
 	db_bind(targetURI_key, EFSTargetURIAndMetaFileID);
 	db_bind(targetURI_key, targetURI_id);
 	db_bind(targetURI_key, metaFileID);
-	rc = mdb_put(txn, conn->main, targetURI_key, &null, MDB_NOOVERWRITE);
+	rc = mdb_put(txn, MDB_MAIN_DBI, targetURI_key, &null, MDB_NOOVERWRITE);
 	assert(!rc);
 
 	return metaFileID;
@@ -272,8 +272,8 @@ static uint64_t add_metafile(MDB_txn *const txn, EFSConnection const *const conn
 static void add_metadata(MDB_txn *const txn, EFSConnection const *const conn, uint64_t const metaFileID, strarg_t const field, strarg_t const value, size_t const vlen) {
 	if(!vlen) return;
 
-	uint64_t const field_id = db_string_id(txn, conn->schema, field);
-	uint64_t const value_id = db_string_id_len(txn, conn->schema, value, vlen, false);
+	uint64_t const field_id = db_string_id(txn, field);
+	uint64_t const value_id = db_string_id_len(txn, value, vlen, false);
 	assert(field_id);
 	assert(value_id);
 	MDB_val null = { 0, NULL };
@@ -284,7 +284,7 @@ static void add_metadata(MDB_txn *const txn, EFSConnection const *const conn, ui
 	db_bind(fwd, metaFileID);
 	db_bind(fwd, field_id);
 	db_bind(fwd, value_id);
-	rc = mdb_put(txn, conn->main, fwd, &null, MDB_NOOVERWRITE);
+	rc = mdb_put(txn, MDB_MAIN_DBI, fwd, &null, MDB_NOOVERWRITE);
 	assertf(MDB_SUCCESS == rc || MDB_KEYEXIST == rc, "Database error %s", mdb_strerror(rc));
 
 	DB_VAL(rev, 4);
@@ -292,7 +292,7 @@ static void add_metadata(MDB_txn *const txn, EFSConnection const *const conn, ui
 	db_bind(rev, field_id);
 	db_bind(rev, value_id);
 	db_bind(rev, metaFileID);
-	rc = mdb_put(txn, conn->main, rev, &null, MDB_NOOVERWRITE);
+	rc = mdb_put(txn, MDB_MAIN_DBI, rev, &null, MDB_NOOVERWRITE);
 	assertf(MDB_SUCCESS == rc || MDB_KEYEXIST == rc, "Database error %s", mdb_strerror(rc));
 }
 static void add_fulltext(MDB_txn *const txn, EFSConnection const *const conn, uint64_t const metaFileID, strarg_t const str, size_t const len) {
@@ -307,7 +307,7 @@ static void add_fulltext(MDB_txn *const txn, EFSConnection const *const conn, ui
 	assert(SQLITE_OK == rc);
 
 	MDB_cursor *cursor = NULL;
-	rc = mdb_cursor_open(txn, conn->main, &cursor);
+	rc = mdb_cursor_open(txn, MDB_MAIN_DBI, &cursor);
 	assert(MDB_SUCCESS == rc);
 
 	for(;;) {
@@ -318,7 +318,7 @@ static void add_fulltext(MDB_txn *const txn, EFSConnection const *const conn, ui
 		rc = fts->xNext(tcur, &token, &tlen, &ignored1, &ignored2, &tpos);
 		if(SQLITE_OK != rc) break;
 
-		uint64_t const token_id = db_string_id_len(txn, conn->schema, token, tlen, false);
+		uint64_t const token_id = db_string_id_len(txn, token, tlen, false);
 		DB_VAL(token_val, 4);
 		db_bind(token_val, EFSTermMetaFileIDAndPosition);
 		db_bind(token_val, token_id);

@@ -114,10 +114,10 @@ str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, MDB_txn *c
 		db_bind(fileID_key, EFSFileByID);
 		db_bind(fileID_key, fileID);
 		MDB_val file_val[1];
-		int rc = mdb_get(txn, conn->main, fileID_key, file_val);
+		int rc = mdb_get(txn, MDB_MAIN_DBI, fileID_key, file_val);
 		assertf(MDB_SUCCESS == rc, "Database error %s", mdb_strerror(rc));
 
-		strarg_t const hash = db_column_text(txn, conn->schema, file_val, 0);
+		strarg_t const hash = db_column_text(txn, file_val, 0);
 		assert(hash);
 		return EFSFormatURI(EFS_INTERNAL_ALGO, hash);
 	}

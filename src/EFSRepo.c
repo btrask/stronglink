@@ -166,13 +166,13 @@ static void createDBConnection(EFSRepoRef const repo) {
 	mdb_env_set_maxreaders(conn->env, 126); // Default
 	mdb_env_set_maxdbs(conn->env, 32);
 	mdb_env_open(conn->env, repo->DBPath, MDB_NOSUBDIR, 0600);
+
 	MDB_txn *txn = NULL;
 	mdb_txn_begin(conn->env, NULL, MDB_RDWR, &txn);
 
-
-	mdb_dbi_open(txn, NULL, MDB_CREATE, &conn->schema->main);
-	conn->main = conn->schema->main;
-
+	MDB_dbi dbi;
+	mdb_dbi_open(txn, NULL, MDB_CREATE, &dbi);
+	assert(MDB_MAIN_DBI == dbi);
 
 	mdb_txn_commit(txn);
 }
@@ -185,7 +185,7 @@ static void loadPulls(EFSRepoRef const repo) {
 	assert(MDB_SUCCESS == rc);
 
 	MDB_cursor *cur = NULL;
-	rc = mdb_cursor_open(txn, conn->main, &cur);
+	rc = mdb_cursor_open(txn, MDB_MAIN_DBI, &cur);
 	assert(MDB_SUCCESS == rc);
 
 	DB_VAL(pulls_min, 1);
@@ -199,11 +199,11 @@ static void loadPulls(EFSRepoRef const repo) {
 	for(; MDB_SUCCESS == rc; rc = db_cursor_nextr(cur, &pulls, pullID_key, pull_val, +1)) {
 		uint64_t const pullID = db_column(pullID_key, 1);
 		uint64_t const userID = db_column(pull_val, 0);
-		strarg_t const host = db_column_text(txn, conn->schema, pull_val, 1);
-		strarg_t const username = db_column_text(txn, conn->schema, pull_val, 2);
-		strarg_t const password = db_column_text(txn, conn->schema, pull_val, 3);
-		strarg_t const cookie = db_column_text(txn, conn->schema, pull_val, 4);
-		strarg_t const query = db_column_text(txn, conn->schema, pull_val, 5);
+		strarg_t const host = db_column_text(txn, pull_val, 1);
+		strarg_t const username = db_column_text(txn, pull_val, 2);
+		strarg_t const password = db_column_text(txn, pull_val, 3);
+		strarg_t const cookie = db_column_text(txn, pull_val, 4);
+		strarg_t const query = db_column_text(txn, pull_val, 5);
 
 		EFSPullRef const pull = EFSRepoCreatePull(repo, pullID, userID, host, username, password, cookie, query);
 		if(repo->pull_count+1 > repo->pull_size) {
@@ -223,8 +223,8 @@ static void debug_data(EFSConnection const *const conn) {
 	mdb_txn_begin(conn->env, NULL, MDB_RDWR, &txn);
 
 	uint64_t const userID = 1;
-	uint64_t const username_id = db_string_id(txn, conn->schema, "ben");
-	uint64_t const passhash_id = db_string_id(txn, conn->schema, "$2a$08$lhAQjgGPuwvtErV.aK.MGO1T2W0UhN1r4IngmF5FvY0LM826aF8ye");
+	uint64_t const username_id = db_string_id(txn, "ben");
+	uint64_t const passhash_id = db_string_id(txn, "$2a$08$lhAQjgGPuwvtErV.aK.MGO1T2W0UhN1r4IngmF5FvY0LM826aF8ye");
 	assert(username_id);
 	assert(passhash_id);
 
@@ -235,24 +235,24 @@ static void debug_data(EFSConnection const *const conn) {
 	db_bind(user_val, username_id);
 	db_bind(user_val, passhash_id); // passhash
 	db_bind(user_val, passhash_id); // token
-	mdb_put(txn, conn->main, userID_key, user_val, 0);
+	mdb_put(txn, MDB_MAIN_DBI, userID_key, user_val, 0);
 
 	DB_VAL(username_key, 2);
 	db_bind(username_key, EFSUserIDByName);
 	db_bind(username_key, username_id);
 	DB_VAL(userID_val, 1);
 	db_bind(userID_val, userID);
-	mdb_put(txn, conn->main, username_key, userID_val, 0);
+	mdb_put(txn, MDB_MAIN_DBI, username_key, userID_val, 0);
 
 	DB_VAL(pullID_key, 1);
 	db_bind(pullID_key, EFSPullByID);
 	db_bind(pullID_key, 1);
 
-	uint64_t const host_id = db_string_id(txn, conn->schema, "localhost:8009");
-	uint64_t const remote_username_id = db_string_id(txn, conn->schema, "ben");
-	uint64_t const remote_password_id = db_string_id(txn, conn->schema, "testing");
-	uint64_t const cookie_id = db_string_id(txn, conn->schema, "s=1:not-very-random");
-	uint64_t const query_id = db_string_id(txn, conn->schema, "");
+	uint64_t const host_id = db_string_id(txn, "localhost:8009");
+	uint64_t const remote_username_id = db_string_id(txn, "ben");
+	uint64_t const remote_password_id = db_string_id(txn, "testing");
+	uint64_t const cookie_id = db_string_id(txn, "s=1:not-very-random");
+	uint64_t const query_id = db_string_id(txn, "");
 	assert(host_id);
 	assert(remote_username_id);
 	assert(query_id);
@@ -265,7 +265,7 @@ static void debug_data(EFSConnection const *const conn) {
 	db_bind(pull_val, cookie_id);
 	db_bind(pull_val, query_id);
 
-	mdb_put(txn, conn->main, pullID_key, pull_val, 0);
+	mdb_put(txn, MDB_MAIN_DBI, pullID_key, pull_val, 0);
 
 	mdb_txn_commit(txn); txn = NULL;
 }

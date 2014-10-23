@@ -96,10 +96,10 @@
 - (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn {
 	assert(subfilter);
 	if([super prepare:txn :conn] < 0) return -1;
-	db_cursor(txn, conn->main, &metafiles); // EFSMetaFileByID
-	db_cursor(txn, conn->main, &age_metafile); // EFSFileIDAndMetaFileID
-	db_cursor(txn, conn->main, &age_uri); // EFSMetaFileByID
-	db_cursor(txn, conn->main, &age_files);
+	db_cursor(txn, &metafiles); // EFSMetaFileByID
+	db_cursor(txn, &age_metafile); // EFSFileIDAndMetaFileID
+	db_cursor(txn, &age_uri); // EFSMetaFileByID
+	db_cursor(txn, &age_files);
 	return 0;
 }
 

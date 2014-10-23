@@ -16,10 +16,10 @@
 
 - (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn {
 	if([super prepare:txn :conn] < 0) return -1;
-	db_cursor(txn, conn->main, &step_target); // EFSMetaFileByID
-	db_cursor(txn, conn->main, &step_files); // EFSURIAndFileID
-	db_cursor(txn, conn->main, &age_uris); // EFSFileIDAndURI
-	db_cursor(txn, conn->main, &age_metafiles); // EFSTargetURIAndMetaFileID
+	db_cursor(txn, &step_target); // EFSMetaFileByID
+	db_cursor(txn, &step_files); // EFSURIAndFileID
+	db_cursor(txn, &age_uris); // EFSFileIDAndURI
+	db_cursor(txn, &age_metafiles); // EFSTargetURIAndMetaFileID
 	return 0;
 }
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
@@ -154,7 +154,7 @@
 
 - (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn {
 	if([super prepare:txn :conn] < 0) return -1;
-	db_cursor(txn, conn->main, &metafiles); // EFSMetaFileByID
+	db_cursor(txn, &metafiles); // EFSMetaFileByID
 	return 0;
 }
 
@@ -226,8 +226,8 @@
 
 - (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn {
 	if([super prepare:txn :conn] < 0) return -1;
-	db_cursor(txn, conn->main, &metafiles);
-	db_cursor(txn, conn->main, &match);
+	db_cursor(txn, &metafiles);
+	db_cursor(txn, &match);
 
 	count = 0;
 
@@ -251,7 +251,7 @@
 			tokens = realloc(tokens, sizeof(tokens[0]) * asize);
 			assert(tokens); // TODO
 		}
-		tokens[count++].tid = db_string_id_len(txn, conn->schema, token, tlen, false);
+		tokens[count++].tid = db_string_id_len(txn, token, tlen, false);
 	}
 
 	fts->xClose(tcur);
@@ -352,10 +352,10 @@
 - (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn {
 	if([super prepare:txn :conn] < 0) return -1;
 	if(!field || !value) return -1;
-	if(!field_id) field_id = db_string_id(txn, conn->schema, field);
-	if(!value_id) value_id = db_string_id(txn, conn->schema, value);
-	db_cursor(txn, conn->main, &metafiles); // EFSFieldValueAndMetaFileID
-	db_cursor(txn, conn->main, &match); // EFSFieldValueAndMetaFileID
+	if(!field_id) field_id = db_string_id(txn, field);
+	if(!value_id) value_id = db_string_id(txn, value);
+	db_cursor(txn, &metafiles); // EFSFieldValueAndMetaFileID
+	db_cursor(txn, &match); // EFSFieldValueAndMetaFileID
 	return 0;
 }
 

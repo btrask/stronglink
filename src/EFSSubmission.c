@@ -164,19 +164,19 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 	EFSRepoRef const repo = EFSSubmissionGetRepo(sub);
 	int64_t const userID = EFSSessionGetUserID(session);
 
-	int64_t fileID = db_next_id(txn, conn->schema, EFSFileByID);
+	int64_t fileID = db_next_id(txn, EFSFileByID);
 	int rc;
 
 	DB_VAL(dupFileID_val, 1);
 	db_bind(dupFileID_val, fileID);
 
-	uint64_t const internalHash_id = db_string_id(txn, conn->schema, sub->internalHash);
-	uint64_t const type_id = db_string_id(txn, conn->schema, sub->type);
+	uint64_t const internalHash_id = db_string_id(txn, sub->internalHash);
+	uint64_t const type_id = db_string_id(txn, sub->type);
 	DB_VAL(fileInfo_key, 3);
 	db_bind(fileInfo_key, EFSFileIDByInfo);
 	db_bind(fileInfo_key, internalHash_id);
 	db_bind(fileInfo_key, type_id);
-	rc = mdb_put(txn, conn->main, fileInfo_key, dupFileID_val, MDB_NOOVERWRITE);
+	rc = mdb_put(txn, MDB_MAIN_DBI, fileInfo_key, dupFileID_val, MDB_NOOVERWRITE);
 	if(MDB_KEYEXIST == rc) fileID = db_column(dupFileID_val, 0);
 	else if(MDB_SUCCESS != rc) return -1;
 
@@ -187,26 +187,26 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 	db_bind(file_val, internalHash_id);
 	db_bind(file_val, type_id);
 	db_bind(file_val, sub->size);
-	rc = mdb_put(txn, conn->main, fileID_key, file_val, MDB_NOOVERWRITE);
+	rc = mdb_put(txn, MDB_MAIN_DBI, fileID_key, file_val, MDB_NOOVERWRITE);
 	if(MDB_SUCCESS != rc && MDB_KEYEXIST != rc) return -1;
 
 	for(index_t i = 0; sub->URIs[i]; ++i) {
 		strarg_t const URI = sub->URIs[i];
-		uint64_t const URI_id = db_string_id(txn, conn->schema, URI);
+		uint64_t const URI_id = db_string_id(txn, URI);
 		MDB_val null = { 0, NULL };
 
 		DB_VAL(fwd, 3);
 		db_bind(fwd, EFSFileIDAndURI);
 		db_bind(fwd, fileID);
 		db_bind(fwd, URI_id);
-		rc = mdb_put(txn, conn->main, fwd, &null, MDB_NOOVERWRITE);
+		rc = mdb_put(txn, MDB_MAIN_DBI, fwd, &null, MDB_NOOVERWRITE);
 		assert(MDB_SUCCESS == rc || MDB_KEYEXIST == rc);
 
 		DB_VAL(rev, 1);
 		db_bind(rev, EFSURIAndFileID);
 		db_bind(rev, URI_id);
 		db_bind(rev, fileID);
-		rc = mdb_put(txn, conn->main, rev, &null, MDB_NOOVERWRITE);
+		rc = mdb_put(txn, MDB_MAIN_DBI, rev, &null, MDB_NOOVERWRITE);
 		assert(MDB_SUCCESS == rc || MDB_KEYEXIST == rc);
 	}
 

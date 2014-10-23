@@ -17,8 +17,6 @@ typedef struct EFSPull* EFSPullRef;
 
 typedef struct {
 	MDB_env *env;
-	DB_schema schema[1];
-	MDB_dbi main;
 } EFSConnection;
 enum {
 	// 0-19 are reserved for the DB layer.

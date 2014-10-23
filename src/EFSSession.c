@@ -52,7 +52,7 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 		return NULL;
 	}
 
-	uint64_t const username_id = db_string_id(txn, conn->schema, username);
+	uint64_t const username_id = db_string_id(txn, username);
 	if(!username_id) {
 		EFSRepoDBClose(repo, &conn);
 		return NULL;
@@ -62,7 +62,7 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	db_bind(username_key, EFSUserIDByName);
 	db_bind(username_key, username_id);
 	MDB_val userID_val[1];
-	rc = mdb_get(txn, conn->main, username_key, userID_val);
+	rc = mdb_get(txn, MDB_MAIN_DBI, username_key, userID_val);
 	uint64_t userID = 0;
 	MDB_val user_val[1];
 	if(MDB_SUCCESS == rc) {
@@ -70,14 +70,14 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 		DB_VAL(userID_key, 2);
 		db_bind(userID_key, EFSUserByID);
 		db_bind(userID_key, userID);
-		rc = mdb_get(txn, conn->main, userID_key, user_val);
+		rc = mdb_get(txn, MDB_MAIN_DBI, userID_key, user_val);
 	}
 	if(MDB_SUCCESS != rc) {
 		mdb_txn_abort(txn); txn = NULL;
 		EFSRepoDBClose(repo, &conn);
 		return NULL;
 	}
-	str_t *passhash = strdup(db_column_text(txn, conn->schema, user_val, 1));
+	str_t *passhash = strdup(db_column_text(txn, user_val, 1));
 
 	mdb_txn_abort(txn); txn = NULL;
 	EFSRepoDBClose(repo, &conn);
@@ -107,8 +107,8 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 		return NULL;
 	}
 
-	uint64_t const sessionID = db_next_id(txn, conn->schema, EFSSessionByID);
-	uint64_t const sessionHash_id = db_string_id(txn, conn->schema, sessionHash);
+	uint64_t const sessionID = db_next_id(txn, EFSSessionByID);
+	uint64_t const sessionHash_id = db_string_id(txn, sessionHash);
 	FREE(&sessionHash);
 
 	DB_VAL(sessionID_key, 2);
@@ -117,7 +117,7 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	DB_VAL(session_val, 2);
 	db_bind(session_val, userID);
 	db_bind(session_val, sessionHash_id);
-	rc = mdb_put(txn, conn->main, sessionID_key, session_val, MDB_NOOVERWRITE);
+	rc = mdb_put(txn, MDB_MAIN_DBI, sessionID_key, session_val, MDB_NOOVERWRITE);
 	if(MDB_SUCCESS != rc) {
 		mdb_txn_abort(txn); txn = NULL;
 		EFSRepoDBClose(repo, &conn);
@@ -163,7 +163,7 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 	db_bind(sessionID_key, EFSSessionByID);
 	db_bind(sessionID_key, sessionID);
 	MDB_val session_val[1];
-	rc = mdb_get(txn, conn->main, sessionID_key, session_val);
+	rc = mdb_get(txn, MDB_MAIN_DBI, sessionID_key, session_val);
 	if(MDB_SUCCESS != rc) {
 		FREE(&sessionKey);
 		mdb_txn_abort(txn); txn = NULL;
@@ -171,7 +171,7 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 		return NULL;
 	}
 	uint64_t const userID = db_column(session_val, 0);
-	str_t *sessionHash = strdup(db_column_text(txn, conn->schema, session_val, 1));
+	str_t *sessionHash = strdup(db_column_text(txn, session_val, 1));
 
 	mdb_txn_abort(txn); txn = NULL;
 	EFSRepoDBClose(repo, &conn);
@@ -270,7 +270,7 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 		return -1;
 	}
 
-	uint64_t const URI_id = db_string_id(txn, conn->schema, URI);
+	uint64_t const URI_id = db_string_id(txn, URI);
 	if(!URI_id) {
 		mdb_txn_abort(txn); txn = NULL;
 		EFSRepoDBClose(repo, &conn);
@@ -278,7 +278,7 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 	}
 
 	MDB_cursor *cursor;
-	rc = mdb_cursor_open(txn, conn->main, &cursor);
+	rc = mdb_cursor_open(txn, MDB_MAIN_DBI, &cursor);
 	assert(!rc);
 	DB_RANGE(fileIDs, 2);
 	db_bind(fileIDs->min, EFSURIAndFileID);
@@ -294,7 +294,7 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 		DB_VAL(fileID_key, 2);
 		db_bind(fileID_key, EFSFileByID);
 		db_bind(fileID_key, fileID);
-		rc = mdb_get(txn, conn->main, fileID_key, file_val);
+		rc = mdb_get(txn, MDB_MAIN_DBI, fileID_key, file_val);
 	}
 	if(MDB_SUCCESS != rc) {
 		mdb_txn_abort(txn); txn = NULL;
@@ -303,8 +303,8 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 	}
 
 	if(info) {
-		strarg_t const internalHash = db_column_text(txn, conn->schema, file_val, 0);
-		strarg_t const type = db_column_text(txn, conn->schema, file_val, 1);
+		strarg_t const internalHash = db_column_text(txn, file_val, 0);
+		strarg_t const type = db_column_text(txn, file_val, 1);
 		info->hash = strdup(internalHash);
 		info->path = EFSRepoCopyInternalPath(repo, internalHash);
 		info->type = strdup(type);

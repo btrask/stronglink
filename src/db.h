@@ -1,6 +1,8 @@
 #include "../deps/liblmdb/lmdb.h"
 #include "common.h"
 
+#define MDB_MAIN_DBI 1
+
 // Makes beginning a transaction slightly clearer.
 #define MDB_RDWR 0
 
@@ -15,10 +17,6 @@
 	DB_VAL(__max_##name, cols); \
 	DB_range name[1] = {{ __min_##name, __max_##name }}
 
-typedef struct {
-	MDB_dbi main;
-} DB_schema;
-
 typedef uint64_t dbid_t;
 enum {
 	DBSchema = 0,
@@ -28,17 +26,17 @@ enum {
 };
 
 uint64_t db_column(MDB_val const *const val, index_t const col);
-strarg_t db_column_text(MDB_txn *const txn, DB_schema const *const schema, MDB_val const *const val, index_t const col);
+strarg_t db_column_text(MDB_txn *const txn, MDB_val const *const val, index_t const col);
 
 void db_bind(MDB_val *const val, uint64_t const item);
 
 uint64_t db_last_id(MDB_txn *const txn, MDB_dbi dbi); // TODO: Remove.
-uint64_t db_next_id(MDB_txn *const txn, DB_schema const *const schema, dbid_t const table);
+uint64_t db_next_id(MDB_txn *const txn, dbid_t const table);
 
-uint64_t db_string_id(MDB_txn *const txn, DB_schema const *const schema, strarg_t const str);
-uint64_t db_string_id_len(MDB_txn *const txn, DB_schema const *const schema, strarg_t const str, size_t const len, bool_t const nulterm);
+uint64_t db_string_id(MDB_txn *const txn, strarg_t const str);
+uint64_t db_string_id_len(MDB_txn *const txn, strarg_t const str, size_t const len, bool_t const nulterm);
 
-int db_cursor(MDB_txn *const txn, MDB_dbi const dbi, MDB_cursor **const cur);
+int db_cursor(MDB_txn *const txn, MDB_cursor **const cur);
 int db_cursor_get(MDB_cursor *const cur, MDB_val *const key, MDB_val *const val, MDB_cursor_op const op);
 
 
