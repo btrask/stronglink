@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include "db_base.h"
-#include "../../deps/liblmdb/lmdb.h"
+#include "../../deps/lsmdb/liblmdb/lmdb.h"
 
 #define MDB_MAIN_DBI 1
 
@@ -102,8 +102,8 @@ int db_cursor_open(DB_txn *const txn, DB_cursor **const out) {
 void db_cursor_close(DB_cursor *const cursor) {
 	mdb_cursor_close((MDB_cursor *)cursor);
 }
-int db_cursor_reset(DB_cursor *const cursor) {
-	return DB_SUCCESS;
+void db_cursor_reset(DB_cursor *const cursor) {
+	// Do nothing.
 }
 int db_cursor_renew(DB_txn *const txn, DB_cursor **const out) {
 	if(!out) return DB_EINVAL;

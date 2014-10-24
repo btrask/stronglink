@@ -129,6 +129,7 @@ uint64_t db_string_id_len(DB_txn *const txn, char const *const str, size_t const
 	rc = db_put(txn, nextID_key, &str_val, DB_NOOVERWRITE);
 	if(!nulterm) free(str2);
 	str2 = NULL;
+	if(rc) fprintf(stderr, "rc = %s (%llu)\n", db_strerror(rc), nextID);
 	assert(DB_SUCCESS == rc);
 
 	DB_VAL(nextID_val, 1);

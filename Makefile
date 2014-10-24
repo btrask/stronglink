@@ -41,7 +41,8 @@ HEADERS := \
 	$(DEPS_DIR)/crypt_blowfish-1.0.4/ow-crypt.h \
 	$(DEPS_DIR)/http_parser/http_parser.h \
 	$(DEPS_DIR)/multipart-parser-c/multipart_parser.h \
-	$(DEPS_DIR)/liblmdb/lmdb.h \
+	$(DEPS_DIR)/lsmdb/lsmdb.h \
+	$(DEPS_DIR)/lsmdb/liblmdb/lmdb.h \
 	$(DEPS_DIR)/fts3/fts3_tokenizer.h \
 	$(DEPS_DIR)/sundown/src/markdown.h \
 	$(DEPS_DIR)/sundown/html/html.h \
@@ -54,7 +55,7 @@ OBJECTS := \
 	$(BUILD_DIR)/EFSSubmission.o \
 	$(BUILD_DIR)/EFSHasher.o \
 	$(BUILD_DIR)/EFSMetaFile.o \
-	$(BUILD_DIR)/db/db_base_mdb.o \
+	$(BUILD_DIR)/db/db_base_lsmdb.o \
 	$(BUILD_DIR)/db/db_ext.o \
 	$(BUILD_DIR)/db/db_schema.o \
 	$(BUILD_DIR)/filter/EFSFilter.o \
@@ -88,8 +89,9 @@ OBJECTS := \
 	$(BUILD_DIR)/crypt/x86.S.o \
 	$(BUILD_DIR)/http_parser.o \
 	$(BUILD_DIR)/multipart_parser.o \
-	$(BUILD_DIR)/liblmdb/mdb.o \
-	$(BUILD_DIR)/liblmdb/midl.o \
+	$(BUILD_DIR)/lsmdb/lsmdb.o \
+	$(BUILD_DIR)/lsmdb/liblmdb/mdb.o \
+	$(BUILD_DIR)/lsmdb/liblmdb/midl.o \
 	$(BUILD_DIR)/fts3/fts3_porter.o \
 	$(BUILD_DIR)/sundown/src/markdown.o \
 	$(BUILD_DIR)/sundown/src/autolink.o \
@@ -111,7 +113,7 @@ OBJECTS += \
 LIBUV_DIR := $(DEPS_DIR)/uv/out/Debug/obj.target
 #LIBUV_DIR := $(DEPS_DIR)/uv/build/Release
 
-LIBS := -luv -lcrypto -lyajl -lpthread -lobjc
+LIBS := -luv -lcrypto -lyajl -lpthread -lobjc -lm
 LIBS += -lrt
 
 .DEFAULT_GOAL := all
@@ -154,7 +156,7 @@ $(BUILD_DIR)/multipart_parser.o: $(DEPS_DIR)/multipart-parser-c/multipart_parser
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) -std=c89 -ansi -pedantic -Wall
 
-$(BUILD_DIR)/liblmdb/%.o: $(DEPS_DIR)/liblmdb/%.c $(DEPS_DIR)/liblmdb/lmdb.h
+$(BUILD_DIR)/lsmdb/%.o: $(DEPS_DIR)/lsmdb/%.c $(DEPS_DIR)/lsmdb/lsmdb.h $(DEPS_DIR)/lsmdb/liblmdb/lmdb.h
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS)
 

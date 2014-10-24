@@ -38,7 +38,7 @@ int db_txn_cursor(DB_txn *const txn, DB_cursor **const out); /* A shared cursor 
 
 int db_cursor_open(DB_txn *const txn, DB_cursor **const out);
 void db_cursor_close(DB_cursor *const cursor);
-int db_cursor_reset(DB_cursor *const cursor);
+void db_cursor_reset(DB_cursor *const cursor);
 int db_cursor_renew(DB_txn *const txn, DB_cursor **const out);
 int db_cursor_clear(DB_cursor *const cursor);
 int db_cursor_cmp(DB_cursor *const cursor, DB_val const *const a, DB_val const *const b);
