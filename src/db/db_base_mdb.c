@@ -103,12 +103,15 @@ void db_cursor_close(DB_cursor *const cursor) {
 	mdb_cursor_close((MDB_cursor *)cursor);
 }
 int db_cursor_reset(DB_cursor *const cursor) {
-	return mdb_cursor_renew(mdb_cursor_txn((MDB_cursor *)cursor), (MDB_cursor *)cursor);
+	return DB_SUCCESS;
 }
 int db_cursor_renew(DB_txn *const txn, DB_cursor **const out) {
 	if(!out) return DB_EINVAL;
 	if(*out) return mdb_cursor_renew(txn->txn, (MDB_cursor *)*out);
 	return mdb_cursor_open(txn->txn, MDB_MAIN_DBI, (MDB_cursor **)out);
+}
+int db_cursor_clear(DB_cursor *const cursor) {
+	return mdb_cursor_renew(mdb_cursor_txn((MDB_cursor *)cursor), (MDB_cursor *)cursor);
 }
 int db_cursor_cmp(DB_cursor *const cursor, DB_val const *const a, DB_val const *const b) {
 	assert(cursor);
