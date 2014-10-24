@@ -118,8 +118,9 @@ uint64_t db_string_id_len(DB_txn *const txn, char const *const str, size_t const
 	rc = db_txn_get_flags(txn, &flags);
 	if(DB_SUCCESS != rc || DB_RDONLY & flags) return 0;
 
-	uint64_t const nextID = db_next_id(txn, DBStringByID);
+	uint64_t nextID = db_next_id(txn, DBStringByID);
 	if(!nextID) return 0;
+	if(1 == nextID) nextID++; // 1 is reserved for ""
 
 	DB_VAL(nextID_key, 2);
 	db_bind(nextID_key, DBStringByID);
@@ -129,7 +130,6 @@ uint64_t db_string_id_len(DB_txn *const txn, char const *const str, size_t const
 	rc = db_put(txn, nextID_key, &str_val, DB_NOOVERWRITE);
 	if(!nulterm) free(str2);
 	str2 = NULL;
-	if(rc) fprintf(stderr, "rc = %s (%llu)\n", db_strerror(rc), nextID);
 	assert(DB_SUCCESS == rc);
 
 	DB_VAL(nextID_val, 1);

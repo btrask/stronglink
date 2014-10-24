@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdio.h>
 #include "db_ext.h"
 
 int db_get(DB_txn *const txn, DB_val *const key, DB_val *const data) {
