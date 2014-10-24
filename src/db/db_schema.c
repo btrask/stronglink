@@ -72,13 +72,11 @@ void db_bind(DB_val *const val, uint64_t const item) {
 uint64_t db_next_id(DB_txn *const txn, dbid_t const table) {
 	DB_cursor *cur = NULL;
 	if(DB_SUCCESS != db_txn_cursor(txn, &cur)) return 0;
-	DB_VAL(min, 1);
-	DB_VAL(max, 1);
-	db_bind(min, table+0);
-	db_bind(max, table+1);
-	DB_range range = { min, max };
+	DB_RANGE(range, 1);
+	db_bind(range->min, table+0);
+	db_bind(range->max, table+1);
 	DB_val prev[1];
-	int rc = db_cursor_firstr(cur, &range, prev, NULL, -1);
+	int rc = db_cursor_firstr(cur, range, prev, NULL, -1);
 	if(DB_NOTFOUND == rc) return 1;
 	if(DB_SUCCESS != rc) return 0;
 	return db_column(prev, 1)+1;
