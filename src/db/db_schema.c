@@ -128,8 +128,8 @@ uint64_t db_string_id_len(DB_txn *const txn, char const *const str, size_t const
 	char *str2 = nulterm ? (char *)str : strndup(str, len);
 	DB_val str_val = { len+1, str2 };
 	rc = db_put(txn, nextID_key, &str_val, DB_NOOVERWRITE);
-	if(nulterm) str2 = NULL;
-	else free(str2);
+	if(!nulterm) free(str2);
+	str2 = NULL;
 	assert(DB_SUCCESS == rc);
 
 	DB_VAL(nextID_val, 1);
