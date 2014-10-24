@@ -119,26 +119,9 @@ uint64_t db_string_id_len(DB_txn *const txn, char const *const str, size_t const
 	rc = db_txn_get_flags(txn, &flags);
 	if(DB_SUCCESS != rc || DB_RDONLY & flags) return 0;
 
-	DB_cursor *cur = NULL;
-	rc = db_txn_cursor(txn, &cur);
-	assert(DB_SUCCESS == rc);
+	uint64_t const nextID = db_next_id(txn, DBStringByID);
+	if(!nextID) return 0;
 
-	DB_RANGE(strings, 1);
-	db_bind(strings->min, DBStringByID+0);
-	db_bind(strings->max, DBStringByID+1);
-	DB_val lastID_key[1];
-	rc = db_cursor_firstr(cur, strings, lastID_key, NULL, -1);
-	uint64_t lastID;
-	if(DB_SUCCESS == rc) {
-		assert(DBStringByID == db_column(lastID_key, 0));
-		lastID = db_column(lastID_key, 1);
-	} else if(DB_NOTFOUND == rc) {
-		lastID = 1;
-	} else {
-		assert(0);
-	}
-
-	uint64_t const nextID = lastID+1;
 	DB_VAL(nextID_key, 2);
 	db_bind(nextID_key, DBStringByID);
 	db_bind(nextID_key, nextID);
