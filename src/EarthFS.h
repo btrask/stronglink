@@ -36,7 +36,7 @@ enum {
 	EFSTargetURIAndMetaFileID = 62,
 	EFSMetaFileIDFieldAndValue = 63,
 	EFSFieldValueAndMetaFileID = 64,
-	EFSTermMetaFileIDAndPosition = 65, // Term is inline (nul-terminated), not a string ID. Position isn't currently tracked so it's always zero.
+	EFSTermMetaFileIDAndPosition = 65,
 };
 
 EFSRepoRef EFSRepoCreate(strarg_t const dir);
