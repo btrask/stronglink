@@ -267,7 +267,7 @@
 	DB_VAL(sortID_key, 3);
 	db_bind(sortID_key, EFSTermMetaFileIDAndPosition);
 	db_bind(sortID_key, tokens[0].tid);
-	db_bind(sortID_key, sortID+(dir > 0 ? 0 : 1));
+	db_bind(sortID_key, sortID); // TODO: In order to handle seeking backwards over document with several matching positions, we need to use sortID+1... But sortID might be UINT64_MAX, so be careful.
 	int rc = db_cursor_seekr(metafiles, range, sortID_key, NULL, dir);
 	if(DB_SUCCESS != rc) return invalid(dir);
 	return db_column(sortID_key, 2);

@@ -98,8 +98,7 @@ uint64_t EFSFilterAge(EFSFilterRef const filter, uint64_t const sortID, uint64_t
 	return [(EFSFilter *)filter age:sortID :fileID];
 }
 str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, DB_txn *const txn, EFSConnection const *const conn) {
-	for(;;) {
-		EFSFilterStep(filter, dir);
+	for(;; EFSFilterStep(filter, dir)) {
 		uint64_t sortID, fileID;
 		EFSFilterCurrent(filter, dir, &sortID, &fileID);
 		if(!valid(fileID)) return NULL;
@@ -119,6 +118,7 @@ str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, DB_txn *co
 
 		strarg_t const hash = db_column_text(txn, file_val, 0);
 		assert(hash);
+		EFSFilterStep(filter, dir);
 		return EFSFormatURI(EFS_INTERNAL_ALGO, hash);
 	}
 }
