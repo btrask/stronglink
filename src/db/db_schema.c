@@ -123,13 +123,11 @@ uint64_t db_string_id_len(DB_txn *const txn, char const *const str, size_t const
 	rc = db_txn_cursor(txn, &cur);
 	assert(DB_SUCCESS == rc);
 
-	DB_VAL(strings_min, 1);
-	DB_VAL(strings_max, 1);
-	db_bind(strings_min, DBStringByID+0);
-	db_bind(strings_max, DBStringByID+1);
-	DB_range strings = { strings_min, strings_max };
+	DB_RANGE(strings, 1);
+	db_bind(strings->min, DBStringByID+0);
+	db_bind(strings->max, DBStringByID+1);
 	DB_val lastID_key[1];
-	rc = db_cursor_firstr(cur, &strings, lastID_key, NULL, -1);
+	rc = db_cursor_firstr(cur, strings, lastID_key, NULL, -1);
 	uint64_t lastID;
 	if(DB_SUCCESS == rc) {
 		assert(DBStringByID == db_column(lastID_key, 0));
