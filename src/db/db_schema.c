@@ -112,7 +112,6 @@ uint64_t db_string_id_len(DB_txn *const txn, char const *const str, size_t const
 	DB_val existingStringID_val[1];
 	rc = db_get(txn, lookup_key, existingStringID_val);
 	if(DB_SUCCESS == rc) return db_column(existingStringID_val, 0);
-	if(DB_NOTFOUND != rc) fprintf(stderr, "rc = %s\n", db_strerror(rc));
 	assert(DB_NOTFOUND == rc);
 
 	unsigned flags;
