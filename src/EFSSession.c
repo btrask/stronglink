@@ -45,9 +45,9 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 
 	conn = EFSRepoDBOpen(repo);
 	if(!conn) return NULL;
-	MDB_txn *txn = NULL;
-	rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
-	if(MDB_SUCCESS != rc) {
+	DB_txn *txn = NULL;
+	rc = db_txn_begin(conn->env, NULL, DB_RDONLY, &txn);
+	if(DB_SUCCESS != rc) {
 		EFSRepoDBClose(repo, &conn);
 		return NULL;
 	}
@@ -61,25 +61,25 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	DB_VAL(username_key, 2);
 	db_bind(username_key, EFSUserIDByName);
 	db_bind(username_key, username_id);
-	MDB_val userID_val[1];
-	rc = mdb_get(txn, MDB_MAIN_DBI, username_key, userID_val);
+	DB_val userID_val[1];
+	rc = db_get(txn, username_key, userID_val);
 	uint64_t userID = 0;
-	MDB_val user_val[1];
-	if(MDB_SUCCESS == rc) {
+	DB_val user_val[1];
+	if(DB_SUCCESS == rc) {
 		userID = db_column(userID_val, 0);
 		DB_VAL(userID_key, 2);
 		db_bind(userID_key, EFSUserByID);
 		db_bind(userID_key, userID);
-		rc = mdb_get(txn, MDB_MAIN_DBI, userID_key, user_val);
+		rc = db_get(txn, userID_key, user_val);
 	}
-	if(MDB_SUCCESS != rc) {
-		mdb_txn_abort(txn); txn = NULL;
+	if(DB_SUCCESS != rc) {
+		db_txn_abort(txn); txn = NULL;
 		EFSRepoDBClose(repo, &conn);
 		return NULL;
 	}
 	str_t *passhash = strdup(db_column_text(txn, user_val, 1));
 
-	mdb_txn_abort(txn); txn = NULL;
+	db_txn_abort(txn); txn = NULL;
 	EFSRepoDBClose(repo, &conn);
 
 	if(userID <= 0 || !checkpass(password, passhash)) {
@@ -100,8 +100,8 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	}
 
 	conn = EFSRepoDBOpen(repo);
-	if(conn) rc = mdb_txn_begin(conn->env, NULL, MDB_RDWR, &txn);
-	if(!conn || MDB_SUCCESS != rc) {
+	if(conn) rc = db_txn_begin(conn->env, NULL, DB_RDWR, &txn);
+	if(!conn || DB_SUCCESS != rc) {
 		FREE(&sessionHash);
 		FREE(&sessionKey);
 		return NULL;
@@ -117,17 +117,17 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	DB_VAL(session_val, 2);
 	db_bind(session_val, userID);
 	db_bind(session_val, sessionHash_id);
-	rc = mdb_put(txn, MDB_MAIN_DBI, sessionID_key, session_val, MDB_NOOVERWRITE);
-	if(MDB_SUCCESS != rc) {
-		mdb_txn_abort(txn); txn = NULL;
+	rc = db_put(txn, sessionID_key, session_val, DB_NOOVERWRITE);
+	if(DB_SUCCESS != rc) {
+		db_txn_abort(txn); txn = NULL;
 		EFSRepoDBClose(repo, &conn);
 		FREE(&sessionKey);
 		return NULL;
 	}
 
-	rc = mdb_txn_commit(txn); txn = NULL;
+	rc = db_txn_commit(txn); txn = NULL;
 	EFSRepoDBClose(repo, &conn);
-	if(MDB_SUCCESS != rc) {
+	if(DB_SUCCESS != rc) {
 		FREE(&sessionKey);
 		return NULL;
 	}
@@ -156,24 +156,24 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 		FREE(&sessionKey);
 		return NULL;
 	}
-	MDB_txn *txn = NULL;
-	mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
+	DB_txn *txn = NULL;
+	db_txn_begin(conn->env, NULL, DB_RDONLY, &txn);
 
 	DB_VAL(sessionID_key, 2);
 	db_bind(sessionID_key, EFSSessionByID);
 	db_bind(sessionID_key, sessionID);
-	MDB_val session_val[1];
-	rc = mdb_get(txn, MDB_MAIN_DBI, sessionID_key, session_val);
-	if(MDB_SUCCESS != rc) {
+	DB_val session_val[1];
+	rc = db_get(txn, sessionID_key, session_val);
+	if(DB_SUCCESS != rc) {
 		FREE(&sessionKey);
-		mdb_txn_abort(txn); txn = NULL;
+		db_txn_abort(txn); txn = NULL;
 		EFSRepoDBClose(repo, &conn);
 		return NULL;
 	}
 	uint64_t const userID = db_column(session_val, 0);
 	str_t *sessionHash = strdup(db_column_text(txn, session_val, 1));
 
-	mdb_txn_abort(txn); txn = NULL;
+	db_txn_abort(txn); txn = NULL;
 	EFSRepoDBClose(repo, &conn);
 
 	if(!userID) {
@@ -235,9 +235,9 @@ str_t **EFSSessionCopyFilteredURIs(EFSSessionRef const session, EFSFilterRef con
 	}
 
 	int rc;
-	MDB_txn *txn = NULL;
-	rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
-	assert(MDB_SUCCESS == rc);
+	DB_txn *txn = NULL;
+	rc = db_txn_begin(conn->env, NULL, DB_RDONLY, &txn);
+	assert(DB_SUCCESS == rc);
 
 	count_t count = 0;
 	EFSFilterPrepare(filter, txn, conn);
@@ -248,7 +248,7 @@ str_t **EFSSessionCopyFilteredURIs(EFSSessionRef const session, EFSFilterRef con
 		URIs[count++] = URI;
 	}
 
-	mdb_txn_abort(txn); txn = NULL;
+	db_txn_abort(txn); txn = NULL;
 	EFSRepoDBClose(repo, &conn);
 //	uint64_t const now = uv_hrtime();
 //	fprintf(stderr, "Query in %f ms\n", (now-then) / 1000.0 / 1000.0);
@@ -262,42 +262,42 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	EFSConnection const *conn = EFSRepoDBOpen(repo);
 	int rc;
-	MDB_txn *txn = NULL;
-	rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
-	if(MDB_SUCCESS != rc) {
-		fprintf(stderr, "Transaction error %s\n", mdb_strerror(rc));
+	DB_txn *txn = NULL;
+	rc = db_txn_begin(conn->env, NULL, DB_RDONLY, &txn);
+	if(DB_SUCCESS != rc) {
+		fprintf(stderr, "Transaction error %s\n", db_strerror(rc));
 		EFSRepoDBClose(repo, &conn);
 		return -1;
 	}
 
 	uint64_t const URI_id = db_string_id(txn, URI);
 	if(!URI_id) {
-		mdb_txn_abort(txn); txn = NULL;
+		db_txn_abort(txn); txn = NULL;
 		EFSRepoDBClose(repo, &conn);
 		return -1;
 	}
 
-	MDB_cursor *cursor;
-	rc = mdb_cursor_open(txn, MDB_MAIN_DBI, &cursor);
+	DB_cursor *cursor;
+	rc = db_cursor_open(txn, &cursor);
 	assert(!rc);
 	DB_RANGE(fileIDs, 2);
 	db_bind(fileIDs->min, EFSURIAndFileID);
 	db_bind(fileIDs->max, EFSURIAndFileID);
 	db_bind(fileIDs->min, URI_id+0);
 	db_bind(fileIDs->max, URI_id+1);
-	MDB_val URIAndFileID_key[1];
+	DB_val URIAndFileID_key[1];
 	rc = db_cursor_firstr(cursor, fileIDs, URIAndFileID_key, NULL, +1);
-	mdb_cursor_close(cursor); cursor = NULL;
-	MDB_val file_val[1];
-	if(MDB_SUCCESS == rc) {
+	db_cursor_close(cursor); cursor = NULL;
+	DB_val file_val[1];
+	if(DB_SUCCESS == rc) {
 		uint64_t const fileID = db_column(URIAndFileID_key, 2);
 		DB_VAL(fileID_key, 2);
 		db_bind(fileID_key, EFSFileByID);
 		db_bind(fileID_key, fileID);
-		rc = mdb_get(txn, MDB_MAIN_DBI, fileID_key, file_val);
+		rc = db_get(txn, fileID_key, file_val);
 	}
-	if(MDB_SUCCESS != rc) {
-		mdb_txn_abort(txn); txn = NULL;
+	if(DB_SUCCESS != rc) {
+		db_txn_abort(txn); txn = NULL;
 		EFSRepoDBClose(repo, &conn);
 		return -1;
 	}
@@ -311,7 +311,7 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 		info->size = db_column(file_val, 2);
 	}
 
-	mdb_txn_abort(txn); txn = NULL;
+	db_txn_abort(txn); txn = NULL;
 	EFSRepoDBClose(repo, &conn);
 	return 0;
 }

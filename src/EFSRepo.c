@@ -67,7 +67,7 @@ void EFSRepoFree(EFSRepoRef *const repoptr) {
 	FREE(&repo->DBPath);
 
 	EFSConnection *const conn = repo->conn;
-	mdb_env_close(conn->env); conn->env = NULL;
+	db_env_close(conn->env); conn->env = NULL;
 	memset(conn, 0, sizeof(*conn));
 
 	async_mutex_free(repo->sub_mutex); repo->sub_mutex = NULL;
@@ -161,42 +161,31 @@ static void createDBConnection(EFSRepoRef const repo) {
 	assert(repo);
 
 	EFSConnection *const conn = repo->conn;
-	mdb_env_create(&conn->env);
-	mdb_env_set_mapsize(conn->env, 1024 * 1024 * 256);
-	mdb_env_set_maxreaders(conn->env, 126); // Default
-	mdb_env_set_maxdbs(conn->env, 32);
-	mdb_env_open(conn->env, repo->DBPath, MDB_NOSUBDIR, 0600);
-
-	MDB_txn *txn = NULL;
-	mdb_txn_begin(conn->env, NULL, MDB_RDWR, &txn);
-
-	MDB_dbi dbi;
-	mdb_dbi_open(txn, NULL, MDB_CREATE, &dbi);
-	assert(MDB_MAIN_DBI == dbi);
-
-	mdb_txn_commit(txn);
+	db_env_create(&conn->env);
+	db_env_set_mapsize(conn->env, 1024 * 1024 * 256);
+	db_env_open(conn->env, repo->DBPath, 0, 0600);
 }
 static void loadPulls(EFSRepoRef const repo) {
 	assert(repo);
 	EFSConnection const *conn = EFSRepoDBOpen(repo);
 	int rc;
-	MDB_txn *txn = NULL;
-	rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
-	assert(MDB_SUCCESS == rc);
+	DB_txn *txn = NULL;
+	rc = db_txn_begin(conn->env, NULL, DB_RDONLY, &txn);
+	assert(DB_SUCCESS == rc);
 
-	MDB_cursor *cur = NULL;
-	rc = mdb_cursor_open(txn, MDB_MAIN_DBI, &cur);
-	assert(MDB_SUCCESS == rc);
+	DB_cursor *cur = NULL;
+	rc = db_cursor_open(txn, &cur);
+	assert(DB_SUCCESS == rc);
 
 	DB_VAL(pulls_min, 1);
 	DB_VAL(pulls_max, 1);
 	db_bind(pulls_min, EFSPullByID+0);
 	db_bind(pulls_max, EFSPullByID+1);
 	DB_range pulls = { pulls_min, pulls_max };
-	MDB_val pullID_key[1];
-	MDB_val pull_val[1];
+	DB_val pullID_key[1];
+	DB_val pull_val[1];
 	rc = db_cursor_firstr(cur, &pulls, pullID_key, pull_val, +1);
-	for(; MDB_SUCCESS == rc; rc = db_cursor_nextr(cur, &pulls, pullID_key, pull_val, +1)) {
+	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(cur, &pulls, pullID_key, pull_val, +1)) {
 		uint64_t const pullID = db_column(pullID_key, 1);
 		uint64_t const userID = db_column(pull_val, 0);
 		strarg_t const host = db_column_text(txn, pull_val, 1);
@@ -214,13 +203,16 @@ static void loadPulls(EFSRepoRef const repo) {
 		repo->pulls[repo->pull_count++] = pull;
 	}
 
-	mdb_cursor_close(cur); cur = NULL;
-	mdb_txn_abort(txn); txn = NULL;
+	db_cursor_close(cur); cur = NULL;
+	db_txn_abort(txn); txn = NULL;
 	EFSRepoDBClose(repo, &conn);
 }
 static void debug_data(EFSConnection const *const conn) {
-	MDB_txn *txn = NULL;
-	mdb_txn_begin(conn->env, NULL, MDB_RDWR, &txn);
+	int rc;
+	DB_txn *txn = NULL;
+	rc = db_txn_begin(conn->env, NULL, DB_RDWR, &txn);
+	assert(!rc);
+	assert(txn);
 
 	uint64_t const userID = 1;
 	uint64_t const username_id = db_string_id(txn, "ben");
@@ -235,14 +227,16 @@ static void debug_data(EFSConnection const *const conn) {
 	db_bind(user_val, username_id);
 	db_bind(user_val, passhash_id); // passhash
 	db_bind(user_val, passhash_id); // token
-	mdb_put(txn, MDB_MAIN_DBI, userID_key, user_val, 0);
+	rc = db_put(txn, userID_key, user_val, 0);
+	assert(!rc);
 
 	DB_VAL(username_key, 2);
 	db_bind(username_key, EFSUserIDByName);
 	db_bind(username_key, username_id);
 	DB_VAL(userID_val, 1);
 	db_bind(userID_val, userID);
-	mdb_put(txn, MDB_MAIN_DBI, username_key, userID_val, 0);
+	rc = db_put(txn, username_key, userID_val, 0);
+	assert(!rc);
 
 	DB_VAL(pullID_key, 1);
 	db_bind(pullID_key, EFSPullByID);
@@ -265,8 +259,10 @@ static void debug_data(EFSConnection const *const conn) {
 	db_bind(pull_val, cookie_id);
 	db_bind(pull_val, query_id);
 
-	mdb_put(txn, MDB_MAIN_DBI, pullID_key, pull_val, 0);
+	rc = db_put(txn, pullID_key, pull_val, 0);
+	assert(!rc);
 
-	mdb_txn_commit(txn); txn = NULL;
+	rc = db_txn_commit(txn); txn = NULL;
+	assert(!rc);
 }
 

@@ -205,17 +205,17 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 
 	EFSConnection const *conn = EFSRepoDBOpen(state->blog->repo);
 	int rc;
-	MDB_txn *txn = NULL;
-	rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
-	assert(MDB_SUCCESS == rc);
+	DB_txn *txn = NULL;
+	rc = db_txn_begin(conn->env, NULL, DB_RDONLY, &txn);
+	assert(DB_SUCCESS == rc);
 
-	MDB_cursor *metafiles = NULL;
-	rc = mdb_cursor_open(txn, MDB_MAIN_DBI, &metafiles);
-	assert(MDB_SUCCESS == rc);
+	DB_cursor *metafiles = NULL;
+	rc = db_cursor_open(txn, &metafiles);
+	assert(DB_SUCCESS == rc);
 
-	MDB_cursor *values = NULL;
-	rc = mdb_cursor_open(txn, MDB_MAIN_DBI, &values);
-	assert(MDB_SUCCESS == rc);
+	DB_cursor *values = NULL;
+	rc = db_cursor_open(txn, &values);
+	assert(DB_SUCCESS == rc);
 
 	uint64_t const targetURI_id = db_string_id(txn, state->fileURI);
 	uint64_t const field_id = db_string_id(txn, var);
@@ -225,10 +225,10 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 	db_bind(metaFileIDs->max, EFSTargetURIAndMetaFileID);
 	db_bind(metaFileIDs->min, targetURI_id+0);
 	db_bind(metaFileIDs->max, targetURI_id+1);
-	MDB_val metaFileID_key[1];
+	DB_val metaFileID_key[1];
 	rc = db_cursor_firstr(metafiles, metaFileIDs, metaFileID_key, NULL, +1);
-	assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
-	for(; MDB_SUCCESS == rc; rc = db_cursor_nextr(metafiles, metaFileIDs, metaFileID_key, NULL, +1)) {
+	assert(DB_SUCCESS == rc || DB_NOTFOUND == rc);
+	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(metafiles, metaFileIDs, metaFileID_key, NULL, +1)) {
 		uint64_t const metaFileID = db_column(metaFileID_key, 2);
 		DB_RANGE(vrange, 3);
 		db_bind(vrange->min, EFSMetaFileIDFieldAndValue);
@@ -237,10 +237,10 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 		db_bind(vrange->max, metaFileID);
 		db_bind(vrange->min, field_id+0);
 		db_bind(vrange->max, field_id+1);
-		MDB_val value_val[1];
+		DB_val value_val[1];
 		rc = db_cursor_firstr(values, vrange, value_val, NULL, +1);
-		assert(MDB_SUCCESS == rc || MDB_NOTFOUND == rc);
-		for(; MDB_SUCCESS == rc; rc = db_cursor_nextr(values, vrange, value_val, NULL, +1)) {
+		assert(DB_SUCCESS == rc || DB_NOTFOUND == rc);
+		for(; DB_SUCCESS == rc; rc = db_cursor_nextr(values, vrange, value_val, NULL, +1)) {
 			strarg_t const value = db_column_text(txn, value_val, 3);
 			if(0 == strcmp("", value)) continue;
 			unsafe = value;
@@ -249,8 +249,8 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 		if(unsafe) break;
 	}
 
-	mdb_cursor_close(values); values = NULL;
-	mdb_cursor_close(metafiles); metafiles = NULL;
+	db_cursor_close(values); values = NULL;
+	db_cursor_close(metafiles); metafiles = NULL;
 
 	if(!unsafe) {
 		if(0 == strcmp(var, "thumbnailURI")) unsafe = "/file.png";
@@ -259,7 +259,7 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 	}
 	str_t *result = htmlenc(unsafe);
 
-	mdb_txn_abort(txn); txn = NULL;
+	db_txn_abort(txn); txn = NULL;
 	EFSRepoDBClose(state->blog->repo, &conn);
 	return result;
 }

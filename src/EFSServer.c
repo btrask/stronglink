@@ -151,9 +151,9 @@ static count_t getURIs(EFSSessionRef const session, EFSFilterRef const filter, i
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	EFSConnection const *conn = EFSRepoDBOpen(repo);
 	assert(conn);
-	MDB_txn *txn = NULL;
-	int rc = mdb_txn_begin(conn->env, NULL, MDB_RDONLY, &txn);
-	assertf(MDB_SUCCESS == rc, "Database error %s", mdb_strerror(rc));
+	DB_txn *txn = NULL;
+	int rc = db_txn_begin(conn->env, NULL, DB_RDONLY, &txn);
+	assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
 
 	EFSFilterPrepare(filter, txn, conn);
 	EFSFilterSeek(filter, dir, *sortID, *fileID);
@@ -167,7 +167,7 @@ static count_t getURIs(EFSSessionRef const session, EFSFilterRef const filter, i
 
 	EFSFilterCurrent(filter, dir, sortID, fileID);
 
-	mdb_txn_abort(txn); txn = NULL;
+	db_txn_abort(txn); txn = NULL;
 	EFSRepoDBClose(repo, &conn);
 	return count;
 }

@@ -19,7 +19,7 @@
 - (err_t)addFilterArg:(EFSFilter *const)filter {
 	return -1;
 }
-- (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn {
+- (err_t)prepare:(DB_txn *const)txn :(EFSConnection const *const)conn {
 	return 0;
 }
 @end
@@ -76,7 +76,7 @@ size_t EFSFilterToUserFilterString(EFSFilterRef const filter, str_t *const data,
 	assert(filter);
 	return [(EFSFilter *)filter getUserFilter:data :size :depth];
 }
-err_t EFSFilterPrepare(EFSFilterRef const filter, MDB_txn *const txn, EFSConnection const *const conn) {
+err_t EFSFilterPrepare(EFSFilterRef const filter, DB_txn *const txn, EFSConnection const *const conn) {
 	assert(filter);
 	return [(EFSFilter *)filter prepare:txn :conn];
 }
@@ -97,7 +97,7 @@ uint64_t EFSFilterAge(EFSFilterRef const filter, uint64_t const sortID, uint64_t
 	assert(filter);
 	return [(EFSFilter *)filter age:sortID :fileID];
 }
-str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, MDB_txn *const txn, EFSConnection const *const conn) {
+str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, DB_txn *const txn, EFSConnection const *const conn) {
 	for(;;) {
 		EFSFilterStep(filter, dir);
 		uint64_t sortID, fileID;
@@ -113,9 +113,9 @@ str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, MDB_txn *c
 		DB_VAL(fileID_key, 2);
 		db_bind(fileID_key, EFSFileByID);
 		db_bind(fileID_key, fileID);
-		MDB_val file_val[1];
-		int rc = mdb_get(txn, MDB_MAIN_DBI, fileID_key, file_val);
-		assertf(MDB_SUCCESS == rc, "Database error %s", mdb_strerror(rc));
+		DB_val file_val[1];
+		int rc = db_get(txn, fileID_key, file_val);
+		assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
 
 		strarg_t const hash = db_column_text(txn, file_val, 0);
 		assert(hash);

@@ -156,7 +156,7 @@ err_t EFSSubmissionAddFile(EFSSubmissionRef const sub) {
 	FREE(&sub->tmppath);
 	return 0;
 }
-err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const conn, MDB_txn *const txn) {
+err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const conn, DB_txn *const txn) {
 	if(!sub) return -1;
 	assertf(conn && txn, "EFSSubmissionStore DB connection required");
 	if(sub->tmppath) return -1;
@@ -176,9 +176,9 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 	db_bind(fileInfo_key, EFSFileIDByInfo);
 	db_bind(fileInfo_key, internalHash_id);
 	db_bind(fileInfo_key, type_id);
-	rc = mdb_put(txn, MDB_MAIN_DBI, fileInfo_key, dupFileID_val, MDB_NOOVERWRITE);
-	if(MDB_KEYEXIST == rc) fileID = db_column(dupFileID_val, 0);
-	else if(MDB_SUCCESS != rc) return -1;
+	rc = db_put(txn, fileInfo_key, dupFileID_val, DB_NOOVERWRITE);
+	if(DB_KEYEXIST == rc) fileID = db_column(dupFileID_val, 0);
+	else if(DB_SUCCESS != rc) return -1;
 
 	DB_VAL(fileID_key, 2);
 	db_bind(fileID_key, EFSFileByID);
@@ -187,27 +187,27 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 	db_bind(file_val, internalHash_id);
 	db_bind(file_val, type_id);
 	db_bind(file_val, sub->size);
-	rc = mdb_put(txn, MDB_MAIN_DBI, fileID_key, file_val, MDB_NOOVERWRITE);
-	if(MDB_SUCCESS != rc && MDB_KEYEXIST != rc) return -1;
+	rc = db_put(txn, fileID_key, file_val, DB_NOOVERWRITE);
+	if(DB_SUCCESS != rc && DB_KEYEXIST != rc) return -1;
 
 	for(index_t i = 0; sub->URIs[i]; ++i) {
 		strarg_t const URI = sub->URIs[i];
 		uint64_t const URI_id = db_string_id(txn, URI);
-		MDB_val null = { 0, NULL };
+		DB_val null = { 0, NULL };
 
 		DB_VAL(fwd, 3);
 		db_bind(fwd, EFSFileIDAndURI);
 		db_bind(fwd, fileID);
 		db_bind(fwd, URI_id);
-		rc = mdb_put(txn, MDB_MAIN_DBI, fwd, &null, MDB_NOOVERWRITE);
-		assert(MDB_SUCCESS == rc || MDB_KEYEXIST == rc);
+		rc = db_put(txn, fwd, &null, DB_NOOVERWRITE);
+		assert(DB_SUCCESS == rc || DB_KEYEXIST == rc);
 
 		DB_VAL(rev, 1);
 		db_bind(rev, EFSURIAndFileID);
 		db_bind(rev, URI_id);
 		db_bind(rev, fileID);
-		rc = mdb_put(txn, MDB_MAIN_DBI, rev, &null, MDB_NOOVERWRITE);
-		assert(MDB_SUCCESS == rc || MDB_KEYEXIST == rc);
+		rc = db_put(txn, rev, &null, DB_NOOVERWRITE);
+		assert(DB_SUCCESS == rc || DB_KEYEXIST == rc);
 	}
 
 	// TODO: Store fileIDByType
@@ -359,9 +359,9 @@ err_t EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const 
 	EFSRepoRef const repo = EFSSessionGetRepo(list[0]->session);
 	EFSConnection const *conn = EFSRepoDBOpen(repo);
 	int rc;
-	MDB_txn *txn = NULL;
-	rc = mdb_txn_begin(conn->env, NULL, MDB_RDWR, &txn);
-	if(MDB_SUCCESS != rc) {
+	DB_txn *txn = NULL;
+	rc = db_txn_begin(conn->env, NULL, DB_RDWR, &txn);
+	if(DB_SUCCESS != rc) {
 		EFSRepoDBClose(repo, &conn);
 		return -1;
 	}
@@ -376,10 +376,10 @@ err_t EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const 
 		if(metaFileID > sortID) sortID = metaFileID;
 	}
 	if(err < 0) {
-		mdb_txn_abort(txn); txn = NULL;
+		db_txn_abort(txn); txn = NULL;
 	} else {
-		rc = mdb_txn_commit(txn); txn = NULL;
-		if(MDB_SUCCESS != rc) err = -1;
+		rc = db_txn_commit(txn); txn = NULL;
+		if(DB_SUCCESS != rc) err = -1;
 	}
 	EFSRepoDBClose(repo, &conn);
 	if(err >= 0) EFSRepoSubmissionEmit(repo, sortID);

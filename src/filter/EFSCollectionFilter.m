@@ -38,7 +38,7 @@ static int filtercmp_rev(EFSFilter *const *const a, EFSFilter *const *const b) {
 	return 0;
 }
 
-- (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn {
+- (err_t)prepare:(DB_txn *const)txn :(EFSConnection const *const)conn {
 	if([super prepare:txn :conn] < 0) return -1;
 	for(index_t i = 0; i < count; ++i) {
 		if([filters[i] prepare:txn :conn] < 0) return -1;

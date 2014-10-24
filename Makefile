@@ -22,11 +22,13 @@ TOOLS_DIR := $(ROOT_DIR)/tools
 HEADERS := \
 	$(SRC_DIR)/common.h \
 	$(SRC_DIR)/async/async.h \
+	$(SRC_DIR)/db/db_base.h \
+	$(SRC_DIR)/db/db_ext.h \
+	$(SRC_DIR)/db/db_schema.h \
+	$(SRC_DIR)/filter/EFSFilter.h \
 	$(SRC_DIR)/bcrypt.h \
 	$(SRC_DIR)/EarthFS.h \
-	$(SRC_DIR)/filter/EFSFilter.h \
 	$(SRC_DIR)/Template.h \
-	$(SRC_DIR)/db.h \
 	$(SRC_DIR)/fts.h \
 	$(SRC_DIR)/strndup.h \
 	$(SRC_DIR)/http/status.h \
@@ -52,6 +54,9 @@ OBJECTS := \
 	$(BUILD_DIR)/EFSSubmission.o \
 	$(BUILD_DIR)/EFSHasher.o \
 	$(BUILD_DIR)/EFSMetaFile.o \
+	$(BUILD_DIR)/db/db_base_mdb.o \
+	$(BUILD_DIR)/db/db_ext.o \
+	$(BUILD_DIR)/db/db_schema.o \
 	$(BUILD_DIR)/filter/EFSFilter.o \
 	$(BUILD_DIR)/filter/EFSIndividualFilter.o \
 	$(BUILD_DIR)/filter/EFSCollectionFilter.o \
@@ -61,7 +66,6 @@ OBJECTS := \
 	$(BUILD_DIR)/EFSPull.o \
 	$(BUILD_DIR)/EFSServer.o \
 	$(BUILD_DIR)/Template.o \
-	$(BUILD_DIR)/db.o \
 	$(BUILD_DIR)/fts.o \
 	$(BUILD_DIR)/strndup.o \
 	$(BUILD_DIR)/async/async.o \

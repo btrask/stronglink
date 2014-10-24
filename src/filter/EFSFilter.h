@@ -24,7 +24,7 @@
 - (void)print:(count_t const)depth;
 - (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth;
 
-- (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn;
+- (err_t)prepare:(DB_txn *const)txn :(EFSConnection const *const)conn;
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
 - (void)step:(int const)dir;
@@ -33,14 +33,14 @@
 
 @interface EFSIndividualFilter : EFSFilter
 {
-	MDB_cursor *step_target;
-	MDB_cursor *step_files;
-	MDB_cursor *age_uris;
-	MDB_cursor *age_metafiles;
+	DB_cursor *step_target;
+	DB_cursor *step_files;
+	DB_cursor *age_uris;
+	DB_cursor *age_metafiles;
 }
 - (EFSFilter *)unwrap;
 
-- (err_t)prepare:(MDB_txn *const)txn :(EFSConnection const *const)conn;
+- (err_t)prepare:(DB_txn *const)txn :(EFSConnection const *const)conn;
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
 - (void)step:(int const)dir;
@@ -55,7 +55,7 @@
 
 @interface EFSAllFilter : EFSIndividualFilter
 {
-	MDB_cursor *metafiles;
+	DB_cursor *metafiles;
 }
 @end
 
@@ -68,9 +68,9 @@ struct token {
 	struct token *tokens;
 	count_t count;
 	count_t asize;
-	MDB_cursor *metafiles;
-	MDB_cursor *phrase; // TODO
-	MDB_cursor *match;
+	DB_cursor *metafiles;
+	DB_cursor *phrase; // TODO
+	DB_cursor *match;
 }
 @end
 
@@ -80,8 +80,8 @@ struct token {
 	str_t *value;
 	uint64_t field_id;
 	uint64_t value_id;
-	MDB_cursor *metafiles;
-	MDB_cursor *match;
+	DB_cursor *metafiles;
+	DB_cursor *match;
 }
 @end
 
@@ -123,33 +123,6 @@ static uint64_t invalid(int const dir) {
 	if(dir < 0) return 0;
 	if(dir > 0) return UINT64_MAX;
 	assert(9 && "Invalid dir");
-	return 0;
-}
-static MDB_cursor_op op(int const dir, MDB_cursor_op const x) {
-	switch(x) {
-		case MDB_PREV_DUP: return op(-dir, MDB_NEXT_DUP);
-		case MDB_NEXT_DUP:
-			if(dir < 0) return MDB_PREV_DUP;
-			if(dir > 0) return MDB_NEXT_DUP;
-			break;
-		case MDB_FIRST_DUP: return op(-dir, MDB_LAST_DUP);
-		case MDB_LAST_DUP:
-			if(dir < 0) return MDB_FIRST_DUP;
-			if(dir > 0) return MDB_LAST_DUP;
-			break;
-		case MDB_PREV: return op(-dir, MDB_NEXT);
-		case MDB_NEXT:
-			if(dir < 0) return MDB_PREV;
-			if(dir > 0) return MDB_NEXT;
-			break;
-		case MDB_FIRST: return op(-dir, MDB_LAST);
-		case MDB_LAST:
-			if(dir < 0) return MDB_FIRST;
-			if(dir > 0) return MDB_LAST;
-			break;
-		default: break;
-	}
-	assert(0);
 	return 0;
 }
 
