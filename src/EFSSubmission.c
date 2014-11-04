@@ -177,18 +177,19 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 	db_bind(fileInfo_key, internalHash_id);
 	db_bind(fileInfo_key, type_id);
 	rc = db_put(txn, fileInfo_key, dupFileID_val, DB_NOOVERWRITE);
-	if(DB_KEYEXIST == rc) fileID = db_column(dupFileID_val, 0);
-	else if(DB_SUCCESS != rc) return -1;
-
-	DB_VAL(fileID_key, 2);
-	db_bind(fileID_key, EFSFileByID);
-	db_bind(fileID_key, fileID);
-	DB_VAL(file_val, 3);
-	db_bind(file_val, internalHash_id);
-	db_bind(file_val, type_id);
-	db_bind(file_val, sub->size);
-	rc = db_put(txn, fileID_key, file_val, DB_NOOVERWRITE);
-	if(DB_SUCCESS != rc && DB_KEYEXIST != rc) return -1;
+	if(DB_SUCCESS == rc) {
+		DB_VAL(fileID_key, 2);
+		db_bind(fileID_key, EFSFileByID);
+		db_bind(fileID_key, fileID);
+		DB_VAL(file_val, 3);
+		db_bind(file_val, internalHash_id);
+		db_bind(file_val, type_id);
+		db_bind(file_val, sub->size);
+		rc = db_put(txn, fileID_key, file_val, EFS_NOOVERWRITE_FAST);
+		if(DB_SUCCESS != rc) return -1;
+	} else if(DB_KEYEXIST == rc) {
+		fileID = db_column(dupFileID_val, 0);
+	} else return -1;
 
 	for(index_t i = 0; sub->URIs[i]; ++i) {
 		strarg_t const URI = sub->URIs[i];
@@ -199,14 +200,14 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 		db_bind(fwd, EFSFileIDAndURI);
 		db_bind(fwd, fileID);
 		db_bind(fwd, URI_id);
-		rc = db_put(txn, fwd, &null, DB_NOOVERWRITE);
+		rc = db_put(txn, fwd, &null, EFS_NOOVERWRITE_FAST);
 		assert(DB_SUCCESS == rc || DB_KEYEXIST == rc);
 
 		DB_VAL(rev, 1);
 		db_bind(rev, EFSURIAndFileID);
 		db_bind(rev, URI_id);
 		db_bind(rev, fileID);
-		rc = db_put(txn, rev, &null, DB_NOOVERWRITE);
+		rc = db_put(txn, rev, &null, EFS_NOOVERWRITE_FAST);
 		assert(DB_SUCCESS == rc || DB_KEYEXIST == rc);
 	}
 

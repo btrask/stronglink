@@ -15,6 +15,12 @@ typedef struct EFSFilter* EFSFilterRef;
 typedef struct EFSJSONFilterParser* EFSJSONFilterParserRef;
 typedef struct EFSPull* EFSPullRef;
 
+#if 0
+#define EFS_NOOVERWRITE_FAST DB_NOOVERWRITE
+#else
+#define EFS_NOOVERWRITE_FAST 0
+#endif
+
 typedef struct {
 	DB_env *env;
 } EFSConnection;

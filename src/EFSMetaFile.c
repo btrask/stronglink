@@ -250,21 +250,21 @@ static uint64_t add_metafile(DB_txn *const txn, EFSConnection const *const conn,
 	DB_VAL(metaFile_val, 2);
 	db_bind(metaFile_val, fileID);
 	db_bind(metaFile_val, targetURI_id);
-	rc = db_put(txn, metaFileID_key, metaFile_val, DB_NOOVERWRITE);
+	rc = db_put(txn, metaFileID_key, metaFile_val, EFS_NOOVERWRITE_FAST);
 	assert(!rc);
 
 	DB_VAL(fileID_key, 3);
 	db_bind(fileID_key, EFSFileIDAndMetaFileID);
 	db_bind(fileID_key, fileID);
 	db_bind(fileID_key, metaFileID);
-	rc = db_put(txn, fileID_key, &null, DB_NOOVERWRITE);
+	rc = db_put(txn, fileID_key, &null, EFS_NOOVERWRITE_FAST);
 	assert(!rc);
 
 	DB_VAL(targetURI_key, 3);
 	db_bind(targetURI_key, EFSTargetURIAndMetaFileID);
 	db_bind(targetURI_key, targetURI_id);
 	db_bind(targetURI_key, metaFileID);
-	rc = db_put(txn, targetURI_key, &null, DB_NOOVERWRITE);
+	rc = db_put(txn, targetURI_key, &null, EFS_NOOVERWRITE_FAST);
 	assert(!rc);
 
 	return metaFileID;
@@ -284,7 +284,7 @@ static void add_metadata(DB_txn *const txn, EFSConnection const *const conn, uin
 	db_bind(fwd, metaFileID);
 	db_bind(fwd, field_id);
 	db_bind(fwd, value_id);
-	rc = db_put(txn, fwd, &null, DB_NOOVERWRITE);
+	rc = db_put(txn, fwd, &null, EFS_NOOVERWRITE_FAST);
 	assertf(DB_SUCCESS == rc || DB_KEYEXIST == rc, "Database error %s", db_strerror(rc));
 
 	DB_VAL(rev, 4);
@@ -292,7 +292,7 @@ static void add_metadata(DB_txn *const txn, EFSConnection const *const conn, uin
 	db_bind(rev, field_id);
 	db_bind(rev, value_id);
 	db_bind(rev, metaFileID);
-	rc = db_put(txn, rev, &null, DB_NOOVERWRITE);
+	rc = db_put(txn, rev, &null, EFS_NOOVERWRITE_FAST);
 	assertf(DB_SUCCESS == rc || DB_KEYEXIST == rc, "Database error %s", db_strerror(rc));
 }
 static void add_fulltext(DB_txn *const txn, EFSConnection const *const conn, uint64_t const metaFileID, strarg_t const str, size_t const len) {
@@ -325,7 +325,7 @@ static void add_fulltext(DB_txn *const txn, EFSConnection const *const conn, uin
 		db_bind(token_val, metaFileID);
 		db_bind(token_val, 0); // TODO: Record tpos. Requires changes to EFSFulltextFilter so that each document only gets returned once, no matter how many times the token appears within it.
 		DB_val null = { 0, NULL };
-		rc = db_cursor_put(cursor, token_val, &null, DB_NOOVERWRITE);
+		rc = db_cursor_put(cursor, token_val, &null, EFS_NOOVERWRITE_FAST);
 		assert(DB_SUCCESS == rc || DB_KEYEXIST == rc);
 	}
 

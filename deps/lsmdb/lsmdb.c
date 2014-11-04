@@ -311,7 +311,7 @@ static int lsmdb_cursor_del0(LSMDB_cursor *const cursor, MDB_val const *const ke
 int lsmdb_get(LSMDB_txn *const txn, MDB_val const *const key, MDB_val *const data) {
 	int rc = lsmdb_txn_cursor(txn, NULL);
 	if(MDB_SUCCESS != rc) return rc;
-	return lsmdb_cursor_get(txn->cursor, (MDB_val *)key, data, MDB_SET);
+	return lsmdb_cursor_seek(txn->cursor, (MDB_val *)key, data, 0);
 }
 int lsmdb_put(LSMDB_txn *const txn, MDB_val const *const key, MDB_val const *const data, unsigned const flags) {
 	int rc = lsmdb_txn_cursor(txn, NULL);
@@ -545,7 +545,7 @@ int lsmdb_cursor_put(LSMDB_cursor *const cursor, MDB_val const *const key, MDB_v
 	LSMDB_xcursor *const xc = cursor->cursors[0];
 	if(!xc->cursor) return EINVAL; // Should never happen.
 	if(MDB_NOOVERWRITE & flags) {
-		int rc = lsmdb_cursor_get(cursor, (MDB_val *)key, NULL, MDB_SET);
+		int rc = lsmdb_cursor_seek(cursor, (MDB_val *)key, NULL, 0);
 		if(MDB_SUCCESS == rc) return MDB_KEYEXIST;
 		if(MDB_NOTFOUND != rc) return rc;
 	}
