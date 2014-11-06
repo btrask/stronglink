@@ -186,6 +186,7 @@ static void loadPulls(EFSRepoRef const repo) {
 	DB_val pull_val[1];
 	rc = db_cursor_firstr(cur, &pulls, pullID_key, pull_val, +1);
 	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(cur, &pulls, pullID_key, pull_val, +1)) {
+		assert(EFSPullByID == db_column(pullID_key, 0));
 		uint64_t const pullID = db_column(pullID_key, 1);
 		uint64_t const userID = db_column(pull_val, 0);
 		strarg_t const host = db_column_text(txn, pull_val, 1);
