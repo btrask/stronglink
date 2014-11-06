@@ -175,7 +175,7 @@ static void loadPulls(EFSRepoRef const repo) {
 
 	DB_cursor *cur = NULL;
 	rc = db_cursor_open(txn, &cur);
-	assert(DB_SUCCESS == rc);
+	assertf(DB_SUCCESS == rc, "Database error %s\n", db_strerror(rc));
 
 	DB_VAL(pulls_min, 1);
 	DB_VAL(pulls_max, 1);

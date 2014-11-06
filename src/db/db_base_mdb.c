@@ -152,7 +152,7 @@ int db_cursor_next(DB_cursor *const cursor, DB_val *const key, DB_val *const dat
 	return mdb_cursor_get((MDB_cursor *)cursor, (MDB_val *)key, (MDB_val *)data, op);
 }
 
-int db_cursor_put(DB_cursor *const cursor, DB_val const *const key, DB_val const *const data, unsigned const flags) {
+int db_cursor_put(DB_cursor *const cursor, DB_val *const key, DB_val *const data, unsigned const flags) {
 	return mdb_cursor_put((MDB_cursor *)cursor, (MDB_val *)key, (MDB_val *)data, flags);
 }
 int db_cursor_del(DB_cursor *const cursor) {

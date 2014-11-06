@@ -48,7 +48,7 @@ int db_cursor_seek(DB_cursor *const cursor, DB_val *const key, DB_val *const dat
 int db_cursor_first(DB_cursor *const cursor, DB_val *const key, DB_val *const data, int const dir);
 int db_cursor_next(DB_cursor *const cursor, DB_val *const key, DB_val *const data, int const dir);
 
-int db_cursor_put(DB_cursor *const cursor, DB_val const *const key, DB_val const *const data, unsigned const flags);
+int db_cursor_put(DB_cursor *const cursor, DB_val *const key, DB_val *const data, unsigned const flags);
 int db_cursor_del(DB_cursor *const cursor);
 
 char const *db_strerror(int const err);

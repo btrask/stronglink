@@ -80,7 +80,7 @@ int db_cursor_next(DB_cursor *const cursor, DB_val *const key, DB_val *const dat
 	return lsmdb_cursor_next((LSMDB_cursor *)cursor, (MDB_val *)key, (MDB_val *)data, dir);
 }
 
-int db_cursor_put(DB_cursor *const cursor, DB_val const *const key, DB_val const *const data, unsigned const flags) {
+int db_cursor_put(DB_cursor *const cursor, DB_val *const key, DB_val *const data, unsigned const flags) {
 	return lsmdb_cursor_put((LSMDB_cursor *)cursor, (MDB_val *)key, (MDB_val *)data, flags);
 }
 int db_cursor_del(DB_cursor *const cursor) {
