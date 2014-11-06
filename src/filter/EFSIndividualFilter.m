@@ -69,6 +69,7 @@
 	DB_val fileID_key[1];
 	rc = db_cursor_current(step_files, fileID_key, NULL);
 	if(DB_SUCCESS == rc) {
+		assert(EFSURIAndFileID == db_column(fileID_key, 0));
 		uint64_t const targetURI_id = db_column(fileID_key, 1);
 		DB_RANGE(fileIDs, 2);
 		db_bind(fileIDs->min, EFSURIAndFileID);
@@ -112,6 +113,8 @@
 	assert(DB_SUCCESS == rc || DB_NOTFOUND == rc);
 
 	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(age_uris, URIs, URI_val, NULL, +1)) {
+		assert(EFSFileIDAndURI == db_column(URI_val, 0));
+		assert(fileID == db_column(URI_val, 1));
 		uint64_t const targetURI_id = db_column(URI_val, 2);
 
 		DB_RANGE(metafiles, 2);
@@ -123,6 +126,8 @@
 		rc = db_cursor_firstr(age_metafiles, metafiles, metaFileID_key, NULL, +1);
 		assert(DB_SUCCESS == rc || DB_NOTFOUND == rc);
 		for(; DB_SUCCESS == rc; rc = db_cursor_nextr(age_metafiles, metafiles, metaFileID_key, NULL, +1)) {
+			assert(EFSTargetURIAndMetaFileID == db_column(metaFileID_key, 0));
+			assert(targetURI_id == db_column(metaFileID_key, 1));
 			uint64_t const metaFileID = db_column(metaFileID_key, 2);
 			if(metaFileID > sortID) break;
 			if(![self match:metaFileID]) continue;
@@ -167,12 +172,14 @@
 	db_bind(sortID_key, sortID);
 	int rc = db_cursor_seekr(metafiles, range, sortID_key, NULL, dir);
 	if(DB_SUCCESS != rc) return invalid(dir);
+	assert(EFSMetaFileByID == db_column(sortID_key, 0));
 	return db_column(sortID_key, 1);
 }
 - (uint64_t)currentMeta:(int const)dir {
 	DB_val sortID_key[1];
 	int rc = db_cursor_current(metafiles, sortID_key, NULL);
 	if(DB_SUCCESS != rc) return invalid(dir);
+	assert(EFSMetaFileByID == db_column(sortID_key, 0));
 	return db_column(sortID_key, 1);
 }
 - (uint64_t)stepMeta:(int const)dir {
@@ -182,6 +189,7 @@
 	DB_val sortID_key[1];
 	int rc = db_cursor_nextr(metafiles, range, sortID_key, NULL, dir);
 	if(DB_SUCCESS != rc) return invalid(dir);
+	assert(EFSMetaFileByID == db_column(sortID_key, 0));
 	return db_column(sortID_key, 1);
 }
 - (bool_t)match:(uint64_t const)metaFileID {
@@ -270,12 +278,16 @@
 	db_bind(sortID_key, sortID); // TODO: In order to handle seeking backwards over document with several matching positions, we need to use sortID+1... But sortID might be UINT64_MAX, so be careful.
 	int rc = db_cursor_seekr(metafiles, range, sortID_key, NULL, dir);
 	if(DB_SUCCESS != rc) return invalid(dir);
+	assert(EFSTermMetaFileIDAndPosition == db_column(sortID_key, 0));
+	assert(tokens[0].tid == db_column(sortID_key, 1));
 	return db_column(sortID_key, 2);
 }
 - (uint64_t)currentMeta:(int const)dir {
 	DB_val sortID_key[1];
 	int rc = db_cursor_current(metafiles, sortID_key, NULL);
 	if(DB_SUCCESS != rc) return invalid(dir);
+	assert(EFSTermMetaFileIDAndPosition == db_column(sortID_key, 0));
+	assert(tokens[0].tid == db_column(sortID_key, 1));
 	return db_column(sortID_key, 2);
 }
 - (uint64_t)stepMeta:(int const)dir {
@@ -287,6 +299,8 @@
 	DB_val sortID_key[1];
 	int rc = db_cursor_nextr(metafiles, range, sortID_key, NULL, dir);
 	if(DB_SUCCESS != rc) return invalid(dir);
+	assert(EFSTermMetaFileIDAndPosition == db_column(sortID_key, 0));
+	assert(tokens[0].tid == db_column(sortID_key, 1));
 	return db_column(sortID_key, 2);
 }
 - (bool_t)match:(uint64_t const)metaFileID {
@@ -374,12 +388,18 @@
 	db_bind(metadata_key, sortID);
 	int rc = db_cursor_seekr(metafiles, range, metadata_key, NULL, dir);
 	if(DB_SUCCESS != rc) return invalid(dir);
+	assert(EFSFieldValueAndMetaFileID == db_column(metadata_key, 0));
+	assert(field_id == db_column(metadata_key, 1));
+	assert(value_id == db_column(metadata_key, 2));
 	return db_column(metadata_key, 3);
 }
 - (uint64_t)currentMeta:(int const)dir {
 	DB_val metadata_key[1];
 	int rc = db_cursor_current(metafiles, metadata_key, NULL);
 	if(DB_SUCCESS != rc) return invalid(dir);
+	assert(EFSFieldValueAndMetaFileID == db_column(metadata_key, 0));
+	assert(field_id == db_column(metadata_key, 1));
+	assert(value_id == db_column(metadata_key, 2));
 	return db_column(metadata_key, 3);
 }
 - (uint64_t)stepMeta:(int const)dir {
@@ -393,6 +413,9 @@
 	DB_val metadata_key[1];
 	int rc = db_cursor_nextr(metafiles, range, metadata_key, NULL, dir);
 	if(DB_SUCCESS != rc) return invalid(dir);
+	assert(EFSFieldValueAndMetaFileID == db_column(metadata_key, 0));
+	assert(field_id == db_column(metadata_key, 1));
+	assert(value_id == db_column(metadata_key, 2));
 	return db_column(metadata_key, 3);
 }
 - (bool_t)match:(uint64_t const)metaFileID {

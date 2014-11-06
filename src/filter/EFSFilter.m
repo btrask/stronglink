@@ -118,8 +118,10 @@ str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, DB_txn *co
 
 		strarg_t const hash = db_column_text(txn, file_val, 0);
 		assert(hash);
+		str_t *const URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
+		assert(URI);
 		EFSFilterStep(filter, dir);
-		return EFSFormatURI(EFS_INTERNAL_ALGO, hash);
+		return URI;
 	}
 }
 
