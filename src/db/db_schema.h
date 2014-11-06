@@ -12,6 +12,12 @@
 	DB_VAL(__max_##name, cols); \
 	DB_range name[1] = {{ __min_##name, __max_##name }}
 
+#if 0
+#define DB_NOOVERWRITE_FAST DB_NOOVERWRITE
+#else
+#define DB_NOOVERWRITE_FAST 0
+#endif
+
 typedef uint64_t dbid_t;
 enum {
 	/* 0-19 are reserved. */

@@ -117,7 +117,7 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	DB_VAL(session_val, 2);
 	db_bind(session_val, userID);
 	db_bind(session_val, sessionHash_id);
-	rc = db_put(txn, sessionID_key, session_val, EFS_NOOVERWRITE_FAST);
+	rc = db_put(txn, sessionID_key, session_val, DB_NOOVERWRITE_FAST);
 	if(DB_SUCCESS != rc) {
 		db_txn_abort(txn); txn = NULL;
 		EFSRepoDBClose(repo, &conn);

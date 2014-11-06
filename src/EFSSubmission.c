@@ -185,7 +185,7 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 		db_bind(file_val, internalHash_id);
 		db_bind(file_val, type_id);
 		db_bind(file_val, sub->size);
-		rc = db_put(txn, fileID_key, file_val, EFS_NOOVERWRITE_FAST);
+		rc = db_put(txn, fileID_key, file_val, DB_NOOVERWRITE_FAST);
 		if(DB_SUCCESS != rc) return -1;
 	} else if(DB_KEYEXIST == rc) {
 		fileID = db_column(dupFileID_val, 0);
@@ -200,14 +200,14 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 		db_bind(fwd, EFSFileIDAndURI);
 		db_bind(fwd, fileID);
 		db_bind(fwd, URI_id);
-		rc = db_put(txn, fwd, &null, EFS_NOOVERWRITE_FAST);
+		rc = db_put(txn, fwd, &null, DB_NOOVERWRITE_FAST);
 		assert(DB_SUCCESS == rc || DB_KEYEXIST == rc);
 
 		DB_VAL(rev, 1);
 		db_bind(rev, EFSURIAndFileID);
 		db_bind(rev, URI_id);
 		db_bind(rev, fileID);
-		rc = db_put(txn, rev, &null, EFS_NOOVERWRITE_FAST);
+		rc = db_put(txn, rev, &null, DB_NOOVERWRITE_FAST);
 		assert(DB_SUCCESS == rc || DB_KEYEXIST == rc);
 	}
 
