@@ -287,15 +287,17 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 	db_bind(fileIDs->max, URI_id+1);
 	DB_val URIAndFileID_key[1];
 	rc = db_cursor_firstr(cursor, fileIDs, URIAndFileID_key, NULL, +1);
-	db_cursor_close(cursor); cursor = NULL;
 	DB_val file_val[1];
 	if(DB_SUCCESS == rc) {
+		assert(EFSURIAndFileID == db_column(URIAndFileID_key, 0));
+		assert(URI_id == db_column(URIAndFileID_key, 1));
 		uint64_t const fileID = db_column(URIAndFileID_key, 2);
 		DB_VAL(fileID_key, 2);
 		db_bind(fileID_key, EFSFileByID);
 		db_bind(fileID_key, fileID);
 		rc = db_get(txn, fileID_key, file_val);
 	}
+	db_cursor_close(cursor); cursor = NULL;
 	if(DB_SUCCESS != rc) {
 		db_txn_abort(txn); txn = NULL;
 		EFSRepoDBClose(repo, &conn);

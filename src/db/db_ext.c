@@ -30,7 +30,8 @@ int db_cursor_firstr(DB_cursor *const cursor, DB_range const *const range, DB_va
 	DB_val k = *first;
 	int rc = db_cursor_seek(cursor, &k, data, dir);
 	if(DB_SUCCESS != rc) return rc;
-	int x = db_cursor_cmp(cursor, first, &k);
+	int x = db_cursor_cmp(cursor, &k, first);
+	assert(x * dir >= 0);
 	if(0 == x) {
 		rc = db_cursor_next(cursor, &k, data, dir);
 		if(DB_SUCCESS != rc) return rc;
