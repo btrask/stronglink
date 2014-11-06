@@ -451,11 +451,14 @@ static int db_cursor_update(DB_cursor *const cursor, int const rc1, MDB_val cons
 }
 int db_cursor_current(DB_cursor *const cursor, DB_val *const key, DB_val *const data) {
 	if(!cursor) return DB_EINVAL;
+	int rc;
 	switch(cursor->state) {
 		case S_INVALID: return DB_NOTFOUND;
 		case S_EQUAL:
 		case S_PENDING:
-			return mdb_cursor_get(cursor->pending, (MDB_val *)key, (MDB_val *)data, MDB_GET_CURRENT);
+			rc = mdb_cursor_get(cursor->pending, (MDB_val *)key, (MDB_val *)data, MDB_GET_CURRENT);
+			if(DB_EINVAL == rc) return DB_NOTFOUND;
+			return rc;
 		case S_PERSIST:
 			return ldb_cursor_current(cursor->persist, (MDB_val *)key, (MDB_val *)data);
 		default: assert(0); return DB_EINVAL;
@@ -489,6 +492,7 @@ int db_cursor_next(DB_cursor *const cursor, DB_val *const key, DB_val *const dat
 		rc1 = mdb_cursor_get(cursor->pending, &k1, &d1, op);
 	} else {
 		rc1 = mdb_cursor_get(cursor->pending, &k1, &d1, MDB_GET_CURRENT);
+		if(DB_EINVAL == rc1) rc1 = DB_NOTFOUND;
 	}
 	if(S_PENDING != cursor->state) {
 		rc2 = ldb_cursor_next(cursor->persist, &k2, &d2, dir);
