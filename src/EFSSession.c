@@ -278,7 +278,7 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 	}
 
 	DB_cursor *cursor;
-	rc = db_cursor_open(txn, &cursor);
+	rc = db_txn_cursor(txn, &cursor);
 	assert(!rc);
 	DB_RANGE(fileIDs, 2);
 	db_bind(fileIDs->min, EFSURIAndFileID);
@@ -297,7 +297,6 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 		db_bind(fileID_key, fileID);
 		rc = db_get(txn, fileID_key, file_val);
 	}
-	db_cursor_close(cursor); cursor = NULL;
 	if(DB_SUCCESS != rc) {
 		db_txn_abort(txn); txn = NULL;
 		EFSRepoDBClose(repo, &conn);
