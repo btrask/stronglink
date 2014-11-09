@@ -121,7 +121,7 @@ int db_cursor_cmp(DB_cursor *const cursor, DB_val const *const a, DB_val const *
 int db_cursor_current(DB_cursor *const cursor, DB_val *const key, DB_val *const data) {
 	if(!cursor) return DB_EINVAL;
 	int rc = mdb_cursor_get((MDB_cursor *)cursor, (MDB_val *)key, (MDB_val *)data, MDB_GET_CURRENT);
-	if(MDB_EINVAL == rc) return DB_NOTFOUND;
+	if(DB_EINVAL == rc) return DB_NOTFOUND;
 	return rc;
 }
 int db_cursor_seek(DB_cursor *const cursor, DB_val *const key, DB_val *const data, int const dir) {
