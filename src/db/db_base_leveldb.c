@@ -26,6 +26,7 @@ typedef struct LDB_cursor LDB_cursor;
 
 struct DB_env {
 	leveldb_options_t *opts;
+	leveldb_filterpolicy_t *filterpolicy;
 	leveldb_t *db;
 	MDB_env *tmpenv;
 	leveldb_writeoptions_t *wopts;
@@ -203,24 +204,36 @@ static int ldb_cursor_next(LDB_cursor *const cursor, MDB_val *const key, MDB_val
 int db_env_create(DB_env **const out) {
 	DB_env *env = calloc(1, sizeof(struct DB_env));
 	if(!env) return DB_ENOMEM;
+
 	env->opts = leveldb_options_create();
 	if(!env->opts) {
 		db_env_close(env);
 		return DB_ENOMEM;
 	}
+
 	leveldb_options_set_create_if_missing(env->opts, 1);
 	leveldb_options_set_compression(env->opts, leveldb_snappy_compression);
+
+	env->filterpolicy = leveldb_filterpolicy_create_bloom(10);
+	if(!env->filterpolicy) {
+		db_env_close(env);
+		return DB_ENOMEM;
+	}
+	leveldb_options_set_filter_policy(env->opts, env->filterpolicy);
+
 	int rc = mdb_env_create(&env->tmpenv);
 	if(MDB_SUCCESS != rc) {
 		db_env_close(env);
 		return rc;
 	}
+
 	env->wopts = leveldb_writeoptions_create();
 	if(!env->wopts) {
 		db_env_close(env);
 		return DB_ENOMEM;
 	}
 	leveldb_writeoptions_set_sync(env->wopts, 1);
+
 	env->cmp = compare_default;
 	*out = env;
 	return DB_SUCCESS;
@@ -257,6 +270,7 @@ int db_env_open(DB_env *const env, char const *const name, unsigned const flags,
 }
 void db_env_close(DB_env *const env) {
 	if(!env) return;
+	leveldb_filterpolicy_destroy(env->filterpolicy);
 	leveldb_options_destroy(env->opts);
 	leveldb_close(env->db);
 	leveldb_writeoptions_destroy(env->wopts);

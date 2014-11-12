@@ -114,7 +114,7 @@ LIBUV_DIR := $(DEPS_DIR)/uv/out/Debug/obj.target
 #LIBUV_DIR := $(DEPS_DIR)/uv/build/Release
 
 LIBS := -luv -lcrypto -lyajl -lpthread -lobjc -lm
-LIBS += -lleveldb -lsnappy
+LIBS += -lleveldb -lsnappy -lstdc++
 LIBS += -lrt
 
 .DEFAULT_GOAL := all
