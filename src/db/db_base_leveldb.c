@@ -115,7 +115,7 @@ static int ldb_cursor_open(leveldb_t *const db, leveldb_readoptions_t *const rop
 static void ldb_cursor_close(LDB_cursor *const cursor) {
 	if(!cursor) return;
 	for(unsigned i = 0; i < LDB_BUF_RECALL; ++i) {
-		free(cursor->bufs[i]); cursor->bufs[i] = NULL;
+		leveldb_free(cursor->bufs[i]); cursor->bufs[i] = NULL;
 	}
 	leveldb_iter_destroy(cursor->iter);
 	cursor->cmp = NULL;
@@ -131,7 +131,7 @@ static int ldb_cursor_current(LDB_cursor *const cursor, MDB_val *const key, MDB_
 	if(!cursor) return DB_EINVAL;
 	if(!cursor->valid) return DB_NOTFOUND;
 	if(key) {
-		free(cursor->bufs[cursor->offset]); cursor->bufs[cursor->offset] = NULL;
+		leveldb_free(cursor->bufs[cursor->offset]); cursor->bufs[cursor->offset] = NULL;
 
 		size_t s;
 		char const *const x = (char *)leveldb_iter_key(cursor->iter, &s);
@@ -145,7 +145,7 @@ static int ldb_cursor_current(LDB_cursor *const cursor, MDB_val *const key, MDB_
 		cursor->offset = (cursor->offset + 1) % LDB_BUF_RECALL;
 	}
 	if(val) {
-		free(cursor->bufs[cursor->offset]); cursor->bufs[cursor->offset] = NULL;
+		leveldb_free(cursor->bufs[cursor->offset]); cursor->bufs[cursor->offset] = NULL;
 
 		size_t s;
 		char const *const x = (char *)leveldb_iter_value(cursor->iter, &s);
@@ -245,7 +245,7 @@ int db_env_open(DB_env *const env, char const *const name, unsigned const flags,
 	if(!env) return DB_EINVAL;
 	char *err = NULL;
 	env->db = leveldb_open(env->opts, name, &err);
-	free(err);
+	leveldb_free(err);
 	if(!env->db || err) return -1;
 
 
@@ -346,7 +346,7 @@ int db_txn_commit(DB_txn *const txn) {
 
 	char *err = NULL;
 	leveldb_write(txn->env->db, txn->env->wopts, batch, &err);
-	free(err);
+	leveldb_free(err);
 	leveldb_writebatch_destroy(batch);
 	if(err) {
 		db_txn_abort(txn);
