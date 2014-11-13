@@ -283,7 +283,7 @@ void db_env_close(DB_env *const env) {
 	leveldb_options_destroy(env->opts);
 	leveldb_close(env->db);
 	leveldb_writeoptions_destroy(env->wopts);
-	mdb_env_close(env->tmpenv); // TODO: Unlink it, either right away or on close?
+	mdb_env_close(env->tmpenv);
 	free(env);
 }
 
