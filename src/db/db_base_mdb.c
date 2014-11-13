@@ -18,7 +18,7 @@ int db_env_set_mapsize(DB_env *const env, size_t const size) {
 	return mdb_env_set_mapsize((MDB_env *)env, size);
 }
 int db_env_open(DB_env *const env, char const *const name, unsigned const flags, unsigned const mode) {
-	int rc = mdb_env_open((MDB_env *)env, name, flags | MDB_NOSUBDIR, mode);
+	int rc = mdb_env_open((MDB_env *)env, name, flags, mode);
 	if(MDB_SUCCESS != rc) return rc;
 	MDB_txn *txn;
 	rc = mdb_txn_begin((MDB_env *)env, NULL, 0, &txn);
