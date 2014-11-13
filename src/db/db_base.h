@@ -1,6 +1,8 @@
 #include <errno.h>
 #include <sys/types.h>
 
+#define DB_NOSYNC 0x10000
+
 #define DB_RDWR 0
 #define DB_RDONLY 0x20000
 

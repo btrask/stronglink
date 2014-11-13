@@ -265,7 +265,7 @@ int db_env_open(DB_env *const env, char const *const name, unsigned const flags,
 	assert(!rc);
 
 
-	leveldb_writeoptions_set_sync(env->wopts, 1);
+	leveldb_writeoptions_set_sync(env->wopts, !(DB_NOSYNC & flags));
 	return DB_SUCCESS;
 }
 void db_env_close(DB_env *const env) {
