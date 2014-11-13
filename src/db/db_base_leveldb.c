@@ -250,21 +250,28 @@ int db_env_open(DB_env *const env, char const *const name, unsigned const flags,
 	if(!env->db || err) return -1;
 
 
-	char tmppath[512];
-	sprintf(tmppath, "%s/tmp.mdb", name); // TODO: Error checking.
+	char tmppath[512]; // TODO
+	if(snprintf(tmppath, sizeof(tmppath), "%s/tmp.mdb", name) < 0) return -1;
 	int rc = mdb_env_open(env->tmpenv, tmppath, MDB_NOSUBDIR | MDB_WRITEMAP, 0600);
 	if(MDB_SUCCESS != rc) return rc;
-	unlink(tmppath);
+	(void)unlink(tmppath);
 
 	MDB_txn *tmptxn;
 	rc = mdb_txn_begin(env->tmpenv, NULL, MDB_RDWR, &tmptxn);
-	assert(!rc);
+	if(MDB_SUCCESS != rc) return rc;
 	MDB_dbi dbi;
 	rc = mdb_dbi_open(tmptxn, NULL, 0, &dbi);
-	assert(!rc);
-	if(MDB_MAIN_DBI != dbi) assert(0); // TODO
+	if(MDB_SUCCESS != rc) {
+		mdb_txn_abort(tmptxn);
+		return rc;
+	}
+	if(MDB_MAIN_DBI != dbi) {
+		// Should never happen.
+		mdb_txn_abort(tmptxn);
+		return -1;
+	}
 	rc = mdb_txn_commit(tmptxn);
-	assert(!rc);
+	if(MDB_SUCCESS != rc) return rc;
 
 
 	leveldb_writeoptions_set_sync(env->wopts, !(DB_NOSYNC & flags));
@@ -336,7 +343,10 @@ int db_txn_commit(DB_txn *const txn) {
 	assert(txn->tmptxn);
 	MDB_cursor *cursor = NULL;
 	int rc = mdb_cursor_open(txn->tmptxn, MDB_MAIN_DBI, &cursor);
-	assert(!rc);
+	if(MDB_SUCCESS != rc) {
+		db_txn_abort(txn);
+		return rc;
+	}
 	MDB_val key[1], data[1];
 	rc = mdb_cursor_get(cursor, key, data, MDB_FIRST);
 	for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(cursor, key, data, MDB_NEXT)) {
@@ -424,7 +434,6 @@ void db_cursor_reset(DB_cursor *const cursor) {
 	ldb_cursor_close(cursor->persist); cursor->persist = NULL;
 }
 int db_cursor_renew(DB_txn *const txn, DB_cursor **const out) {
-	assert(out);
 	if(!out) return DB_EINVAL;
 	if(!*out) return db_cursor_open(txn, out);
 	DB_cursor *const cursor = *out;
