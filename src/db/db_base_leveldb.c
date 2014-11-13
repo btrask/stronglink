@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h> /* For unlink(2) */
 #include "db_base.h"
 #include <leveldb/c.h>
 #include "../../deps/lsmdb/liblmdb/lmdb.h"
@@ -253,6 +254,7 @@ int db_env_open(DB_env *const env, char const *const name, unsigned const flags,
 	sprintf(tmppath, "%s/tmp.mdb", name); // TODO: Error checking.
 	int rc = mdb_env_open(env->tmpenv, tmppath, MDB_NOSUBDIR | MDB_WRITEMAP, 0600);
 	if(MDB_SUCCESS != rc) return rc;
+	unlink(tmppath);
 
 	MDB_txn *tmptxn;
 	rc = mdb_txn_begin(env->tmpenv, NULL, MDB_RDWR, &tmptxn);
