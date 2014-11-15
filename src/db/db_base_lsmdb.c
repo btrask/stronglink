@@ -10,7 +10,7 @@ int db_env_set_mapsize(DB_env *const env, size_t const size) {
 	return lsmdb_env_set_mapsize((LSMDB_env *)env, size);
 }
 int db_env_open(DB_env *const env, char const *const name, unsigned const flags, unsigned const mode) {
-	return lsmdb_env_open((LSMDB_env *)env, name, flags, mode);
+	return lsmdb_env_open((LSMDB_env *)env, name, flags | MDB_NOSUBDIR, mode);
 }
 void db_env_close(DB_env *const env) {
 	lsmdb_env_close((LSMDB_env *)env);
