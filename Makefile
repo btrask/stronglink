@@ -55,7 +55,7 @@ OBJECTS := \
 	$(BUILD_DIR)/EFSSubmission.o \
 	$(BUILD_DIR)/EFSHasher.o \
 	$(BUILD_DIR)/EFSMetaFile.o \
-	$(BUILD_DIR)/db/db_base_rocksdb.o \
+	$(BUILD_DIR)/db/db_base_leveldb.o \
 	$(BUILD_DIR)/db/db_ext.o \
 	$(BUILD_DIR)/db/db_schema.o \
 	$(BUILD_DIR)/filter/EFSFilter.o \
@@ -115,7 +115,8 @@ LIBUV_DIR := $(DEPS_DIR)/uv/out/Debug/obj.target
 
 LIBS := -luv -lcrypto -lyajl -lpthread -lobjc -lm
 #LIBS += -lleveldb -lsnappy -lstdc++
-LIBS += -lrocksdb -lsnappy -lstdc++
+#LIBS += -lrocksdb -lsnappy -lstdc++
+LIBS += -lhyperleveldb -lsnappy -lstdc++
 LIBS += -lrt
 
 .DEFAULT_GOAL := all
