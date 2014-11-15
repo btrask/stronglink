@@ -161,9 +161,12 @@ static void createDBConnection(EFSRepoRef const repo) {
 	assert(repo);
 
 	EFSConnection *const conn = repo->conn;
-	db_env_create(&conn->env);
-	db_env_set_mapsize(conn->env, 1024 * 1024 * 256);
-	db_env_open(conn->env, repo->DBPath, 0, 0600);
+	int rc = db_env_create(&conn->env);
+	assertf(!rc, "Database error %s", db_strerror(rc));
+	rc = db_env_set_mapsize(conn->env, 1024 * 1024 * 256);
+	assertf(!rc, "Database error %s", db_strerror(rc));
+	rc = db_env_open(conn->env, repo->DBPath, 0, 0600);
+	assertf(!rc, "Database error %s", db_strerror(rc));
 }
 static void loadPulls(EFSRepoRef const repo) {
 	assert(repo);
