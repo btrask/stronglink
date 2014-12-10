@@ -54,7 +54,7 @@ EFSFilterType EFSFilterGetType(EFSFilterRef const filter) {
 }
 EFSFilterRef EFSFilterUnwrap(EFSFilterRef const filter) {
 	assert(filter);
-	return [(EFSFilter *)filter unwrap];
+	return (EFSFilterRef)[(EFSFilter *)filter unwrap];
 }
 strarg_t EFSFilterGetStringArg(EFSFilterRef const filter, index_t const i) {
 	assert(filter);
@@ -66,7 +66,7 @@ err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize
 }
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter) {
 	assert(filter);
-	return [(EFSFilter *)filter addFilterArg:subfilter];
+	return [(EFSFilter *)filter addFilterArg:(EFSFilter *)subfilter];
 }
 void EFSFilterPrint(EFSFilterRef const filter, count_t const depth) {
 	assert(filter);

@@ -10,6 +10,7 @@ CFLAGS += -g -O2 -fno-omit-frame-pointer -Wno-unused-result
 #CFLAGS += -DNDEBUG -Wno-unused-but-set-variable
 CFLAGS += -DHTTP_PARSER_DEBUG
 CFLAGS += -DLIBCO_MP
+CFLAGS += -Wno-objc-root-class
 
 BUILD_DIR := $(ROOT_DIR)/build
 SRC_DIR := $(ROOT_DIR)/src
