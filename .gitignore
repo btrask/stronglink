@@ -1,3 +1,4 @@
 build/
 perf.data
 perf.data.old
+deps/uv/uv.xcodeproj
