@@ -133,7 +133,7 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	}
 
 	str_t *cookie = NULL;
-	if(asprintf(&cookie, "%lld:%s", sessionID, sessionKey) < 0) cookie = NULL;
+	if(asprintf(&cookie, "%llu:%s", (unsigned long long)sessionID, sessionKey) < 0) cookie = NULL;
 	FREE(&sessionKey);
 	return cookie;
 }

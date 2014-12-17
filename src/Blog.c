@@ -552,19 +552,24 @@ static bool_t postSubmission(BlogRef const blog, HTTPMessageRef const msg, HTTPM
 }
 
 
+void BlogFree(BlogRef *const blogptr);
+
 BlogRef BlogCreate(EFSRepoRef const repo) {
 	assertf(repo, "Blog requires valid repo");
 
-	BlogRef const blog = calloc(1, sizeof(struct Blog));
+	BlogRef blog = calloc(1, sizeof(struct Blog));
 	if(!blog) return NULL;
 	blog->repo = repo;
 
-	// TODO: Check for failures
-
-	asprintf(&blog->dir, "%s/blog", EFSRepoGetDir(repo));
-	asprintf(&blog->staticDir, "%s/static", blog->dir);
-	asprintf(&blog->templateDir, "%s/template", blog->dir);
-	asprintf(&blog->cacheDir, "%s/blog", EFSRepoGetCacheDir(repo));
+	if(
+		asprintf(&blog->dir, "%s/blog", EFSRepoGetDir(repo)) < 0 ||
+		asprintf(&blog->staticDir, "%s/static", blog->dir) < 0 ||
+		asprintf(&blog->templateDir, "%s/template", blog->dir) < 0 ||
+		asprintf(&blog->cacheDir, "%s/blog", EFSRepoGetCacheDir(repo)) < 0
+	) {
+		BlogFree(&blog);
+		return NULL;
+	}
 
 	str_t *path = malloc(PATH_MAX);
 	snprintf(path, PATH_MAX, "%s/header.html", blog->templateDir);

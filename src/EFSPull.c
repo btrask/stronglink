@@ -322,7 +322,10 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 	}
 
 	str_t *path;
-	asprintf(&path, "/efs/file/%s/%s", algo, hash); // TODO: Error checking
+	if(asprintf(&path, "/efs/file/%s/%s", algo, hash) < 0) {
+		fprintf(stderr, "asprintf() error\n");
+		goto fail;
+	}
 	HTTPMessageWriteRequest(msg, HTTP_GET, path, pull->host);
 	FREE(&path);
 

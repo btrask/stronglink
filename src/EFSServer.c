@@ -62,7 +62,7 @@ static bool_t getFile(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMetho
 	if(HTTP_GET != method && HTTP_HEAD != method) return false;
 	str_t algo[32] = {};
 	str_t hash[256] = {};
-	size_t pathlen = 0; // TODO: correct type for scanf %n ?
+	int pathlen = 0;
 	(void)sscanf(URI, "/efs/file/%31[a-zA-Z0-9.-]/%255[a-zA-Z0-9.%_-]%n", algo, hash, &pathlen);
 	if(!pathlen) return false;
 	if('/' == URI[pathlen]) ++pathlen;

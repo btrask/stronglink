@@ -127,9 +127,12 @@ err_t TemplateWrite(TemplateRef const t, TemplateArgCBs const *const cbs, void c
 err_t TemplateWriteHTTPChunk(TemplateRef const t, TemplateArgCBs const *const cbs, void const *const actx, HTTPMessageRef const msg) {
 	return TemplateWrite(t, cbs, actx, (TemplateWritev)HTTPMessageWriteChunkv, msg);
 }
+static err_t async_fs_write_wrapper(uv_file const *const fdptr, uv_buf_t const parts[], unsigned int const count, int64_t const offset) {
+	return async_fs_write(*fdptr, parts, count, offset);
+}
 err_t TemplateWriteFile(TemplateRef const t, TemplateArgCBs const *const cbs, void const *const actx, uv_file const file) {
 	assertf(sizeof(void *) >= sizeof(file), "Can't cast uv_file (%ld) to void * (%ld)", (long)sizeof(file), (long)sizeof(void *));
-	return TemplateWrite(t, cbs, actx, (TemplateWritev)async_fs_write, (void *)file);
+	return TemplateWrite(t, cbs, actx, (TemplateWritev)async_fs_write_wrapper, (uv_file *)&file);
 }
 
 static str_t *TemplateStaticLookup(void const *const ptr, strarg_t const var) {

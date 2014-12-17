@@ -9,8 +9,8 @@ CFLAGS := -std=gnu99
 CFLAGS += -g -fno-omit-frame-pointer
 CFLAGS += -DLIBCO_MP
 
-#WARNINGS := -Werror -Wall
-#WARNINGS += -Wno-unused
+WARNINGS := -Werror -Wall
+WARNINGS += -Wno-unused
 
 ifdef RELEASE
 CFLAGS += -O2

@@ -271,7 +271,7 @@ sd_autolink__url(
 
 	if (!sd_autolink_issafe(data - rewind, size + rewind))
 		return 0;
-	hash = (0 == strncasecmp("hash://", data - rewind, rewind)); // HACK
+	hash = (0 == strncasecmp("hash://", (char const *)data - rewind, rewind)); // HACK
 
 	link_end = strlen("://");
 
