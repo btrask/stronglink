@@ -161,8 +161,12 @@ $(BUILD_DIR)/earthfs: $(OBJECTS) libuv
 
 .PHONY: libuv
 libuv:
-	cd $(DEPS_DIR)/uv && sh autogen.sh
-	cd $(DEPS_DIR)/uv && ./configure
+	# TODO: Without a separate configure script of our own, it's "correct" to call libuv's configure every single time. But it's slow.
+	if [ ! -x "$(DEPS_DIR)/uv/configure" ]; then \
+		cd $(DEPS_DIR)/uv; \
+		sh autogen.sh; \
+		./configure; \
+	fi
 	cd $(DEPS_DIR)/uv && make
 #	cd $(DEPS_DIR)/uv && make check
 
