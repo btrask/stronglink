@@ -25,7 +25,7 @@ int db_cursor_seekr(DB_cursor *const cursor, DB_range const *const range, DB_val
 	return DB_NOTFOUND;
 }
 int db_cursor_firstr(DB_cursor *const cursor, DB_range const *const range, DB_val *const key, DB_val *const data, int const dir) {
-	if(0 == dir) return EINVAL;
+	if(0 == dir) return DB_EINVAL;
 	DB_val const *const first = dir > 0 ? range->min : range->max;
 	DB_val k = *first;
 	int rc = db_cursor_seek(cursor, &k, data, dir);

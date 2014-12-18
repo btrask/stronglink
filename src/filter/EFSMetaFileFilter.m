@@ -135,6 +135,9 @@
 }
 - (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID {
 	assert(subfilter);
+
+	fprintf(stderr, "meta-file age of %lu\n", fileID); // TODO: We're still missing the actual meta-files we're trying to include.
+
 	DB_RANGE(metaFileIDs, 2);
 	db_bind(metaFileIDs->min, EFSFileIDAndMetaFileID);
 	db_bind(metaFileIDs->max, EFSFileIDAndMetaFileID);
@@ -144,6 +147,7 @@
 	int rc = db_cursor_firstr(age_metafile, metaFileIDs, fileIDAndMetaFileID_key, NULL, +1);
 	if(DB_SUCCESS != rc) return UINT64_MAX;
 	uint64_t const metaFileID = db_column(fileIDAndMetaFileID_key, 2);
+
 	DB_VAL(metaFileID_key, 2);
 	db_bind(metaFileID_key, EFSMetaFileByID);
 	db_bind(metaFileID_key, metaFileID);
@@ -158,7 +162,8 @@
 	db_bind(targetFileIDs->min, targetURI_id+0);
 	db_bind(targetFileIDs->max, targetURI_id+1);
 	DB_val targetFileID_key[1];
-	rc = db_cursor_firstr(age_files, targetFileIDs, targetFileID_key, NULL, +0);
+	rc = db_cursor_firstr(age_files, targetFileIDs, targetFileID_key, NULL, +1);
+	assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
 	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(age_files, targetFileIDs, targetFileID_key, NULL, +1)) {
 		uint64_t const targetFileID = db_column(targetFileID_key, 2);
 		if([subfilter age:UINT64_MAX :targetFileID] < UINT64_MAX) return metaFileID;

@@ -51,27 +51,22 @@ static int filtercmp_rev(EFSFilter *const *const a, EFSFilter *const *const b) {
 	for(index_t i = 0; i < count; ++i) {
 		[filters[i] seek:dir :sortID :fileID];
 	}
-	[self sort:dir];
-	// The last filter is the one in the closest to the correct position.
-	// Any filters behind it must be stepped once.
-	uint64_t actualSortID, actualFileID;
-	[filters[count-1] current:dir :&actualSortID :&actualFileID];
-	for(index_t i = 0; i < count; ++i) {
-		uint64_t curSortID, curFileID;
-		[filters[i] current:dir :&curSortID :&curFileID];
-		if(curSortID == actualSortID && curFileID == actualFileID) break;
-		[filters[i] step:dir];
-	}
-	sort = 0;
+	[self sort:dir ? dir : +1];
 }
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
 	assert(count);
-	if(sort != dir) [self sort:dir];
+	// TODO: The current value shouldn't actually depend on which direction the client wants to go. We shouldn't even accept it as an argument.
+	if(0 == sort) {
+		assert(0); // TODO
+		if(sortID) *sortID = invalid(dir);
+		if(fileID) *fileID = invalid(dir);
+	}
 	[filters[0] current:dir :sortID :fileID];
 }
 - (void)step:(int const)dir {
 	assert(count);
-	if(sort != dir) [self sort:dir];
+	assert(0 != dir);
+	assert(0 != sort); // Means we don't have a valid position.
 	uint64_t oldSortID, oldFileID;
 	[filters[0] current:dir :&oldSortID :&oldFileID];
 	[filters[0] step:dir];
@@ -81,7 +76,7 @@ static int filtercmp_rev(EFSFilter *const *const a, EFSFilter *const *const b) {
 		if(curSortID != oldSortID || curFileID != oldFileID) break;
 		[filters[i] step:dir];
 	}
-	sort = 0;
+	[self sort:dir];
 }
 - (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID {
 	EFSFilterType const type = [self type]; // TODO: Polymorphism
