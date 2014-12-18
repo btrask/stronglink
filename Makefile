@@ -196,7 +196,7 @@ $(BUILD_DIR)/multipart_parser.o: $(DEPS_DIR)/multipart-parser-c/multipart_parser
 
 $(BUILD_DIR)/lsmdb/%.o: $(DEPS_DIR)/lsmdb/%.c $(DEPS_DIR)/lsmdb/lsmdb.h $(DEPS_DIR)/lsmdb/liblmdb/lmdb.h
 	@- mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS) $(WARNINGS)
+	$(CC) -c -o $@ $< $(CFLAGS) $(WARNINGS) -Wno-format-extra-args
 
 $(BUILD_DIR)/fts3/%.o: $(DEPS_DIR)/fts3/%.c $(DEPS_DIR)/fts3/fts3Int.h $(DEPS_DIR)/fts3/fts3_tokenizer.h $(DEPS_DIR)/fts3/sqlite3.h
 	@- mkdir -p $(dir $@)
