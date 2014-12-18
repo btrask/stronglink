@@ -136,8 +136,6 @@
 - (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID {
 	assert(subfilter);
 
-	fprintf(stderr, "meta-file age of %lu\n", fileID); // TODO: We're still missing the actual meta-files we're trying to include.
-
 	DB_RANGE(metaFileIDs, 2);
 	db_bind(metaFileIDs->min, EFSFileIDAndMetaFileID);
 	db_bind(metaFileIDs->max, EFSFileIDAndMetaFileID);

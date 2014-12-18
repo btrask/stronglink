@@ -16,6 +16,7 @@ int db_put(DB_txn *const txn, DB_val *const key, DB_val *const data, unsigned co
 }
 
 int db_cursor_seekr(DB_cursor *const cursor, DB_range const *const range, DB_val *const key, DB_val *const data, int const dir) {
+	assert(db_cursor_cmp(cursor, range->min, range->max) < 0);
 	int rc = db_cursor_seek(cursor, key, data, dir);
 	if(DB_SUCCESS != rc) return rc;
 	DB_val const *const limit = dir < 0 ? range->min : range->max;
@@ -25,6 +26,7 @@ int db_cursor_seekr(DB_cursor *const cursor, DB_range const *const range, DB_val
 	return DB_NOTFOUND;
 }
 int db_cursor_firstr(DB_cursor *const cursor, DB_range const *const range, DB_val *const key, DB_val *const data, int const dir) {
+	assert(db_cursor_cmp(cursor, range->min, range->max) < 0);
 	if(0 == dir) return DB_EINVAL;
 	DB_val const *const first = dir > 0 ? range->min : range->max;
 	DB_val k = *first;
@@ -47,6 +49,7 @@ int db_cursor_firstr(DB_cursor *const cursor, DB_range const *const range, DB_va
 	}
 }
 int db_cursor_nextr(DB_cursor *const cursor, DB_range const *const range, DB_val *const key, DB_val *const data, int const dir) {
+	assert(db_cursor_cmp(cursor, range->min, range->max) < 0);
 	int rc = db_cursor_next(cursor, key, data, dir);
 	if(DB_SUCCESS != rc) return rc;
 	DB_val const *const limit = dir < 0 ? range->min : range->max;
