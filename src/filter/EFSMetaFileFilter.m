@@ -106,7 +106,7 @@
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
 	DB_RANGE(range, 1);
 	db_bind(range->min, EFSMetaFileByID);
-	db_bind(range->max, EFSMetaFileByID);
+	db_bind(range->max, EFSMetaFileByID+1);
 	DB_VAL(metaFileID_key, 2);
 	db_bind(metaFileID_key, EFSMetaFileByID);
 	db_bind(metaFileID_key, sortID);
@@ -128,7 +128,7 @@
 - (void)step:(int const)dir {
 	DB_RANGE(range, 1);
 	db_bind(range->min, EFSMetaFileByID);
-	db_bind(range->max, EFSMetaFileByID);
+	db_bind(range->max, EFSMetaFileByID+1);
 	DB_val ignore[1];
 	int rc = db_cursor_nextr(metafiles, range, ignore, NULL, dir);
 	assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
