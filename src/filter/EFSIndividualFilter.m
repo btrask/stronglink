@@ -26,23 +26,23 @@
 	int rc;
 	uint64_t const actualSortID = [self seekMeta:dir :sortID];
 	if(!valid(actualSortID)) return;
-	DB_VAL(metaFileID_key, 2);
+	DB_VAL(metaFileID_key, DB_VARINT_MAX * 2);
 	db_bind(metaFileID_key, EFSMetaFileByID);
 	db_bind(metaFileID_key, actualSortID);
 	DB_val metaFile_val[1];
 	rc = db_cursor_seek(step_target, metaFileID_key, metaFile_val, 0);
 	assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
 	uint64_t const targetURI_id = db_column(metaFile_val, 1);
-	DB_VAL(targetURI_val, 1);
+	DB_VAL(targetURI_val, DB_VARINT_MAX * 1);
 	db_bind(targetURI_val, targetURI_id);
 
-	DB_RANGE(fileIDs, 2);
+	DB_RANGE(fileIDs, DB_VARINT_MAX * 2);
 	db_bind(fileIDs->min, EFSURIAndFileID);
 	db_bind(fileIDs->max, EFSURIAndFileID);
 	db_bind(fileIDs->min, targetURI_id+0);
 	db_bind(fileIDs->max, targetURI_id+1);
 	if(sortID == actualSortID) {
-		DB_VAL(fileID_key, 3);
+		DB_VAL(fileID_key, DB_VARINT_MAX * 3);
 		db_bind(fileID_key, EFSURIAndFileID);
 		db_bind(fileID_key, targetURI_id+0);
 		db_bind(fileID_key, fileID);
@@ -71,7 +71,7 @@
 	if(DB_SUCCESS == rc) {
 		assert(EFSURIAndFileID == db_column(fileID_key, 0));
 		uint64_t const targetURI_id = db_column(fileID_key, 1);
-		DB_RANGE(fileIDs, 2);
+		DB_RANGE(fileIDs, DB_VARINT_MAX * 2);
 		db_bind(fileIDs->min, EFSURIAndFileID);
 		db_bind(fileIDs->max, EFSURIAndFileID);
 		db_bind(fileIDs->min, targetURI_id+0);
@@ -81,14 +81,14 @@
 	if(DB_SUCCESS == rc) return;
 
 	for(uint64_t sortID = [self stepMeta:dir]; valid(sortID); sortID = [self stepMeta:dir]) {
-		DB_VAL(metaFileID_key, 2);
+		DB_VAL(metaFileID_key, DB_VARINT_MAX * 2);
 		db_bind(metaFileID_key, EFSMetaFileByID);
 		db_bind(metaFileID_key, sortID);
 		DB_val metaFile_val[1];
 		rc = db_cursor_seek(step_target, metaFileID_key, metaFile_val, 0);
 		assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
 		uint64_t const targetURI_id = db_column(metaFile_val, 1);
-		DB_RANGE(fileIDs, 2);
+		DB_RANGE(fileIDs, DB_VARINT_MAX * 2);
 		db_bind(fileIDs->min, EFSURIAndFileID);
 		db_bind(fileIDs->max, EFSURIAndFileID);
 		db_bind(fileIDs->min, targetURI_id+0);
@@ -103,7 +103,7 @@
 	uint64_t earliest = UINT64_MAX;
 	int rc;
 
-	DB_RANGE(URIs, 2);
+	DB_RANGE(URIs, DB_VARINT_MAX * 2);
 	db_bind(URIs->min, EFSFileIDAndURI);
 	db_bind(URIs->max, EFSFileIDAndURI);
 	db_bind(URIs->min, fileID+0);
@@ -117,7 +117,7 @@
 		assert(fileID == db_column(URI_val, 1));
 		uint64_t const targetURI_id = db_column(URI_val, 2);
 
-		DB_RANGE(metafiles, 2);
+		DB_RANGE(metafiles, DB_VARINT_MAX * 2);
 		db_bind(metafiles->min, EFSTargetURIAndMetaFileID);
 		db_bind(metafiles->max, EFSTargetURIAndMetaFileID);
 		db_bind(metafiles->min, targetURI_id+0);
@@ -164,10 +164,10 @@
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
-	DB_RANGE(range, 1);
+	DB_RANGE(range, DB_VARINT_MAX * 1);
 	db_bind(range->min, EFSMetaFileByID+0);
 	db_bind(range->max, EFSMetaFileByID+1);
-	DB_VAL(sortID_key, 2);
+	DB_VAL(sortID_key, DB_VARINT_MAX * 2);
 	db_bind(sortID_key, EFSMetaFileByID);
 	db_bind(sortID_key, sortID);
 	int rc = db_cursor_seekr(metafiles, range, sortID_key, NULL, dir);
@@ -183,7 +183,7 @@
 	return db_column(sortID_key, 1);
 }
 - (uint64_t)stepMeta:(int const)dir {
-	DB_RANGE(range, 1);
+	DB_RANGE(range, DB_VARINT_MAX * 1);
 	db_bind(range->min, EFSMetaFileByID+0);
 	db_bind(range->max, EFSMetaFileByID+1);
 	DB_val sortID_key[1];
@@ -267,12 +267,12 @@
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
-	DB_RANGE(range, 2);
+	DB_RANGE(range, DB_VARINT_MAX * 2);
 	db_bind(range->min, EFSTermMetaFileIDAndPosition);
 	db_bind(range->max, EFSTermMetaFileIDAndPosition);
 	db_bind(range->min, tokens[0].tid+0);
 	db_bind(range->max, tokens[0].tid+1);
-	DB_VAL(sortID_key, 3);
+	DB_VAL(sortID_key, DB_VARINT_MAX * 3);
 	db_bind(sortID_key, EFSTermMetaFileIDAndPosition);
 	db_bind(sortID_key, tokens[0].tid);
 	db_bind(sortID_key, sortID); // TODO: In order to handle seeking backwards over document with several matching positions, we need to use sortID+1... But sortID might be UINT64_MAX, so be careful.
@@ -291,7 +291,7 @@
 	return db_column(sortID_key, 2);
 }
 - (uint64_t)stepMeta:(int const)dir {
-	DB_RANGE(range, 2);
+	DB_RANGE(range, DB_VARINT_MAX * 2);
 	db_bind(range->min, EFSTermMetaFileIDAndPosition);
 	db_bind(range->max, EFSTermMetaFileIDAndPosition);
 	db_bind(range->min, tokens[0].tid+0);
@@ -304,7 +304,7 @@
 	return db_column(sortID_key, 2);
 }
 - (bool_t)match:(uint64_t const)metaFileID {
-	DB_RANGE(range, 3);
+	DB_RANGE(range, DB_VARINT_MAX * 3);
 	db_bind(range->min, EFSTermMetaFileIDAndPosition);
 	db_bind(range->max, EFSTermMetaFileIDAndPosition);
 	db_bind(range->min, tokens[0].tid);
@@ -374,14 +374,14 @@
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
-	DB_RANGE(range, 3);
+	DB_RANGE(range, DB_VARINT_MAX * 3);
 	db_bind(range->min, EFSFieldValueAndMetaFileID);
 	db_bind(range->max, EFSFieldValueAndMetaFileID);
 	db_bind(range->min, field_id);
 	db_bind(range->max, field_id);
 	db_bind(range->min, value_id+0);
 	db_bind(range->max, value_id+1);
-	DB_VAL(metadata_key, 4);
+	DB_VAL(metadata_key, DB_VARINT_MAX * 4);
 	db_bind(metadata_key, EFSFieldValueAndMetaFileID);
 	db_bind(metadata_key, field_id);
 	db_bind(metadata_key, value_id);
@@ -403,7 +403,7 @@
 	return db_column(metadata_key, 3);
 }
 - (uint64_t)stepMeta:(int const)dir {
-	DB_RANGE(range, 3);
+	DB_RANGE(range, DB_VARINT_MAX * 3);
 	db_bind(range->min, EFSFieldValueAndMetaFileID);
 	db_bind(range->max, EFSFieldValueAndMetaFileID);
 	db_bind(range->min, field_id);
@@ -419,7 +419,7 @@
 	return db_column(metadata_key, 3);
 }
 - (bool_t)match:(uint64_t const)metaFileID {
-	DB_VAL(metadata_key, 4);
+	DB_VAL(metadata_key, DB_VARINT_MAX * 4);
 	db_bind(metadata_key, EFSFieldValueAndMetaFileID);
 	db_bind(metadata_key, field_id);
 	db_bind(metadata_key, value_id);

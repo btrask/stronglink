@@ -220,7 +220,7 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 	uint64_t const targetURI_id = db_string_id(txn, state->fileURI);
 	uint64_t const field_id = db_string_id(txn, var);
 
-	DB_RANGE(metaFileIDs, 2);
+	DB_RANGE(metaFileIDs, DB_VARINT_MAX * 2);
 	db_bind(metaFileIDs->min, EFSTargetURIAndMetaFileID);
 	db_bind(metaFileIDs->max, EFSTargetURIAndMetaFileID);
 	db_bind(metaFileIDs->min, targetURI_id+0);
@@ -230,7 +230,7 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 	assert(DB_SUCCESS == rc || DB_NOTFOUND == rc);
 	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(metafiles, metaFileIDs, metaFileID_key, NULL, +1)) {
 		uint64_t const metaFileID = db_column(metaFileID_key, 2);
-		DB_RANGE(vrange, 3);
+		DB_RANGE(vrange, DB_VARINT_MAX * 3);
 		db_bind(vrange->min, EFSMetaFileIDFieldAndValue);
 		db_bind(vrange->max, EFSMetaFileIDFieldAndValue);
 		db_bind(vrange->min, metaFileID);

@@ -180,15 +180,13 @@ static void loadPulls(EFSRepoRef const repo) {
 	rc = db_cursor_open(txn, &cur);
 	assertf(DB_SUCCESS == rc, "Database error %s\n", db_strerror(rc));
 
-	DB_VAL(pulls_min, 1);
-	DB_VAL(pulls_max, 1);
-	db_bind(pulls_min, EFSPullByID+0);
-	db_bind(pulls_max, EFSPullByID+1);
-	DB_range pulls = { pulls_min, pulls_max };
+	DB_RANGE(pulls, DB_VARINT_MAX * 1);
+	db_bind(pulls->min, EFSPullByID+0);
+	db_bind(pulls->max, EFSPullByID+1);
 	DB_val pullID_key[1];
 	DB_val pull_val[1];
-	rc = db_cursor_firstr(cur, &pulls, pullID_key, pull_val, +1);
-	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(cur, &pulls, pullID_key, pull_val, +1)) {
+	rc = db_cursor_firstr(cur, pulls, pullID_key, pull_val, +1);
+	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(cur, pulls, pullID_key, pull_val, +1)) {
 		assert(EFSPullByID == db_column(pullID_key, 0));
 		uint64_t const pullID = db_column(pullID_key, 1);
 		uint64_t const userID = db_column(pull_val, 0);
@@ -224,25 +222,25 @@ static void debug_data(EFSConnection const *const conn) {
 	assert(username_id);
 	assert(passhash_id);
 
-	DB_VAL(userID_key, 2);
+	DB_VAL(userID_key, DB_VARINT_MAX * 2);
 	db_bind(userID_key, EFSUserByID);
 	db_bind(userID_key, userID);
-	DB_VAL(user_val, 3);
+	DB_VAL(user_val, DB_VARINT_MAX * 3);
 	db_bind(user_val, username_id);
 	db_bind(user_val, passhash_id); // passhash
 	db_bind(user_val, passhash_id); // token
 	rc = db_put(txn, userID_key, user_val, 0);
 	assert(!rc);
 
-	DB_VAL(username_key, 2);
+	DB_VAL(username_key, DB_VARINT_MAX * 2);
 	db_bind(username_key, EFSUserIDByName);
 	db_bind(username_key, username_id);
-	DB_VAL(userID_val, 1);
+	DB_VAL(userID_val, DB_VARINT_MAX * 1);
 	db_bind(userID_val, userID);
 	rc = db_put(txn, username_key, userID_val, 0);
 	assert(!rc);
 
-	DB_VAL(pullID_key, 1);
+	DB_VAL(pullID_key, DB_VARINT_MAX * 1);
 	db_bind(pullID_key, EFSPullByID);
 	db_bind(pullID_key, 1);
 
@@ -255,7 +253,7 @@ static void debug_data(EFSConnection const *const conn) {
 	assert(remote_username_id);
 	assert(query_id);
 
-	DB_VAL(pull_val, 6);
+	DB_VAL(pull_val, DB_VARINT_MAX * 6);
 	db_bind(pull_val, userID);
 	db_bind(pull_val, host_id);
 	db_bind(pull_val, remote_username_id);

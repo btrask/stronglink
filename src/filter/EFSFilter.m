@@ -109,7 +109,7 @@ str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, DB_txn *co
 //		fprintf(stderr, "{%llu, %llu} -> %llu\n", sortID, fileID, age);
 		if(age != sortID) continue;
 
-		DB_VAL(fileID_key, 2);
+		DB_VAL(fileID_key, DB_VARINT_MAX * 2);
 		db_bind(fileID_key, EFSFileByID);
 		db_bind(fileID_key, fileID);
 		DB_val file_val[1];

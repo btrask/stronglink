@@ -55,7 +55,7 @@ char const *db_column_text(DB_txn *const txn, DB_val const *const val, unsigned 
 	uint64_t const stringID = db_column(val, col);
 	if(0 == stringID) return NULL;
 	if(1 == stringID) return "";
-	DB_VAL(stringID_key, 2);
+	DB_VAL(stringID_key, DB_VARINT_MAX * 2);
 	db_bind(stringID_key, DBStringByID);
 	db_bind(stringID_key, stringID);
 	DB_val string_val[1];
@@ -72,7 +72,7 @@ void db_bind(DB_val *const val, uint64_t const item) {
 uint64_t db_next_id(DB_txn *const txn, dbid_t const table) {
 	DB_cursor *cur = NULL;
 	if(DB_SUCCESS != db_txn_cursor(txn, &cur)) return 0;
-	DB_RANGE(range, 1);
+	DB_RANGE(range, DB_VARINT_MAX * 1);
 	db_bind(range->min, table+0);
 	db_bind(range->max, table+1);
 	DB_val prev[1];
@@ -122,7 +122,7 @@ uint64_t db_string_id_len(DB_txn *const txn, char const *const str, size_t const
 	if(!nextID) return 0;
 	if(1 == nextID) nextID++; // 1 is reserved for ""
 
-	DB_VAL(nextID_key, 2);
+	DB_VAL(nextID_key, DB_VARINT_MAX * 2);
 	db_bind(nextID_key, DBStringByID);
 	db_bind(nextID_key, nextID);
 	char *str2 = nulterm ? (char *)str : strndup(str, len);
@@ -132,7 +132,7 @@ uint64_t db_string_id_len(DB_txn *const txn, char const *const str, size_t const
 	str2 = NULL;
 	assert(DB_SUCCESS == rc);
 
-	DB_VAL(nextID_val, 1);
+	DB_VAL(nextID_val, DB_VARINT_MAX * 1);
 	db_bind(nextID_val, nextID);
 	rc = db_put(txn, lookup_key, nextID_val, DB_NOOVERWRITE_FAST);
 	assert(DB_SUCCESS == rc);

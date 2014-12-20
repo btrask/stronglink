@@ -104,10 +104,10 @@
 }
 
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
-	DB_RANGE(range, 1);
+	DB_RANGE(range, DB_VARINT_MAX * 1);
 	db_bind(range->min, EFSMetaFileByID);
 	db_bind(range->max, EFSMetaFileByID+1);
-	DB_VAL(metaFileID_key, 2);
+	DB_VAL(metaFileID_key, DB_VARINT_MAX * 2);
 	db_bind(metaFileID_key, EFSMetaFileByID);
 	db_bind(metaFileID_key, sortID);
 	DB_val metaFile_val[1];
@@ -126,7 +126,7 @@
 	}
 }
 - (void)step:(int const)dir {
-	DB_RANGE(range, 1);
+	DB_RANGE(range, DB_VARINT_MAX * 1);
 	db_bind(range->min, EFSMetaFileByID);
 	db_bind(range->max, EFSMetaFileByID+1);
 	DB_val ignore[1];
@@ -136,7 +136,7 @@
 - (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID {
 	assert(subfilter);
 
-	DB_RANGE(metaFileIDs, 2);
+	DB_RANGE(metaFileIDs, DB_VARINT_MAX * 2);
 	db_bind(metaFileIDs->min, EFSFileIDAndMetaFileID);
 	db_bind(metaFileIDs->max, EFSFileIDAndMetaFileID);
 	db_bind(metaFileIDs->min, fileID+0);
@@ -146,7 +146,7 @@
 	if(DB_SUCCESS != rc) return UINT64_MAX;
 	uint64_t const metaFileID = db_column(fileIDAndMetaFileID_key, 2);
 
-	DB_VAL(metaFileID_key, 2);
+	DB_VAL(metaFileID_key, DB_VARINT_MAX * 2);
 	db_bind(metaFileID_key, EFSMetaFileByID);
 	db_bind(metaFileID_key, metaFileID);
 	DB_val metaFile_val[1];
@@ -154,7 +154,7 @@
 	if(DB_SUCCESS != rc) return UINT64_MAX;
 	uint64_t const targetURI_id = db_column(metaFile_val, 1);
 
-	DB_RANGE(targetFileIDs, 2);
+	DB_RANGE(targetFileIDs, DB_VARINT_MAX * 2);
 	db_bind(targetFileIDs->min, EFSURIAndFileID);
 	db_bind(targetFileIDs->max, EFSURIAndFileID);
 	db_bind(targetFileIDs->min, targetURI_id+0);

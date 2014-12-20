@@ -58,7 +58,7 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 		return NULL;
 	}
 
-	DB_VAL(username_key, 2);
+	DB_VAL(username_key, DB_VARINT_MAX * 2);
 	db_bind(username_key, EFSUserIDByName);
 	db_bind(username_key, username_id);
 	DB_val userID_val[1];
@@ -67,7 +67,7 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	DB_val user_val[1];
 	if(DB_SUCCESS == rc) {
 		userID = db_column(userID_val, 0);
-		DB_VAL(userID_key, 2);
+		DB_VAL(userID_key, DB_VARINT_MAX * 2);
 		db_bind(userID_key, EFSUserByID);
 		db_bind(userID_key, userID);
 		rc = db_get(txn, userID_key, user_val);
@@ -111,10 +111,10 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	uint64_t const sessionHash_id = db_string_id(txn, sessionHash);
 	FREE(&sessionHash);
 
-	DB_VAL(sessionID_key, 2);
+	DB_VAL(sessionID_key, DB_VARINT_MAX * 2);
 	db_bind(sessionID_key, EFSSessionByID);
 	db_bind(sessionID_key, sessionID);
-	DB_VAL(session_val, 2);
+	DB_VAL(session_val, DB_VARINT_MAX * 2);
 	db_bind(session_val, userID);
 	db_bind(session_val, sessionHash_id);
 	rc = db_put(txn, sessionID_key, session_val, DB_NOOVERWRITE_FAST);
@@ -159,7 +159,7 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 	DB_txn *txn = NULL;
 	db_txn_begin(conn->env, NULL, DB_RDONLY, &txn);
 
-	DB_VAL(sessionID_key, 2);
+	DB_VAL(sessionID_key, DB_VARINT_MAX * 2);
 	db_bind(sessionID_key, EFSSessionByID);
 	db_bind(sessionID_key, sessionID);
 	DB_val session_val[1];
@@ -280,7 +280,7 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 	DB_cursor *cursor;
 	rc = db_txn_cursor(txn, &cursor);
 	assert(!rc);
-	DB_RANGE(fileIDs, 2);
+	DB_RANGE(fileIDs, DB_VARINT_MAX * 2);
 	db_bind(fileIDs->min, EFSURIAndFileID);
 	db_bind(fileIDs->max, EFSURIAndFileID);
 	db_bind(fileIDs->min, URI_id+0);
@@ -292,7 +292,7 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 		assert(EFSURIAndFileID == db_column(URIAndFileID_key, 0));
 		assert(URI_id == db_column(URIAndFileID_key, 1));
 		uint64_t const fileID = db_column(URIAndFileID_key, 2);
-		DB_VAL(fileID_key, 2);
+		DB_VAL(fileID_key, DB_VARINT_MAX * 2);
 		db_bind(fileID_key, EFSFileByID);
 		db_bind(fileID_key, fileID);
 		rc = db_get(txn, fileID_key, file_val);

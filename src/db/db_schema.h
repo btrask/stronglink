@@ -3,13 +3,14 @@
 
 #define DB_VARINT_MAX 9
 
-#define DB_VAL(name, cols) \
-	uint8_t __buf_##name[DB_VARINT_MAX * cols]; \
+#define DB_VAL(name, bytes) \
+	if((bytes) < DB_VARINT_MAX) abort(); \
+	uint8_t __buf_##name[(bytes)]; \
 	DB_val name[1] = {{ 0, __buf_##name }}
 
-#define DB_RANGE(name, cols) \
-	DB_VAL(__min_##name, cols); \
-	DB_VAL(__max_##name, cols); \
+#define DB_RANGE(name, bytes) \
+	DB_VAL(__min_##name, (bytes)); \
+	DB_VAL(__max_##name, (bytes)); \
 	DB_range name[1] = {{ __min_##name, __max_##name }}
 
 #if 0

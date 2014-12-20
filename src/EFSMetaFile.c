@@ -244,23 +244,23 @@ static uint64_t add_metafile(DB_txn *const txn, EFSConnection const *const conn,
 	int rc;
 	DB_val null = { 0, NULL };
 
-	DB_VAL(metaFileID_key, 2);
+	DB_VAL(metaFileID_key, DB_VARINT_MAX * 2);
 	db_bind(metaFileID_key, EFSMetaFileByID);
 	db_bind(metaFileID_key, metaFileID);
-	DB_VAL(metaFile_val, 2);
+	DB_VAL(metaFile_val, DB_VARINT_MAX * 2);
 	db_bind(metaFile_val, fileID);
 	db_bind(metaFile_val, targetURI_id);
 	rc = db_put(txn, metaFileID_key, metaFile_val, DB_NOOVERWRITE_FAST);
 	assert(!rc);
 
-	DB_VAL(fileID_key, 3);
+	DB_VAL(fileID_key, DB_VARINT_MAX * 3);
 	db_bind(fileID_key, EFSFileIDAndMetaFileID);
 	db_bind(fileID_key, fileID);
 	db_bind(fileID_key, metaFileID);
 	rc = db_put(txn, fileID_key, &null, DB_NOOVERWRITE_FAST);
 	assert(!rc);
 
-	DB_VAL(targetURI_key, 3);
+	DB_VAL(targetURI_key, DB_VARINT_MAX * 3);
 	db_bind(targetURI_key, EFSTargetURIAndMetaFileID);
 	db_bind(targetURI_key, targetURI_id);
 	db_bind(targetURI_key, metaFileID);
@@ -279,7 +279,7 @@ static void add_metadata(DB_txn *const txn, EFSConnection const *const conn, uin
 	DB_val null = { 0, NULL };
 	int rc;
 
-	DB_VAL(fwd, 4);
+	DB_VAL(fwd, DB_VARINT_MAX * 4);
 	db_bind(fwd, EFSMetaFileIDFieldAndValue);
 	db_bind(fwd, metaFileID);
 	db_bind(fwd, field_id);
@@ -287,7 +287,7 @@ static void add_metadata(DB_txn *const txn, EFSConnection const *const conn, uin
 	rc = db_put(txn, fwd, &null, DB_NOOVERWRITE_FAST);
 	assertf(DB_SUCCESS == rc || DB_KEYEXIST == rc, "Database error %s", db_strerror(rc));
 
-	DB_VAL(rev, 4);
+	DB_VAL(rev, DB_VARINT_MAX * 4);
 	db_bind(rev, EFSFieldValueAndMetaFileID);
 	db_bind(rev, field_id);
 	db_bind(rev, value_id);
@@ -319,7 +319,7 @@ static void add_fulltext(DB_txn *const txn, EFSConnection const *const conn, uin
 		if(SQLITE_OK != rc) break;
 
 		uint64_t const token_id = db_string_id_len(txn, token, tlen, false);
-		DB_VAL(token_val, 4);
+		DB_VAL(token_val, DB_VARINT_MAX * 4);
 		db_bind(token_val, EFSTermMetaFileIDAndPosition);
 		db_bind(token_val, token_id);
 		db_bind(token_val, metaFileID);
