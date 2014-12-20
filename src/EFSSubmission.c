@@ -167,21 +167,21 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 	int64_t fileID = db_next_id(txn, EFSFileByID);
 	int rc;
 
-	DB_VAL(dupFileID_val, 1);
+	DB_VAL(dupFileID_val, DB_VARINT_MAX * 1);
 	db_bind(dupFileID_val, fileID);
 
 	uint64_t const internalHash_id = db_string_id(txn, sub->internalHash);
 	uint64_t const type_id = db_string_id(txn, sub->type);
-	DB_VAL(fileInfo_key, 3);
+	DB_VAL(fileInfo_key, DB_VARINT_MAX * 3);
 	db_bind(fileInfo_key, EFSFileIDByInfo);
 	db_bind(fileInfo_key, internalHash_id);
 	db_bind(fileInfo_key, type_id);
 	rc = db_put(txn, fileInfo_key, dupFileID_val, DB_NOOVERWRITE);
 	if(DB_SUCCESS == rc) {
-		DB_VAL(fileID_key, 2);
+		DB_VAL(fileID_key, DB_VARINT_MAX * 2);
 		db_bind(fileID_key, EFSFileByID);
 		db_bind(fileID_key, fileID);
-		DB_VAL(file_val, 3);
+		DB_VAL(file_val, DB_VARINT_MAX * 3);
 		db_bind(file_val, internalHash_id);
 		db_bind(file_val, type_id);
 		db_bind(file_val, sub->size);
@@ -196,14 +196,14 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 		uint64_t const URI_id = db_string_id(txn, URI);
 		DB_val null = { 0, NULL };
 
-		DB_VAL(fwd, 3);
+		DB_VAL(fwd, DB_VARINT_MAX * 3);
 		db_bind(fwd, EFSFileIDAndURI);
 		db_bind(fwd, fileID);
 		db_bind(fwd, URI_id);
 		rc = db_put(txn, fwd, &null, DB_NOOVERWRITE_FAST);
 		assert(DB_SUCCESS == rc || DB_KEYEXIST == rc);
 
-		DB_VAL(rev, 1);
+		DB_VAL(rev, DB_VARINT_MAX * 1);
 		db_bind(rev, EFSURIAndFileID);
 		db_bind(rev, URI_id);
 		db_bind(rev, fileID);
