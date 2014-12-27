@@ -109,14 +109,14 @@ str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, DB_txn *co
 //		fprintf(stderr, "{%llu, %llu} -> %llu\n", sortID, fileID, age);
 		if(age != sortID) continue;
 
-		DB_VAL(fileID_key, DB_VARINT_MAX * 2);
-		db_bind(fileID_key, EFSFileByID);
-		db_bind(fileID_key, fileID);
+		DB_VAL(fileID_key, DB_VARINT_MAX + DB_VARINT_MAX);
+		db_bind_uint64(fileID_key, EFSFileByID);
+		db_bind_uint64(fileID_key, fileID);
 		DB_val file_val[1];
 		int rc = db_get(txn, fileID_key, file_val);
 		assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
 
-		strarg_t const hash = db_column_text(txn, file_val, 0);
+		strarg_t const hash = db_read_string(txn, file_val);
 		assert(hash);
 		str_t *const URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
 		assert(URI);

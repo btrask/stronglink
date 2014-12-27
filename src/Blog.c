@@ -217,31 +217,35 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 	rc = db_cursor_open(txn, &values);
 	assert(DB_SUCCESS == rc);
 
-	uint64_t const targetURI_id = db_string_id(txn, state->fileURI);
-	uint64_t const field_id = db_string_id(txn, var);
-
-	DB_RANGE(metaFileIDs, DB_VARINT_MAX * 2);
-	db_bind(metaFileIDs->min, EFSTargetURIAndMetaFileID);
-	db_bind(metaFileIDs->max, EFSTargetURIAndMetaFileID);
-	db_bind(metaFileIDs->min, targetURI_id+0);
-	db_bind(metaFileIDs->max, targetURI_id+1);
+	DB_RANGE(metaFileIDs, DB_VARINT_MAX + DB_INLINE_MAX);
+	db_bind_uint64(metaFileIDs->min, EFSTargetURIAndMetaFileID);
+	db_bind_string(txn, metaFileIDs->min, state->fileURI);
+	db_range_genmax(metaFileIDs);
 	DB_val metaFileID_key[1];
 	rc = db_cursor_firstr(metafiles, metaFileIDs, metaFileID_key, NULL, +1);
 	assert(DB_SUCCESS == rc || DB_NOTFOUND == rc);
 	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(metafiles, metaFileIDs, metaFileID_key, NULL, +1)) {
-		uint64_t const metaFileID = db_column(metaFileID_key, 2);
-		DB_RANGE(vrange, DB_VARINT_MAX * 3);
-		db_bind(vrange->min, EFSMetaFileIDFieldAndValue);
-		db_bind(vrange->max, EFSMetaFileIDFieldAndValue);
-		db_bind(vrange->min, metaFileID);
-		db_bind(vrange->max, metaFileID);
-		db_bind(vrange->min, field_id+0);
-		db_bind(vrange->max, field_id+1);
+		uint64_t const table = db_read_uint64(metaFileID_key);
+		assert(EFSTargetURIAndMetaFileID == table);
+		strarg_t const u = db_read_string(txn, metaFileID_key);
+		assert(0 == strcmp(state->fileURI, u));
+		uint64_t const metaFileID = db_read_uint64(metaFileID_key);
+		DB_RANGE(vrange, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1);
+		db_bind_uint64(vrange->min, EFSMetaFileIDFieldAndValue);
+		db_bind_uint64(vrange->min, metaFileID);
+		db_bind_string(txn, vrange->min, var);
+		db_range_genmax(vrange);
 		DB_val value_val[1];
 		rc = db_cursor_firstr(values, vrange, value_val, NULL, +1);
 		assert(DB_SUCCESS == rc || DB_NOTFOUND == rc);
 		for(; DB_SUCCESS == rc; rc = db_cursor_nextr(values, vrange, value_val, NULL, +1)) {
-			strarg_t const value = db_column_text(txn, value_val, 3);
+			uint64_t const table2 = db_read_uint64(value_val);
+			assert(EFSMetaFileIDFieldAndValue == table2);
+			uint64_t const m = db_read_uint64(value_val);
+			assert(metaFileID == m);
+			strarg_t const f = db_read_string(txn, value_val);
+			assert(0 == strcmp(var, f));
+			strarg_t const value = db_read_string(txn, value_val);
 			if(0 == strcmp("", value)) continue;
 			unsafe = value;
 			break;

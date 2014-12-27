@@ -52,24 +52,18 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 		return NULL;
 	}
 
-	uint64_t const username_id = db_string_id(txn, username);
-	if(!username_id) {
-		EFSRepoDBClose(repo, &conn);
-		return NULL;
-	}
-
-	DB_VAL(username_key, DB_VARINT_MAX * 2);
-	db_bind(username_key, EFSUserIDByName);
-	db_bind(username_key, username_id);
+	DB_VAL(username_key, DB_VARINT_MAX + DB_INLINE_MAX);
+	db_bind_uint64(username_key, EFSUserIDByName);
+	db_bind_string(txn, username_key, username);
 	DB_val userID_val[1];
 	rc = db_get(txn, username_key, userID_val);
 	uint64_t userID = 0;
 	DB_val user_val[1];
 	if(DB_SUCCESS == rc) {
-		userID = db_column(userID_val, 0);
-		DB_VAL(userID_key, DB_VARINT_MAX * 2);
-		db_bind(userID_key, EFSUserByID);
-		db_bind(userID_key, userID);
+		userID = db_read_uint64(userID_val);
+		DB_VAL(userID_key, DB_VARINT_MAX + DB_VARINT_MAX);
+		db_bind_uint64(userID_key, EFSUserByID);
+		db_bind_uint64(userID_key, userID);
 		rc = db_get(txn, userID_key, user_val);
 	}
 	if(DB_SUCCESS != rc) {
@@ -77,7 +71,9 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 		EFSRepoDBClose(repo, &conn);
 		return NULL;
 	}
-	str_t *passhash = strdup(db_column_text(txn, user_val, 1));
+	strarg_t const u = db_read_string(txn, user_val);
+	assert(0 == strcmp(username, u));
+	str_t *passhash = strdup(db_read_string(txn, user_val));
 
 	db_txn_abort(txn); txn = NULL;
 	EFSRepoDBClose(repo, &conn);
@@ -108,15 +104,13 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	}
 
 	uint64_t const sessionID = db_next_id(txn, EFSSessionByID);
-	uint64_t const sessionHash_id = db_string_id(txn, sessionHash);
+	DB_VAL(sessionID_key, DB_VARINT_MAX + DB_VARINT_MAX);
+	db_bind_uint64(sessionID_key, EFSSessionByID);
+	db_bind_uint64(sessionID_key, sessionID);
+	DB_VAL(session_val, DB_VARINT_MAX + DB_INLINE_MAX);
+	db_bind_uint64(session_val, userID);
+	db_bind_string(txn, session_val, sessionHash);
 	FREE(&sessionHash);
-
-	DB_VAL(sessionID_key, DB_VARINT_MAX * 2);
-	db_bind(sessionID_key, EFSSessionByID);
-	db_bind(sessionID_key, sessionID);
-	DB_VAL(session_val, DB_VARINT_MAX * 2);
-	db_bind(session_val, userID);
-	db_bind(session_val, sessionHash_id);
 	rc = db_put(txn, sessionID_key, session_val, DB_NOOVERWRITE_FAST);
 	if(DB_SUCCESS != rc) {
 		db_txn_abort(txn); txn = NULL;
@@ -159,9 +153,9 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 	DB_txn *txn = NULL;
 	db_txn_begin(conn->env, NULL, DB_RDONLY, &txn);
 
-	DB_VAL(sessionID_key, DB_VARINT_MAX * 2);
-	db_bind(sessionID_key, EFSSessionByID);
-	db_bind(sessionID_key, sessionID);
+	DB_VAL(sessionID_key, DB_VARINT_MAX + DB_VARINT_MAX);
+	db_bind_uint64(sessionID_key, EFSSessionByID);
+	db_bind_uint64(sessionID_key, sessionID);
 	DB_val session_val[1];
 	rc = db_get(txn, sessionID_key, session_val);
 	if(DB_SUCCESS != rc) {
@@ -170,8 +164,8 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 		EFSRepoDBClose(repo, &conn);
 		return NULL;
 	}
-	uint64_t const userID = db_column(session_val, 0);
-	str_t *sessionHash = strdup(db_column_text(txn, session_val, 1));
+	uint64_t const userID = db_read_uint64(session_val);
+	str_t *sessionHash = strdup(db_read_string(txn, session_val));
 
 	db_txn_abort(txn); txn = NULL;
 	EFSRepoDBClose(repo, &conn);
@@ -270,31 +264,25 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 		return -1;
 	}
 
-	uint64_t const URI_id = db_string_id(txn, URI);
-	if(!URI_id) {
-		db_txn_abort(txn); txn = NULL;
-		EFSRepoDBClose(repo, &conn);
-		return -1;
-	}
-
 	DB_cursor *cursor;
 	rc = db_txn_cursor(txn, &cursor);
 	assert(!rc);
-	DB_RANGE(fileIDs, DB_VARINT_MAX * 2);
-	db_bind(fileIDs->min, EFSURIAndFileID);
-	db_bind(fileIDs->max, EFSURIAndFileID);
-	db_bind(fileIDs->min, URI_id+0);
-	db_bind(fileIDs->max, URI_id+1);
+	DB_RANGE(fileIDs, DB_VARINT_MAX + DB_INLINE_MAX);
+	db_bind_uint64(fileIDs->min, EFSURIAndFileID);
+	db_bind_string(txn, fileIDs->min, URI);
+	db_range_genmax(fileIDs);
 	DB_val URIAndFileID_key[1];
 	rc = db_cursor_firstr(cursor, fileIDs, URIAndFileID_key, NULL, +1);
 	DB_val file_val[1];
 	if(DB_SUCCESS == rc) {
-		assert(EFSURIAndFileID == db_column(URIAndFileID_key, 0));
-		assert(URI_id == db_column(URIAndFileID_key, 1));
-		uint64_t const fileID = db_column(URIAndFileID_key, 2);
-		DB_VAL(fileID_key, DB_VARINT_MAX * 2);
-		db_bind(fileID_key, EFSFileByID);
-		db_bind(fileID_key, fileID);
+		uint64_t const table = db_read_uint64(URIAndFileID_key);
+		assert(EFSURIAndFileID == table);
+		strarg_t const URI2 = db_read_string(txn, URIAndFileID_key);
+		assert(0 == strcmp(URI, URI2));
+		uint64_t const fileID = db_read_uint64(URIAndFileID_key);
+		DB_VAL(fileID_key, DB_VARINT_MAX + DB_VARINT_MAX);
+		db_bind_uint64(fileID_key, EFSFileByID);
+		db_bind_uint64(fileID_key, fileID);
 		rc = db_get(txn, fileID_key, file_val);
 	}
 	if(DB_SUCCESS != rc) {
@@ -304,12 +292,13 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 	}
 
 	if(info) {
-		strarg_t const internalHash = db_column_text(txn, file_val, 0);
-		strarg_t const type = db_column_text(txn, file_val, 1);
+		strarg_t const internalHash = db_read_string(txn, file_val);
+		strarg_t const type = db_read_string(txn, file_val);
+		uint64_t const size = db_read_uint64(file_val);
 		info->hash = strdup(internalHash);
 		info->path = EFSRepoCopyInternalPath(repo, internalHash);
 		info->type = strdup(type);
-		info->size = db_column(file_val, 2);
+		info->size = size;
 	}
 
 	db_txn_abort(txn); txn = NULL;

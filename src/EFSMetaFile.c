@@ -238,32 +238,30 @@ static yajl_callbacks const callbacks = {
 
 static uint64_t add_metafile(DB_txn *const txn, EFSConnection const *const conn, uint64_t const fileID, strarg_t const targetURI) {
 	uint64_t const metaFileID = db_next_id(txn, EFSMetaFileByID);
-	uint64_t const targetURI_id = db_string_id(txn, targetURI);
 	assert(metaFileID);
-	assert(targetURI_id);
 	int rc;
 	DB_val null = { 0, NULL };
 
-	DB_VAL(metaFileID_key, DB_VARINT_MAX * 2);
-	db_bind(metaFileID_key, EFSMetaFileByID);
-	db_bind(metaFileID_key, metaFileID);
-	DB_VAL(metaFile_val, DB_VARINT_MAX * 2);
-	db_bind(metaFile_val, fileID);
-	db_bind(metaFile_val, targetURI_id);
+	DB_VAL(metaFileID_key, DB_VARINT_MAX + DB_VARINT_MAX);
+	db_bind_uint64(metaFileID_key, EFSMetaFileByID);
+	db_bind_uint64(metaFileID_key, metaFileID);
+	DB_VAL(metaFile_val, DB_VARINT_MAX + DB_INLINE_MAX);
+	db_bind_uint64(metaFile_val, fileID);
+	db_bind_string(txn, metaFile_val, targetURI);
 	rc = db_put(txn, metaFileID_key, metaFile_val, DB_NOOVERWRITE_FAST);
 	assert(!rc);
 
 	DB_VAL(fileID_key, DB_VARINT_MAX * 3);
-	db_bind(fileID_key, EFSFileIDAndMetaFileID);
-	db_bind(fileID_key, fileID);
-	db_bind(fileID_key, metaFileID);
+	db_bind_uint64(fileID_key, EFSFileIDAndMetaFileID);
+	db_bind_uint64(fileID_key, fileID);
+	db_bind_uint64(fileID_key, metaFileID);
 	rc = db_put(txn, fileID_key, &null, DB_NOOVERWRITE_FAST);
 	assert(!rc);
 
-	DB_VAL(targetURI_key, DB_VARINT_MAX * 3);
-	db_bind(targetURI_key, EFSTargetURIAndMetaFileID);
-	db_bind(targetURI_key, targetURI_id);
-	db_bind(targetURI_key, metaFileID);
+	DB_VAL(targetURI_key, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1);
+	db_bind_uint64(targetURI_key, EFSTargetURIAndMetaFileID);
+	db_bind_string(txn, targetURI_key, targetURI);
+	db_bind_uint64(targetURI_key, metaFileID);
 	rc = db_put(txn, targetURI_key, &null, DB_NOOVERWRITE_FAST);
 	assert(!rc);
 
@@ -271,27 +269,22 @@ static uint64_t add_metafile(DB_txn *const txn, EFSConnection const *const conn,
 }
 static void add_metadata(DB_txn *const txn, EFSConnection const *const conn, uint64_t const metaFileID, strarg_t const field, strarg_t const value, size_t const vlen) {
 	if(!vlen) return;
-
-	uint64_t const field_id = db_string_id(txn, field);
-	uint64_t const value_id = db_string_id_len(txn, value, vlen, false);
-	assert(field_id);
-	assert(value_id);
 	DB_val null = { 0, NULL };
 	int rc;
 
-	DB_VAL(fwd, DB_VARINT_MAX * 4);
-	db_bind(fwd, EFSMetaFileIDFieldAndValue);
-	db_bind(fwd, metaFileID);
-	db_bind(fwd, field_id);
-	db_bind(fwd, value_id);
+	DB_VAL(fwd, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 2);
+	db_bind_uint64(fwd, EFSMetaFileIDFieldAndValue);
+	db_bind_uint64(fwd, metaFileID);
+	db_bind_string(txn, fwd, field);
+	db_bind_string_len(txn, fwd, value, vlen, false);
 	rc = db_put(txn, fwd, &null, DB_NOOVERWRITE_FAST);
 	assertf(DB_SUCCESS == rc || DB_KEYEXIST == rc, "Database error %s", db_strerror(rc));
 
-	DB_VAL(rev, DB_VARINT_MAX * 4);
-	db_bind(rev, EFSFieldValueAndMetaFileID);
-	db_bind(rev, field_id);
-	db_bind(rev, value_id);
-	db_bind(rev, metaFileID);
+	DB_VAL(rev, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 2);
+	db_bind_uint64(rev, EFSFieldValueAndMetaFileID);
+	db_bind_string(txn, rev, field);
+	db_bind_string_len(txn, rev, value, vlen, false);
+	db_bind_uint64(rev, metaFileID);
 	rc = db_put(txn, rev, &null, DB_NOOVERWRITE_FAST);
 	assertf(DB_SUCCESS == rc || DB_KEYEXIST == rc, "Database error %s", db_strerror(rc));
 }
@@ -318,12 +311,11 @@ static void add_fulltext(DB_txn *const txn, EFSConnection const *const conn, uin
 		rc = fts->xNext(tcur, &token, &tlen, &ignored1, &ignored2, &tpos);
 		if(SQLITE_OK != rc) break;
 
-		uint64_t const token_id = db_string_id_len(txn, token, tlen, false);
-		DB_VAL(token_val, DB_VARINT_MAX * 4);
-		db_bind(token_val, EFSTermMetaFileIDAndPosition);
-		db_bind(token_val, token_id);
-		db_bind(token_val, metaFileID);
-		db_bind(token_val, 0); // TODO: Record tpos. Requires changes to EFSFulltextFilter so that each document only gets returned once, no matter how many times the token appears within it.
+		DB_VAL(token_val, DB_VARINT_MAX * 3 + DB_INLINE_MAX * 1);
+		db_bind_uint64(token_val, EFSTermMetaFileIDAndPosition);
+		db_bind_string_len(txn, token_val, token, tlen, false);
+		db_bind_uint64(token_val, metaFileID);
+		db_bind_uint64(token_val, 0); // TODO: Record tpos. Requires changes to EFSFulltextFilter so that each document only gets returned once, no matter how many times the token appears within it.
 		DB_val null = { 0, NULL };
 		rc = db_cursor_put(cursor, token_val, &null, DB_NOOVERWRITE_FAST);
 		assert(DB_SUCCESS == rc || DB_KEYEXIST == rc);

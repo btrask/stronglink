@@ -180,21 +180,22 @@ static void loadPulls(EFSRepoRef const repo) {
 	rc = db_cursor_open(txn, &cur);
 	assertf(DB_SUCCESS == rc, "Database error %s\n", db_strerror(rc));
 
-	DB_RANGE(pulls, DB_VARINT_MAX * 1);
-	db_bind(pulls->min, EFSPullByID+0);
-	db_bind(pulls->max, EFSPullByID+1);
+	DB_RANGE(pulls, DB_VARINT_MAX);
+	db_bind_uint64(pulls->min, EFSPullByID);
+	db_range_genmax(pulls);
 	DB_val pullID_key[1];
 	DB_val pull_val[1];
 	rc = db_cursor_firstr(cur, pulls, pullID_key, pull_val, +1);
 	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(cur, pulls, pullID_key, pull_val, +1)) {
-		assert(EFSPullByID == db_column(pullID_key, 0));
-		uint64_t const pullID = db_column(pullID_key, 1);
-		uint64_t const userID = db_column(pull_val, 0);
-		strarg_t const host = db_column_text(txn, pull_val, 1);
-		strarg_t const username = db_column_text(txn, pull_val, 2);
-		strarg_t const password = db_column_text(txn, pull_val, 3);
-		strarg_t const cookie = db_column_text(txn, pull_val, 4);
-		strarg_t const query = db_column_text(txn, pull_val, 5);
+		uint64_t const table = db_read_uint64(pullID_key);
+		assert(EFSPullByID == table);
+		uint64_t const pullID = db_read_uint64(pullID_key);
+		uint64_t const userID = db_read_uint64(pull_val);
+		strarg_t const host = db_read_string(txn, pull_val);
+		strarg_t const username = db_read_string(txn, pull_val);
+		strarg_t const password = db_read_string(txn, pull_val);
+		strarg_t const cookie = db_read_string(txn, pull_val);
+		strarg_t const query = db_read_string(txn, pull_val);
 
 		EFSPullRef const pull = EFSRepoCreatePull(repo, pullID, userID, host, username, password, cookie, query);
 		if(repo->pull_count+1 > repo->pull_size) {
@@ -217,49 +218,45 @@ static void debug_data(EFSConnection const *const conn) {
 	assert(txn);
 
 	uint64_t const userID = 1;
-	uint64_t const username_id = db_string_id(txn, "ben");
-	uint64_t const passhash_id = db_string_id(txn, "$2a$08$lhAQjgGPuwvtErV.aK.MGO1T2W0UhN1r4IngmF5FvY0LM826aF8ye");
-	assert(username_id);
-	assert(passhash_id);
+	char const *const username = "ben";
+	char const *const passhash = "$2a$08$lhAQjgGPuwvtErV.aK.MGO1T2W0UhN1r4IngmF5FvY0LM826aF8ye";
+	char const *const token = passhash;
 
-	DB_VAL(userID_key, DB_VARINT_MAX * 2);
-	db_bind(userID_key, EFSUserByID);
-	db_bind(userID_key, userID);
-	DB_VAL(user_val, DB_VARINT_MAX * 3);
-	db_bind(user_val, username_id);
-	db_bind(user_val, passhash_id); // passhash
-	db_bind(user_val, passhash_id); // token
+	DB_VAL(userID_key, DB_VARINT_MAX + DB_VARINT_MAX);
+	db_bind_uint64(userID_key, EFSUserByID);
+	db_bind_uint64(userID_key, userID);
+	DB_VAL(user_val, DB_INLINE_MAX * 3);
+	db_bind_string(txn, user_val, username);
+	db_bind_string(txn, user_val, passhash);
+	db_bind_string(txn, user_val, token);
 	rc = db_put(txn, userID_key, user_val, 0);
 	assert(!rc);
 
-	DB_VAL(username_key, DB_VARINT_MAX * 2);
-	db_bind(username_key, EFSUserIDByName);
-	db_bind(username_key, username_id);
-	DB_VAL(userID_val, DB_VARINT_MAX * 1);
-	db_bind(userID_val, userID);
+	DB_VAL(username_key, DB_VARINT_MAX + DB_INLINE_MAX);
+	db_bind_uint64(username_key, EFSUserIDByName);
+	db_bind_string(txn, username_key, username);
+	DB_VAL(userID_val, DB_VARINT_MAX);
+	db_bind_uint64(userID_val, userID);
 	rc = db_put(txn, username_key, userID_val, 0);
 	assert(!rc);
 
-	DB_VAL(pullID_key, DB_VARINT_MAX * 1);
-	db_bind(pullID_key, EFSPullByID);
-	db_bind(pullID_key, 1);
+	DB_VAL(pullID_key, DB_VARINT_MAX + DB_VARINT_MAX);
+	db_bind_uint64(pullID_key, EFSPullByID);
+	db_bind_uint64(pullID_key, 1);
 
-	uint64_t const host_id = db_string_id(txn, "localhost:8009");
-	uint64_t const remote_username_id = db_string_id(txn, "ben");
-	uint64_t const remote_password_id = db_string_id(txn, "testing");
-	uint64_t const cookie_id = db_string_id(txn, "s=1:not-very-random");
-	uint64_t const query_id = db_string_id(txn, "");
-	assert(host_id);
-	assert(remote_username_id);
-	assert(query_id);
+	char const *const host = "localhost:8009";
+	char const *const remote_username = "ben";
+	char const *const remote_password = "testing";
+	char const *const cookie = "s=1:not-very-random";
+	char const *const query = "";
 
-	DB_VAL(pull_val, DB_VARINT_MAX * 6);
-	db_bind(pull_val, userID);
-	db_bind(pull_val, host_id);
-	db_bind(pull_val, remote_username_id);
-	db_bind(pull_val, remote_password_id);
-	db_bind(pull_val, cookie_id);
-	db_bind(pull_val, query_id);
+	DB_VAL(pull_val, DB_VARINT_MAX * 1 + DB_INLINE_MAX * 5);
+	db_bind_uint64(pull_val, userID);
+	db_bind_string(txn, pull_val, host);
+	db_bind_string(txn, pull_val, remote_username);
+	db_bind_string(txn, pull_val, remote_password);
+	db_bind_string(txn, pull_val, cookie);
+	db_bind_string(txn, pull_val, query);
 
 	rc = db_put(txn, pullID_key, pull_val, 0);
 	assert(!rc);

@@ -3,6 +3,7 @@
 #include <openssl/sha.h> // TODO: Switch to LibreSSL.
 #include <stdlib.h>
 #include <string.h>
+#include "../common.h"
 #include "db_schema.h"
 
 static size_t varint_size(uint8_t const *const data) {
@@ -47,96 +48,146 @@ static size_t varint_seek(uint8_t const *const data, size_t const size, unsigned
 }
 
 
-uint64_t db_column(DB_val const *const val, unsigned const col) {
-	size_t const pos = varint_seek(val->data, val->size, col);
-	return varint_decode(val->data+pos, val->size-pos);
-}
-char const *db_column_text(DB_txn *const txn, DB_val const *const val, unsigned const col) {
-	uint64_t const stringID = db_column(val, col);
-	if(0 == stringID) return NULL;
-	if(1 == stringID) return "";
-	DB_VAL(stringID_key, DB_VARINT_MAX * 2);
-	db_bind(stringID_key, DBStringByID);
-	db_bind(stringID_key, stringID);
-	DB_val string_val[1];
-	int rc = db_get(txn, stringID_key, string_val);
-	if(DB_SUCCESS != rc) return NULL;
-	return string_val->data;
-}
 
-void db_bind(DB_val *const val, uint64_t const item) {
-	size_t const len = varint_encode(val->data+val->size, SIZE_MAX, item);
+uint64_t db_read_uint64(DB_val *const val) {
+	db_assert(val->size >= 1);
+	size_t const len = varint_size(val->data);
+	db_assert(val->size >= len);
+	uint64_t const x = varint_decode(val->data, val->size);
+	val->data += len;
+	val->size -= len;
+	return x;
+}
+void db_bind_uint64(DB_val *const val, uint64_t const x) {
+	unsigned char *const out = val->data;
+	size_t const len = varint_encode(out+val->size, SIZE_MAX, x);
 	val->size += len;
 }
 
 uint64_t db_next_id(DB_txn *const txn, dbid_t const table) {
 	DB_cursor *cur = NULL;
 	if(DB_SUCCESS != db_txn_cursor(txn, &cur)) return 0;
-	DB_RANGE(range, DB_VARINT_MAX * 1);
-	db_bind(range->min, table+0);
-	db_bind(range->max, table+1);
+	DB_RANGE(range, DB_VARINT_MAX);
+	db_bind_uint64(range->min, table+0);
+	db_bind_uint64(range->max, table+1);
 	DB_val prev[1];
 	int rc = db_cursor_firstr(cur, range, prev, NULL, -1);
 	if(DB_NOTFOUND == rc) return 1;
 	if(DB_SUCCESS != rc) return 0;
-	return db_column(prev, 1)+1;
+	uint64_t const t = db_read_uint64(prev);
+	assert(table == t);
+	return db_read_uint64(prev)+1;
 }
 
-uint64_t db_string_id(DB_txn *const txn, char const *const str) {
-	if(!str) return 0;
-	size_t const len = strlen(str);
-	return db_string_id_len(txn, str, len, 1);
-}
-uint64_t db_string_id_len(DB_txn *const txn, char const *const str, size_t const len, int const nulterm) {
+
+/* Inline strings can be up to 96 bytes including nul. Longer strings are truncated at 64 bytes (including nul), followed by the 32-byte SHA-256 hash. The first byte of the hash may not be 0x00 (if it's 0x00, it's replaced with 0x01). If a string is exactly 64 bytes (including nul), it's followed by an extra 0x00 to indicate it wasn't truncated. A null pointer is 0x00 00, and an empty string is 0x00 01. */
+#define DB_INLINE_TRUNC (DB_INLINE_MAX-SHA256_DIGEST_LENGTH)
+
+char const *db_read_string(DB_txn *const txn, DB_val *const val) {
 	assert(txn);
-	if(!str) return 0;
-	if(!len) return 1;
-
-	uint8_t buf[DB_VARINT_MAX + SHA256_DIGEST_LENGTH*2 + DB_VARINT_MAX];
-	DB_val lookup_key[1] = {{ 0, buf }};
-	int rc;
-
-	if(len+1 < SHA256_DIGEST_LENGTH*2) {
-		db_bind(lookup_key, DBStringIDByValue);
-		memcpy(buf+lookup_key->size, str, len+1);
-		lookup_key->size += len+1;
-	} else {
-		db_bind(lookup_key, DBStringIDByHash);
-		SHA256_CTX algo[1];
-		if(SHA256_Init(algo) < 0) return 0;
-		if(SHA256_Update(algo, str, len) < 0) return 0;
-		if(SHA256_Final(buf+lookup_key->size, algo) < 0) return 0;
-		lookup_key->size += SHA256_DIGEST_LENGTH;
+	assert(val);
+	db_assert(val->size >= 1);
+	char const *const str = val->data;
+	size_t const len = strnlen(str, MIN(val->size, DB_INLINE_MAX));
+	db_assert('\0' == str[len]);
+	if(0 == len) {
+		db_assert(val->size >= 2);
+		val->data += 2;
+		val->size -= 2;
+		if(0x00 == str[1]) return NULL;
+		if(0x01 == str[1]) return "";
+		db_assertf(0, "Invalid string type %u\n", str[1]);
+		return NULL;
+	}
+	if(DB_INLINE_TRUNC != len+1) {
+		val->data += len+1;
+		val->size -= len+1;
+		return str;
+	}
+	db_assert(val->size >= len+2);
+	if(0x00 == str[len+1]) {
+		val->data += len+2;
+		val->size -= len+2;
+		return str;
 	}
 
-	DB_val existingStringID_val[1];
-	rc = db_get(txn, lookup_key, existingStringID_val);
-	if(DB_SUCCESS == rc) return db_column(existingStringID_val, 0);
-	assert(DB_NOTFOUND == rc);
+	DB_val key = { DB_INLINE_MAX, (char *)str };
+	DB_val full[1];
+	int rc = db_get(txn, &key, full);
+	db_assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
+	char const *const fstr = full->data;
+	db_assert('\0' == fstr[full->size]);
+	return fstr;
+}
+void db_bind_string(DB_txn *const txn, DB_val *const val, char const *const str) {
+	db_bind_string_len(txn, val, str, strlen(str), true);
+}
+void db_bind_string_len(DB_txn *const txn, DB_val *const val, char const *const str, size_t const len, int const nulterm) {
+	assert(val);
+	unsigned char *const out = val->data;
+	if(0 == len) {
+		out[val->size++] = '\0';
+		out[val->size++] = str ? 0x01 : 0x00;
+		return;
+	}
+	if(len < DB_INLINE_MAX) {
+		memcpy(out+val->size, str, len);
+		val->size += len;
+		out[val->size++] = '\0';
+		if(DB_INLINE_TRUNC != len+1) return;
+		out[val->size++] = '\0';
+		return;
+	}
 
-	unsigned flags;
+	memcpy(out+val->size, str, DB_INLINE_TRUNC-1);
+	val->size += DB_INLINE_TRUNC-1;
+	out[val->size++] = '\0';
+
+	SHA256_CTX algo[1];
+	int rc;
+	rc = SHA256_Init(algo);
+	db_assert(rc >= 0);
+	rc = SHA256_Update(algo, str, len);
+	db_assert(rc >= 0);
+	rc = SHA256_Final(out+val->size, algo);
+	db_assert(rc >= 0);
+	if(0x00 == out[val->size]) out[val->size] = 0x01;
+	val->size += SHA256_DIGEST_LENGTH;
+
+	if(!txn) return;
+	unsigned flags = 0;
 	rc = db_txn_get_flags(txn, &flags);
-	if(DB_SUCCESS != rc || DB_RDONLY & flags) return 0;
+	db_assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
+	if(flags & DB_RDONLY) return;
 
-	uint64_t nextID = db_next_id(txn, DBStringByID);
-	if(!nextID) return 0;
-	if(1 == nextID) nextID++; // 1 is reserved for ""
-
-	DB_VAL(nextID_key, DB_VARINT_MAX * 2);
-	db_bind(nextID_key, DBStringByID);
-	db_bind(nextID_key, nextID);
+	DB_val key = { DB_INLINE_MAX, out+val->size-DB_INLINE_MAX };
 	char *str2 = nulterm ? (char *)str : strndup(str, len);
-	DB_val str_val = { len+1, str2 };
-	rc = db_put(txn, nextID_key, &str_val, DB_NOOVERWRITE_FAST);
+	DB_val full = { len+1, str2 };
+	rc = db_put(txn, &key, &full, 0);
 	if(!nulterm) free(str2);
 	str2 = NULL;
-	assert(DB_SUCCESS == rc);
-
-	DB_VAL(nextID_val, DB_VARINT_MAX * 1);
-	db_bind(nextID_val, nextID);
-	rc = db_put(txn, lookup_key, nextID_val, DB_NOOVERWRITE_FAST);
-	assert(DB_SUCCESS == rc);
-	return nextID;
+	db_assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
 }
+
+
+void db_range_genmax(DB_range *const range) {
+	assert(range);
+	assert(range->min);
+	assert(range->max);
+	unsigned char *const out = range->max->data;
+	memcpy(out, range->min->data, range->min->size);
+	range->max->size = range->min->size;
+	size_t i = range->max->size;
+	while(i--) {
+		if(out[i] < 0xff) {
+			out[i]++;
+			return;
+		} else {
+			out[i] = 0;
+		}
+	}
+	assert(0);
+}
+
 
 

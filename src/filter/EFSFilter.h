@@ -33,6 +33,7 @@
 
 @interface EFSIndividualFilter : EFSFilter
 {
+	DB_txn *curtxn;
 	DB_cursor *step_target;
 	DB_cursor *step_files;
 	DB_cursor *age_uris;
@@ -60,7 +61,7 @@
 @end
 
 struct token {
-	uint64_t tid;
+	str_t *str;
 };
 @interface EFSFulltextFilter : EFSIndividualFilter
 {
@@ -78,8 +79,6 @@ struct token {
 {
 	str_t *field;
 	str_t *value;
-	uint64_t field_id;
-	uint64_t value_id;
 	DB_cursor *metafiles;
 	DB_cursor *match;
 }
