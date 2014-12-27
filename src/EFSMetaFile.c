@@ -283,7 +283,7 @@ static void add_metadata(DB_txn *const txn, EFSConnection const *const conn, uin
 	DB_VAL(rev, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 2);
 	db_bind_uint64(rev, EFSFieldValueAndMetaFileID);
 	db_bind_string(txn, rev, field);
-	db_bind_string_len(txn, rev, value, vlen, false);
+	db_bind_string_len(NULL, rev, value, vlen, false); // TODO: HACK
 	db_bind_uint64(rev, metaFileID);
 	rc = db_put(txn, rev, &null, DB_NOOVERWRITE_FAST);
 	assertf(DB_SUCCESS == rc || DB_KEYEXIST == rc, "Database error %s", db_strerror(rc));
