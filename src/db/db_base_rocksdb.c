@@ -215,12 +215,12 @@ int db_env_create(DB_env **const out) {
 	rocksdb_options_set_create_if_missing(env->opts, 1);
 	rocksdb_options_set_compression(env->opts, rocksdb_snappy_compression);
 
-	env->filterpolicy = rocksdb_filterpolicy_create_bloom(10);
+/*	env->filterpolicy = rocksdb_filterpolicy_create_bloom(10);
 	if(!env->filterpolicy) {
 		db_env_close(env);
 		return DB_ENOMEM;
 	}
-	rocksdb_options_set_filter_policy(env->opts, env->filterpolicy);
+	rocksdb_options_set_filter_policy(env->opts, env->filterpolicy);*/
 
 	int rc = mdb_env_create(&env->tmpenv);
 	if(MDB_SUCCESS != rc) {
