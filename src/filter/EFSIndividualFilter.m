@@ -76,13 +76,13 @@
 		uint64_t const table = db_read_uint64(fileID_key);
 		assert(EFSURIAndFileID == table);
 		strarg_t const targetURI = db_read_string(curtxn, fileID_key);
-		DB_RANGE(fileIDs, DB_VARINT_MAX * 2);
+		DB_RANGE(fileIDs, DB_VARINT_MAX + DB_INLINE_MAX);
 		db_bind_uint64(fileIDs->min, EFSURIAndFileID);
 		db_bind_string(curtxn, fileIDs->min, targetURI);
 		db_range_genmax(fileIDs);
 		rc = db_cursor_nextr(step_files, fileIDs, fileID_key, NULL, dir);
+		if(DB_SUCCESS == rc) return;
 	}
-	if(DB_SUCCESS == rc) return;
 
 	for(uint64_t sortID = [self stepMeta:dir]; valid(sortID); sortID = [self stepMeta:dir]) {
 		DB_VAL(metaFileID_key, DB_VARINT_MAX + DB_VARINT_MAX);
@@ -91,9 +91,8 @@
 		DB_val metaFile_val[1];
 		rc = db_cursor_seek(step_target, metaFileID_key, metaFile_val, 0);
 		assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
-		uint64_t const table = db_read_uint64(fileID_key);
-		assert(EFSURIAndFileID == table);
-		strarg_t const targetURI = db_read_string(curtxn, fileID_key);
+		uint64_t const f = db_read_uint64(metaFile_val);
+		strarg_t const targetURI = db_read_string(curtxn, metaFile_val);
 
 		DB_RANGE(fileIDs, DB_VARINT_MAX + DB_INLINE_MAX);
 		db_bind_uint64(fileIDs->min, EFSURIAndFileID);
@@ -387,6 +386,7 @@
 	db_bind_uint64(range->min, EFSFieldValueAndMetaFileID);
 	db_bind_string(curtxn, range->min, field);
 	db_bind_string(curtxn, range->min, value);
+	db_range_genmax(range);
 	DB_VAL(metadata_key, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 2);
 	db_bind_uint64(metadata_key, EFSFieldValueAndMetaFileID);
 	db_bind_string(curtxn, metadata_key, field);

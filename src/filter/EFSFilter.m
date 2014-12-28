@@ -103,10 +103,10 @@ str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, DB_txn *co
 		EFSFilterCurrent(filter, dir, &sortID, &fileID);
 		if(!valid(fileID)) return NULL;
 
-//		fprintf(stderr, "step: %llu, %llu\n", sortID, fileID);
+//		fprintf(stderr, "step: %llu, %llu\n", (unsigned long long)sortID, (unsigned long long)fileID);
 
 		uint64_t const age = EFSFilterAge(filter, sortID, fileID);
-//		fprintf(stderr, "{%llu, %llu} -> %llu\n", sortID, fileID, age);
+//		fprintf(stderr, "{%llu, %llu} -> %llu\n", (unsigned long long)sortID, (unsigned long long)fileID, (unsigned long long)age);
 		if(age != sortID) continue;
 
 		DB_VAL(fileID_key, DB_VARINT_MAX + DB_VARINT_MAX);

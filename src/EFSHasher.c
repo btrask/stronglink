@@ -1,16 +1,6 @@
 #include <openssl/sha.h> // TODO: Switch to LibreSSL.
 #include "EarthFS.h"
 
-static str_t *tohex(byte_t const *const buf, size_t const len) {
-	str_t const map[] = "0123456789abcdef";
-	str_t *const hex = calloc(len*2+1, 1);
-	for(off_t i = 0; i < len; ++i) {
-		hex[i*2+0] = map[0xf & (buf[i] >> 4)];
-		hex[i*2+1] = map[0xf & (buf[i] >> 0)];
-	}
-	return hex;
-}
-
 struct EFSHasher {
 	str_t *type;
 	SHA_CTX sha1;
