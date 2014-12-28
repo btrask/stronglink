@@ -5,8 +5,9 @@
 #include "http/HTTPMessage.h"
 
 #define URI_MAX 1023
-#define READER_COUNT 16
-#define QUEUE_SIZE 32
+
+#define READER_COUNT 64
+#define QUEUE_SIZE 64 // TODO: Find a way to lower these without sacrificing performance, and perhaps automatically adjust them somehow.
 
 struct EFSPull {
 	uint64_t pullID;
