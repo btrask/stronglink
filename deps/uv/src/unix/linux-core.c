@@ -141,6 +141,7 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
   struct uv__epoll_event e;
   QUEUE* q;
   uv__io_t* w;
+  uint64_t sigmask;
   uint64_t base;
   uint64_t diff;
   int nevents;
@@ -149,6 +150,7 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
   int fd;
   int op;
   int i;
+  static int no_epoll_wait;
 
   if (loop->nfds == 0) {
     assert(QUEUE_EMPTY(&loop->watcher_queue));
@@ -190,15 +192,31 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
     w->events = w->pevents;
   }
 
+  sigmask = 0;
+  if (loop->flags & UV_LOOP_BLOCK_SIGPROF)
+    sigmask |= 1 << (SIGPROF - 1);
+
   assert(timeout >= -1);
   base = loop->time;
   count = 48; /* Benchmarks suggest this gives the best throughput. */
 
   for (;;) {
-    nfds = uv__epoll_wait(loop->backend_fd,
-                          events,
-                          ARRAY_SIZE(events),
-                          timeout);
+    if (no_epoll_wait || sigmask) {
+      nfds = uv__epoll_pwait(loop->backend_fd,
+                             events,
+                             ARRAY_SIZE(events),
+                             timeout,
+                             sigmask);
+    } else {
+      nfds = uv__epoll_wait(loop->backend_fd,
+                            events,
+                            ARRAY_SIZE(events),
+                            timeout);
+      if (nfds == -1 && errno == ENOSYS) {
+        no_epoll_wait = 1;
+        continue;
+      }
+    }
 
     /* Update loop->time unconditionally. It's tempting to skip the update when
      * timeout == 0 (i.e. non-blocking poll) but there is no guarantee that the
@@ -731,6 +749,7 @@ int uv_interface_addresses(uv_interface_address_t** addresses,
     return -errno;
 
   *count = 0;
+  *addresses = NULL;
 
   /* Count the number of interfaces */
   for (ent = addrs; ent != NULL; ent = ent->ifa_next) {
@@ -742,6 +761,9 @@ int uv_interface_addresses(uv_interface_address_t** addresses,
 
     (*count)++;
   }
+
+  if (*count == 0)
+    return 0;
 
   *addresses = malloc(*count * sizeof(**addresses));
   if (!(*addresses))

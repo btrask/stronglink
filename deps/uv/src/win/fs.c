@@ -36,10 +36,14 @@
 #include "req-inl.h"
 #include "handle-inl.h"
 
+#include <wincrypt.h>
+
 
 #define UV_FS_FREE_PATHS         0x0002
 #define UV_FS_FREE_PTR           0x0008
 #define UV_FS_CLEANEDUP          0x0010
+
+static const int uv__fs_dirent_slide = 0x20;
 
 
 #define QUEUE_FS_TP_JOB(loop, req)                                          \
@@ -279,7 +283,7 @@ INLINE static int fs__readlink_handle(HANDLE handle, char** target_ptr,
            (w_target[4] >= L'a' && w_target[4] <= L'z')) &&
           w_target[5] == L':' &&
           (w_target_len == 6 || w_target[6] == L'\\')) {
-        /* \??\«drive»:\ */
+        /* \??\<drive>:\ */
         w_target += 4;
         w_target_len -= 4;
 
@@ -288,8 +292,8 @@ INLINE static int fs__readlink_handle(HANDLE handle, char** target_ptr,
                  (w_target[5] == L'N' || w_target[5] == L'n') &&
                  (w_target[6] == L'C' || w_target[6] == L'c') &&
                  w_target[7] == L'\\') {
-        /* \??\UNC\«server»\«share»\ - make sure the final path looks like */
-        /* \\«server»\«share»\ */
+        /* \??\UNC\<server>\<share>\ - make sure the final path looks like */
+        /* \\<server>\<share>\ */
         w_target += 6;
         w_target[0] = L'\\';
         w_target_len -= 6;
@@ -304,8 +308,8 @@ INLINE static int fs__readlink_handle(HANDLE handle, char** target_ptr,
     w_target_len = reparse_data->MountPointReparseBuffer.SubstituteNameLength /
         sizeof(WCHAR);
 
-    /* Only treat junctions that look like \??\«drive»:\ as symlink. */
-    /* Junctions can also be used as mount points, like \??\Volume{«guid»}, */
+    /* Only treat junctions that look like \??\<drive>:\ as symlink. */
+    /* Junctions can also be used as mount points, like \??\Volume{<guid>}, */
     /* but that's confusing for programs since they wouldn't be able to */
     /* actually understand such a path when returned by uv_readlink(). */
     /* UNC paths are never valid for junctions so we don't care about them. */
@@ -553,11 +557,6 @@ void fs__read(uv_fs_t* req) {
 
   if (offset != -1) {
     memset(&overlapped, 0, sizeof overlapped);
-
-    offset_.QuadPart = offset;
-    overlapped.Offset = offset_.LowPart;
-    overlapped.OffsetHigh = offset_.HighPart;
-
     overlapped_ptr = &overlapped;
   } else {
     overlapped_ptr = NULL;
@@ -567,6 +566,13 @@ void fs__read(uv_fs_t* req) {
   bytes = 0;
   do {
     DWORD incremental_bytes;
+
+    if (offset != -1) {
+      offset_.QuadPart = offset + bytes;
+      overlapped.Offset = offset_.LowPart;
+      overlapped.OffsetHigh = offset_.HighPart;
+    }
+
     result = ReadFile(handle,
                       req->bufs[index].base,
                       req->bufs[index].len,
@@ -609,11 +615,6 @@ void fs__write(uv_fs_t* req) {
 
   if (offset != -1) {
     memset(&overlapped, 0, sizeof overlapped);
-
-    offset_.QuadPart = offset;
-    overlapped.Offset = offset_.LowPart;
-    overlapped.OffsetHigh = offset_.HighPart;
-
     overlapped_ptr = &overlapped;
   } else {
     overlapped_ptr = NULL;
@@ -623,6 +624,13 @@ void fs__write(uv_fs_t* req) {
   bytes = 0;
   do {
     DWORD incremental_bytes;
+
+    if (offset != -1) {
+      offset_.QuadPart = offset + bytes;
+      overlapped.Offset = offset_.LowPart;
+      overlapped.OffsetHigh = offset_.HighPart;
+    }
+
     result = WriteFile(handle,
                        req->bufs[index].base,
                        req->bufs[index].len,
@@ -721,23 +729,82 @@ void fs__mkdir(uv_fs_t* req) {
 }
 
 
-void fs__readdir(uv_fs_t* req) {
+/* OpenBSD original: lib/libc/stdio/mktemp.c */
+void fs__mkdtemp(uv_fs_t* req) {
+  static const WCHAR *tempchars =
+    L"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  static const size_t num_chars = 62;
+  static const size_t num_x = 6;
+  WCHAR *cp, *ep;
+  unsigned int tries, i;
+  size_t len;
+  HCRYPTPROV h_crypt_prov;
+  uint64_t v;
+  BOOL released;
+
+  len = wcslen(req->pathw);
+  ep = req->pathw + len;
+  if (len < num_x || wcsncmp(ep - num_x, L"XXXXXX", num_x)) {
+    SET_REQ_UV_ERROR(req, UV_EINVAL, ERROR_INVALID_PARAMETER);
+    return;
+  }
+
+  if (!CryptAcquireContext(&h_crypt_prov, NULL, NULL, PROV_RSA_FULL,
+                           CRYPT_VERIFYCONTEXT)) {
+    SET_REQ_WIN32_ERROR(req, GetLastError());
+    return;
+  }
+
+  tries = TMP_MAX;
+  do {
+    if (!CryptGenRandom(h_crypt_prov, sizeof(v), (BYTE*) &v)) {
+      SET_REQ_WIN32_ERROR(req, GetLastError());
+      break;
+    }
+
+    cp = ep - num_x;
+    for (i = 0; i < num_x; i++) {
+      *cp++ = tempchars[v % num_chars];
+      v /= num_chars;
+    }
+
+    if (_wmkdir(req->pathw) == 0) {
+      len = strlen(req->path);
+      wcstombs((char*) req->path + len - num_x, ep - num_x, num_x);
+      SET_REQ_RESULT(req, 0);
+      break;
+    } else if (errno != EEXIST) {
+      SET_REQ_RESULT(req, -1);
+      break;
+    }
+  } while (--tries);
+
+  released = CryptReleaseContext(h_crypt_prov, 0);
+  assert(released);
+  if (tries == 0) {
+    SET_REQ_RESULT(req, -1);
+  }
+}
+
+
+void fs__scandir(uv_fs_t* req) {
   WCHAR* pathw = req->pathw;
   size_t len = wcslen(pathw);
-  int result, size;
-  WCHAR* buf = NULL, *ptr, *name;
+  int result;
+  WCHAR* name;
   HANDLE dir;
   WIN32_FIND_DATAW ent = { 0 };
-  size_t buf_char_len = 4096;
   WCHAR* path2;
   const WCHAR* fmt;
+  uv__dirent_t** dents;
+  int dent_size;
 
   if (len == 0) {
     fmt = L"./*";
   } else if (pathw[len - 1] == L'/' || pathw[len - 1] == L'\\') {
-    fmt = L"%s*";
+    fmt = L"%ls*";
   } else {
-    fmt = L"%s\\*";
+    fmt = L"%ls\\*";
   }
 
   /* Figure out whether path is a file or a directory. */
@@ -749,7 +816,8 @@ void fs__readdir(uv_fs_t* req) {
 
   path2 = (WCHAR*)malloc(sizeof(WCHAR) * (len + 4));
   if (!path2) {
-    uv_fatal_error(ERROR_OUTOFMEMORY, "malloc");
+    SET_REQ_UV_ERROR(req, UV_ENOMEM, ERROR_OUTOFMEMORY);
+    return;
   }
 
   _snwprintf(path2, len + 3, fmt, pathw);
@@ -762,71 +830,81 @@ void fs__readdir(uv_fs_t* req) {
   }
 
   result = 0;
+  dents = NULL;
+  dent_size = 0;
 
   do {
+    uv__dirent_t* dent;
+    int utf8_len;
+
     name = ent.cFileName;
 
-    if (name[0] != L'.' || (name[1] && (name[1] != L'.' || name[2]))) {
-      len = wcslen(name);
+    if (!(name[0] != L'.' || (name[1] && (name[1] != L'.' || name[2]))))
+      continue;
 
-      if (!buf) {
-        buf = (WCHAR*)malloc(buf_char_len * sizeof(WCHAR));
-        if (!buf) {
-          uv_fatal_error(ERROR_OUTOFMEMORY, "malloc");
-        }
+    /* Grow dents buffer, if needed */
+    if (result >= dent_size) {
+      uv__dirent_t** tmp;
 
-        ptr = buf;
+      dent_size += uv__fs_dirent_slide;
+      tmp = realloc(dents, dent_size * sizeof(*dents));
+      if (tmp == NULL) {
+        SET_REQ_UV_ERROR(req, UV_ENOMEM, ERROR_OUTOFMEMORY);
+        goto fatal;
       }
-
-      while ((ptr - buf) + len + 1 > buf_char_len) {
-        buf_char_len *= 2;
-        path2 = buf;
-        buf = (WCHAR*)realloc(buf, buf_char_len * sizeof(WCHAR));
-        if (!buf) {
-          uv_fatal_error(ERROR_OUTOFMEMORY, "realloc");
-        }
-
-        ptr = buf + (ptr - path2);
-      }
-
-      wcscpy(ptr, name);
-      ptr += len + 1;
-      result++;
+      dents = tmp;
     }
+
+    /* Allocate enough space to fit utf8 encoding of file name */
+    len = wcslen(name);
+    utf8_len = uv_utf16_to_utf8(name, len, NULL, 0);
+    if (!utf8_len) {
+      SET_REQ_WIN32_ERROR(req, GetLastError());
+      goto fatal;
+    }
+
+    dent = malloc(sizeof(*dent) + utf8_len + 1);
+    if (dent == NULL) {
+      SET_REQ_UV_ERROR(req, UV_ENOMEM, ERROR_OUTOFMEMORY);
+      goto fatal;
+    }
+
+    /* Copy file name */
+    utf8_len = uv_utf16_to_utf8(name, len, dent->d_name, utf8_len);
+    if (!utf8_len) {
+      free(dent);
+      SET_REQ_WIN32_ERROR(req, GetLastError());
+      goto fatal;
+    }
+    dent->d_name[utf8_len] = '\0';
+
+    /* Copy file type */
+    if ((ent.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+      dent->d_type = UV__DT_DIR;
+    else if ((ent.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0)
+      dent->d_type = UV__DT_LINK;
+    else
+      dent->d_type = UV__DT_FILE;
+
+    dents[result++] = dent;
   } while(FindNextFileW(dir, &ent));
 
   FindClose(dir);
 
-  if (buf) {
-    /* Convert result to UTF8. */
-    size = uv_utf16_to_utf8(buf, buf_char_len, NULL, 0);
-    if (!size) {
-      SET_REQ_WIN32_ERROR(req, GetLastError());
-      return;
-    }
-
-    req->ptr = (char*)malloc(size + 1);
-    if (!req->ptr) {
-      uv_fatal_error(ERROR_OUTOFMEMORY, "malloc");
-    }
-
-    size = uv_utf16_to_utf8(buf, buf_char_len, (char*)req->ptr, size);
-    if (!size) {
-      free(buf);
-      free(req->ptr);
-      req->ptr = NULL;
-      SET_REQ_WIN32_ERROR(req, GetLastError());
-      return;
-    }
-    free(buf);
-
-    ((char*)req->ptr)[size] = '\0';
+  if (dents != NULL)
     req->flags |= UV_FS_FREE_PTR;
-  } else {
-    req->ptr = NULL;
-  }
 
+  /* NOTE: nbufs will be used as index */
+  req->nbufs = 0;
+  req->ptr = dents;
   SET_REQ_RESULT(req, result);
+  return;
+
+fatal:
+  /* Deallocate dents */
+  for (result--; result >= 0; result--)
+    free(dents[result]);
+  free(dents);
 }
 
 
@@ -869,7 +947,7 @@ INLINE static int fs__stat_handle(HANDLE handle, uv_stat_t* statbuf) {
    *
    * Currently it's based on whether the 'readonly' attribute is set, which
    * makes little sense because the semantics are so different: the 'read-only'
-   * flag is just a way for a user to protect against accidental deleteion, and
+   * flag is just a way for a user to protect against accidental deletion, and
    * serves no security purpose. Windows uses ACLs for that.
    *
    * Also people now use uv_fs_chmod() to take away the writable bit for good
@@ -878,7 +956,7 @@ INLINE static int fs__stat_handle(HANDLE handle, uv_stat_t* statbuf) {
    * deleted.
    *
    * IOW it's all just a clusterfuck and we should think of something that
-   * makes slighty more sense.
+   * makes slightly more sense.
    *
    * And uv_fs_chmod should probably just fail on windows or be a total no-op.
    * There's nothing sensible it can do anyway.
@@ -1146,6 +1224,25 @@ static void fs__sendfile(uv_fs_t* req) {
 }
 
 
+static void fs__access(uv_fs_t* req) {
+  DWORD attr = GetFileAttributesW(req->pathw);
+
+  if (attr == INVALID_FILE_ATTRIBUTES) {
+    SET_REQ_WIN32_ERROR(req, GetLastError());
+    return;
+  }
+
+  if ((req->flags & W_OK) &&
+      ((attr & FILE_ATTRIBUTE_READONLY) ||
+      (attr & FILE_ATTRIBUTE_DIRECTORY))) {
+    SET_REQ_WIN32_ERROR(req, UV_EPERM);
+    return;
+  }
+
+  SET_REQ_RESULT(req, 0);
+}
+
+
 static void fs__chmod(uv_fs_t* req) {
   int result = _wchmod(req->pathw, req->mode);
   SET_REQ_RESULT(req, result);
@@ -1393,7 +1490,7 @@ static void fs__create_junction(uv_fs_t* req, const WCHAR* path,
 
   /* Open the directory */
   handle = CreateFileW(new_path,
-                       GENERIC_ALL,
+                       GENERIC_WRITE,
                        0,
                        NULL,
                        OPEN_EXISTING,
@@ -1521,6 +1618,7 @@ static void uv__fs_work(struct uv__work* w) {
     XX(FTRUNCATE, ftruncate)
     XX(UTIME, utime)
     XX(FUTIME, futime)
+    XX(ACCESS, access)
     XX(CHMOD, chmod)
     XX(FCHMOD, fchmod)
     XX(FSYNC, fsync)
@@ -1528,8 +1626,9 @@ static void uv__fs_work(struct uv__work* w) {
     XX(UNLINK, unlink)
     XX(RMDIR, rmdir)
     XX(MKDIR, mkdir)
+    XX(MKDTEMP, mkdtemp)
     XX(RENAME, rename)
-    XX(READDIR, readdir)
+    XX(SCANDIR, scandir)
     XX(LINK, link)
     XX(SYMLINK, symlink)
     XX(READLINK, readlink)
@@ -1724,6 +1823,26 @@ int uv_fs_mkdir(uv_loop_t* loop, uv_fs_t* req, const char* path, int mode,
 }
 
 
+int uv_fs_mkdtemp(uv_loop_t* loop, uv_fs_t* req, const char* tpl,
+    uv_fs_cb cb) {
+  int err;
+
+  uv_fs_req_init(loop, req, UV_FS_MKDTEMP, cb);
+
+  err = fs__capture_path(loop, req, tpl, NULL, TRUE);
+  if (err)
+    return uv_translate_sys_error(err);
+
+  if (cb) {
+    QUEUE_FS_TP_JOB(loop, req);
+    return 0;
+  } else {
+    fs__mkdtemp(req);
+    return req->result;
+  }
+}
+
+
 int uv_fs_rmdir(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) {
   int err;
 
@@ -1744,11 +1863,11 @@ int uv_fs_rmdir(uv_loop_t* loop, uv_fs_t* req, const char* path, uv_fs_cb cb) {
 }
 
 
-int uv_fs_readdir(uv_loop_t* loop, uv_fs_t* req, const char* path, int flags,
+int uv_fs_scandir(uv_loop_t* loop, uv_fs_t* req, const char* path, int flags,
     uv_fs_cb cb) {
   int err;
 
-  uv_fs_req_init(loop, req, UV_FS_READDIR, cb);
+  uv_fs_req_init(loop, req, UV_FS_SCANDIR, cb);
 
   err = fs__capture_path(loop, req, path, NULL, cb != NULL);
   if (err) {
@@ -1761,7 +1880,7 @@ int uv_fs_readdir(uv_loop_t* loop, uv_fs_t* req, const char* path, int flags,
     QUEUE_FS_TP_JOB(loop, req);
     return 0;
   } else {
-    fs__readdir(req);
+    fs__scandir(req);
     return req->result;
   }
 }
@@ -2004,6 +2123,31 @@ int uv_fs_sendfile(uv_loop_t* loop, uv_fs_t* req, uv_file fd_out,
     fs__sendfile(req);
     return req->result;
   }
+}
+
+
+int uv_fs_access(uv_loop_t* loop,
+                 uv_fs_t* req,
+                 const char* path,
+                 int flags,
+                 uv_fs_cb cb) {
+  int err;
+
+  uv_fs_req_init(loop, req, UV_FS_ACCESS, cb);
+
+  err = fs__capture_path(loop, req, path, NULL, cb != NULL);
+  if (err)
+    return uv_translate_sys_error(err);
+
+  req->flags = flags;
+
+  if (cb) {
+    QUEUE_FS_TP_JOB(loop, req);
+    return 0;
+  }
+
+  fs__access(req);
+  return req->result;
 }
 
 

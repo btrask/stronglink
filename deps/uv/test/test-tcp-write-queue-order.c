@@ -26,7 +26,7 @@
 #include "uv.h"
 #include "task.h"
 
-#define REQ_COUNT 100000
+#define REQ_COUNT 10000
 
 static uv_timer_t timer;
 static uv_tcp_t server;
@@ -126,10 +126,7 @@ TEST_IMPL(tcp_write_queue_order) {
   ASSERT(connect_cb_called == 1);
   ASSERT(connection_cb_called == 1);
   ASSERT(write_callbacks > 0);
-#ifndef _WIN32
-  /* on Windows we never get ECANCELED */
   ASSERT(write_cancelled_callbacks > 0);
-#endif
   ASSERT(write_callbacks +
          write_error_callbacks +
          write_cancelled_callbacks == REQ_COUNT);

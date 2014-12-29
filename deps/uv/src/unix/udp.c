@@ -278,9 +278,6 @@ int uv__udp_bind(uv_udp_t* handle,
   int yes;
   int fd;
 
-  err = -EINVAL;
-  fd = -1;
-
   /* Check for bad flags. */
   if (flags & ~(UV_UDP_IPV6ONLY | UV_UDP_REUSEADDR))
     return -EINVAL;
@@ -339,8 +336,6 @@ static int uv__udp_maybe_deferred_bind(uv_udp_t* handle,
                                        unsigned int flags) {
   unsigned char taddr[sizeof(struct sockaddr_in6)];
   socklen_t addrlen;
-
-  assert(domain == AF_INET || domain == AF_INET6);
 
   if (handle->io_watcher.fd != -1)
     return 0;
@@ -703,7 +698,9 @@ int uv_udp_set_multicast_interface(uv_udp_t* handle, const char* interface_addr)
 }
 
 
-int uv_udp_getsockname(uv_udp_t* handle, struct sockaddr* name, int* namelen) {
+int uv_udp_getsockname(const uv_udp_t* handle,
+                       struct sockaddr* name,
+                       int* namelen) {
   socklen_t socklen;
 
   if (handle->io_watcher.fd == -1)
