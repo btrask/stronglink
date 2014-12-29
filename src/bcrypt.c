@@ -1,4 +1,4 @@
-#include "../deps/crypt_blowfish-1.0.4/ow-crypt.h"
+#include "../deps/crypt_blowfish/ow-crypt.h"
 #include "bcrypt.h"
 #include "async/async.h"
 

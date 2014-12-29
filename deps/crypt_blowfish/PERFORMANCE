@@ -10,6 +10,11 @@ PA-RISC 7100LC, 80 MHz	8.5 c/s			16.3 c/s (+92%)
 (*) built with -fomit-frame-pointer -funroll-loops, which I don't
 think happens for libcrypt.
 
+Starting with version 1.1 released in June 2011, default builds of
+crypt_blowfish invoke a quick self-test on every hash computation.
+This has roughly a 4.8% performance impact at "$2a$05", but only a 0.6%
+impact at a more typical setting of "$2a$08".
+
 The large speedup for the original Pentium is due to the assembly
 code and the weird optimizations this processor requires.
 
@@ -22,4 +27,4 @@ additional 15% speedup on the Pentium Pro family of processors (which
 includes Pentium III) with a separate version of the assembly code and
 run-time CPU detection.
 
-$Owl: Owl/packages/glibc/crypt_blowfish/PERFORMANCE,v 1.5 2005/11/16 13:09:47 solar Exp $
+$Owl: Owl/packages/glibc/crypt_blowfish/PERFORMANCE,v 1.6 2011/06/21 12:09:20 solar Exp $

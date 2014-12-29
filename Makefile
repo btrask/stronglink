@@ -40,7 +40,7 @@ HEADERS := \
 	$(SRC_DIR)/http/MultipartForm.h \
 	$(SRC_DIR)/http/QueryString.h \
 	$(DEPS_DIR)/libco/libco.h \
-	$(DEPS_DIR)/crypt_blowfish-1.0.4/ow-crypt.h \
+	$(DEPS_DIR)/crypt_blowfish/ow-crypt.h \
 	$(DEPS_DIR)/http_parser/http_parser.h \
 	$(DEPS_DIR)/multipart-parser-c/multipart_parser.h \
 	$(DEPS_DIR)/lsmdb/liblmdb/lmdb.h \
@@ -170,11 +170,11 @@ libuv:
 	cd $(DEPS_DIR)/uv && make
 #	cd $(DEPS_DIR)/uv && make check
 
-$(BUILD_DIR)/crypt/%.S.o: $(DEPS_DIR)/crypt_blowfish-1.0.4/%.S
+$(BUILD_DIR)/crypt/%.S.o: $(DEPS_DIR)/crypt_blowfish/%.S
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-$(BUILD_DIR)/crypt/%.o: $(DEPS_DIR)/crypt_blowfish-1.0.4/%.c $(DEPS_DIR)/crypt_blowfish-1.0.4/crypt.h $(DEPS_DIR)/crypt_blowfish-1.0.4/ow-crypt.h
+$(BUILD_DIR)/crypt/%.o: $(DEPS_DIR)/crypt_blowfish/%.c $(DEPS_DIR)/crypt_blowfish/crypt.h $(DEPS_DIR)/crypt_blowfish/ow-crypt.h
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
