@@ -366,8 +366,10 @@
 }
 - (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth {
 	size_t len = 0;
-	len += wr_quoted(data+len, size-len, field);
-	len += wr(data+len, size-len, "=");
+	if(0 != strcasecmp("link", field)) { // TODO: Have a separate filter for link tracking?
+		len += wr_quoted(data+len, size-len, field);
+		len += wr(data+len, size-len, "=");
+	}
 	len += wr_quoted(data+len, size-len, value);
 	return len;
 }
