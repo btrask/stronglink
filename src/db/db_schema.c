@@ -15,7 +15,7 @@ static uint64_t varint_decode(uint8_t const *const data, size_t const size) {
 	assert(len);
 	assert(size >= len);
 	uint64_t x = data[0] & 0x0f;
-	for(off_t i = 1; i < len; ++i) x = x << 8 | data[i];
+	for(size_t i = 1; i < len; ++i) x = x << 8 | data[i];
 	return x;
 }
 static size_t varint_encode(uint8_t *const data, size_t const size, uint64_t const x) {

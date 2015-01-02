@@ -145,13 +145,13 @@ static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session,
 	sd_markdown_render(out, buf, info->size, parser);
 	sd_markdown_free(parser); parser = NULL;
 
-	int written = 0;
+	ssize_t written = 0;
 	for(;;) {
 		uv_buf_t bufs = uv_buf_init((char *)out->data+written, out->size-written);
-		int const r = async_fs_write(file, &bufs, 1, 0);
+		ssize_t const r = async_fs_write(file, &bufs, 1, 0);
 		if(r < 0) goto err;
 		written += r;
-		if(written >= out->size) break;
+		if((size_t)written >= out->size) break;
 	}
 	if(async_fs_fdatasync(file) < 0) goto err;
 

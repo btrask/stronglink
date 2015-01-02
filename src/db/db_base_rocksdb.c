@@ -54,7 +54,7 @@ static char *tohex(MDB_val const *const x) {
 	char const *const map = "0123456789abcdef";
 	char const *const buf = x->mv_data;
 	char *const hex = calloc(x->mv_size*2+1, 1);
-	for(off_t i = 0; i < x->mv_size; ++i) {
+	for(size_t i = 0; i < x->mv_size; ++i) {
 		hex[i*2+0] = map[0xf & (buf[i] >> 4)];
 		hex[i*2+1] = map[0xf & (buf[i] >> 0)];
 	}

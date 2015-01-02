@@ -78,9 +78,9 @@ TODO: Windows pathnames
 */
 static ssize_t dirlen(char const *const path, size_t const len) {
 	if(!len) return -1;
-	off_t i = len;
+	size_t i = len;
 	if(0 == i--) return -1; // Ignore trailing slash.
-	for(; i >= 0; --i) if('/' == path[i]) return i;
+	while(i--) if('/' == path[i]) return i;
 	return -1;
 }
 int async_fs_mkdirp_fast(char *const path, size_t const len, int const mode) {
@@ -126,7 +126,7 @@ int async_fs_mkdirp_dirname(char const *const path, int const mode) {
 static char *tohex(char const *const buf, size_t const len) {
 	char const map[] = "0123456789abcdef";
 	char *const hex = calloc(len*2+1, 1);
-	for(off_t i = 0; i < len; ++i) {
+	for(size_t i = 0; i < len; ++i) {
 		hex[i*2+0] = map[0xf & (buf[i] >> 4)];
 		hex[i*2+1] = map[0xf & (buf[i] >> 0)];
 	}

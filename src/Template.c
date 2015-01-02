@@ -152,7 +152,7 @@ TemplateArgCBs const TemplateStaticCBs = {
 str_t *htmlenc(strarg_t const str) {
 	if(!str) return NULL;
 	size_t total = 0;
-	for(off_t i = 0; str[i]; ++i) switch(str[i]) {
+	for(size_t i = 0; str[i]; ++i) switch(str[i]) {
 		case '<': total += 4; break;
 		case '>': total += 4; break;
 		case '&': total += 5; break;
@@ -161,7 +161,7 @@ str_t *htmlenc(strarg_t const str) {
 	}
 	str_t *enc = malloc(total+1);
 	if(!enc) return NULL;
-	for(off_t i = 0, j = 0; str[i]; ++i) switch(str[i]) {
+	for(size_t i = 0, j = 0; str[i]; ++i) switch(str[i]) {
 		case '<': memcpy(enc+j, "&lt;", 4); j += 4; break;
 		case '>': memcpy(enc+j, "&gt;", 4); j += 4; break;
 		case '&': memcpy(enc+j, "&amp;", 5); j += 5; break;

@@ -13,7 +13,7 @@ typedef unsigned char byte_t;
 typedef char str_t;
 typedef str_t const *strarg_t; // A string that belongs to someone else.
 typedef signed char bool_t;
-typedef off_t index_t;
+typedef size_t index_t;
 typedef size_t count_t;
 typedef int err_t;
 
@@ -70,7 +70,7 @@ typedef int err_t;
 
 // Compares nul-terminated string `a` with substring of `blen` at `b`.
 static bool_t substr(strarg_t const a, strarg_t const b, size_t const blen) {
-	off_t i = 0;
+	size_t i = 0;
 	for(; i < blen; ++i) {
 		if(a[i] != b[i]) return false;
 		if(!a[i]) return false; // Terminated early.
@@ -80,7 +80,7 @@ static bool_t substr(strarg_t const a, strarg_t const b, size_t const blen) {
 }
 // Returns strlen(a) if `b` starts with `a`, otherwise 0.
 static size_t prefix(strarg_t const a, strarg_t const b) {
-	for(off_t i = 0; ; ++i) {
+	for(size_t i = 0; ; ++i) {
 		if(!a[i]) return i;
 		if(a[i] != b[i]) return 0;
 	}
@@ -89,7 +89,7 @@ static size_t prefix(strarg_t const a, strarg_t const b) {
 static str_t *tohex(byte_t const *const buf, size_t const len) {
 	str_t const map[] = "0123456789abcdef";
 	str_t *const hex = calloc(len*2+1, 1);
-	for(off_t i = 0; i < len; ++i) {
+	for(size_t i = 0; i < len; ++i) {
 		hex[i*2+0] = map[0xf & (buf[i] >> 4)];
 		hex[i*2+1] = map[0xf & (buf[i] >> 0)];
 	}

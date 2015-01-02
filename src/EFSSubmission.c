@@ -270,7 +270,7 @@ err_t EFSSubmissionCreateQuickPair(EFSSessionRef const session, strarg_t const t
 			return -1;
 		}
 		if(fulltext) {
-			size_t const use = MIN(FTS_MAX-fulltextlen, len);
+			size_t const use = MIN(FTS_MAX-fulltextlen, (size_t)len);
 			memcpy(fulltext+fulltextlen, buf, use);
 			fulltextlen += use;
 		}

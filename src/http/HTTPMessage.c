@@ -94,7 +94,7 @@ err_t HTTPConnectionError(HTTPConnectionRef const conn) {
 
 struct HTTPMessage {
 	HTTPConnectionRef conn;
-	off_t pos;
+	size_t pos;
 	size_t remaining;
 
 	// Incoming
@@ -201,7 +201,7 @@ ssize_t HTTPMessageReadLine(HTTPMessageRef const msg, str_t *const buf, size_t c
 	if(!msg) return -1;
 	if(!msg->headers) HTTPMessageGetHeaders(msg, NULL, 0);
 	if(msg->eof) return -1;
-	off_t pos = 0;
+	size_t pos = 0;
 	for(;;) {
 		if(readChunk(msg) < 0) break;
 		if('\r' == msg->next.at[0]) break;

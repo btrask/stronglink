@@ -4,7 +4,7 @@
 
 int passcmp(volatile strarg_t const a, volatile strarg_t const b) {
 	int r = 0;
-	for(off_t i = 0; ; ++i) {
+	for(size_t i = 0; ; ++i) {
 		if(a[i] != b[i]) r = -1;
 		if(!a[i] || !b[i]) break;
 	}
