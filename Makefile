@@ -249,6 +249,6 @@ clean:
 
 .PHONY: distclean
 distclean: clean
-	- rm -rf $(DEPS_DIR)/uv/out
+	- cd $(DEPS_DIR)/uv && make distclean
 	- cd $(DEPS_DIR)/yajl && make distclean
 	- cd $(DEPS_DIR)/leveldb && make clean
