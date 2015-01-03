@@ -15,6 +15,7 @@ CFLAGS += -DLIBCO_MP
 WARNINGS := -Werror -Wall
 WARNINGS += -Wno-unused
 WARNINGS += -Wno-deprecated
+WARNINGS += -Wno-objc-root-class
 
 ifdef RELEASE
 CFLAGS += -O2
@@ -105,19 +106,12 @@ OBJECTS := \
 	$(BUILD_DIR)/sundown/html/houdini_href_e.o \
 	$(BUILD_DIR)/sundown/html/houdini_html_e.o
 
-ifeq ($(CC),clang)
-WARNINGS += -Wno-objc-root-class
-LIBCO := sjlj
-else
-LIBCO := libco
-endif
-
 ifdef USE_VALGRIND
 HEADERS += $(DEPS_DIR)/libcoro/coro.h
 OBJECTS += $(BUILD_DIR)/libcoro/coro.o $(BUILD_DIR)/libco_coro.o
 CFLAGS += -DCORO_USE_VALGRIND
 else
-OBJECTS += $(BUILD_DIR)/libco/$(LIBCO).o
+OBJECTS += $(BUILD_DIR)/libco/libco.o
 endif
 
 
