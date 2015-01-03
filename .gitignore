@@ -3,3 +3,6 @@ perf.data
 perf.data.old
 deps/uv/uv.xcodeproj
 *~
+
+deps/yajl/test/parsing/cases/am_stuff.json.out
+deps/yajl/test/parsing/cases/am_stuff.json.test

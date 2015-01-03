@@ -4,6 +4,9 @@ SRC_DIR := $(ROOT_DIR)/src
 DEPS_DIR := $(ROOT_DIR)/deps
 TOOLS_DIR := $(ROOT_DIR)/tools
 
+# TODO: Hardcoded version number...
+YAJL_BUILD_DIR := $(DEPS_DIR)/yajl/build/yajl-2.1.1
+
 # TODO: Switch to c99
 CFLAGS := -std=gnu99
 CFLAGS += -g -fno-omit-frame-pointer
@@ -47,7 +50,8 @@ HEADERS := \
 	$(DEPS_DIR)/fts3/fts3_tokenizer.h \
 	$(DEPS_DIR)/sundown/src/markdown.h \
 	$(DEPS_DIR)/sundown/html/html.h \
-	$(DEPS_DIR)/sundown/html/houdini.h
+	$(DEPS_DIR)/sundown/html/houdini.h \
+	$(YAJL_BUILD_DIR)/include/yajl/*.h
 
 # Generic library code
 OBJECTS := \
@@ -124,8 +128,11 @@ OBJECTS += \
 	$(BUILD_DIR)/Template.o \
 	$(BUILD_DIR)/main.o
 
-LIB_DIRS := -L$(DEPS_DIR)/uv/out/Debug/obj.target
-#LIB_DIRS := -L$(DEPS_DIR)/uv/build/Release
+LIB_DIRS += -L$(YAJL_BUILD_DIR)/lib
+CFLAGS += -I$(YAJL_BUILD_DIR)/include
+
+LIB_DIRS += -L$(DEPS_DIR)/uv/out/Debug/obj.target
+#LIB_DIRS += -L$(DEPS_DIR)/uv/build/Release
 # TODO
 
 LIBS := -luv -lcrypto -lyajl -lpthread -lobjc -lm
@@ -158,6 +165,13 @@ all: $(BUILD_DIR)/earthfs
 $(BUILD_DIR)/earthfs: $(OBJECTS) libuv
 	@- mkdir -p $(dir $@)
 	$(CC) -o $@ $(OBJECTS) $(CFLAGS) -Werror -Wall $(LIB_DIRS) $(LIBS)
+
+# TODO: This is pretty ugly...
+$(DEPS_DIR)/yajl/Makefile:
+	cd $(DEPS_DIR)/yajl && ./configure
+	cd $(DEPS_DIR)/yajl/build && make yajl/fast
+
+$(YAJL_BUILD_DIR)/include/yajl/*.h: $(DEPS_DIR)/yajl/Makefile
 
 .PHONY: libuv
 libuv:
@@ -222,4 +236,4 @@ clean:
 .PHONY: distclean
 distclean: clean
 	- rm -rf $(DEPS_DIR)/uv/out
-
+	- cd $(DEPS_DIR)/yajl && make distclean
