@@ -1,3 +1,5 @@
+include Makefile.nall
+
 ROOT_DIR := .
 BUILD_DIR := $(ROOT_DIR)/build
 SRC_DIR := $(ROOT_DIR)/src
@@ -129,12 +131,12 @@ LIB_DIRS += -L$(YAJL_BUILD_DIR)/lib
 CFLAGS += -I$(YAJL_BUILD_DIR)/include
 
 MODULES += libuv
-LIB_DIRS += -L$(DEPS_DIR)/uv/out/Debug/obj.target
-#LIB_DIRS += -L$(DEPS_DIR)/uv/build/Release
-# TODO
+LIB_DIRS += -L$(DEPS_DIR)/uv/.libs
 
 LIBS := -luv -lcrypto -lyajl -lpthread -lobjc -lm
+ifeq ($(platform),linux)
 LIBS += -lrt
+endif
 
 ifeq ($(DB),rocksdb)
   MODULES += snappy
