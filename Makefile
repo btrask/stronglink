@@ -123,9 +123,12 @@ OBJECTS += \
 	$(BUILD_DIR)/Template.o \
 	$(BUILD_DIR)/main.o
 
+MODULES :=
+
 LIB_DIRS += -L$(YAJL_BUILD_DIR)/lib
 CFLAGS += -I$(YAJL_BUILD_DIR)/include
 
+MODULES += libuv
 LIB_DIRS += -L$(DEPS_DIR)/uv/out/Debug/obj.target
 #LIB_DIRS += -L$(DEPS_DIR)/uv/build/Release
 # TODO
@@ -134,22 +137,25 @@ LIBS := -luv -lcrypto -lyajl -lpthread -lobjc -lm
 LIBS += -lrt
 
 ifeq ($(DB),rocksdb)
-LIBS += -lrocksdb -lsnappy -lstdc++
-OBJECTS += $(BUILD_DIR)/db/db_base_rocksdb.o
+  MODULES += snappy
+  LIBS += -lrocksdb -lsnappy -lstdc++
+  OBJECTS += $(BUILD_DIR)/db/db_base_rocksdb.o
 else ifeq ($(DB),hyper)
-LIBS += -lhyperleveldb -lsnappy -lstdc++
-OBJECTS += $(BUILD_DIR)/db/db_base_leveldb.o
+  MODULES += snappy
+  LIBS += -lhyperleveldb -lsnappy -lstdc++
+  OBJECTS += $(BUILD_DIR)/db/db_base_leveldb.o
 else ifeq ($(DB),lsmdb)
-HEADERS += $(DEPS_DIR)/lsmdb/lsmdb.h
-OBJECTS += $(BUILD_DIR)/lsmdb/lsmdb.o
-OBJECTS += $(BUILD_DIR)/db/db_base_lsmdb.o
+  HEADERS += $(DEPS_DIR)/lsmdb/lsmdb.h
+  OBJECTS += $(BUILD_DIR)/lsmdb/lsmdb.o
+  OBJECTS += $(BUILD_DIR)/db/db_base_lsmdb.o
 else ifeq ($(DB),mdb)
-OBJECTS += $(BUILD_DIR)/db/db_base_mdb.o
+  OBJECTS += $(BUILD_DIR)/db/db_base_mdb.o
 else
-CFLAGS += -I/home/ben/Code/Other/c/databases/leveldb/include
-LIB_DIRS += -L/home/ben/Code/Other/c/databases/leveldb
-LIBS += -lleveldb -lsnappy -lstdc++
-OBJECTS += $(BUILD_DIR)/db/db_base_leveldb.o
+  MODULES += leveldb snappy
+  CFLAGS += -I$(DEPS_DIR)/leveldb/include -I$(DEPS_DIR)/snappy/include
+  LIB_DIRS += -L$(DEPS_DIR)/leveldb -L$(DEPS_DIR)/snappy/.libs
+  LIBS += -lleveldb -lsnappy -lstdc++
+  OBJECTS += $(BUILD_DIR)/db/db_base_leveldb.o
 endif
 
 .DEFAULT_GOAL := all
@@ -157,7 +163,7 @@ endif
 .PHONY: all
 all: $(BUILD_DIR)/earthfs
 
-$(BUILD_DIR)/earthfs: $(OBJECTS) libuv
+$(BUILD_DIR)/earthfs: $(OBJECTS) $(MODULES)
 	@- mkdir -p $(dir $@)
 	$(CC) -o $@ $(OBJECTS) $(CFLAGS) -Werror -Wall $(LIB_DIRS) $(LIBS)
 
@@ -167,6 +173,19 @@ $(DEPS_DIR)/yajl/Makefile:
 	cd $(DEPS_DIR)/yajl/build && make yajl/fast
 
 $(YAJL_BUILD_DIR)/include/yajl/*.h: $(DEPS_DIR)/yajl/Makefile
+
+.PHONY: leveldb
+leveldb:
+	cd $(DEPS_DIR)/leveldb && make
+
+.PHONY: snappy
+snappy:
+	if [ ! -x "$(DEPS_DIR)/snappy/configure" ]; then \
+		cd $(DEPS_DIR)/snappy; \
+		sh autogen.sh; \
+		./configure; \
+	fi
+	cd $(DEPS_DIR)/snappy && make
 
 .PHONY: libuv
 libuv:
@@ -232,3 +251,4 @@ clean:
 distclean: clean
 	- rm -rf $(DEPS_DIR)/uv/out
 	- cd $(DEPS_DIR)/yajl && make distclean
+	- cd $(DEPS_DIR)/leveldb && make clean
