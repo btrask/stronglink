@@ -1,0 +1,6 @@
+#!/bin/sh
+cd deps/yajl && ./configure
+cd ../..
+cd deps/snappy && ./autogen.sh && ./configure
+cd ../..
+cd deps/uv && ./autogen.sh && ./configure

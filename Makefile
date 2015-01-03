@@ -127,24 +127,30 @@ OBJECTS += \
 
 MODULES :=
 
-LIB_DIRS += -L$(YAJL_BUILD_DIR)/lib
+STATIC_LIBS += $(YAJL_BUILD_DIR)/lib/libyajl_s.a
 CFLAGS += -I$(YAJL_BUILD_DIR)/include
 
 MODULES += libuv
-LIB_DIRS += -L$(DEPS_DIR)/uv/.libs
+STATIC_LIBS += $(DEPS_DIR)/uv/.libs/libuv.a
 
-LIBS := -luv -lcrypto -lyajl -lpthread -lobjc -lm
+LIBSNAPPY := $(DEPS_DIR)/snappy/.libs/libsnappy.a
+
+LIBS += -lcrypto -lpthread -lobjc -lm
 ifeq ($(platform),linux)
 LIBS += -lrt
 endif
 
 ifeq ($(DB),rocksdb)
   MODULES += snappy
-  LIBS += -lrocksdb -lsnappy -lstdc++
+  STATIC_LIBS += $(LIBSNAPPY)
+  LIBS += -lrocksdb
+  LIBS += -lstdc++
   OBJECTS += $(BUILD_DIR)/db/db_base_rocksdb.o
 else ifeq ($(DB),hyper)
   MODULES += snappy
-  LIBS += -lhyperleveldb -lsnappy -lstdc++
+  STATIC_LIBS += $(LIBSNAPPY)
+  LIBS += -lhyperleveldb
+  LIBS += -lstdc++
   OBJECTS += $(BUILD_DIR)/db/db_base_leveldb.o
 else ifeq ($(DB),lsmdb)
   HEADERS += $(DEPS_DIR)/lsmdb/lsmdb.h
@@ -155,8 +161,9 @@ else ifeq ($(DB),mdb)
 else
   MODULES += leveldb snappy
   CFLAGS += -I$(DEPS_DIR)/leveldb/include -I$(DEPS_DIR)/snappy/include
-  LIB_DIRS += -L$(DEPS_DIR)/leveldb -L$(DEPS_DIR)/snappy/.libs
-  LIBS += -lleveldb -lsnappy -lstdc++
+  STATIC_LIBS += $(LIBSNAPPY)
+  LIBS += $(DEPS_DIR)/leveldb/libleveldb.a
+  LIBS += -lstdc++
   OBJECTS += $(BUILD_DIR)/db/db_base_leveldb.o
 endif
 
@@ -167,14 +174,13 @@ all: $(BUILD_DIR)/earthfs
 
 $(BUILD_DIR)/earthfs: $(OBJECTS) $(MODULES)
 	@- mkdir -p $(dir $@)
-	$(CC) -o $@ $(OBJECTS) $(CFLAGS) -Werror -Wall $(LIB_DIRS) $(LIBS)
+	$(CC) -o $@ $(OBJECTS) $(CFLAGS) -Werror -Wall $(STATIC_LIBS) $(LIBS)
 
-# TODO: This is pretty ugly...
-$(DEPS_DIR)/yajl/Makefile:
-	cd $(DEPS_DIR)/yajl && ./configure
-	cd $(DEPS_DIR)/yajl/build && make yajl/fast
+.PHONY: yajl
+yajl:
+	cd $(DEPS_DIR)/yajl/build && make yajl_s/fast
 
-$(YAJL_BUILD_DIR)/include/yajl/*.h: $(DEPS_DIR)/yajl/Makefile
+$(YAJL_BUILD_DIR)/include/yajl/*.h: yajl
 
 .PHONY: leveldb
 leveldb:
@@ -182,21 +188,10 @@ leveldb:
 
 .PHONY: snappy
 snappy:
-	if [ ! -x "$(DEPS_DIR)/snappy/configure" ]; then \
-		cd $(DEPS_DIR)/snappy; \
-		sh autogen.sh; \
-		./configure; \
-	fi
 	cd $(DEPS_DIR)/snappy && make
 
 .PHONY: libuv
 libuv:
-	# TODO: Without a separate configure script of our own, it's "correct" to call libuv's configure every single time. But it's slow.
-	if [ ! -x "$(DEPS_DIR)/uv/configure" ]; then \
-		cd $(DEPS_DIR)/uv; \
-		sh autogen.sh; \
-		./configure; \
-	fi
 	cd $(DEPS_DIR)/uv && make
 #	cd $(DEPS_DIR)/uv && make check
 
