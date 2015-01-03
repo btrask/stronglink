@@ -14,6 +14,7 @@ CFLAGS += -DLIBCO_MP
 
 WARNINGS := -Werror -Wall
 WARNINGS += -Wno-unused
+WARNINGS += -Wno-deprecated
 
 ifdef RELEASE
 CFLAGS += -O2
