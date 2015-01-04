@@ -25,28 +25,29 @@ TemplateRef TemplateCreate(strarg_t const str) {
 		return NULL;
 	}
 
-	regex_t exp;
-	regcomp(&exp, "{{[a-zA-Z0-9]\\+}}", 0);
+	regex_t exp[1];
+	regcomp(exp, "{{[a-zA-Z0-9]\\+}}", 0);
 	strarg_t pos = str;
 	for(;;) {
 		if(t->count >= size) {
 			size *= 2;
 			t->steps = realloc(t->steps, sizeof(TemplateStep) * size);
 			if(!t->steps) {
+				regfree(exp);
 				TemplateFree(&t);
 				return NULL;
 			}
 		}
 
-		regmatch_t match;
-		if(0 == regexec(&exp, pos, 1, &match, 0)) {
-			regoff_t const loc = match.rm_so;
-			regoff_t const len = match.rm_eo - loc;
+		regmatch_t match[1];
+		if(0 == regexec(exp, pos, 1, match, 0)) {
+			regoff_t const loc = match->rm_so;
+			regoff_t const len = match->rm_eo - loc;
 			t->steps[t->count].str = strndup(pos, loc);
 			t->steps[t->count].len = loc;
 			t->steps[t->count].var = strndup(pos+loc+2, len-4);
 			++t->count;
-			pos += match.rm_eo;
+			pos += match->rm_eo;
 		} else {
 			t->steps[t->count].str = strdup(pos);
 			t->steps[t->count].len = strlen(pos);
@@ -55,7 +56,7 @@ TemplateRef TemplateCreate(strarg_t const str) {
 			break;
 		}
 	}
-	regfree(&exp);
+	regfree(exp);
 
 	return t;
 }
