@@ -35,8 +35,6 @@
 	assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
 	uint64_t const metaFileFileID = db_read_uint64(metaFile_val);
 	strarg_t const targetURI = db_read_string(curtxn, metaFile_val);
-	DB_VAL(targetURI_val, DB_VARINT_MAX);
-	db_bind_string(curtxn, targetURI_val, targetURI);
 
 	DB_RANGE(fileIDs, DB_VARINT_MAX + DB_INLINE_MAX);
 	db_bind_uint64(fileIDs->min, EFSURIAndFileID);
