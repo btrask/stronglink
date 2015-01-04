@@ -37,7 +37,8 @@ static void init(void *const unused) {
 	repo = EFSRepoCreate(path);
 	blog = BlogCreate(repo);
 	server = HTTPServerCreate((HTTPListener)listener, blog);
-	HTTPServerListen(server, "8000", 1 ? INADDR_ANY : INADDR_LOOPBACK); // TODO
+	int rc = HTTPServerListen(server, "8000", 1 ? INADDR_ANY : INADDR_LOOPBACK); // TODO
+	assertf(rc >= 0, "Unable to start server");
 	EFSRepoPullsStart(repo);
 
 	uv_signal_init(loop, sigint);
