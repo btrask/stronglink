@@ -1,7 +1,6 @@
 #include <assert.h>
 #include <ctype.h>
 #include <objc/runtime.h>
-#include "../strndup.h"
 #include "../EarthFS.h"
 
 @interface EFSObject

@@ -1,4 +1,3 @@
-#include "../strndup.h"
 #include "QueryString.h"
 
 void *QSValuesCopy(strarg_t const qs, strarg_t const fields[], count_t const count) {

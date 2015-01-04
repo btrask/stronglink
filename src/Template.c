@@ -1,5 +1,4 @@
 #include <regex.h>
-#include "strndup.h"
 #include "Template.h"
 
 #define TEMPLATE_MAX (1024 * 512)
