@@ -25,7 +25,7 @@ TemplateRef TemplateCreate(strarg_t const str) {
 	}
 
 	regex_t exp[1];
-	regcomp(exp, "{{[a-zA-Z0-9]\\+}}", 0);
+	regcomp(exp, "\\{\\{[a-zA-Z0-9]+\\}\\}", REG_EXTENDED);
 	strarg_t pos = str;
 	for(;;) {
 		if(t->count >= size) {
