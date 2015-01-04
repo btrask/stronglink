@@ -159,8 +159,8 @@
 	DB_val metaFile_val[1];
 	rc = db_cursor_seek(age_uri, metaFileID_key, metaFile_val, 0);
 	if(DB_SUCCESS != rc) return UINT64_MAX;
-	uint64_t const table2 = db_read_uint64(metaFile_val);
-	assert(EFSMetaFileByID == table2);
+	uint64_t const f2 = db_read_uint64(metaFile_val);
+	assert(fileID == f2);
 	strarg_t const targetURI = db_read_string(curtxn, metaFile_val);
 
 	DB_RANGE(targetFileIDs, DB_VARINT_MAX + DB_INLINE_MAX);
