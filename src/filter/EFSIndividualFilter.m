@@ -397,9 +397,9 @@
 	uint64_t const table = db_read_uint64(metadata_key);
 	assert(EFSFieldValueAndMetaFileID == table);
 	strarg_t const f = db_read_string(curtxn, metadata_key);
-	assert(field == f);
+	assert(0 == strcmp(field, f));
 	strarg_t const v = db_read_string(curtxn, metadata_key);
-	assert(value == v);
+	assert(0 == strcmp(value, v));
 	return db_read_uint64(metadata_key);
 }
 - (uint64_t)currentMeta:(int const)dir {
@@ -409,9 +409,9 @@
 	uint64_t const table = db_read_uint64(metadata_key);
 	assert(EFSFieldValueAndMetaFileID == table);
 	strarg_t const f = db_read_string(curtxn, metadata_key);
-	assert(field == f);
+	assert(0 == strcmp(field, f));
 	strarg_t const v = db_read_string(curtxn, metadata_key);
-	assert(value == v);
+	assert(0 == strcmp(value, v));
 	return db_read_uint64(metadata_key);
 }
 - (uint64_t)stepMeta:(int const)dir {
@@ -426,9 +426,9 @@
 	uint64_t const table = db_read_uint64(metadata_key);
 	assert(EFSFieldValueAndMetaFileID == table);
 	strarg_t const f = db_read_string(curtxn, metadata_key);
-	assert(field == f);
+	assert(0 == strcmp(field, f));
 	strarg_t const v = db_read_string(curtxn, metadata_key);
-	assert(value == v);
+	assert(0 == strcmp(value, v));
 	return db_read_uint64(metadata_key);
 }
 - (bool_t)match:(uint64_t const)metaFileID {
