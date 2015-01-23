@@ -1,4 +1,5 @@
 #include <limits.h>
+#include <signal.h>
 #include "async/async.h"
 #include "fts.h"
 #include "EarthFS.h"
@@ -17,6 +18,7 @@ static EFSRepoRef repo = NULL;
 static BlogRef blog = NULL;
 static HTTPServerRef server = NULL;
 static uv_signal_t sigint[1];
+static int sig = 0;
 
 static void listener(void *ctx, HTTPMessageRef const msg) {
 	HTTPMethod const method = HTTPMessageGetRequestMethod(msg);
@@ -30,6 +32,7 @@ static void ignore(uv_signal_t *const signal, int const signum) {
 	// Do nothing
 }
 static void stop(uv_signal_t *const signal, int const signum) {
+	sig = signum;
 	uv_stop(loop);
 }
 
@@ -87,6 +90,9 @@ int main(int const argc, char const *const *const argv) {
 	uv_ref((uv_handle_t *)sigpipe);
 	uv_signal_stop(sigpipe);
 	uv_close((uv_handle_t *)sigpipe, NULL);
+
+	// TODO: Windows?
+	if(sig) raise(sig);
 
 	return EXIT_SUCCESS;
 }
