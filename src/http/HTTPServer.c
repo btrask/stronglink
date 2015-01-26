@@ -31,11 +31,14 @@ void HTTPServerFree(HTTPServerRef *const serverptr) {
 
 err_t HTTPServerListen(HTTPServerRef const server, strarg_t const port, uint32_t const address) {
 	if(!server) return 0;
+	errno = 0; // HACK 2015-01-25: libuv failing to clear this somewhere...
 	assertf(!server->socket, "HTTPServer already listening");
 	assertf(INADDR_ANY == address || INADDR_LOOPBACK == address, "HTTPServer unsupported address");
 	server->socket = malloc(sizeof(uv_tcp_t));
-	if(!server->socket) return -1;
-	if(uv_tcp_init(loop, server->socket) < 0) return -1;
+	if(!server->socket) return UV_ENOMEM;
+	int rc;
+	rc = uv_tcp_init(loop, server->socket);
+	if(rc < 0) return rc;
 	server->socket->data = server;
 	struct addrinfo const hints = {
 		.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG | AI_NUMERICSERV |
@@ -45,16 +48,19 @@ err_t HTTPServerListen(HTTPServerRef const server, strarg_t const port, uint32_t
 		.ai_protocol = 0, // ???
 	};
 	struct addrinfo *info;
-	if(async_getaddrinfo(NULL, port, &hints, &info) < 0) {
-		return -1;
+	rc = async_getaddrinfo(NULL, port, &hints, &info);
+	if(rc < 0) {
+		return rc;
 	}
-	if(uv_tcp_bind(server->socket, info->ai_addr, 0) < 0) {
+	rc = uv_tcp_bind(server->socket, info->ai_addr, 0);
+	if(rc < 0) {
 		uv_freeaddrinfo(info);
-		return -1;
+		return rc;
 	}
 	uv_freeaddrinfo(info);
-	if(uv_listen((uv_stream_t *)server->socket, 511, connection_cb) < 0) {
-		return -1;
+	rc = uv_listen((uv_stream_t *)server->socket, 511, connection_cb);
+	if(rc < 0) {
+		return rc;
 	}
 	return 0;
 }
