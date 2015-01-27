@@ -31,7 +31,6 @@ void HTTPServerFree(HTTPServerRef *const serverptr) {
 
 err_t HTTPServerListen(HTTPServerRef const server, strarg_t const port, uint32_t const address) {
 	if(!server) return 0;
-	errno = 0; // HACK 2015-01-25: libuv failing to clear this somewhere...
 	assertf(!server->socket, "HTTPServer already listening");
 	assertf(INADDR_ANY == address || INADDR_LOOPBACK == address, "HTTPServer unsupported address");
 	server->socket = malloc(sizeof(uv_tcp_t));
