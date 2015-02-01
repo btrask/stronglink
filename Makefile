@@ -77,11 +77,12 @@ OBJECTS := \
 	$(BUILD_DIR)/async/async.o \
 	$(BUILD_DIR)/async/async_cond.o \
 	$(BUILD_DIR)/async/async_fs.o \
-	$(BUILD_DIR)/async/async_sem.o \
 	$(BUILD_DIR)/async/async_mutex.o \
-	$(BUILD_DIR)/async/async_rwlock.o \
-	$(BUILD_DIR)/async/async_worker.o \
 	$(BUILD_DIR)/async/async_pool.o \
+	$(BUILD_DIR)/async/async_read.o \
+	$(BUILD_DIR)/async/async_rwlock.o \
+	$(BUILD_DIR)/async/async_sem.o \
+	$(BUILD_DIR)/async/async_worker.o \
 	$(BUILD_DIR)/bcrypt.o \
 	$(BUILD_DIR)/http/Headers.o \
 	$(BUILD_DIR)/http/HTTPMessage.o \

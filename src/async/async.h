@@ -74,6 +74,16 @@ int async_random(unsigned char *const buf, size_t const len);
 int async_getaddrinfo(char const *const node, char const *const service, struct addrinfo const *const hints, struct addrinfo **const res);
 int async_sleep(uint64_t const milliseconds);
 
+// async_read.c
+typedef struct {
+	cothread_t thread;
+	uv_buf_t buf[1];
+	ssize_t nread;
+} async_read_t;
+ssize_t async_read(async_read_t *const req, uv_stream_t *const stream);
+void async_read_cleanup(async_read_t *const req);
+void async_read_cancel(async_read_t *const req);
+
 // async_fs.c
 uv_file async_fs_open(const char* path, int flags, int mode);
 int async_fs_close(uv_file file);

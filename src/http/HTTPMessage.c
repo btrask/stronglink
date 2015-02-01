@@ -8,7 +8,6 @@
 struct HTTPConnection {
 	uv_tcp_t stream;
 	http_parser parser;
-	byte_t *buf;
 };
 
 HTTPConnectionRef HTTPConnectionCreateIncoming(uv_stream_t *const socket) {
@@ -22,11 +21,6 @@ HTTPConnectionRef HTTPConnectionCreateIncoming(uv_stream_t *const socket) {
 		return NULL;
 	}
 	http_parser_init(&conn->parser, HTTP_REQUEST);
-	conn->buf = malloc(BUFFER_SIZE);
-	if(!conn->buf) {
-		HTTPConnectionFree(&conn);
-		return NULL;
-	}
 	return conn;
 }
 HTTPConnectionRef HTTPConnectionCreateOutgoing(strarg_t const domain) {
@@ -66,11 +60,6 @@ HTTPConnectionRef HTTPConnectionCreateOutgoing(strarg_t const domain) {
 	uv_freeaddrinfo(info);
 
 	http_parser_init(&conn->parser, HTTP_RESPONSE);
-	conn->buf = malloc(BUFFER_SIZE);
-	if(!conn->buf) {
-		HTTPConnectionFree(&conn);
-		return NULL;
-	}
 	return conn;
 }
 void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
@@ -82,7 +71,6 @@ void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
 	async_yield();
 	memset(&conn->stream, 0, sizeof(conn->stream));
 	memset(&conn->parser, 0, sizeof(conn->parser));
-	FREE(&conn->buf);
 
 	assert_zeroed(conn, 1);
 	FREE(connptr); conn = NULL;
@@ -94,6 +82,7 @@ err_t HTTPConnectionError(HTTPConnectionRef const conn) {
 
 struct HTTPMessage {
 	HTTPConnectionRef conn;
+	byte_t *buf;
 	size_t pos;
 	size_t remaining;
 
@@ -143,6 +132,7 @@ void HTTPMessageFree(HTTPMessageRef *const msgptr) {
 
 	msg->conn->parser.data = NULL;
 	msg->conn = NULL;
+	FREE(&msg->buf);
 	msg->pos = 0;
 	msg->remaining = 0;
 
@@ -535,45 +525,26 @@ static http_parser_settings const settings = {
 	.on_message_complete = on_message_complete,
 };
 
-struct msg_state {
-	cothread_t thread;
-	HTTPMessageRef msg;
-	ssize_t nread;
-};
-static void alloc_cb(uv_handle_t *const handle, size_t const suggested_size, uv_buf_t *const buf) {
-	struct msg_state *const state = handle->data;
-	*buf = uv_buf_init((char *)state->msg->conn->buf, BUFFER_SIZE);
-}
-static void read_cb(uv_stream_t *const stream, ssize_t const nread, const uv_buf_t *const buf) {
-	struct msg_state *const state = stream->data;
-	state->nread = nread;
-	co_switch(state->thread);
-}
 static err_t readOnce(HTTPMessageRef const msg) {
 	assertf(0 == msg->next.len, "Existing unused chunk");
 	if(msg->eof) return -1;
 	if(!msg->remaining) {
-		struct msg_state state = {
-			.thread = co_active(),
-			.msg = msg,
-		};
-		msg->conn->stream.data = &state;
-		for(;;) {
-			uv_read_start((uv_stream_t *)&msg->conn->stream, alloc_cb, read_cb);
-			async_yield();
-			uv_read_stop((uv_stream_t *)&msg->conn->stream);
-			if(state.nread) break;
-		}
-		if(UV_EOF == state.nread) {
+		async_read_t req[1];
+		(void)async_read(req, (uv_stream_t *)&msg->conn->stream);
+		// TODO: Cancelable reads?
+		if(UV_EOF == req->nread) {
 			msg->eof = true;
-			state.nread = 0;
+			req->nread = 0;
 		}
-		if(state.nread < 0) return -1;
+		if(req->nread < 0) return -1;
+		msg->buf = (byte_t *)req->buf->base;
+		req->buf->base = NULL;
 		msg->pos = 0;
-		msg->remaining = state.nread;
+		msg->remaining = req->nread;
+		async_read_cleanup(req);
 	}
 	http_parser_pause(&msg->conn->parser, 0);
-	size_t const plen = http_parser_execute(&msg->conn->parser, &settings, (char const *)msg->conn->buf + msg->pos, msg->remaining);
+	size_t const plen = http_parser_execute(&msg->conn->parser, &settings, (char const *)msg->buf + msg->pos, msg->remaining);
 	if(plen != msg->remaining && HPE_PAUSED != HTTPConnectionError(msg->conn)) {
 		fprintf(stderr, "HTTP parse error %s (%d)\n",
 			http_errno_name(HTTPConnectionError(msg->conn)),
@@ -583,6 +554,7 @@ static err_t readOnce(HTTPMessageRef const msg) {
 	}
 	msg->pos += plen;
 	msg->remaining -= plen;
+	if(!msg->remaining) FREE(&msg->buf);
 	return 0;
 }
 static err_t readFirstLine(HTTPMessageRef const msg) {
