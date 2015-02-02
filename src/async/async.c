@@ -9,7 +9,6 @@ thread_local uv_loop_t *loop = NULL;
 thread_local cothread_t yield = NULL;
 
 void async_init(void) {
-	if(!getenv("UV_THREADPOOL_SIZE")) putenv("UV_THREADPOOL_SIZE=1");
 	uv_loop_init(&_loop);
 	loop = &_loop;
 	yield = co_active();

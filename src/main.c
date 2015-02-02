@@ -63,6 +63,7 @@ static void term(void *const unused) {
 	EFSRepoFree(&repo);
 }
 int main(int const argc, char const *const *const argv) {
+	if(!getenv("UV_THREADPOOL_SIZE")) putenv("UV_THREADPOOL_SIZE=1");
 	async_init();
 	uv_signal_t sigpipe[1];
 	uv_signal_init(loop, sigpipe);
