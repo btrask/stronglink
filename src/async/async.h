@@ -40,9 +40,6 @@ static void async_fs_cb(uv_fs_t *const req) {
 static void async_timer_cb(uv_timer_t *const timer) {
 	co_switch(timer->data);
 }
-static void async_close_cb(uv_handle_t *const handle) {
-	co_switch(handle->data);
-}
 
 typedef struct {
 	cothread_t thread;
@@ -73,6 +70,8 @@ void async_wakeup(cothread_t const thread);
 int async_random(unsigned char *const buf, size_t const len);
 int async_getaddrinfo(char const *const node, char const *const service, struct addrinfo const *const hints, struct addrinfo **const res);
 int async_sleep(uint64_t const milliseconds);
+
+void async_close(uv_handle_t *const handle);
 
 // async_read.c
 typedef struct {

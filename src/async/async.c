@@ -93,6 +93,9 @@ int async_getaddrinfo(char const *const node, char const *const service, struct 
 	return state.status;
 }
 
+static void async_close_cb(uv_handle_t *const handle) {
+	co_switch(handle->data);
+}
 int async_sleep(uint64_t const milliseconds) {
 	// TODO: Pool timers together.
 	uv_timer_t timer;
@@ -108,5 +111,10 @@ int async_sleep(uint64_t const milliseconds) {
 	uv_close((uv_handle_t *)&timer, async_close_cb);
 	async_yield();
 	return 0;
+}
+void async_close(uv_handle_t *const handle) {
+	handle->data = co_active();
+	uv_close(handle, async_close_cb);
+	async_yield();
 }
 

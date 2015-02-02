@@ -101,9 +101,7 @@ int async_sem_timedwait(async_sem_t *const sem, uint64_t const future) {
 	}
 	async_yield();
 	if(future < UINT64_MAX) {
-		timer->data = us->thread;
-		uv_close((uv_handle_t *)&timer, async_close_cb);
-		async_yield();
+		async_close((uv_handle_t *)timer);
 	}
 	return us->res;
 }

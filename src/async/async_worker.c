@@ -50,9 +50,7 @@ async_worker_t *async_worker_create(void) {
 	}
 	if(uv_thread_create(&worker->thread, work, worker) < 0) {
 		uv_sem_destroy(&worker->sem);
-		worker->async.data = co_active();
-		uv_close((uv_handle_t *)&worker->async, async_close_cb);
-		async_yield();
+		async_close((uv_handle_t *)&worker->async);
 		free(worker);
 		return NULL;
 	}
@@ -66,9 +64,7 @@ void async_worker_free(async_worker_t *const worker) {
 	uv_thread_join(&worker->thread);
 	uv_sem_destroy(&worker->sem);
 	uv_ref((uv_handle_t *)&worker->async);
-	worker->async.data = co_active();
-	uv_close((uv_handle_t *)&worker->async, async_close_cb);
-	async_yield();
+	async_close((uv_handle_t *)&worker->async);
 	free(worker);
 }
 

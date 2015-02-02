@@ -52,9 +52,7 @@ static void term(void *const unused) {
 	fprintf(stderr, "\nStopping EarthFS...\n");
 	uv_ref((uv_handle_t *)sigint);
 	uv_signal_stop(sigint);
-	sigint->data = co_active();
-	uv_close((uv_handle_t *)sigint, async_close_cb);
-	async_yield();
+	async_close((uv_handle_t *)sigint);
 
 	EFSRepoPullsStop(repo);
 	HTTPServerClose(server);

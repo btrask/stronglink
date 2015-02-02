@@ -66,9 +66,7 @@ err_t HTTPServerListen(HTTPServerRef const server, strarg_t const port, uint32_t
 void HTTPServerClose(HTTPServerRef const server) {
 	if(!server) return;
 	if(!server->socket) return;
-	server->socket->data = co_active();
-	uv_close((uv_handle_t *)server->socket, async_close_cb);
-	async_yield();
+	async_close((uv_handle_t *)server->socket);
 	FREE(&server->socket);
 }
 

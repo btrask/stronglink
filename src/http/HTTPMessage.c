@@ -66,9 +66,7 @@ void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
 	HTTPConnectionRef conn = *connptr;
 	if(!conn) return;
 
-	conn->stream.data = co_active();
-	uv_close((uv_handle_t *)&conn->stream, async_close_cb);
-	async_yield();
+	async_close((uv_handle_t *)&conn->stream);
 	memset(&conn->stream, 0, sizeof(conn->stream));
 	memset(&conn->parser, 0, sizeof(conn->parser));
 
