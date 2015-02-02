@@ -48,6 +48,6 @@ void async_read_cancel(async_read_t *const req) {
 	req->nread = UV_ECANCELED;
 	cothread_t const thread = req->thread;
 	req->thread = NULL;
-	if(thread) co_switch(thread);
+	if(thread) async_wakeup(thread);
 }
 
