@@ -59,7 +59,7 @@ void async_wakeup(cothread_t const thread) {
 }
 
 int async_random(unsigned char *const buf, size_t const len) {
-	// TODO: We're getting an awful lot of duplicate values from different threads. Initial experiments with RAND_seed() didn't pay off either.
+	// TODO: Come up with a thread-safe and lock-free RNG. Maybe just read from /dev/urandom ourselves on appropriate platforms.
 //	async_pool_enter(NULL);
 	int const rc = RAND_bytes(buf, len);
 //	async_pool_leave(NULL);
