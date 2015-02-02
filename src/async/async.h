@@ -46,11 +46,6 @@ typedef struct {
 	int status;
 } async_state;
 
-static void async_write_cb(uv_write_t *const req, int const status) {
-	async_state *const state = req->data;
-	state->status = status;
-	co_switch(state->thread);
-}
 static void async_exit_cb(uv_process_t *const proc, int64_t const status, int const signal) {
 	async_state *const state = proc->data;
 	state->status = status;
@@ -73,7 +68,7 @@ int async_sleep(uint64_t const milliseconds);
 
 void async_close(uv_handle_t *const handle);
 
-// async_read.c
+// async_stream.c
 typedef struct {
 	cothread_t thread;
 	uv_buf_t buf[1];
@@ -82,6 +77,8 @@ typedef struct {
 ssize_t async_read(async_read_t *const req, uv_stream_t *const stream);
 void async_read_cleanup(async_read_t *const req);
 void async_read_cancel(async_read_t *const req);
+
+int async_write(uv_stream_t *const stream, uv_buf_t const bufs[], unsigned const nbufs);
 
 // async_fs.c
 uv_file async_fs_open(const char* path, int flags, int mode);

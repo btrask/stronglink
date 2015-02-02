@@ -73,7 +73,7 @@ void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
 	assert_zeroed(conn, 1);
 	FREE(connptr); conn = NULL;
 }
-err_t HTTPConnectionError(HTTPConnectionRef const conn) {
+int HTTPConnectionError(HTTPConnectionRef const conn) {
 	if(!conn) return HPE_OK;
 	return HTTP_PARSER_ERRNO(&conn->parser);
 }
@@ -97,9 +97,9 @@ struct HTTPMessage {
 	// nothing yet...
 };
 
-static err_t readOnce(HTTPMessageRef const msg);
-static err_t readFirstLine(HTTPMessageRef const msg);
-static err_t readChunk(HTTPMessageRef const msg);
+static int readOnce(HTTPMessageRef const msg);
+static int readFirstLine(HTTPMessageRef const msg);
+static int readChunk(HTTPMessageRef const msg);
 
 HTTPMessageRef HTTPMessageCreate(HTTPConnectionRef const conn) {
 	assertf(conn, "HTTPMessage connection required");
@@ -173,11 +173,12 @@ void *HTTPMessageGetHeaders(HTTPMessageRef const msg, strarg_t const fields[], c
 	return HeadersGetData(msg->headers);
 }
 ssize_t HTTPMessageRead(HTTPMessageRef const msg, byte_t *const buf, size_t const len) {
-	if(!msg) return -1;
+	if(!msg) return UV_EINVAL;
 	if(!msg->headers) HTTPMessageGetHeaders(msg, NULL, 0);
 	if(0 == msg->next.len) {
 		if(msg->eof) return 0;
-		if(readChunk(msg) < 0) return -1;
+		int rc = readChunk(msg);
+		if(rc < 0) return rc;
 	}
 	size_t const used = MIN(len, msg->next.len);
 	memcpy(buf, msg->next.at, used);
@@ -186,9 +187,9 @@ ssize_t HTTPMessageRead(HTTPMessageRef const msg, byte_t *const buf, size_t cons
 	return used;
 }
 ssize_t HTTPMessageReadLine(HTTPMessageRef const msg, str_t *const buf, size_t const len) {
-	if(!msg) return -1;
+	if(!msg) return UV_EINVAL;
 	if(!msg->headers) HTTPMessageGetHeaders(msg, NULL, 0);
-	if(msg->eof) return -1;
+	if(msg->eof) return UV_EOF;
 	size_t pos = 0;
 	for(;;) {
 		if(readChunk(msg) < 0) break;
@@ -212,11 +213,12 @@ ssize_t HTTPMessageReadLine(HTTPMessageRef const msg, str_t *const buf, size_t c
 	return pos;
 }
 ssize_t HTTPMessageGetBuffer(HTTPMessageRef const msg, byte_t const **const buf) {
-	if(!msg) return -1;
+	if(!msg) return UV_EINVAL;
 	if(!msg->headers) HTTPMessageGetHeaders(msg, NULL, 0);
 	if(0 == msg->next.len) {
 		if(msg->eof) return 0;
-		if(readChunk(msg) < 0) return -1;
+		int rc = readChunk(msg);
+		if(rc < 0) return rc;
 	}
 	size_t const used = msg->next.len;
 	*buf = (byte_t const *)msg->next.at;
@@ -234,26 +236,16 @@ void HTTPMessageDrain(HTTPMessageRef const msg) {
 	assertf(msg->eof, "Message drain didn't reach EOF");
 }
 
-ssize_t HTTPMessageWrite(HTTPMessageRef const msg, byte_t const *const buf, size_t const len) {
+int HTTPMessageWrite(HTTPMessageRef const msg, byte_t const *const buf, size_t const len) {
 	if(!msg) return 0;
 	uv_buf_t obj = uv_buf_init((char *)buf, len);
-	async_state state = { .thread = co_active() };
-	uv_write_t req;
-	req.data = &state;
-	uv_write(&req, (uv_stream_t *)&msg->conn->stream, &obj, 1, async_write_cb);
-	async_yield();
-	return state.status;
+	return async_write((uv_stream_t *)&msg->conn->stream, &obj, 1);
 }
-ssize_t HTTPMessageWritev(HTTPMessageRef const msg, uv_buf_t const parts[], unsigned int const count) {
+int HTTPMessageWritev(HTTPMessageRef const msg, uv_buf_t const parts[], unsigned int const count) {
 	if(!msg) return 0;
-	async_state state = { .thread = co_active() };
-	uv_write_t req;
-	req.data = &state;
-	uv_write(&req, (uv_stream_t *)&msg->conn->stream, parts, count, async_write_cb);
-	async_yield();
-	return state.status;
+	return async_write((uv_stream_t *)&msg->conn->stream, parts, count);
 }
-err_t HTTPMessageWriteRequest(HTTPMessageRef const msg, HTTPMethod const method, strarg_t const requestURI, strarg_t const host) {
+int HTTPMessageWriteRequest(HTTPMessageRef const msg, HTTPMethod const method, strarg_t const requestURI, strarg_t const host) {
 	if(!msg) return 0;
 	strarg_t methodstr = http_method_str(method);
 	uv_buf_t parts[] = {
@@ -265,16 +257,15 @@ err_t HTTPMessageWriteRequest(HTTPMessageRef const msg, HTTPMethod const method,
 		uv_buf_init((char *)host, strlen(host)),
 		uv_buf_init("\r\n", 2),
 	};
-	ssize_t const wlen = HTTPMessageWritev(msg, parts, numberof(parts));
-	return wlen < 0 ? -1 : 0;
+	return HTTPMessageWritev(msg, parts, numberof(parts));
 }
 
 #define str_len(str) (str), (sizeof(str)-1)
 
-err_t HTTPMessageWriteResponse(HTTPMessageRef const msg, uint16_t const status, strarg_t const message) {
+int HTTPMessageWriteResponse(HTTPMessageRef const msg, uint16_t const status, strarg_t const message) {
 	if(!msg) return 0;
-	if(status > 599) return -1;
-	if(status < 100) return -1;
+	if(status > 599) return UV_EINVAL;
+	if(status < 100) return UV_EINVAL;
 
 	str_t status_str[4+1];
 	int status_len = snprintf(status_str, sizeof(status_str), "%d", status);
@@ -287,10 +278,9 @@ err_t HTTPMessageWriteResponse(HTTPMessageRef const msg, uint16_t const status, 
 		uv_buf_init((char *)message, strlen(message)),
 		uv_buf_init(str_len("\r\n")),
 	};
-	ssize_t const rc = HTTPMessageWritev(msg, parts, numberof(parts));
-	return rc < 0 ? -1 : 0;
+	return HTTPMessageWritev(msg, parts, numberof(parts));
 }
-err_t HTTPMessageWriteHeader(HTTPMessageRef const msg, strarg_t const field, strarg_t const value) {
+int HTTPMessageWriteHeader(HTTPMessageRef const msg, strarg_t const field, strarg_t const value) {
 	if(!msg) return 0;
 	uv_buf_t parts[] = {
 		uv_buf_init((char *)field, strlen(field)),
@@ -298,10 +288,9 @@ err_t HTTPMessageWriteHeader(HTTPMessageRef const msg, strarg_t const field, str
 		uv_buf_init((char *)value, strlen(value)),
 		uv_buf_init(str_len("\r\n")),
 	};
-	ssize_t const rc = HTTPMessageWritev(msg, parts, numberof(parts));
-	return rc < 0 ? -1 : 0;
+	return HTTPMessageWritev(msg, parts, numberof(parts));
 }
-err_t HTTPMessageWriteContentLength(HTTPMessageRef const msg, uint64_t const length) {
+int HTTPMessageWriteContentLength(HTTPMessageRef const msg, uint64_t const length) {
 	if(!msg) return 0;
 	str_t str[16];
 	int const len = snprintf(str, sizeof(str), "%llu", (unsigned long long)length);
@@ -310,10 +299,9 @@ err_t HTTPMessageWriteContentLength(HTTPMessageRef const msg, uint64_t const len
 		uv_buf_init(str, len),
 		uv_buf_init(str_len("\r\n")),
 	};
-	ssize_t const rc = HTTPMessageWritev(msg, parts, numberof(parts));
-	return rc < 0 ? -1 : 0;
+	return HTTPMessageWritev(msg, parts, numberof(parts));
 }
-err_t HTTPMessageWriteSetCookie(HTTPMessageRef const msg, strarg_t const field, strarg_t const value, strarg_t const path, uint64_t const maxage) {
+int HTTPMessageWriteSetCookie(HTTPMessageRef const msg, strarg_t const field, strarg_t const value, strarg_t const path, uint64_t const maxage) {
 	if(!msg) return 0;
 	str_t maxage_str[16];
 	int const maxage_len = snprintf(maxage_str, sizeof(maxage_str), "%llu", (unsigned long long)maxage);
@@ -328,135 +316,127 @@ err_t HTTPMessageWriteSetCookie(HTTPMessageRef const msg, strarg_t const field, 
 		uv_buf_init(maxage_str, maxage_len),
 		uv_buf_init(str_len("; HttpOnly\r\n")),
 	};
-	ssize_t const rc = HTTPMessageWritev(msg, parts, numberof(parts));
-	return rc < 0 ? -1 : 0;
+	return HTTPMessageWritev(msg, parts, numberof(parts));
 }
-err_t HTTPMessageBeginBody(HTTPMessageRef const msg) {
+int HTTPMessageBeginBody(HTTPMessageRef const msg) {
 	if(!msg) return 0;
-	ssize_t const rc = HTTPMessageWrite(msg, (byte_t *)str_len(
+	return HTTPMessageWrite(msg, (byte_t *)str_len(
 		"Connection: keep-alive\r\n" // TODO
 		"\r\n"));
-	return rc < 0 ? -1 : 0;
 }
-err_t HTTPMessageWriteFile(HTTPMessageRef const msg, uv_file const file) {
-	// TODO: How do we use uv_fs_sendfile to a TCP stream? Is it impossible?
-	async_state state = { .thread = co_active() };
-	uv_write_t wreq;
-	wreq.data = &state;
+int HTTPMessageWriteFile(HTTPMessageRef const msg, uv_file const file) {
 	byte_t *buf = malloc(BUFFER_SIZE);
+	uv_buf_t const info = uv_buf_init((char *)buf, BUFFER_SIZE);
 	int64_t pos = 0;
 	for(;;) {
-		uv_buf_t const read = uv_buf_init((char *)buf, BUFFER_SIZE);
-		ssize_t const len = async_fs_read(file, &read, 1, pos);
+		ssize_t const len = async_fs_read(file, &info, 1, pos);
 		if(0 == len) break;
-		if(len < 0) { // TODO: EAGAIN, etc?
+		if(len < 0) {
 			FREE(&buf);
-			return len;
+			return (int)len;
 		}
 		pos += len;
 		uv_buf_t const write = uv_buf_init((char *)buf, len);
-		uv_write(&wreq, (uv_stream_t *)&msg->conn->stream, &write, 1, async_write_cb);
-		async_yield();
-		if(state.status < 0) {
+		ssize_t written = async_write((uv_stream_t *)&msg->conn->stream, &write, 1);
+		if(written < 0) {
 			FREE(&buf);
-			return state.status;
+			return (int)written;
 		}
 	}
 	FREE(&buf);
 	return 0;
 }
-err_t HTTPMessageWriteChunkLength(HTTPMessageRef const msg, uint64_t const length) {
+int HTTPMessageWriteChunkLength(HTTPMessageRef const msg, uint64_t const length) {
 	if(!msg) return 0;
 	str_t str[16];
 	int const slen = snprintf(str, sizeof(str), "%llx\r\n", (unsigned long long)length);
 	if(slen < 0) return -1;
-	ssize_t const wlen = HTTPMessageWrite(msg, (byte_t const *)str, slen);
-	return wlen < 0 ? -1 : 0;
+	return HTTPMessageWrite(msg, (byte_t const *)str, slen);
 }
-ssize_t HTTPMessageWriteChunkv(HTTPMessageRef const msg, uv_buf_t const parts[], unsigned int const count) {
+int HTTPMessageWriteChunkv(HTTPMessageRef const msg, uv_buf_t const parts[], unsigned int const count) {
 	if(!msg) return 0;
 	uint64_t total = 0;
 	for(index_t i = 0; i < count; ++i) total += parts[i].len;
-	HTTPMessageWriteChunkLength(msg, total);
+	int rc = HTTPMessageWriteChunkLength(msg, total);
+	if(rc < 0) return rc;
 	if(total > 0) {
-		async_state state = { .thread = co_active() };
-		uv_write_t req;
-		req.data = &state;
-		uv_write(&req, (uv_stream_t *)&msg->conn->stream, parts, count, async_write_cb);
-		async_yield();
-		// TODO: We have to ensure that uv_write() really wrote everything or else we're messing up the chunked encoding. Returning partial writes doesn't cut it.
+		rc = async_write((uv_stream_t *)&msg->conn->stream, parts, count);
+		if(rc < 0) return rc;
 	}
-	HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
-	return total;//state.status;
-	// TODO: Hack? The status is always zero for me even when it wrote, so is uv_write() guaranteed to write everything?
+	rc = HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
+	if(rc < 0) return rc;
+	return 0;
 }
-err_t HTTPMessageWriteChunkFile(HTTPMessageRef const msg, strarg_t const path) {
+int HTTPMessageWriteChunkFile(HTTPMessageRef const msg, strarg_t const path) {
 	uv_file const file = async_fs_open(path, O_RDONLY, 0000);
-	if(file < 0) {
-		return -1;
-	}
-	uv_fs_t req;
-	if(async_fs_fstat(file, &req) < 0) {
+	if(file < 0) return file;
+	uv_fs_t req[1];
+	int rc = async_fs_fstat(file, req);
+	if(rc < 0) {
 		async_fs_close(file);
-		return -1;
+		return rc;
 	}
-
-	if(req.statbuf.st_size) {
-		HTTPMessageWriteChunkLength(msg, req.statbuf.st_size);
-		HTTPMessageWriteFile(msg, file);
-		HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
+	if(req->statbuf.st_size) {
+		rc = rc < 0 ? rc : HTTPMessageWriteChunkLength(msg, req->statbuf.st_size);
+		rc = rc < 0 ? rc : HTTPMessageWriteFile(msg, file);
+		rc = rc < 0 ? rc : HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
+		if(rc < 0) return rc;
 	}
-
 	async_fs_close(file);
 	return 0;
 }
-err_t HTTPMessageEnd(HTTPMessageRef const msg) {
+int HTTPMessageEnd(HTTPMessageRef const msg) {
 	if(!msg) return 0;
-	if(HTTPMessageWrite(msg, (byte_t *)"", 0) < 0) return -1;
+	int rc = HTTPMessageWrite(msg, (byte_t *)"", 0);
+	if(rc < 0) return rc;
 	// TODO: Figure out keep-alive.
 
 	if(HTTP_RESPONSE == msg->conn->parser.type) {
-		if(readFirstLine(msg) < 0) return -1;
+		rc = readFirstLine(msg);
+		if(rc < 0) return rc;
 	}
 
 	return 0;
 }
 
-void HTTPMessageSendMessage(HTTPMessageRef const msg, uint16_t const status, strarg_t const str) {
+int HTTPMessageSendMessage(HTTPMessageRef const msg, uint16_t const status, strarg_t const str) {
 	size_t const len = strlen(str);
-	HTTPMessageWriteResponse(msg, status, str);
-	HTTPMessageWriteHeader(msg, "Content-Type", "text/plain; charset=utf-8");
-	HTTPMessageWriteContentLength(msg, len+1);
-	HTTPMessageBeginBody(msg);
+	int rc = 0;
+	rc = rc < 0 ? rc : HTTPMessageWriteResponse(msg, status, str);
+	rc = rc < 0 ? rc : HTTPMessageWriteHeader(msg, "Content-Type", "text/plain; charset=utf-8");
+	rc = rc < 0 ? rc : HTTPMessageWriteContentLength(msg, len+1);
+	rc = rc < 0 ? rc : HTTPMessageBeginBody(msg);
 	// TODO: Check how HEAD responses should look.
 	if(HTTP_HEAD != HTTPMessageGetRequestMethod(msg)) {
-		HTTPMessageWrite(msg, (byte_t const *)str, len);
-		HTTPMessageWrite(msg, (byte_t const *)"\n", 1);
+		rc = rc < 0 ? rc : HTTPMessageWrite(msg, (byte_t const *)str, len);
+		rc = rc < 0 ? rc : HTTPMessageWrite(msg, (byte_t const *)"\n", 1);
 	}
-	HTTPMessageEnd(msg);
+	rc = rc < 0 ? rc : HTTPMessageEnd(msg);
 //	if(status >= 400) fprintf(stderr, "%s: %d %s\n", HTTPMessageGetRequestURI(msg), (int)status, str);
+	return rc;
 }
-void HTTPMessageSendStatus(HTTPMessageRef const msg, uint16_t const status) {
+int HTTPMessageSendStatus(HTTPMessageRef const msg, uint16_t const status) {
 	strarg_t const str = statusstr(status);
-	HTTPMessageSendMessage(msg, status, str);
+	return HTTPMessageSendMessage(msg, status, str);
 }
-void HTTPMessageSendFile(HTTPMessageRef const msg, strarg_t const path, strarg_t const type, int64_t size) {
+int HTTPMessageSendFile(HTTPMessageRef const msg, strarg_t const path, strarg_t const type, int64_t size) {
 	uv_file const file = async_fs_open(path, O_RDONLY, 0000);
 	if(file < 0) return HTTPMessageSendStatus(msg, 400); // TODO: Error conversion.
+	int rc = 0;
 	if(size < 0) {
-		uv_fs_t req;
-		if(async_fs_fstat(file, &req) < 0) {
-			return HTTPMessageSendStatus(msg, 400);
-		}
-		size = req.statbuf.st_size;
+		uv_fs_t req[1];
+		rc = async_fs_fstat(file, req);
+		if(rc < 0) return HTTPMessageSendStatus(msg, 400);
+		size = req->statbuf.st_size;
 	}
-	HTTPMessageWriteResponse(msg, 200, "OK");
-	HTTPMessageWriteContentLength(msg, size);
-	if(type) HTTPMessageWriteHeader(msg, "Content-Type", type);
-	HTTPMessageBeginBody(msg);
-	HTTPMessageWriteFile(msg, file);
-	HTTPMessageEnd(msg);
+	rc = rc < 0 ? rc : HTTPMessageWriteResponse(msg, 200, "OK");
+	rc = rc < 0 ? rc : HTTPMessageWriteContentLength(msg, size);
+	if(type) rc = rc < 0 ? rc : HTTPMessageWriteHeader(msg, "Content-Type", type);
+	rc = rc < 0 ? rc : HTTPMessageBeginBody(msg);
+	rc = rc < 0 ? rc : HTTPMessageWriteFile(msg, file);
+	rc = rc < 0 ? rc : HTTPMessageEnd(msg);
 	async_fs_close(file);
+	return rc;
 }
 
 
@@ -523,9 +503,9 @@ static http_parser_settings const settings = {
 	.on_message_complete = on_message_complete,
 };
 
-static err_t readOnce(HTTPMessageRef const msg) {
+static int readOnce(HTTPMessageRef const msg) {
 	assertf(0 == msg->next.len, "Existing unused chunk");
-	if(msg->eof) return -1;
+	if(msg->eof) return UV_EOF;
 	if(!msg->remaining) {
 		async_read_t req[1];
 		(void)async_read(req, (uv_stream_t *)&msg->conn->stream);
@@ -534,7 +514,7 @@ static err_t readOnce(HTTPMessageRef const msg) {
 			msg->eof = true;
 			req->nread = 0;
 		}
-		if(req->nread < 0) return -1;
+		if(req->nread < 0) return req->nread;
 		msg->buf = (byte_t *)req->buf->base;
 		req->buf->base = NULL;
 		msg->pos = 0;
@@ -555,17 +535,19 @@ static err_t readOnce(HTTPMessageRef const msg) {
 	if(!msg->remaining) FREE(&msg->buf);
 	return 0;
 }
-static err_t readFirstLine(HTTPMessageRef const msg) {
+static int readFirstLine(HTTPMessageRef const msg) {
 	for(;;) {
-		if(readOnce(msg) < 0) return -1;
+		int rc = readOnce(msg);
+		if(rc < 0) return rc;
 		if(HPE_PAUSED == HTTPConnectionError(msg->conn)) return 0;
 		if(msg->eof) return -1;
 	}
 }
-static err_t readChunk(HTTPMessageRef const msg) {
+static int readChunk(HTTPMessageRef const msg) {
 	for(;;) {
 		if(msg->eof || msg->next.len > 0) return 0;
-		if(readOnce(msg) < 0) return -1;
+		int rc = readOnce(msg);
+		if(rc < 0) return rc;
 	}
 }
 

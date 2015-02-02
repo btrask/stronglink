@@ -51,3 +51,40 @@ void async_read_cancel(async_read_t *const req) {
 	if(thread) async_wakeup(thread);
 }
 
+
+
+static void write_cb(uv_write_t *const req, int const status) {
+	async_state *const state = req->data;
+	state->status = status;
+	co_switch(state->thread);
+}
+int async_write(uv_stream_t *const stream, uv_buf_t const bufs[], unsigned const nbufs) {
+	async_state state[1];
+	state->thread = co_active();
+	uv_write_t req[1];
+	req->data = &state;
+	int rc = uv_write(req, stream, bufs, nbufs, write_cb);
+	if(rc < 0) return rc;
+	async_yield();
+	return state->status;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
