@@ -98,17 +98,17 @@ static void async_close_cb(uv_handle_t *const handle) {
 }
 int async_sleep(uint64_t const milliseconds) {
 	// TODO: Pool timers together.
-	uv_timer_t timer;
-	timer.data = co_active();
+	uv_timer_t timer[1];
+	timer->data = co_active();
 	int err;
-	err = uv_timer_init(loop, &timer);
+	err = uv_timer_init(loop, timer);
 	if(err < 0) return err;
 	if(milliseconds > 0) {
-		err = uv_timer_start(&timer, async_timer_cb, milliseconds, 0);
+		err = uv_timer_start(timer, async_timer_cb, milliseconds, 0);
 		if(err < 0) return err;
 		async_yield();
 	}
-	uv_close((uv_handle_t *)&timer, async_close_cb);
+	uv_close((uv_handle_t *)timer, async_close_cb);
 	async_yield();
 	return 0;
 }
