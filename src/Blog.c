@@ -401,6 +401,10 @@ static bool_t getResultsPage(BlogRef const blog, HTTPConnectionRef const conn, H
 	};
 	str_t headers[numberof(fields)][VALUE_MAX];
 	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields), NULL);
+	if(rc < 0) {
+		HTTPConnectionSendStatus(conn, 400);
+		return true;
+	}
 	EFSSessionRef session = EFSRepoCreateSession(blog->repo, headers[0]);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);
@@ -485,6 +489,10 @@ static bool_t getCompose(BlogRef const blog, HTTPConnectionRef const conn, HTTPM
 	};
 	str_t headers[numberof(fields)][VALUE_MAX];
 	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields), NULL);
+	if(rc < 0) {
+		HTTPConnectionSendStatus(conn, 400);
+		return true;
+	}
 	EFSSessionRef session = EFSRepoCreateSession(blog->repo, headers[0]);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);
@@ -512,6 +520,10 @@ static bool_t postSubmission(BlogRef const blog, HTTPConnectionRef const conn, H
 	};
 	str_t headers[numberof(fields)][VALUE_MAX];
 	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields), NULL);
+	if(rc < 0) {
+		HTTPConnectionSendStatus(conn, 400);
+		return true;
+	}
 	EFSSessionRef session = EFSRepoCreateSession(blog->repo, headers[0]);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);

@@ -66,6 +66,10 @@ static bool_t getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 	};
 	str_t headers[numberof(fields)][VALUE_MAX];
 	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields), NULL);
+	if(rc < 0) {
+		HTTPConnectionSendStatus(conn, 400);
+		return true;
+	}
 	EFSSessionRef session = EFSRepoCreateSession(repo, headers[0]);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);
@@ -102,6 +106,10 @@ static bool_t postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTP
 	};
 	str_t headers[numberof(fields)][VALUE_MAX];
 	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields), NULL);
+	if(rc < 0) {
+		HTTPConnectionSendStatus(conn, 400);
+		return true;
+	}
 	EFSSessionRef session = EFSRepoCreateSession(repo, headers[0]);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);
@@ -199,6 +207,10 @@ static bool_t query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 	};
 	str_t headers[numberof(fields)][VALUE_MAX];
 	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields), NULL);
+	if(rc < 0) {
+		HTTPConnectionSendStatus(conn, 400);
+		return true;
+	}
 	EFSSessionRef session = EFSRepoCreateSession(repo, headers[0]);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);
