@@ -28,6 +28,7 @@ int async_read(async_read_t *const req, uv_stream_t *const stream) {
 	stream->data = req;
 	int rc = uv_read_start(stream, alloc_cb, read_cb);
 	if(rc < 0) {
+		async_read_cleanup(req);
 		req->status = rc;
 		return rc;
 	}
@@ -35,6 +36,7 @@ int async_read(async_read_t *const req, uv_stream_t *const stream) {
 	req->thread = NULL;
 	rc = uv_read_stop(stream);
 	if(rc < 0) {
+		async_read_cleanup(req);
 		req->status = rc;
 		return rc;
 	}
