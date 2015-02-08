@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "../../deps/multipart-parser-c/multipart_parser.h"
+#include "Headers.h"
 #include "MultipartForm.h"
 
 #define FIELD_MAX 80
@@ -12,7 +13,7 @@ struct FormPart {
 	bool_t eof;
 };
 struct MultipartForm {
-	HTTPMessageRef msg;
+	HTTPConnectionRef msg;
 	multipart_parser *parser;
 	byte_t const *buf;
 	size_t len;
@@ -24,7 +25,7 @@ static multipart_parser_settings const callbacks;
 
 static err_t readOnce(FormPartRef const part);
 
-MultipartFormRef MultipartFormCreate(HTTPMessageRef const msg, strarg_t const type, strarg_t const *const fields, count_t const count) {
+MultipartFormRef MultipartFormCreate(HTTPConnectionRef const msg, strarg_t const type, strarg_t const *const fields, count_t const count) {
 	if(!msg) return NULL;
 	if(!type) return NULL;
 	// TODO: More robust content-type parsing.
@@ -113,13 +114,16 @@ static err_t readOnce(FormPartRef const part) {
 	if(form->eof) return -1;
 	if(part->eof) return -1;
 	if(!form->len) {
-		ssize_t const rlen = HTTPMessageGetBuffer(form->msg, &form->buf);
-		if(!rlen) {
+		uv_buf_t buf[1];
+		int rc = HTTPConnectionReadBody(form->msg, buf, NULL);
+		if(rc < 0) return -1;
+		if(!buf->len) {
 			form->eof = true;
 			part->eof = true; // Should already be set...
+			return -1;
 		}
-		if(rlen <= 0) return -1;
-		form->len = rlen;
+		form->buf = (byte_t *)buf->base;
+		form->len = buf->len;
 	}
 	ssize_t plen = multipart_parser_execute(form->parser, (char const *)form->buf, form->len);
 	if(plen < 0) {

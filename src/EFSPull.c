@@ -4,8 +4,6 @@
 #include "async/async.h"
 #include "http/HTTPMessage.h"
 
-#define URI_MAX 1023
-
 #define READER_COUNT 64
 #define QUEUE_SIZE 64 // TODO: Find a way to lower these without sacrificing performance, and perhaps automatically adjust them somehow.
 
@@ -20,7 +18,7 @@ struct EFSPull {
 
 	async_mutex_t *connlock;
 	HTTPConnectionRef conn;
-	HTTPMessageRef msg;
+	async_read_t read[1];
 
 	async_mutex_t *mutex;
 	async_cond_t *cond;
@@ -67,22 +65,26 @@ void EFSPullFree(EFSPullRef *const pullptr) {
 
 static void reader(EFSPullRef const pull) {
 	HTTPConnectionRef conn = NULL;
+	int rc;
 
 	for(;;) {
 		if(pull->stop) goto stop;
 
-		str_t URI[URI_MAX+1];
+		str_t URI[URI_MAX];
 
 		async_mutex_lock(pull->connlock);
 
-		if(HTTPMessageReadLine(pull->msg, URI, sizeof(URI)) < 0) {
+		rc = HTTPConnectionReadBodyLine(pull->conn, URI, sizeof(URI), NULL);
+		if(rc < 0) {
 			for(;;) {
 				if(reconnect(pull) >= 0) break;
 				if(pull->stop) break;
 				async_sleep(1000 * 5);
 			}
 			async_mutex_unlock(pull->connlock);
-			continue;
+
+			// With UV_EOF, we can still get a URI to process.
+			if(!URI[0]) continue;
 		}
 
 		async_mutex_lock(pull->mutex);
@@ -214,7 +216,6 @@ void EFSPullStop(EFSPullRef const pull) {
 	async_mutex_unlock(pull->mutex);
 
 	async_mutex_free(pull->connlock); pull->connlock = NULL;
-	HTTPMessageFree(&pull->msg);
 	HTTPConnectionFree(&pull->conn);
 
 	async_mutex_free(pull->mutex); pull->mutex = NULL;
@@ -232,21 +233,23 @@ void EFSPullStop(EFSPullRef const pull) {
 static err_t auth(EFSPullRef const pull);
 
 static err_t reconnect(EFSPullRef const pull) {
-	HTTPMessageFree(&pull->msg);
 	HTTPConnectionFree(&pull->conn);
 
 	pull->conn = HTTPConnectionCreateOutgoing(pull->host);
-	pull->msg = HTTPMessageCreate(pull->conn);
-	if(!pull->conn || !pull->msg) return -1;
-	HTTPMessageWriteRequest(pull->msg, HTTP_GET, "/efs/query?count=all", pull->host);
+	if(!pull->conn) return -1;
+	HTTPConnectionWriteRequest(pull->conn, HTTP_GET, "/efs/query?count=all", pull->host);
 	// TODO: Pagination...
-	if(pull->cookie) HTTPMessageWriteHeader(pull->msg, "Cookie", pull->cookie);
-	HTTPMessageBeginBody(pull->msg);
-	if(HTTPMessageEnd(pull->msg) < 0) {
+	if(pull->cookie) HTTPConnectionWriteHeader(pull->conn, "Cookie", pull->cookie);
+	HTTPConnectionBeginBody(pull->conn);
+	if(HTTPConnectionEnd(pull->conn) < 0) {
 		fprintf(stderr, "Pull couldn't connect to %s\n", pull->host);
 		return -1;
 	}
-	uint16_t const status = HTTPMessageGetResponseStatus(pull->msg);
+	int const status = HTTPConnectionReadResponseStatus(pull->conn, pull->read);
+	if(status < 0) {
+		fprintf(stderr, "Pull connection error %s\n", uv_strerror(status));
+		return -1;
+	}
 	if(403 == status) {
 		auth(pull);
 		return -1;
@@ -258,51 +261,43 @@ static err_t reconnect(EFSPullRef const pull) {
 	return 0;
 }
 
-typedef struct {
-	strarg_t set_cookie;
-} EFSAuthHeaders;
-static strarg_t const EFSAuthFields[] = {
-	"set-cookie",
-};
 static err_t auth(EFSPullRef const pull) {
 	if(!pull) return 0;
 	FREE(&pull->cookie);
 
 	HTTPConnectionRef conn = HTTPConnectionCreateOutgoing(pull->host);
-	HTTPMessageRef msg = HTTPMessageCreate(conn);
-	HTTPMessageWriteRequest(msg, HTTP_POST, "/efs/auth", pull->host);
-	HTTPMessageWriteContentLength(msg, 0);
-	HTTPMessageBeginBody(msg);
+	// TODO: if(!conn) ...
+	HTTPConnectionWriteRequest(conn, HTTP_POST, "/efs/auth", pull->host);
+	HTTPConnectionWriteContentLength(conn, 0);
+	HTTPConnectionBeginBody(conn);
 	// TODO: Send credentials.
-	HTTPMessageEnd(msg);
+	HTTPConnectionEnd(conn);
 
-	uint16_t const status = HTTPMessageGetResponseStatus(msg);
-	EFSAuthHeaders const *const headers = HTTPMessageGetHeaders(msg, EFSAuthFields, numberof(EFSAuthFields));
+	int const status = HTTPConnectionReadResponseStatus(conn, NULL);
+	if(status < 0) return status;
 
-	fprintf(stderr, "Session cookie %s\n", headers->set_cookie);
+	static str_t const fields[][FIELD_MAX] = {
+		"set-cookie",
+	};
+	str_t headers[numberof(fields)][VALUE_MAX];
+	int rc;
+	rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields), NULL);
+	if(rc < 0) return rc;
+
+	fprintf(stderr, "Session cookie %s\n", headers[0]);
 	// TODO: Parse and store.
 
-	HTTPMessageFree(&msg);
 	HTTPConnectionFree(&conn);
 
 	return 0;
 }
 
 
-typedef struct {
-	strarg_t content_type;
-	strarg_t content_length;
-} EFSImportHeaders;
-static strarg_t const EFSImportFields[] = {
-	"content-type",
-	"content-length",
-};
 static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn) {
 	if(!pull) return 0;
 
 	// TODO: Even if there's nothing to do, we have to enqueue something to fill up our reserved slots. I guess it's better than doing a lot of work inside the connection lock, but there's got to be a better way.
 	EFSSubmissionRef sub = NULL;
-	EFSSubmissionRef meta = NULL;
 
 	if(!URI) goto enqueue;
 
@@ -316,8 +311,7 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 //	fprintf(stderr, "Pulling %s\n", URI);
 
 	if(!*conn) *conn = HTTPConnectionCreateOutgoing(pull->host);
-	HTTPMessageRef msg = HTTPMessageCreate(*conn);
-	if(!*conn || !msg) {
+	if(!*conn) {
 		fprintf(stderr, "Pull import connection error\n");
 		goto fail;
 	}
@@ -327,33 +321,63 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 		fprintf(stderr, "asprintf() error\n");
 		goto fail;
 	}
-	HTTPMessageWriteRequest(msg, HTTP_GET, path, pull->host);
+	int rc = 0;
+	rc = rc < 0 ? rc : HTTPConnectionWriteRequest(*conn, HTTP_GET, path, pull->host);
 	FREE(&path);
 
-	HTTPMessageWriteHeader(msg, "Cookie", pull->cookie);
-	HTTPMessageBeginBody(msg);
-	if(HTTPMessageEnd(msg) < 0) {
-		fprintf(stderr, "Pull import request error\n");
+	rc = rc < 0 ? rc : HTTPConnectionWriteHeader(*conn, "Cookie", pull->cookie);
+	rc = rc < 0 ? rc : HTTPConnectionBeginBody(*conn);
+	rc = rc < 0 ? rc : HTTPConnectionEnd(*conn);
+	if(rc < 0) {
+		fprintf(stderr, "Pull import request error %s\n", uv_strerror(rc));
 		goto fail;
 	}
-	uint16_t const status = HTTPMessageGetResponseStatus(msg);
+	int const status = HTTPConnectionReadResponseStatus(*conn, NULL);
+	if(status < 0) {
+		fprintf(stderr, "Pull import response error %s\n", uv_strerror(status));
+		goto fail;
+	}
 	if(status < 200 || status >= 300) {
 		fprintf(stderr, "Pull import response error %d\n", status);
 		goto fail;
 	}
 
-	EFSImportHeaders const *const headers = HTTPMessageGetHeaders(msg, EFSImportFields, numberof(EFSImportFields));
-	sub = EFSSubmissionCreateQuick(pull->session, headers->content_type, (ssize_t (*)())HTTPMessageGetBuffer, msg);
-	if(!sub) {
-		fprintf(stderr, "Pull import submission error\n");
+	static str_t const fields[][FIELD_MAX] = {
+		"content-type",
+		"content-length",
+	};
+	str_t headers[numberof(fields)][VALUE_MAX];
+	rc = HTTPConnectionReadHeaders(*conn, headers, fields, numberof(fields), NULL);
+	if(rc < 0) {
+		fprintf(stderr, "Pull import response error %s\n", uv_strerror(rc));
 		goto fail;
 	}
 
-	if(pull->stop) goto fail2;
-	// TODO: Call EFSSubmissionWrite() in a loop so we can also check whether our thread was stopped. There really is no point in checking after the submission has been fully read.
-
-	HTTPMessageDrain(msg);
-	HTTPMessageFree(&msg);
+	sub = EFSSubmissionCreate(pull->session, headers[0]);
+	if(!sub) {
+		fprintf(stderr, "Pull submission error\n");
+		goto fail;
+	}
+	for(;;) {
+		if(pull->stop) goto fail;
+		uv_buf_t buf[1];
+		rc = HTTPConnectionReadBody(*conn, buf, NULL);
+		if(rc < 0) {
+			fprintf(stderr, "Pull download error %s\n", uv_strerror(rc));
+			goto fail;
+		}
+		if(0 == buf->len) break;
+		rc = EFSSubmissionWrite(sub, (byte_t *)buf->base, buf->len);
+		if(rc < 0) {
+			fprintf(stderr, "Pull write error\n");
+			goto fail;
+		}
+	}
+	rc = EFSSubmissionEnd(sub);
+	if(rc < 0) {
+		fprintf(stderr, "Pull submission error\n");
+		goto fail;
+	}
 
 enqueue:
 	async_mutex_lock(pull->mutex);
@@ -361,14 +385,10 @@ enqueue:
 	pull->filled[pos] = true;
 	async_cond_broadcast(pull->cond);
 	async_mutex_unlock(pull->mutex);
-
 	return 0;
 
-fail2:
-	EFSSubmissionFree(&sub);
-	EFSSubmissionFree(&meta);
 fail:
-	HTTPMessageFree(&msg);
+	EFSSubmissionFree(&sub);
 	HTTPConnectionFree(conn);
 	return -1;
 }

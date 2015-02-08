@@ -1,52 +1,60 @@
-#ifndef HTTPMESSAGE_H
-#define HTTPMESSAGE_H
+#ifndef HTTPCONNECTION_H
+#define HTTPCONNECTION_H
 
-#include "../../deps/uv/include/uv.h"
+#include "../async/async.h"
 #include "../../deps/http_parser/http_parser.h"
 #include "../common.h"
-#include "Headers.h"
+
+#define FIELD_MAX 80
+#define VALUE_MAX 1024
 
 typedef enum http_method HTTPMethod;
+typedef enum {
+	HTTPNothing = 0,
+	HTTPMessageBegin,
+	HTTPURL,
+	HTTPHeaderField,
+	HTTPHeaderValue,
+	HTTPHeadersComplete,
+	HTTPBody,
+	HTTPMessageEnd,
+} HTTPEvent;
 
 typedef struct HTTPConnection* HTTPConnectionRef;
-typedef struct HTTPMessage* HTTPMessageRef;
 
 HTTPConnectionRef HTTPConnectionCreateIncoming(uv_stream_t *const socket);
 HTTPConnectionRef HTTPConnectionCreateOutgoing(strarg_t const domain);
 void HTTPConnectionFree(HTTPConnectionRef *const connptr);
-int HTTPConnectionError(HTTPConnectionRef const conn);
+int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_buf_t *const buf, async_read_t *const inreq);
+void HTTPConnectionPop(HTTPConnectionRef const conn, size_t const len);
 
-HTTPMessageRef HTTPMessageCreate(HTTPConnectionRef const conn);
-void HTTPMessageFree(HTTPMessageRef *const msgptr);
+// Reading
+int HTTPConnectionReadRequestURI(HTTPConnectionRef const conn, str_t *const out, size_t const max, HTTPMethod *const method, async_read_t *const req);
+int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn, async_read_t *const req);
+int HTTPConnectionReadHeaders(HTTPConnectionRef const conn, str_t values[][VALUE_MAX], str_t const fields[][FIELD_MAX], size_t const nfields, async_read_t *const req);
+int HTTPConnectionReadBody(HTTPConnectionRef const conn, uv_buf_t *const buf, async_read_t *const req);
+int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, size_t const max, async_read_t *const req);
+int HTTPConnectionDrainMessage(HTTPConnectionRef const conn, async_read_t *const req);
 
-// Message reading
-HTTPMethod HTTPMessageGetRequestMethod(HTTPMessageRef const msg);
-strarg_t HTTPMessageGetRequestURI(HTTPMessageRef const msg);
-uint16_t HTTPMessageGetResponseStatus(HTTPMessageRef const msg);
-void *HTTPMessageGetHeaders(HTTPMessageRef const msg, strarg_t const fields[], count_t const count);
-ssize_t HTTPMessageRead(HTTPMessageRef const msg, byte_t *const buf, size_t const len);
-ssize_t HTTPMessageReadLine(HTTPMessageRef const msg, str_t *const buf, size_t const len);
-ssize_t HTTPMessageGetBuffer(HTTPMessageRef const msg, byte_t const **const buf); // Zero-copy version.
-void HTTPMessageDrain(HTTPMessageRef const msg);
 
-// Message writing
-int HTTPMessageWrite(HTTPMessageRef const msg, byte_t const *const buf, size_t const len);
-int HTTPMessageWritev(HTTPMessageRef const msg, uv_buf_t const parts[], unsigned int const count);
-int HTTPMessageWriteRequest(HTTPMessageRef const msg, HTTPMethod const method, strarg_t const requestURI, strarg_t const host);
-int HTTPMessageWriteResponse(HTTPMessageRef const msg, uint16_t const status, strarg_t const message);
-int HTTPMessageWriteHeader(HTTPMessageRef const msg, strarg_t const field, strarg_t const value);
-int HTTPMessageWriteContentLength(HTTPMessageRef const msg, uint64_t const length);
-int HTTPMessageWriteSetCookie(HTTPMessageRef const msg, strarg_t const field, strarg_t const value, strarg_t const path, uint64_t const maxage);
-int HTTPMessageBeginBody(HTTPMessageRef const msg);
-int HTTPMessageWriteFile(HTTPMessageRef const msg, uv_file const file);
-int HTTPMessageWriteChunkLength(HTTPMessageRef const msg, uint64_t const length);
-int HTTPMessageWriteChunkv(HTTPMessageRef const msg, uv_buf_t const parts[], unsigned int const count);
-int HTTPMessageWriteChunkFile(HTTPMessageRef const msg, strarg_t const path);
-int HTTPMessageEnd(HTTPMessageRef const msg);
+// Writing
+int HTTPConnectionWrite(HTTPConnectionRef const conn, byte_t const *const buf, size_t const len);
+int HTTPConnectionWritev(HTTPConnectionRef const conn, uv_buf_t const parts[], unsigned int const count);
+int HTTPConnectionWriteRequest(HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const requestURI, strarg_t const host);
+int HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, strarg_t const message);
+int HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value);
+int HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, uint64_t const length);
+int HTTPConnectionWriteSetCookie(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value, strarg_t const path, uint64_t const maxage);
+int HTTPConnectionBeginBody(HTTPConnectionRef const conn);
+int HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file);
+int HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, uint64_t const length);
+int HTTPConnectionWriteChunkv(HTTPConnectionRef const conn, uv_buf_t const parts[], unsigned int const count);
+int HTTPConnectionWriteChunkFile(HTTPConnectionRef const conn, strarg_t const path);
+int HTTPConnectionEnd(HTTPConnectionRef const conn);
 
 // Convenience
-int HTTPMessageSendString(HTTPMessageRef const msg, uint16_t const status, strarg_t const str);
-int HTTPMessageSendStatus(HTTPMessageRef const msg, uint16_t const status);
-int HTTPMessageSendFile(HTTPMessageRef const msg, strarg_t const path, strarg_t const type, int64_t size);
+int HTTPConnectionSendString(HTTPConnectionRef const conn, uint16_t const status, strarg_t const str);
+int HTTPConnectionSendStatus(HTTPConnectionRef const conn, uint16_t const status);
+int HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path, strarg_t const type, int64_t size);
 
 #endif

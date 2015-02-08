@@ -76,12 +76,9 @@ static void connection(uv_stream_t *const socket) {
 	if(!conn) return;
 
 	for(;;) {
-		HTTPMessageRef msg = HTTPMessageCreate(conn);
-		if(!msg) break;
-		server->listener(server->context, msg);
-		HTTPMessageDrain(msg);
-		HTTPMessageFree(&msg);
-		if(HPE_OK != HTTPConnectionError(conn)) break;
+		server->listener(server->context, conn);
+		int rc = HTTPConnectionDrainMessage(conn, NULL);
+		if(rc < 0) break;
 	}
 
 	HTTPConnectionFree(&conn);

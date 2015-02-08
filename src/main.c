@@ -5,13 +5,13 @@
 #include "EarthFS.h"
 #include "http/HTTPServer.h"
 
-bool_t EFSServerDispatch(EFSRepoRef const repo, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI);
+bool_t EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI);
 
 typedef struct Blog* BlogRef;
 
 BlogRef BlogCreate(EFSRepoRef const repo);
 void BlogFree(BlogRef *const blogptr);
-bool_t BlogDispatch(BlogRef const blog, HTTPMessageRef const msg, HTTPMethod const method, strarg_t const URI);
+bool_t BlogDispatch(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI);
 
 static str_t *path = NULL;
 static EFSRepoRef repo = NULL;
@@ -20,12 +20,13 @@ static HTTPServerRef server = NULL;
 static uv_signal_t sigint[1];
 static int sig = 0;
 
-static void listener(void *ctx, HTTPMessageRef const msg) {
-	HTTPMethod const method = HTTPMessageGetRequestMethod(msg);
-	strarg_t const URI = HTTPMessageGetRequestURI(msg);
-	if(EFSServerDispatch(repo, msg, method, URI)) return;
-	if(BlogDispatch(blog, msg, method, URI)) return;
-	HTTPMessageSendStatus(msg, 400);
+static void listener(void *ctx, HTTPConnectionRef const conn) {
+	HTTPMethod method;
+	str_t URI[URI_MAX];
+	int rc = HTTPConnectionReadRequestURI(conn, URI, URI_MAX, &method, NULL);
+	if(EFSServerDispatch(repo, conn, method, URI)) return;
+	if(BlogDispatch(blog, conn, method, URI)) return;
+	HTTPConnectionSendStatus(conn, 400);
 }
 
 static void ignore(uv_signal_t *const signal, int const signum) {

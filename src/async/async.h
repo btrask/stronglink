@@ -72,9 +72,9 @@ void async_close(uv_handle_t *const handle);
 typedef struct {
 	cothread_t thread;
 	uv_buf_t buf[1];
-	ssize_t nread;
+	int status;
 } async_read_t;
-ssize_t async_read(async_read_t *const req, uv_stream_t *const stream);
+int async_read(async_read_t *const req, uv_stream_t *const stream);
 void async_read_cleanup(async_read_t *const req);
 void async_read_cancel(async_read_t *const req);
 

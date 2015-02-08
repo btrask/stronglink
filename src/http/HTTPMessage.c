@@ -1,32 +1,56 @@
-#include "../async/async.h"
+#include <assert.h>
 #include "HTTPMessage.h"
 #include "status.h"
 
 #define BUFFER_SIZE (1024 * 8)
-#define URI_MAX 1024
+
+enum {
+	HTTPMessageIncomplete = 1 << 0,
+};
+
+static http_parser_settings const settings;
+
+// TODO: Copied from Headers.h, which should go away eventually.
+static size_t append(str_t *const dst, size_t const dsize, strarg_t const src, size_t const slen) {
+	size_t const olen = strlen(dst);
+	size_t const nlen = MIN(olen + slen, dsize);
+	memcpy(dst + olen, src, nlen - olen);
+	dst[nlen] = '\0';
+	return nlen - olen;
+}
+
 
 struct HTTPConnection {
-	uv_tcp_t stream;
-	http_parser parser;
+	uv_tcp_t stream[1];
+	http_parser parser[1];
+
+	void *buf;
+	uv_buf_t raw[1];
+
+	HTTPEvent type;
+	uv_buf_t out[1];
+
+	unsigned flags;
 };
 
 HTTPConnectionRef HTTPConnectionCreateIncoming(uv_stream_t *const socket) {
 	HTTPConnectionRef conn = calloc(1, sizeof(struct HTTPConnection));
 	if(!conn) return NULL;
 	if(
-		uv_tcp_init(loop, &conn->stream) < 0 ||
-		uv_accept(socket, (uv_stream_t *)&conn->stream) < 0
+		uv_tcp_init(loop, conn->stream) < 0 ||
+		uv_accept(socket, (uv_stream_t *)conn->stream) < 0
 	) {
 		HTTPConnectionFree(&conn);
 		return NULL;
 	}
-	http_parser_init(&conn->parser, HTTP_REQUEST);
+	http_parser_init(conn->parser, HTTP_REQUEST);
+	conn->parser->data = conn;
 	return conn;
 }
 HTTPConnectionRef HTTPConnectionCreateOutgoing(strarg_t const domain) {
-	str_t host[1025] = "";
-	str_t service[9] = "";
-	sscanf(domain, "%1024[^:]:%8[0-9]", host, service);
+	str_t host[1024] = "";
+	str_t service[16] = "";
+	sscanf(domain, "%1023[^:]:%15[0-9]", host, service);
 	if('\0' == host[0]) return NULL;
 
 	struct addrinfo const hints = {
@@ -43,15 +67,16 @@ HTTPConnectionRef HTTPConnectionCreateOutgoing(strarg_t const domain) {
 		uv_freeaddrinfo(info);
 		return NULL;
 	}
-	if(uv_tcp_init(loop, &conn->stream) < 0) {
+	if(uv_tcp_init(loop, conn->stream) < 0) {
 		uv_freeaddrinfo(info);
 		HTTPConnectionFree(&conn);
 		return NULL;
 	}
-	async_state state = { .thread = co_active() };
-	uv_connect_t req;
-	req.data = &state;
-	if(uv_tcp_connect(&req, &conn->stream, info->ai_addr, async_connect_cb) < 0) {
+	async_state state[1];
+	state->thread = co_active();
+	uv_connect_t req[1];
+	req->data = state;
+	if(uv_tcp_connect(req, conn->stream, info->ai_addr, async_connect_cb) < 0) {
 		uv_freeaddrinfo(info);
 		HTTPConnectionFree(&conn);
 		return NULL;
@@ -59,194 +84,243 @@ HTTPConnectionRef HTTPConnectionCreateOutgoing(strarg_t const domain) {
 	async_yield();
 	uv_freeaddrinfo(info);
 
-	http_parser_init(&conn->parser, HTTP_RESPONSE);
+	http_parser_init(conn->parser, HTTP_RESPONSE);
+	conn->parser->data = conn;
 	return conn;
 }
 void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
 	HTTPConnectionRef conn = *connptr;
 	if(!conn) return;
 
-	async_close((uv_handle_t *)&conn->stream);
-	memset(&conn->stream, 0, sizeof(conn->stream));
-	memset(&conn->parser, 0, sizeof(conn->parser));
+	async_close((uv_handle_t *)conn->stream);
+	memset(conn->stream, 0, sizeof(*conn->stream));
+	memset(conn->parser, 0, sizeof(*conn->parser));
+
+	FREE(&conn->buf);
+	*conn->raw = uv_buf_init(NULL, 0);
+
+	conn->type = HTTPNothing;
+	*conn->out = uv_buf_init(NULL, 0);
 
 	assert_zeroed(conn, 1);
 	FREE(connptr); conn = NULL;
 }
-int HTTPConnectionError(HTTPConnectionRef const conn) {
-	if(!conn) return HPE_OK;
-	return HTTP_PARSER_ERRNO(&conn->parser);
-}
+int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_buf_t *const buf, async_read_t *const inreq) {
+	if(!conn) return UV_EINVAL;
+	if(!type) return UV_EINVAL;
+	if(!buf) return UV_EINVAL;
+	size_t len;
+	int rc;
 
-struct HTTPMessage {
-	HTTPConnectionRef conn;
-	byte_t *buf;
-	size_t pos;
-	size_t remaining;
+	// Repeat previous errors.
+	rc = HTTP_PARSER_ERRNO(conn->parser);
+	if(HPE_OK != rc && HPE_PAUSED != rc) return -1;
 
-	// Incoming
-	str_t *requestURI;
-	HeadersRef headers;
-	struct {
-		char const *at;
-		size_t len;
-	} next;
-	bool_t eof;
-
-	// Outgoing
-	// nothing yet...
-};
-
-static int readOnce(HTTPMessageRef const msg);
-static int readFirstLine(HTTPMessageRef const msg);
-static int readChunk(HTTPMessageRef const msg);
-
-HTTPMessageRef HTTPMessageCreate(HTTPConnectionRef const conn) {
-	assertf(conn, "HTTPMessage connection required");
-	HTTPMessageRef msg = calloc(1, sizeof(struct HTTPMessage));
-	if(!msg) return NULL;
-	msg->conn = conn;
-	conn->parser.data = msg;
-	enum http_parser_type type = conn->parser.type;
-	assertf(HTTP_BOTH != type, "HTTPMessage can't handle 'both'");
-	if(HTTP_REQUEST == type) {
-		msg->requestURI = malloc(URI_MAX+1);
-		if(!msg->requestURI) {
-			HTTPMessageFree(&msg);
-			return NULL;
-		}
-		msg->requestURI[0] = '\0';
-		if(readFirstLine(msg) < 0) {
-			HTTPMessageFree(&msg);
-			return NULL;
-		}
-		assertf(msg->requestURI[0], "No URI in request");
-	}
-	return msg;
-}
-void HTTPMessageFree(HTTPMessageRef *const msgptr) {
-	HTTPMessageRef msg = *msgptr;
-	if(!msg) return;
-
-	msg->conn->parser.data = NULL;
-	msg->conn = NULL;
-	FREE(&msg->buf);
-	msg->pos = 0;
-	msg->remaining = 0;
-
-	FREE(&msg->requestURI);
-	HeadersFree(&msg->headers);
-	msg->next.at = NULL;
-	msg->next.len = 0;
-	msg->eof = false;
-
-	assert_zeroed(msg, 1);
-	FREE(msgptr); msg = NULL;
-}
-
-HTTPMethod HTTPMessageGetRequestMethod(HTTPMessageRef const msg) {
-	if(!msg) return 0;
-	return msg->conn->parser.method;
-}
-strarg_t HTTPMessageGetRequestURI(HTTPMessageRef const msg) {
-	if(!msg) return NULL;
-	return msg->requestURI;
-}
-uint16_t HTTPMessageGetResponseStatus(HTTPMessageRef const msg) {
-	if(!msg) return 0;
-	return msg->conn->parser.status_code;
-}
-void *HTTPMessageGetHeaders(HTTPMessageRef const msg, strarg_t const fields[], count_t const count) {
-	if(!msg) return NULL;
-	assertf(!msg->headers, "Message headers already read");
-	msg->headers = HeadersCreate(fields, count);
-	if(msg->next.len > 0) {
-		HeadersAppendFieldChunk(msg->headers, msg->next.at, msg->next.len);
-		msg->next.at = NULL;
-		msg->next.len = 0;
-	}
 	for(;;) {
-		if(readOnce(msg) < 0) return NULL;
-		if(HPE_PAUSED == HTTPConnectionError(msg->conn)) break;
-		if(msg->eof) return NULL;
+		if(HTTPNothing != conn->type) break;
+		if(!conn->raw->len) {
+			// It might seem counterintuitive to free the buffer
+			// just before we could reuse it, but the one time we
+			// don't need it is while blocking. We could free it
+			// after a timeout to give us a chance to reuse it,
+			// but even the two second timeout Apache uses causes
+			// a lot of problems...
+			FREE(&conn->buf);
+			*conn->raw = uv_buf_init(NULL, 0);
+			*conn->out = uv_buf_init(NULL, 0);
+
+			async_read_t alt[1];
+			async_read_t *const req = inreq ? inreq : alt;
+			rc = async_read(req, (uv_stream_t *)conn->stream);
+			if(rc < 0) return rc;
+			conn->buf = req->buf->base;
+			*conn->raw = *req->buf;
+			req->buf->base = NULL;
+			async_read_cleanup(req);
+		}
+		http_parser_pause(conn->parser, 0);
+		len = http_parser_execute(conn->parser, &settings, conn->raw->base, conn->raw->len);
+		rc = HTTP_PARSER_ERRNO(conn->parser);
+		conn->raw->base += len;
+		conn->raw->len -= len;
+		if(HPE_OK != rc && HPE_PAUSED != rc) {
+			fprintf(stderr, "HTTP parse error %s (%d)\n",
+				http_errno_name(rc),
+				HTTP_PARSER_ERRNO_LINE(conn->parser));
+//			fprintf(stderr, "%s (%lu)\n", strndup(conn->raw->base, conn->raw->len), conn->raw->len);
+			return -1;
+		}
 	}
-	return HeadersGetData(msg->headers);
+	*type = conn->type;
+	*buf = *conn->out;
+	return 0;
 }
-ssize_t HTTPMessageRead(HTTPMessageRef const msg, byte_t *const buf, size_t const len) {
-	if(!msg) return UV_EINVAL;
-	if(!msg->headers) HTTPMessageGetHeaders(msg, NULL, 0);
-	if(0 == msg->next.len) {
-		if(msg->eof) return 0;
-		int rc = readChunk(msg);
-		if(rc < 0) return rc;
+void HTTPConnectionPop(HTTPConnectionRef const conn, size_t const len) {
+	if(!conn) return;
+	assert(len <= conn->out->len);
+	conn->out->base += len;
+	conn->out->len -= len;
+	if(!conn->out->len) {
+		conn->type = HTTPNothing;
+		conn->out->base = NULL;
 	}
-	size_t const used = MIN(len, msg->next.len);
-	memcpy(buf, msg->next.at, used);
-	msg->next.at += used;
-	msg->next.len -= used;
-	return used;
-}
-ssize_t HTTPMessageReadLine(HTTPMessageRef const msg, str_t *const buf, size_t const len) {
-	if(!msg) return UV_EINVAL;
-	if(!msg->headers) HTTPMessageGetHeaders(msg, NULL, 0);
-	if(msg->eof) return UV_EOF;
-	size_t pos = 0;
-	for(;;) {
-		if(readChunk(msg) < 0) break;
-		if('\r' == msg->next.at[0]) break;
-		if('\n' == msg->next.at[0]) break;
-		if(pos < len-1) buf[pos++] = msg->next.at[0];
-		msg->next.at++;
-		msg->next.len--;
-	}
-	readChunk(msg);
-	if(msg->next.len > 0 && '\r' == msg->next.at[0]) {
-		msg->next.at++;
-		msg->next.len--;
-	}
-	readChunk(msg);
-	if(msg->next.len > 0 && '\n' == msg->next.at[0]) {
-		msg->next.at++;
-		msg->next.len--;
-	}
-	if(0 != len) buf[pos] = '\0';
-	return pos;
-}
-ssize_t HTTPMessageGetBuffer(HTTPMessageRef const msg, byte_t const **const buf) {
-	if(!msg) return UV_EINVAL;
-	if(!msg->headers) HTTPMessageGetHeaders(msg, NULL, 0);
-	if(0 == msg->next.len) {
-		if(msg->eof) return 0;
-		int rc = readChunk(msg);
-		if(rc < 0) return rc;
-	}
-	size_t const used = msg->next.len;
-	*buf = (byte_t const *)msg->next.at;
-	msg->next.at = NULL;
-	msg->next.len = 0;
-	return used;
-}
-void HTTPMessageDrain(HTTPMessageRef const msg) {
-	if(!msg) return;
-	if(msg->eof) return;
-	do {
-		msg->next.at = NULL;
-		msg->next.len = 0;
-	} while(readOnce(msg) >= 0);
-	assertf(msg->eof, "Message drain didn't reach EOF");
 }
 
-int HTTPMessageWrite(HTTPMessageRef const msg, byte_t const *const buf, size_t const len) {
-	if(!msg) return 0;
-	uv_buf_t obj = uv_buf_init((char *)buf, len);
-	return async_write((uv_stream_t *)&msg->conn->stream, &obj, 1);
+
+int HTTPConnectionReadRequestURI(HTTPConnectionRef const conn, str_t *const out, size_t const max, HTTPMethod *const method, async_read_t *const req) {
+	if(!conn) return UV_EINVAL;
+	if(!max) return UV_EINVAL;
+	uv_buf_t buf[1];
+	int rc;
+	HTTPEvent type;
+	out[0] = '\0';
+	for(;;) {
+		rc = HTTPConnectionPeek(conn, &type, buf, req);
+		if(rc < 0) return rc;
+		if(HTTPHeaderField == type || HTTPHeadersComplete == type) break;
+		HTTPConnectionPop(conn, buf->len);
+		if(HTTPMessageBegin == type) continue;
+		if(HTTPURL != type) return -1;
+		append(out, max, buf->base, buf->len);
+	}
+	*method = conn->parser->method;
+	return 0;
 }
-int HTTPMessageWritev(HTTPMessageRef const msg, uv_buf_t const parts[], unsigned int const count) {
-	if(!msg) return 0;
-	return async_write((uv_stream_t *)&msg->conn->stream, parts, count);
+int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn, async_read_t *const req) {
+	if(!conn) return UV_EINVAL;
+	uv_buf_t buf[1];
+	int rc;
+	HTTPEvent type;
+	for(;;) {
+		if(conn->parser->status_code) break;
+		rc = HTTPConnectionPeek(conn, &type, buf, req);
+		if(rc < 0) return rc;
+		if(HTTPHeaderField == type || HTTPHeadersComplete == type) break;
+		if(HTTPMessageBegin != type) return -1;
+		HTTPConnectionPop(conn, buf->len);
+	}
+	return conn->parser->status_code;
 }
-int HTTPMessageWriteRequest(HTTPMessageRef const msg, HTTPMethod const method, strarg_t const requestURI, strarg_t const host) {
-	if(!msg) return 0;
+
+int HTTPConnectionReadHeaders(HTTPConnectionRef const conn, str_t values[][VALUE_MAX], str_t const fields[][FIELD_MAX], size_t const nfields, async_read_t *const req) {
+	if(!conn) return UV_EINVAL;
+	uv_buf_t buf[1];
+	int rc, n;
+	HTTPEvent type;
+	str_t field[FIELD_MAX];
+	for(n = 0; n < nfields; ++n) values[n][0] = '\0';
+	for(;;) {
+		field[0] = '\0';
+		for(;;) {
+			rc = HTTPConnectionPeek(conn, &type, buf, req);
+			if(rc < 0) return rc;
+			if(HTTPHeaderValue == type) break;
+			HTTPConnectionPop(conn, buf->len);
+			if(HTTPHeadersComplete == type) goto done;
+			if(HTTPHeaderField != type) return -1;
+			append(field, FIELD_MAX, buf->base, buf->len);
+		}
+		for(n = 0; n < nfields; ++n) {
+			if(0 != strcasecmp(field, fields[n])) continue;
+			if(values[n][0]) continue;
+			break;
+		}
+		for(;;) {
+			rc = HTTPConnectionPeek(conn, &type, buf, req);
+			if(rc < 0) return rc;
+			if(HTTPHeaderField == type) break;
+			HTTPConnectionPop(conn, buf->len);
+			if(HTTPHeadersComplete == type) goto done;
+			if(HTTPHeaderValue != type) return -1;
+			if(n >= nfields) continue;
+			append(values[n], VALUE_MAX, buf->base, buf->len);
+		}
+	}
+done:
+	return 0;
+}
+int HTTPConnectionReadBody(HTTPConnectionRef const conn, uv_buf_t *const buf, async_read_t *const req) {
+	if(!conn) return UV_EINVAL;
+	HTTPEvent type;
+	int rc = HTTPConnectionPeek(conn, &type, buf, req);
+	if(rc < 0) return rc;
+	if(HTTPBody != type && HTTPMessageEnd != type) return -1;
+	HTTPConnectionPop(conn, buf->len);
+	return 0;
+}
+int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, size_t const max, async_read_t *const req) {
+	if(!conn) return UV_EINVAL;
+	if(!max) return UV_EINVAL;
+	uv_buf_t buf[1];
+	int rc;
+	size_t i;
+	HTTPEvent type;
+	out[0] = '\0';
+	for(;;) {
+		rc = HTTPConnectionPeek(conn, &type, buf, req);
+		if(rc < 0) return rc;
+		if(HTTPMessageEnd == type) {
+			HTTPConnectionPop(conn, buf->len);
+			return UV_EOF;
+		}
+		if(HTTPBody != type) return -1;
+		for(i = 0; i < buf->len; ++i) {
+			if('\r' == buf->base[i]) break;
+			if('\n' == buf->base[i]) break;
+		}
+		append(out, max, buf->base, i);
+		HTTPConnectionPop(conn, i);
+		if(i < buf->len) break;
+	}
+
+	rc = HTTPConnectionPeek(conn, &type, buf, req);
+	if(rc < 0) return rc;
+	if(HTTPMessageEnd == type) {
+		HTTPConnectionPop(conn, i);
+		return UV_EOF;
+	}
+	if(HTTPBody != type) return -1;
+	if('\r' == buf->base[0]) HTTPConnectionPop(conn, 1);
+
+	rc = HTTPConnectionPeek(conn, &type, buf, req);
+	if(rc < 0) return rc;
+	if(HTTPMessageEnd == type) {
+		HTTPConnectionPop(conn, i);
+		return UV_EOF;
+	}
+	if(HTTPBody != type) return -1;
+	if('\n' == buf->base[0]) HTTPConnectionPop(conn, 1);
+
+	return 0;
+}
+int HTTPConnectionDrainMessage(HTTPConnectionRef const conn, async_read_t *const req) {
+	if(!conn) return 0;
+	if(!(HTTPMessageIncomplete & conn->flags)) return 0;
+	uv_buf_t buf[1];
+	int rc;
+	HTTPEvent type;
+	for(;;) {
+		rc = HTTPConnectionPeek(conn, &type, buf, req);
+		if(rc < 0) return rc;
+		assert(HTTPMessageBegin != type);
+		HTTPConnectionPop(conn, buf->len);
+		if(HTTPMessageEnd == type) break;
+	}
+	return 0;
+}
+
+
+int HTTPConnectionWrite(HTTPConnectionRef const conn, byte_t const *const buf, size_t const len) {
+	if(!conn) return 0;
+	uv_buf_t parts[1] = { uv_buf_init((char *)buf, len) };
+	return async_write((uv_stream_t *)conn->stream, parts, numberof(parts));
+}
+int HTTPConnectionWritev(HTTPConnectionRef const conn, uv_buf_t const parts[], unsigned int const count) {
+	if(!conn) return 0;
+	return async_write((uv_stream_t *)conn->stream, parts, count);
+}
+int HTTPConnectionWriteRequest(HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const requestURI, strarg_t const host) {
+	if(!conn) return 0;
 	strarg_t methodstr = http_method_str(method);
 	uv_buf_t parts[] = {
 		uv_buf_init((char *)methodstr, strlen(methodstr)),
@@ -257,13 +331,13 @@ int HTTPMessageWriteRequest(HTTPMessageRef const msg, HTTPMethod const method, s
 		uv_buf_init((char *)host, strlen(host)),
 		uv_buf_init("\r\n", 2),
 	};
-	return HTTPMessageWritev(msg, parts, numberof(parts));
+	return HTTPConnectionWritev(conn, parts, numberof(parts));
 }
 
 #define str_len(str) (str), (sizeof(str)-1)
 
-int HTTPMessageWriteResponse(HTTPMessageRef const msg, uint16_t const status, strarg_t const message) {
-	if(!msg) return 0;
+int HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, strarg_t const message) {
+	if(!conn) return 0;
 	if(status > 599) return UV_EINVAL;
 	if(status < 100) return UV_EINVAL;
 
@@ -278,20 +352,20 @@ int HTTPMessageWriteResponse(HTTPMessageRef const msg, uint16_t const status, st
 		uv_buf_init((char *)message, strlen(message)),
 		uv_buf_init(str_len("\r\n")),
 	};
-	return HTTPMessageWritev(msg, parts, numberof(parts));
+	return HTTPConnectionWritev(conn, parts, numberof(parts));
 }
-int HTTPMessageWriteHeader(HTTPMessageRef const msg, strarg_t const field, strarg_t const value) {
-	if(!msg) return 0;
+int HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value) {
+	if(!conn) return 0;
 	uv_buf_t parts[] = {
 		uv_buf_init((char *)field, strlen(field)),
 		uv_buf_init(str_len(": ")),
 		uv_buf_init((char *)value, strlen(value)),
 		uv_buf_init(str_len("\r\n")),
 	};
-	return HTTPMessageWritev(msg, parts, numberof(parts));
+	return HTTPConnectionWritev(conn, parts, numberof(parts));
 }
-int HTTPMessageWriteContentLength(HTTPMessageRef const msg, uint64_t const length) {
-	if(!msg) return 0;
+int HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, uint64_t const length) {
+	if(!conn) return 0;
 	str_t str[16];
 	int const len = snprintf(str, sizeof(str), "%llu", (unsigned long long)length);
 	uv_buf_t parts[] = {
@@ -299,10 +373,10 @@ int HTTPMessageWriteContentLength(HTTPMessageRef const msg, uint64_t const lengt
 		uv_buf_init(str, len),
 		uv_buf_init(str_len("\r\n")),
 	};
-	return HTTPMessageWritev(msg, parts, numberof(parts));
+	return HTTPConnectionWritev(conn, parts, numberof(parts));
 }
-int HTTPMessageWriteSetCookie(HTTPMessageRef const msg, strarg_t const field, strarg_t const value, strarg_t const path, uint64_t const maxage) {
-	if(!msg) return 0;
+int HTTPConnectionWriteSetCookie(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value, strarg_t const path, uint64_t const maxage) {
+	if(!conn) return 0;
 	str_t maxage_str[16];
 	int const maxage_len = snprintf(maxage_str, sizeof(maxage_str), "%llu", (unsigned long long)maxage);
 	uv_buf_t parts[] = {
@@ -316,15 +390,15 @@ int HTTPMessageWriteSetCookie(HTTPMessageRef const msg, strarg_t const field, st
 		uv_buf_init(maxage_str, maxage_len),
 		uv_buf_init(str_len("; HttpOnly\r\n")),
 	};
-	return HTTPMessageWritev(msg, parts, numberof(parts));
+	return HTTPConnectionWritev(conn, parts, numberof(parts));
 }
-int HTTPMessageBeginBody(HTTPMessageRef const msg) {
-	if(!msg) return 0;
-	return HTTPMessageWrite(msg, (byte_t *)str_len(
+int HTTPConnectionBeginBody(HTTPConnectionRef const conn) {
+	if(!conn) return 0;
+	return HTTPConnectionWrite(conn, (byte_t *)str_len(
 		"Connection: keep-alive\r\n" // TODO
 		"\r\n"));
 }
-int HTTPMessageWriteFile(HTTPMessageRef const msg, uv_file const file) {
+int HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file) {
 	byte_t *buf = malloc(BUFFER_SIZE);
 	uv_buf_t const info = uv_buf_init((char *)buf, BUFFER_SIZE);
 	int64_t pos = 0;
@@ -337,7 +411,7 @@ int HTTPMessageWriteFile(HTTPMessageRef const msg, uv_file const file) {
 		}
 		pos += len;
 		uv_buf_t const write = uv_buf_init((char *)buf, len);
-		ssize_t written = async_write((uv_stream_t *)&msg->conn->stream, &write, 1);
+		ssize_t written = async_write((uv_stream_t *)conn->stream, &write, 1);
 		if(written < 0) {
 			FREE(&buf);
 			return (int)written;
@@ -346,28 +420,28 @@ int HTTPMessageWriteFile(HTTPMessageRef const msg, uv_file const file) {
 	FREE(&buf);
 	return 0;
 }
-int HTTPMessageWriteChunkLength(HTTPMessageRef const msg, uint64_t const length) {
-	if(!msg) return 0;
+int HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, uint64_t const length) {
+	if(!conn) return 0;
 	str_t str[16];
 	int const slen = snprintf(str, sizeof(str), "%llx\r\n", (unsigned long long)length);
 	if(slen < 0) return -1;
-	return HTTPMessageWrite(msg, (byte_t const *)str, slen);
+	return HTTPConnectionWrite(conn, (byte_t const *)str, slen);
 }
-int HTTPMessageWriteChunkv(HTTPMessageRef const msg, uv_buf_t const parts[], unsigned int const count) {
-	if(!msg) return 0;
+int HTTPConnectionWriteChunkv(HTTPConnectionRef const conn, uv_buf_t const parts[], unsigned int const count) {
+	if(!conn) return 0;
 	uint64_t total = 0;
 	for(index_t i = 0; i < count; ++i) total += parts[i].len;
-	int rc = HTTPMessageWriteChunkLength(msg, total);
+	int rc = HTTPConnectionWriteChunkLength(conn, total);
 	if(rc < 0) return rc;
 	if(total > 0) {
-		rc = async_write((uv_stream_t *)&msg->conn->stream, parts, count);
+		rc = async_write((uv_stream_t *)conn->stream, parts, count);
 		if(rc < 0) return rc;
 	}
-	rc = HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
+	rc = HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
 	if(rc < 0) return rc;
 	return 0;
 }
-int HTTPMessageWriteChunkFile(HTTPMessageRef const msg, strarg_t const path) {
+int HTTPConnectionWriteChunkFile(HTTPConnectionRef const conn, strarg_t const path) {
 	uv_file const file = async_fs_open(path, O_RDONLY, 0000);
 	if(file < 0) return file;
 	uv_fs_t req[1];
@@ -377,120 +451,114 @@ int HTTPMessageWriteChunkFile(HTTPMessageRef const msg, strarg_t const path) {
 		return rc;
 	}
 	if(req->statbuf.st_size) {
-		rc = rc < 0 ? rc : HTTPMessageWriteChunkLength(msg, req->statbuf.st_size);
-		rc = rc < 0 ? rc : HTTPMessageWriteFile(msg, file);
-		rc = rc < 0 ? rc : HTTPMessageWrite(msg, (byte_t const *)"\r\n", 2);
+		rc = rc < 0 ? rc : HTTPConnectionWriteChunkLength(conn, req->statbuf.st_size);
+		rc = rc < 0 ? rc : HTTPConnectionWriteFile(conn, file);
+		rc = rc < 0 ? rc : HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
 		if(rc < 0) return rc;
 	}
 	async_fs_close(file);
 	return 0;
 }
-int HTTPMessageEnd(HTTPMessageRef const msg) {
-	if(!msg) return 0;
-	int rc = HTTPMessageWrite(msg, (byte_t *)"", 0);
+int HTTPConnectionEnd(HTTPConnectionRef const conn) {
+	if(!conn) return 0;
+	int rc = HTTPConnectionWrite(conn, (byte_t *)"", 0);
 	if(rc < 0) return rc;
 	// TODO: Figure out keep-alive.
-
-	if(HTTP_RESPONSE == msg->conn->parser.type) {
-		rc = readFirstLine(msg);
-		if(rc < 0) return rc;
-	}
-
 	return 0;
 }
 
-int HTTPMessageSendMessage(HTTPMessageRef const msg, uint16_t const status, strarg_t const str) {
+int HTTPConnectionSendMessage(HTTPConnectionRef const conn, uint16_t const status, strarg_t const str) {
 	size_t const len = strlen(str);
 	int rc = 0;
-	rc = rc < 0 ? rc : HTTPMessageWriteResponse(msg, status, str);
-	rc = rc < 0 ? rc : HTTPMessageWriteHeader(msg, "Content-Type", "text/plain; charset=utf-8");
-	rc = rc < 0 ? rc : HTTPMessageWriteContentLength(msg, len+1);
-	rc = rc < 0 ? rc : HTTPMessageBeginBody(msg);
+	rc = rc < 0 ? rc : HTTPConnectionWriteResponse(conn, status, str);
+	rc = rc < 0 ? rc : HTTPConnectionWriteHeader(conn, "Content-Type", "text/plain; charset=utf-8");
+	rc = rc < 0 ? rc : HTTPConnectionWriteContentLength(conn, len+1);
+	rc = rc < 0 ? rc : HTTPConnectionBeginBody(conn);
 	// TODO: Check how HEAD responses should look.
-	if(HTTP_HEAD != HTTPMessageGetRequestMethod(msg)) {
-		rc = rc < 0 ? rc : HTTPMessageWrite(msg, (byte_t const *)str, len);
-		rc = rc < 0 ? rc : HTTPMessageWrite(msg, (byte_t const *)"\n", 1);
+	if(HTTP_HEAD != conn->parser->method) { // TODO: Expose method? What?
+		rc = rc < 0 ? rc : HTTPConnectionWrite(conn, (byte_t const *)str, len);
+		rc = rc < 0 ? rc : HTTPConnectionWrite(conn, (byte_t const *)"\n", 1);
 	}
-	rc = rc < 0 ? rc : HTTPMessageEnd(msg);
-//	if(status >= 400) fprintf(stderr, "%s: %d %s\n", HTTPMessageGetRequestURI(msg), (int)status, str);
+	rc = rc < 0 ? rc : HTTPConnectionEnd(conn);
+//	if(status >= 400) fprintf(stderr, "%s: %d %s\n", HTTPConnectionGetRequestURI(conn), (int)status, str);
 	return rc;
 }
-int HTTPMessageSendStatus(HTTPMessageRef const msg, uint16_t const status) {
+int HTTPConnectionSendStatus(HTTPConnectionRef const conn, uint16_t const status) {
 	strarg_t const str = statusstr(status);
-	return HTTPMessageSendMessage(msg, status, str);
+	return HTTPConnectionSendMessage(conn, status, str);
 }
-int HTTPMessageSendFile(HTTPMessageRef const msg, strarg_t const path, strarg_t const type, int64_t size) {
+int HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path, strarg_t const type, int64_t size) {
 	uv_file const file = async_fs_open(path, O_RDONLY, 0000);
-	if(file < 0) return HTTPMessageSendStatus(msg, 400); // TODO: Error conversion.
+	if(file < 0) return HTTPConnectionSendStatus(conn, 400); // TODO: Error conversion.
 	int rc = 0;
 	if(size < 0) {
 		uv_fs_t req[1];
 		rc = async_fs_fstat(file, req);
-		if(rc < 0) return HTTPMessageSendStatus(msg, 400);
+		if(rc < 0) return HTTPConnectionSendStatus(conn, 400);
 		size = req->statbuf.st_size;
 	}
-	rc = rc < 0 ? rc : HTTPMessageWriteResponse(msg, 200, "OK");
-	rc = rc < 0 ? rc : HTTPMessageWriteContentLength(msg, size);
-	if(type) rc = rc < 0 ? rc : HTTPMessageWriteHeader(msg, "Content-Type", type);
-	rc = rc < 0 ? rc : HTTPMessageBeginBody(msg);
-	rc = rc < 0 ? rc : HTTPMessageWriteFile(msg, file);
-	rc = rc < 0 ? rc : HTTPMessageEnd(msg);
+	rc = rc < 0 ? rc : HTTPConnectionWriteResponse(conn, 200, "OK");
+	rc = rc < 0 ? rc : HTTPConnectionWriteContentLength(conn, size);
+	if(type) rc = rc < 0 ? rc : HTTPConnectionWriteHeader(conn, "Content-Type", type);
+	rc = rc < 0 ? rc : HTTPConnectionBeginBody(conn);
+	rc = rc < 0 ? rc : HTTPConnectionWriteFile(conn, file);
+	rc = rc < 0 ? rc : HTTPConnectionEnd(conn);
 	async_fs_close(file);
 	return rc;
 }
 
 
-// INTERNAL
-
-
 static int on_message_begin(http_parser *const parser) {
+	HTTPConnectionRef const conn = parser->data;
+	assert(!(HTTPMessageIncomplete & conn->flags));
+	conn->type = HTTPMessageBegin;
+	*conn->out = uv_buf_init(NULL, 0);
+	conn->flags |= HTTPMessageIncomplete;
+	http_parser_pause(parser, 1);
 	return 0;
 }
 static int on_url(http_parser *const parser, char const *const at, size_t const len) {
-	HTTPMessageRef const msg = parser->data;
-	append(msg->requestURI, URI_MAX, at, len);
+	HTTPConnectionRef const conn = parser->data;
+	conn->type = HTTPURL;
+	*conn->out = uv_buf_init((char *)at, len);
+	http_parser_pause(parser, 1);
 	return 0;
 }
 static int on_header_field(http_parser *const parser, char const *const at, size_t const len) {
-	HTTPMessageRef const msg = parser->data;
-	if(msg->headers) {
-		if(msg->next.at) {
-			HeadersAppendFieldChunk(msg->headers, msg->next.at, msg->next.len);
-			msg->next.at = NULL;
-			msg->next.len = 0;
-		}
-		HeadersAppendFieldChunk(msg->headers, at, len);
-	} else {
-		assertf(0 == msg->next.len, "Chunk already waiting");
-		msg->next.at = at;
-		msg->next.len = len;
-		http_parser_pause(parser, 1);
-	}
+	HTTPConnectionRef const conn = parser->data;
+	conn->type = HTTPHeaderField;
+	*conn->out = uv_buf_init((char *)at, len);
+	http_parser_pause(parser, 1);
 	return 0;
 }
 static int on_header_value(http_parser *const parser, char const *const at, size_t const len) {
-	HTTPMessageRef const msg = parser->data;
-	HeadersAppendValueChunk(msg->headers, at, len);
+	HTTPConnectionRef const conn = parser->data;
+	conn->type = HTTPHeaderValue;
+	*conn->out = uv_buf_init((char *)at, len);
+	http_parser_pause(parser, 1);
 	return 0;
 }
 static int on_headers_complete(http_parser *const parser) {
-	HTTPMessageRef const msg = parser->data;
-	HeadersEnd(msg->headers);
+	HTTPConnectionRef const conn = parser->data;
+	conn->type = HTTPHeadersComplete;
+	*conn->out = uv_buf_init(NULL, 0);
 	http_parser_pause(parser, 1);
 	return 0;
 }
 static int on_body(http_parser *const parser, char const *const at, size_t const len) {
-	HTTPMessageRef const msg = parser->data;
-	assertf(0 == msg->next.len, "Chunk already waiting");
-	assertf(!msg->eof, "Message already complete");
-	msg->next.at = at;
-	msg->next.len = len;
+	HTTPConnectionRef const conn = parser->data;
+	conn->type = HTTPBody;
+	*conn->out = uv_buf_init((char *)at, len);
 	http_parser_pause(parser, 1);
 	return 0;
 }
 static int on_message_complete(http_parser *const parser) {
-	HTTPMessageRef const msg = parser->data;
-	msg->eof = true;
+	HTTPConnectionRef const conn = parser->data;
+	assert(HTTPMessageIncomplete & conn->flags);
+	conn->type = HTTPMessageEnd;
+	*conn->out = uv_buf_init(NULL, 0);
+	conn->flags &= ~HTTPMessageIncomplete;
+	http_parser_pause(parser, 1);
 	return 0;
 }
 static http_parser_settings const settings = {
@@ -502,53 +570,4 @@ static http_parser_settings const settings = {
 	.on_body = on_body,
 	.on_message_complete = on_message_complete,
 };
-
-static int readOnce(HTTPMessageRef const msg) {
-	assertf(0 == msg->next.len, "Existing unused chunk");
-	if(msg->eof) return UV_EOF;
-	if(!msg->remaining) {
-		async_read_t req[1];
-		(void)async_read(req, (uv_stream_t *)&msg->conn->stream);
-		// TODO: Cancelable reads?
-		if(UV_EOF == req->nread) {
-			msg->eof = true;
-			req->nread = 0;
-		}
-		if(req->nread < 0) return req->nread;
-		msg->buf = (byte_t *)req->buf->base;
-		req->buf->base = NULL;
-		msg->pos = 0;
-		msg->remaining = req->nread;
-		async_read_cleanup(req);
-	}
-	http_parser_pause(&msg->conn->parser, 0);
-	size_t const plen = http_parser_execute(&msg->conn->parser, &settings, (char const *)msg->buf + msg->pos, msg->remaining);
-	if(plen != msg->remaining && HPE_PAUSED != HTTPConnectionError(msg->conn)) {
-		fprintf(stderr, "HTTP parse error %s (%d)\n",
-			http_errno_name(HTTPConnectionError(msg->conn)),
-			HTTP_PARSER_ERRNO_LINE(&msg->conn->parser));
-		msg->eof = true; // Make sure we don't read anymore. HTTPMessageDrain() expects this too.
-		return -1;
-	}
-	msg->pos += plen;
-	msg->remaining -= plen;
-	if(!msg->remaining) FREE(&msg->buf);
-	return 0;
-}
-static int readFirstLine(HTTPMessageRef const msg) {
-	for(;;) {
-		int rc = readOnce(msg);
-		if(rc < 0) return rc;
-		if(HPE_PAUSED == HTTPConnectionError(msg->conn)) return 0;
-		if(msg->eof) return -1;
-	}
-}
-static int readChunk(HTTPMessageRef const msg) {
-	for(;;) {
-		if(msg->eof || msg->next.len > 0) return 0;
-		int rc = readOnce(msg);
-		if(rc < 0) return rc;
-	}
-}
-
 

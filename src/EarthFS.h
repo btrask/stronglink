@@ -4,7 +4,7 @@
 #include "db/db_schema.h"
 #include "common.h"
 
-#define URI_MAX 1023
+#define URI_MAX 1024
 
 typedef struct EFSRepo* EFSRepoRef;
 typedef struct EFSSession* EFSSessionRef;

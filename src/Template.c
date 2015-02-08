@@ -124,8 +124,8 @@ err_t TemplateWrite(TemplateRef const t, TemplateArgCBs const *const cbs, void c
 	}
 	return 0;
 }
-err_t TemplateWriteHTTPChunk(TemplateRef const t, TemplateArgCBs const *const cbs, void const *const actx, HTTPMessageRef const msg) {
-	return TemplateWrite(t, cbs, actx, (TemplateWritev)HTTPMessageWriteChunkv, msg);
+err_t TemplateWriteHTTPChunk(TemplateRef const t, TemplateArgCBs const *const cbs, void const *const actx, HTTPConnectionRef const conn) {
+	return TemplateWrite(t, cbs, actx, (TemplateWritev)HTTPConnectionWriteChunkv, conn);
 }
 static err_t async_fs_write_wrapper(uv_file const *const fdptr, uv_buf_t const parts[], unsigned int const count, int64_t const offset) {
 	return async_fs_write(*fdptr, parts, count, offset);

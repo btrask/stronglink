@@ -8,50 +8,54 @@ static void alloc_cb(uv_handle_t *const handle, size_t const suggested_size, uv_
 }
 static void read_cb(uv_stream_t *const stream, ssize_t const nread, uv_buf_t const *const buf) {
 	async_read_t *const req = stream->data;
-	*req->buf = *buf;
-	req->nread = nread;
+	if(nread < 0) {
+		free(buf->base);
+		req->buf->base = NULL;
+		req->buf->len = 0;
+		req->status = nread;
+	} else {
+		req->buf->base = buf->base;
+		req->buf->len = nread;
+		req->status = 0;
+	}
 	co_switch(req->thread);
 }
-ssize_t async_read(async_read_t *const req, uv_stream_t *const stream) {
+int async_read(async_read_t *const req, uv_stream_t *const stream) {
 	assert(req);
 	req->thread = co_active();
 	*req->buf = uv_buf_init(NULL, 0);
-	req->nread = 0;
+	req->status = 0;
 	stream->data = req;
 	int rc = uv_read_start(stream, alloc_cb, read_cb);
 	if(rc < 0) {
-		async_read_cleanup(req);
-		req->nread = rc;
+		req->status = rc;
 		return rc;
 	}
 	async_yield();
 	req->thread = NULL;
 	rc = uv_read_stop(stream);
 	if(rc < 0) {
-		async_read_cleanup(req);
-		req->nread = rc;
+		req->status = rc;
 		return rc;
 	}
-	return req->nread;
+	return req->status;
 }
 void async_read_cleanup(async_read_t *const req) {
 	assert(req);
 	free(req->buf->base);
 	req->thread = NULL;
 	*req->buf = uv_buf_init(NULL, 0);
-	req->nread = 0;
+	req->status = 0;
 }
 void async_read_cancel(async_read_t *const req) {
 	assert(req);
 	free(req->buf->base);
 	*req->buf = uv_buf_init(NULL, 0);
-	req->nread = UV_ECANCELED;
+	req->status = UV_ECANCELED;
 	cothread_t const thread = req->thread;
 	req->thread = NULL;
 	if(thread) async_wakeup(thread);
 }
-
-
 
 static void write_cb(uv_write_t *const req, int const status) {
 	async_state *const state = req->data;
@@ -68,23 +72,4 @@ int async_write(uv_stream_t *const stream, uv_buf_t const bufs[], unsigned const
 	async_yield();
 	return state->status;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

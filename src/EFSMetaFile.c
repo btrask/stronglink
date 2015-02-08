@@ -76,7 +76,7 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_
 	byte_t *buf = NULL;
 	size_t len = 0;
 	strarg_t targetURI = NULL;
-	for(index_t i = 0; i < MIN(URI_MAX+1, meta->len-3); ++i) {
+	for(index_t i = 0; i < MIN(URI_MAX, meta->len-3); ++i) {
 		bool_t const crlfcrlf =
 			'\r' == meta->buf[i+0] &&
 			'\n' == meta->buf[i+1] &&

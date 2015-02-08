@@ -14,7 +14,7 @@ TemplateRef TemplateCreate(strarg_t const str);
 TemplateRef TemplateCreateFromPath(strarg_t const path);
 void TemplateFree(TemplateRef *const tptr);
 err_t TemplateWrite(TemplateRef const t, TemplateArgCBs const *const cbs, void const *const actx, TemplateWritev const writev, void *wctx);
-err_t TemplateWriteHTTPChunk(TemplateRef const t, TemplateArgCBs const *const cbs, void const *actx, HTTPMessageRef const msg);
+err_t TemplateWriteHTTPChunk(TemplateRef const t, TemplateArgCBs const *const cbs, void const *actx, HTTPConnectionRef const conn);
 err_t TemplateWriteFile(TemplateRef const t, TemplateArgCBs const *const cbs, void const *actx, uv_file const file);
 
 typedef struct {
