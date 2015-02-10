@@ -250,8 +250,8 @@ str_t **EFSSessionCopyFilteredURIs(EFSSessionRef const session, EFSFilterRef con
 	return URIs;
 }
 err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFSFileInfo *const info) {
-	if(!session) return -1;
-	if(!URI) return -1;
+	if(!session) return DB_EINVAL;
+	if(!URI) return DB_EINVAL;
 	// TODO: Check session mode.
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	EFSConnection const *conn = EFSRepoDBOpen(repo);
@@ -261,7 +261,7 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 	if(DB_SUCCESS != rc) {
 		fprintf(stderr, "Transaction error %s\n", db_strerror(rc));
 		EFSRepoDBClose(repo, &conn);
-		return -1;
+		return rc;
 	}
 
 	DB_cursor *cursor;
@@ -279,16 +279,18 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 		assert(EFSURIAndFileID == table);
 		strarg_t const URI2 = db_read_string(txn, URIAndFileID_key);
 		assert(0 == strcmp(URI, URI2));
-		uint64_t const fileID = db_read_uint64(URIAndFileID_key);
-		DB_VAL(fileID_key, DB_VARINT_MAX + DB_VARINT_MAX);
-		db_bind_uint64(fileID_key, EFSFileByID);
-		db_bind_uint64(fileID_key, fileID);
-		rc = db_get(txn, fileID_key, file_val);
+		if(info) {
+			uint64_t const fileID = db_read_uint64(URIAndFileID_key);
+			DB_VAL(fileID_key, DB_VARINT_MAX + DB_VARINT_MAX);
+			db_bind_uint64(fileID_key, EFSFileByID);
+			db_bind_uint64(fileID_key, fileID);
+			rc = db_get(txn, fileID_key, file_val);
+		}
 	}
 	if(DB_SUCCESS != rc) {
 		db_txn_abort(txn); txn = NULL;
 		EFSRepoDBClose(repo, &conn);
-		return -1;
+		return rc;
 	}
 
 	if(info) {
@@ -303,7 +305,7 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 
 	db_txn_abort(txn); txn = NULL;
 	EFSRepoDBClose(repo, &conn);
-	return 0;
+	return DB_SUCCESS;
 }
 void EFSFileInfoCleanup(EFSFileInfo *const info) {
 	if(!info) return;
