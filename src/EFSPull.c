@@ -235,20 +235,21 @@ static err_t auth(EFSPullRef const pull);
 static err_t reconnect(EFSPullRef const pull) {
 	HTTPConnectionFree(&pull->conn);
 
-	pull->conn = HTTPConnectionCreateOutgoing(pull->host);
-	if(!pull->conn) return -1;
+	int rc = HTTPConnectionCreateOutgoing(pull->host, &pull->conn);
+	if(rc < 0) return rc;
 	HTTPConnectionWriteRequest(pull->conn, HTTP_GET, "/efs/query?count=all", pull->host);
 	// TODO: Pagination...
 	if(pull->cookie) HTTPConnectionWriteHeader(pull->conn, "Cookie", pull->cookie);
 	HTTPConnectionBeginBody(pull->conn);
-	if(HTTPConnectionEnd(pull->conn) < 0) {
-		fprintf(stderr, "Pull couldn't connect to %s\n", pull->host);
-		return -1;
+	rc = HTTPConnectionEnd(pull->conn);
+	if(rc < 0) {
+		fprintf(stderr, "Pull couldn't connect to %s (%s)\n", pull->host, uv_strerror(rc));
+		return rc;
 	}
 	int const status = HTTPConnectionReadResponseStatus(pull->conn, pull->read);
 	if(status < 0) {
 		fprintf(stderr, "Pull connection error %s\n", uv_strerror(status));
-		return -1;
+		return status;
 	}
 	if(403 == status) {
 		auth(pull);
@@ -265,8 +266,9 @@ static err_t auth(EFSPullRef const pull) {
 	if(!pull) return 0;
 	FREE(&pull->cookie);
 
-	HTTPConnectionRef conn = HTTPConnectionCreateOutgoing(pull->host);
-	// TODO: if(!conn) ...
+	HTTPConnectionRef conn;
+	int rc = HTTPConnectionCreateOutgoing(pull->host, &conn);
+	// TODO: if(rc < 0) ...
 	HTTPConnectionWriteRequest(conn, HTTP_POST, "/efs/auth", pull->host);
 	HTTPConnectionWriteContentLength(conn, 0);
 	HTTPConnectionBeginBody(conn);
@@ -280,7 +282,6 @@ static err_t auth(EFSPullRef const pull) {
 		"set-cookie",
 	};
 	str_t headers[numberof(fields)][VALUE_MAX];
-	int rc;
 	rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields), NULL);
 	if(rc < 0) return rc;
 
@@ -310,10 +311,13 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 	// TODO: We're logging out of order when we do it like this...
 //	fprintf(stderr, "Pulling %s\n", URI);
 
-	if(!*conn) *conn = HTTPConnectionCreateOutgoing(pull->host);
+	int rc = 0;
 	if(!*conn) {
-		fprintf(stderr, "Pull import connection error\n");
-		goto fail;
+		rc = HTTPConnectionCreateOutgoing(pull->host, conn);
+		if(rc < 0) {
+			fprintf(stderr, "Pull import connection error %s\n", uv_strerror(rc));
+			goto fail;
+		}
 	}
 
 	str_t *path;
@@ -321,7 +325,7 @@ static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos
 		fprintf(stderr, "asprintf() error\n");
 		goto fail;
 	}
-	int rc = 0;
+	rc = 0;
 	rc = rc < 0 ? rc : HTTPConnectionWriteRequest(*conn, HTTP_GET, path, pull->host);
 	FREE(&path);
 

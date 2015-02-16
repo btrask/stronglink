@@ -72,8 +72,12 @@ void HTTPServerClose(HTTPServerRef const server) {
 
 static void connection(uv_stream_t *const socket) {
 	HTTPServerRef const server = socket->data;
-	HTTPConnectionRef conn = HTTPConnectionCreateIncoming(socket);
-	if(!conn) return;
+	HTTPConnectionRef conn;
+	int rc = HTTPConnectionCreateIncoming(socket, &conn);
+	if(rc < 0) {
+		fprintf(stderr, "HTTP server connection error %s\n", uv_strerror(rc));
+		return;
+	}
 
 	for(;;) {
 		server->listener(server->context, conn);

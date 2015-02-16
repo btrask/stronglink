@@ -35,25 +35,31 @@ struct HTTPConnection {
 	unsigned flags;
 };
 
-HTTPConnectionRef HTTPConnectionCreateIncoming(uv_stream_t *const socket) {
+int HTTPConnectionCreateIncoming(uv_stream_t *const socket, HTTPConnectionRef *const out) {
 	HTTPConnectionRef conn = calloc(1, sizeof(struct HTTPConnection));
-	if(!conn) return NULL;
-	if(
-		uv_tcp_init(loop, conn->stream) < 0 ||
-		uv_accept(socket, (uv_stream_t *)conn->stream) < 0
-	) {
+	if(!conn) return UV_ENOMEM;
+	int rc = uv_tcp_init(loop, conn->stream);
+	if(rc < 0) {
 		HTTPConnectionFree(&conn);
-		return NULL;
+		return rc;
+	}
+	rc = uv_accept(socket, (uv_stream_t *)conn->stream);
+	if(rc < 0) {
+		HTTPConnectionFree(&conn);
+		return rc;
 	}
 	http_parser_init(conn->parser, HTTP_REQUEST);
 	conn->parser->data = conn;
-	return conn;
+	*out = conn;
+	return 0;
 }
-HTTPConnectionRef HTTPConnectionCreateOutgoing(strarg_t const domain) {
+int HTTPConnectionCreateOutgoing(strarg_t const domain, HTTPConnectionRef *const out) {
+	int rc;
 	str_t host[1024] = "";
 	str_t service[16] = "";
-	sscanf(domain, "%1023[^:]:%15[0-9]", host, service);
-	if('\0' == host[0]) return NULL;
+	int matched = sscanf(domain, "%1023[^:]:%15[0-9]", host, service);
+	if(matched < 1) return UV_EINVAL;
+	if('\0' == host[0]) return UV_EINVAL;
 
 	struct addrinfo const hints = {
 		.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG | AI_NUMERICSERV,
@@ -62,33 +68,37 @@ HTTPConnectionRef HTTPConnectionCreateOutgoing(strarg_t const domain) {
 		.ai_protocol = 0, // ???
 	};
 	struct addrinfo *info;
-	if(async_getaddrinfo(host, service[0] ? service : "80", &hints, &info) < 0) return NULL;
+	rc = async_getaddrinfo(host, service[0] ? service : "80", &hints, &info);
+	if(rc < 0) return rc;
 
 	HTTPConnectionRef conn = calloc(1, sizeof(struct HTTPConnection));
 	if(!conn) {
 		uv_freeaddrinfo(info);
-		return NULL;
+		return UV_ENOMEM;
 	}
-	if(uv_tcp_init(loop, conn->stream) < 0) {
+	rc = uv_tcp_init(loop, conn->stream);
+	if(rc < 0) {
 		uv_freeaddrinfo(info);
 		HTTPConnectionFree(&conn);
-		return NULL;
+		return rc;
 	}
 	async_state state[1];
 	state->thread = co_active();
 	uv_connect_t req[1];
 	req->data = state;
-	if(uv_tcp_connect(req, conn->stream, info->ai_addr, async_connect_cb) < 0) {
+	rc = uv_tcp_connect(req, conn->stream, info->ai_addr, async_connect_cb);
+	if(rc < 0) {
 		uv_freeaddrinfo(info);
 		HTTPConnectionFree(&conn);
-		return NULL;
+		return rc;
 	}
 	async_yield();
 	uv_freeaddrinfo(info);
 
 	http_parser_init(conn->parser, HTTP_RESPONSE);
 	conn->parser->data = conn;
-	return conn;
+	*out = conn;
+	return 0;
 }
 void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
 	HTTPConnectionRef conn = *connptr;
