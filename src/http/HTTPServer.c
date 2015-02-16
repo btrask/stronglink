@@ -6,7 +6,7 @@
 struct HTTPServer {
 	HTTPListener listener;
 	void *context;
-	uv_tcp_t *socket;
+	uv_tcp_t socket[1];
 };
 
 static void connection_cb(uv_stream_t *const socket, int const status);
@@ -16,7 +16,6 @@ HTTPServerRef HTTPServerCreate(HTTPListener const listener, void *const context)
 	HTTPServerRef const server = calloc(1, sizeof(struct HTTPServer));
 	server->listener = listener;
 	server->context = context;
-	server->socket = NULL;
 	return server;
 }
 void HTTPServerFree(HTTPServerRef *const serverptr) {
@@ -29,19 +28,18 @@ void HTTPServerFree(HTTPServerRef *const serverptr) {
 	FREE(serverptr); server = NULL;
 }
 
-err_t HTTPServerListen(HTTPServerRef const server, strarg_t const port, uint32_t const address) {
+int HTTPServerListen(HTTPServerRef const server, strarg_t const port, uint32_t const type) {
 	if(!server) return 0;
-	assertf(!server->socket, "HTTPServer already listening");
-	assertf(INADDR_ANY == address || INADDR_LOOPBACK == address, "HTTPServer unsupported address");
-	server->socket = malloc(sizeof(uv_tcp_t));
-	if(!server->socket) return UV_ENOMEM;
+	assertf(!server->socket->data, "HTTPServer already listening");
 	int rc;
 	rc = uv_tcp_init(loop, server->socket);
 	if(rc < 0) return rc;
 	server->socket->data = server;
+
+	assertf(INADDR_LOOPBACK == type || INADDR_ANY == type, "HTTPServer unsupported type");
+	int const loopback = INADDR_LOOPBACK == type ? 0 : AI_PASSIVE;
 	struct addrinfo const hints = {
-		.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG | AI_NUMERICSERV |
-			(INADDR_ANY == address ? AI_PASSIVE : 0),
+		.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG | AI_NUMERICSERV | loopback,
 		.ai_family = AF_UNSPEC,
 		.ai_socktype = SOCK_STREAM,
 		.ai_protocol = 0, // ???
@@ -49,25 +47,28 @@ err_t HTTPServerListen(HTTPServerRef const server, strarg_t const port, uint32_t
 	struct addrinfo *info;
 	rc = async_getaddrinfo(NULL, port, &hints, &info);
 	if(rc < 0) {
+		HTTPServerClose(server);
 		return rc;
 	}
 	rc = uv_tcp_bind(server->socket, info->ai_addr, 0);
 	if(rc < 0) {
 		uv_freeaddrinfo(info);
+		HTTPServerClose(server);
 		return rc;
 	}
 	uv_freeaddrinfo(info);
 	rc = uv_listen((uv_stream_t *)server->socket, 511, connection_cb);
 	if(rc < 0) {
+		HTTPServerClose(server);
 		return rc;
 	}
 	return 0;
 }
 void HTTPServerClose(HTTPServerRef const server) {
 	if(!server) return;
-	if(!server->socket) return;
+	if(!server->socket->data) return;
 	async_close((uv_handle_t *)server->socket);
-	FREE(&server->socket);
+	memset(server->socket, 0, sizeof(*server->socket));
 }
 
 static void connection(uv_stream_t *const socket) {

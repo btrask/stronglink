@@ -42,7 +42,10 @@ static void init(void *const unused) {
 	repo = EFSRepoCreate(path);
 	blog = BlogCreate(repo);
 	server = HTTPServerCreate((HTTPListener)listener, blog);
-	int rc = HTTPServerListen(server, "8000", 1 ? INADDR_ANY : INADDR_LOOPBACK); // TODO
+	uint32_t type;
+//	type = INADDR_ANY;
+	type = INADDR_LOOPBACK;
+	int rc = HTTPServerListen(server, "8000", type); // TODO
 	assertf(rc >= 0, "Unable to start server (%d, %s)", rc, uv_strerror(rc));
 	EFSRepoPullsStart(repo);
 
