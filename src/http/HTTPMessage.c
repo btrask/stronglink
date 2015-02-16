@@ -11,9 +11,11 @@ enum {
 static http_parser_settings const settings;
 
 // TODO: Copied from Headers.h, which should go away eventually.
+// TODO: Replace with strlcat or something.
 static size_t append(str_t *const dst, size_t const dsize, strarg_t const src, size_t const slen) {
+	if(!dsize) return 0;
 	size_t const olen = strlen(dst);
-	size_t const nlen = MIN(olen + slen, dsize);
+	size_t const nlen = MIN(olen + slen, dsize-1);
 	memcpy(dst + olen, src, nlen - olen);
 	dst[nlen] = '\0';
 	return nlen - olen;
