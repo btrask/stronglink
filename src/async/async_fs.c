@@ -23,10 +23,10 @@ static void fs_cb(uv_fs_t *const req) {
 	rc = async_yield_cancelable(); \
 	if(UV_ECANCELED == rc) { \
 		uv_cancel((uv_req_t *)req); \
-		uv_fs_req_cleanup(); \
+		uv_fs_req_cleanup(req); \
 		return rc; \
 	} \
-	uv_fs_req_cleanup(); \
+	uv_fs_req_cleanup(req); \
 	if(rc < 0) return rc; \
 	return req->result;
 
