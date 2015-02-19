@@ -14,9 +14,9 @@ struct EFSMetaFile {
 
 static yajl_callbacks const callbacks;
 
-static uint64_t add_metafile(DB_txn *const txn, EFSConnection const *const conn, uint64_t const fileID, strarg_t const targetURI);
-static void add_metadata(DB_txn *const txn, EFSConnection const *const conn, uint64_t const metaFileID, strarg_t const field, strarg_t const value, size_t const vlen);
-static void add_fulltext(DB_txn *const txn, EFSConnection const *const conn, uint64_t const metaFileID, strarg_t const str, size_t const len);
+static uint64_t add_metafile(DB_txn *const txn, uint64_t const fileID, strarg_t const targetURI);
+static void add_metadata(DB_txn *const txn, uint64_t const metaFileID, strarg_t const field, strarg_t const value, size_t const vlen);
+static void add_fulltext(DB_txn *const txn, uint64_t const metaFileID, strarg_t const str, size_t const len);
 
 
 EFSMetaFileRef EFSMetaFileCreate(strarg_t const type) {
@@ -61,7 +61,6 @@ typedef enum {
 } parser_state;
 
 typedef struct {
-	EFSConnection const *conn;
 	DB_txn *txn;
 	int64_t metaFileID;
 	strarg_t targetURI;
@@ -69,7 +68,7 @@ typedef struct {
 	str_t *field;
 } parser_context;
 
-err_t EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_t const fileURI, EFSConnection const *const conn, DB_txn *const txn) {
+err_t EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_t const fileURI, DB_txn *const txn) {
 	if(!meta) return 0;
 	if(meta->len < 3) return 0;
 
@@ -101,10 +100,9 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_
 		return 0; // TODO: Should this warrant an actual error? Or should we ignore it since we can still store the data?
 	}
 
-	meta->metaFileID = add_metafile(txn, conn, fileID, targetURI);
+	meta->metaFileID = add_metafile(txn, fileID, targetURI);
 
 	parser_context context = {
-		.conn = conn,
 		.txn = txn,
 		.metaFileID = meta->metaFileID,
 		.targetURI = targetURI,
@@ -151,13 +149,11 @@ static int yajl_string(parser_context *const context, strarg_t const str, size_t
 			if(0 == strcmp("fulltext", context->field)) {
 				add_fulltext(
 					context->txn,
-					context->conn,
 					context->metaFileID,
 					str, len);
 			} else {
 				add_metadata(
 					context->txn,
-					context->conn,
 					context->metaFileID,
 					context->field,
 					str, len);
@@ -235,7 +231,7 @@ static yajl_callbacks const callbacks = {
 	.yajl_end_array = (int (*)())yajl_end_array,
 };
 
-static uint64_t add_metafile(DB_txn *const txn, EFSConnection const *const conn, uint64_t const fileID, strarg_t const targetURI) {
+static uint64_t add_metafile(DB_txn *const txn, uint64_t const fileID, strarg_t const targetURI) {
 	uint64_t const metaFileID = db_next_id(txn, EFSMetaFileByID);
 	assert(metaFileID);
 	int rc;
@@ -266,7 +262,7 @@ static uint64_t add_metafile(DB_txn *const txn, EFSConnection const *const conn,
 
 	return metaFileID;
 }
-static void add_metadata(DB_txn *const txn, EFSConnection const *const conn, uint64_t const metaFileID, strarg_t const field, strarg_t const value, size_t const vlen) {
+static void add_metadata(DB_txn *const txn, uint64_t const metaFileID, strarg_t const field, strarg_t const value, size_t const vlen) {
 	if(!vlen) return;
 	DB_val null = { 0, NULL };
 	int rc;
@@ -287,7 +283,7 @@ static void add_metadata(DB_txn *const txn, EFSConnection const *const conn, uin
 	rc = db_put(txn, rev, &null, DB_NOOVERWRITE_FAST);
 	assertf(DB_SUCCESS == rc || DB_KEYEXIST == rc, "Database error %s", db_strerror(rc));
 }
-static void add_fulltext(DB_txn *const txn, EFSConnection const *const conn, uint64_t const metaFileID, strarg_t const str, size_t const len) {
+static void add_fulltext(DB_txn *const txn, uint64_t const metaFileID, strarg_t const str, size_t const len) {
 	int rc;
 
 	sqlite3_tokenizer_module const *fts = NULL;

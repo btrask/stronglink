@@ -15,9 +15,6 @@ typedef struct EFSFilter* EFSFilterRef;
 typedef struct EFSJSONFilterParser* EFSJSONFilterParserRef;
 typedef struct EFSPull* EFSPullRef;
 
-typedef struct {
-	DB_env *env;
-} EFSConnection;
 enum {
 	// 0-19 are reserved for the DB layer.
 	EFSUserByID = 20,
@@ -47,8 +44,8 @@ str_t *EFSRepoCopyInternalPath(EFSRepoRef const repo, strarg_t const internalHas
 strarg_t EFSRepoGetTempDir(EFSRepoRef const repo);
 str_t *EFSRepoCopyTempPath(EFSRepoRef const repo);
 strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo);
-EFSConnection const *EFSRepoDBOpen(EFSRepoRef const repo);
-void EFSRepoDBClose(EFSRepoRef const repo, EFSConnection const **const dbptr);
+int EFSRepoDBOpen(EFSRepoRef const repo, DB_env **const dbptr);
+void EFSRepoDBClose(EFSRepoRef const repo, DB_env **const dbptr);
 void EFSRepoSubmissionEmit(EFSRepoRef const repo, uint64_t const sortID);
 bool_t EFSRepoSubmissionWait(EFSRepoRef const repo, uint64_t const sortID, uint64_t const future);
 void EFSRepoPullsStart(EFSRepoRef const repo);
@@ -79,7 +76,7 @@ err_t EFSSubmissionEnd(EFSSubmissionRef const sub);
 err_t EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context);
 strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub);
 err_t EFSSubmissionAddFile(EFSSubmissionRef const sub);
-err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const conn, DB_txn *const txn);
+err_t EFSSubmissionStore(EFSSubmissionRef const sub, DB_txn *const txn);
 // Convenience methods
 EFSSubmissionRef EFSSubmissionCreateQuick(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context);
 err_t EFSSubmissionCreateQuickPair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title, EFSSubmissionRef *const outSub, EFSSubmissionRef *const outMeta);
@@ -95,7 +92,7 @@ EFSMetaFileRef EFSMetaFileCreate(strarg_t const type);
 void EFSMetaFileFree(EFSMetaFileRef *const metaptr);
 err_t EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len);
 err_t EFSMetaFileEnd(EFSMetaFileRef const meta);
-err_t EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_t const URI, EFSConnection const *const conn, DB_txn *const txn);
+err_t EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_t const URI, DB_txn *const txn);
 uint64_t EFSMetaFileGetID(EFSMetaFileRef const meta);
 
 typedef enum {
@@ -122,12 +119,12 @@ err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize
 err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
 void EFSFilterPrint(EFSFilterRef const filter, count_t const depth);
 size_t EFSFilterToUserFilterString(EFSFilterRef const filter, str_t *const data, size_t const size, count_t const depth);
-err_t EFSFilterPrepare(EFSFilterRef const filter, DB_txn *const txn, EFSConnection const *const conn);
+err_t EFSFilterPrepare(EFSFilterRef const filter, DB_txn *const txn);
 void EFSFilterSeek(EFSFilterRef const filter, int const dir, uint64_t const sortID, uint64_t const fileID);
 void EFSFilterCurrent(EFSFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID);
 void EFSFilterStep(EFSFilterRef const filter, int const dir);
 uint64_t EFSFilterAge(EFSFilterRef const filter, uint64_t const sortID, uint64_t const fileID);
-str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, DB_txn *const txn, EFSConnection const *const conn);
+str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, DB_txn *const txn);
 
 EFSJSONFilterParserRef EFSJSONFilterParserCreate(void);
 void EFSJSONFilterParserFree(EFSJSONFilterParserRef *const parserptr);

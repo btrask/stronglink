@@ -161,18 +161,19 @@ static bool_t postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTP
 
 static count_t getURIs(EFSSessionRef const session, EFSFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID, str_t **const URIs, count_t const max) {
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
-	EFSConnection const *conn = EFSRepoDBOpen(repo);
-	assert(conn);
+	DB_env *db = NULL;
+	int rc = EFSRepoDBOpen(repo, &db);
+	assert(rc >= 0);
 	DB_txn *txn = NULL;
-	int rc = db_txn_begin(conn->env, NULL, DB_RDONLY, &txn);
+	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
 
-	EFSFilterPrepare(filter, txn, conn);
+	EFSFilterPrepare(filter, txn);
 	EFSFilterSeek(filter, dir, *sortID, *fileID);
 
 	count_t count = 0;
 	while(count < max) {
-		str_t *const URI = EFSFilterCopyNextURI(filter, dir, txn, conn);
+		str_t *const URI = EFSFilterCopyNextURI(filter, dir, txn);
 		if(!URI) break;
 		URIs[count++] = URI;
 	}
@@ -180,7 +181,7 @@ static count_t getURIs(EFSSessionRef const session, EFSFilterRef const filter, i
 	EFSFilterCurrent(filter, dir, sortID, fileID);
 
 	db_txn_abort(txn); txn = NULL;
-	EFSRepoDBClose(repo, &conn);
+	EFSRepoDBClose(repo, &db);
 	return count;
 }
 static void sendURIs(HTTPConnectionRef const conn, str_t *const *const URIs, count_t const count) {

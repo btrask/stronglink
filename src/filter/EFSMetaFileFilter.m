@@ -57,10 +57,10 @@
 	return wr(data, size, "");
 }
 
-- (err_t)prepare:(DB_txn *const)txn :(EFSConnection const *const)conn {
+- (err_t)prepare:(DB_txn *const)txn {
 	assert(subfilter);
-	if([super prepare:txn :conn] < 0) return -1;
-	if([main prepare:txn :conn] < 0) return -1;
+	if([super prepare:txn] < 0) return -1;
+	if([main prepare:txn] < 0) return -1;
 	return 0;
 }
 
@@ -94,9 +94,9 @@
 	return 0;
 }
 
-- (err_t)prepare:(DB_txn *const)txn :(EFSConnection const *const)conn {
+- (err_t)prepare:(DB_txn *const)txn {
 	assert(subfilter);
-	if([super prepare:txn :conn] < 0) return -1;
+	if([super prepare:txn] < 0) return -1;
 	db_cursor_renew(txn, &metafiles); // EFSMetaFileByID
 	db_cursor_renew(txn, &age_metafile); // EFSFileIDAndMetaFileID
 	db_cursor_renew(txn, &age_uri); // EFSMetaFileByID

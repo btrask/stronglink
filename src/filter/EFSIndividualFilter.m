@@ -14,8 +14,8 @@
 	return self;
 }
 
-- (err_t)prepare:(DB_txn *const)txn :(EFSConnection const *const)conn {
-	if([super prepare:txn :conn] < 0) return -1;
+- (err_t)prepare:(DB_txn *const)txn {
+	if([super prepare:txn] < 0) return -1;
 	db_cursor_renew(txn, &step_target); // EFSMetaFileByID
 	db_cursor_renew(txn, &step_files); // EFSURIAndFileID
 	db_cursor_renew(txn, &age_uris); // EFSFileIDAndURI
@@ -162,8 +162,8 @@
 	return wr(data, size, "");
 }
 
-- (err_t)prepare:(DB_txn *const)txn :(EFSConnection const *const)conn {
-	if([super prepare:txn :conn] < 0) return -1;
+- (err_t)prepare:(DB_txn *const)txn {
+	if([super prepare:txn] < 0) return -1;
 	db_cursor_renew(txn, &metafiles); // EFSMetaFileByID
 	return 0;
 }
@@ -239,8 +239,8 @@
 	return wr_quoted(data, size, term);
 }
 
-- (err_t)prepare:(DB_txn *const)txn :(EFSConnection const *const)conn {
-	if([super prepare:txn :conn] < 0) return -1;
+- (err_t)prepare:(DB_txn *const)txn {
+	if([super prepare:txn] < 0) return -1;
 	db_cursor_renew(txn, &metafiles);
 	db_cursor_renew(txn, &match);
 
@@ -372,8 +372,8 @@
 	return len;
 }
 
-- (err_t)prepare:(DB_txn *const)txn :(EFSConnection const *const)conn {
-	if([super prepare:txn :conn] < 0) return -1;
+- (err_t)prepare:(DB_txn *const)txn {
+	if([super prepare:txn] < 0) return -1;
 	if(!field || !value) return -1;
 	db_cursor_renew(txn, &metafiles); // EFSFieldValueAndMetaFileID
 	db_cursor_renew(txn, &match); // EFSFieldValueAndMetaFileID

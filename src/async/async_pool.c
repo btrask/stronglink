@@ -38,7 +38,7 @@ async_pool_t *async_pool_create(void) {
 		}
 	}
 	pool->count = WORKER_COUNT;
-	async_sem_init(pool->sem, 1, 0);
+	async_sem_init(pool->sem, 1, ASYNC_CANCELABLE);
 	return pool;
 }
 void async_pool_free(async_pool_t *const pool) {
@@ -51,15 +51,16 @@ void async_pool_free(async_pool_t *const pool) {
 	free(pool);
 }
 
-void async_pool_enter(async_pool_t *const p) {
+int async_pool_enter(async_pool_t *const p) {
 	async_pool_t *const pool = p ? p : async_pool_get_shared();
 	assert(pool);
 	if(worker) {
 		assert(depth > 0);
 		depth++;
-		return;
+		return 0;
 	}
-	async_sem_wait(pool->sem);
+	int rc = async_sem_wait(pool->sem);
+	if(rc < 0) return rc;
 	assert(pool->count > 0);
 	async_worker_t *const w = pool->workers[--pool->count];
 	pool->workers[pool->count] = NULL;
@@ -69,6 +70,7 @@ void async_pool_enter(async_pool_t *const p) {
 	worker = w;
 	depth++;
 	assert(1 == depth);
+	return 0;
 }
 void async_pool_leave(async_pool_t *const p) {
 	async_pool_t *const pool = p ? p : async_pool_get_shared();

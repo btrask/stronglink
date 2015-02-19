@@ -40,15 +40,13 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	if(!username) return NULL;
 	if(!password) return NULL;
 
-	EFSConnection const *conn;
-	int rc;
-
-	conn = EFSRepoDBOpen(repo);
-	if(!conn) return NULL;
+	DB_env *db = NULL;
+	int rc = EFSRepoDBOpen(repo, &db);
+	if(rc < 0) return NULL;
 	DB_txn *txn = NULL;
-	rc = db_txn_begin(conn->env, NULL, DB_RDONLY, &txn);
+	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	if(DB_SUCCESS != rc) {
-		EFSRepoDBClose(repo, &conn);
+		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
 
@@ -68,7 +66,7 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	}
 	if(DB_SUCCESS != rc) {
 		db_txn_abort(txn); txn = NULL;
-		EFSRepoDBClose(repo, &conn);
+		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
 	strarg_t const u = db_read_string(txn, user_val);
@@ -76,7 +74,7 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	str_t *passhash = strdup(db_read_string(txn, user_val));
 
 	db_txn_abort(txn); txn = NULL;
-	EFSRepoDBClose(repo, &conn);
+	EFSRepoDBClose(repo, &db);
 
 	if(userID <= 0 || !checkpass(password, passhash)) {
 		FREE(&passhash);
@@ -95,9 +93,9 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 		return NULL;
 	}
 
-	conn = EFSRepoDBOpen(repo);
-	if(conn) rc = db_txn_begin(conn->env, NULL, DB_RDWR, &txn);
-	if(!conn || DB_SUCCESS != rc) {
+	rc = EFSRepoDBOpen(repo, &db);
+	if(rc >= 0) rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
+	if(DB_SUCCESS != rc) {
 		FREE(&sessionHash);
 		FREE(&sessionKey);
 		return NULL;
@@ -114,13 +112,13 @@ str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strar
 	rc = db_put(txn, sessionID_key, session_val, DB_NOOVERWRITE_FAST);
 	if(DB_SUCCESS != rc) {
 		db_txn_abort(txn); txn = NULL;
-		EFSRepoDBClose(repo, &conn);
+		EFSRepoDBClose(repo, &db);
 		FREE(&sessionKey);
 		return NULL;
 	}
 
 	rc = db_txn_commit(txn); txn = NULL;
-	EFSRepoDBClose(repo, &conn);
+	EFSRepoDBClose(repo, &db);
 	if(DB_SUCCESS != rc) {
 		FREE(&sessionKey);
 		return NULL;
@@ -144,14 +142,14 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 		return NULL;
 	}
 
-	EFSConnection const *conn = EFSRepoDBOpen(repo);
-	int rc;
-	if(!conn) {
+	DB_env *db = NULL;
+	int rc = EFSRepoDBOpen(repo, &db);
+	if(rc < 0) {
 		FREE(&sessionKey);
 		return NULL;
 	}
 	DB_txn *txn = NULL;
-	db_txn_begin(conn->env, NULL, DB_RDONLY, &txn);
+	db_txn_begin(db, NULL, DB_RDONLY, &txn);
 
 	DB_VAL(sessionID_key, DB_VARINT_MAX + DB_VARINT_MAX);
 	db_bind_uint64(sessionID_key, EFSSessionByID);
@@ -161,14 +159,14 @@ EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie)
 	if(DB_SUCCESS != rc) {
 		FREE(&sessionKey);
 		db_txn_abort(txn); txn = NULL;
-		EFSRepoDBClose(repo, &conn);
+		EFSRepoDBClose(repo, &db);
 		return NULL;
 	}
 	uint64_t const userID = db_read_uint64(session_val);
 	str_t *sessionHash = strdup(db_read_string(txn, session_val));
 
 	db_txn_abort(txn); txn = NULL;
-	EFSRepoDBClose(repo, &conn);
+	EFSRepoDBClose(repo, &db);
 
 	if(!userID) {
 		FREE(&sessionKey);
@@ -222,28 +220,28 @@ str_t **EFSSessionCopyFilteredURIs(EFSSessionRef const session, EFSFilterRef con
 
 //	uint64_t const then = uv_hrtime();
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
-	EFSConnection const *conn = EFSRepoDBOpen(repo);
-	if(!conn) {
+	DB_env *db = NULL;
+	int rc = EFSRepoDBOpen(repo, &db);
+	if(rc < 0) {
 		FREE(&URIs);
 		return NULL;
 	}
 
-	int rc;
 	DB_txn *txn = NULL;
-	rc = db_txn_begin(conn->env, NULL, DB_RDONLY, &txn);
+	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	assert(DB_SUCCESS == rc);
 
 	count_t count = 0;
-	EFSFilterPrepare(filter, txn, conn);
+	EFSFilterPrepare(filter, txn);
 	EFSFilterSeek(filter, -1, UINT64_MAX, UINT64_MAX); // TODO: Pagination
 	while(count < max) {
-		str_t *const URI = EFSFilterCopyNextURI(filter, -1, txn, conn);
+		str_t *const URI = EFSFilterCopyNextURI(filter, -1, txn);
 		if(!URI) break;
 		URIs[count++] = URI;
 	}
 
 	db_txn_abort(txn); txn = NULL;
-	EFSRepoDBClose(repo, &conn);
+	EFSRepoDBClose(repo, &db);
 //	uint64_t const now = uv_hrtime();
 //	fprintf(stderr, "Query in %f ms\n", (now-then) / 1000.0 / 1000.0);
 	URIs[count] = NULL;
@@ -254,13 +252,17 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 	if(!URI) return DB_EINVAL;
 	// TODO: Check session mode.
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
-	EFSConnection const *conn = EFSRepoDBOpen(repo);
-	int rc;
+	DB_env *db = NULL;
+	int rc = EFSRepoDBOpen(repo, &db);
+	if(rc < 0) {
+		fprintf(stderr, "Database error %s\n", uv_strerror(rc));
+		return rc;
+	}
 	DB_txn *txn = NULL;
-	rc = db_txn_begin(conn->env, NULL, DB_RDONLY, &txn);
+	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	if(DB_SUCCESS != rc) {
 		fprintf(stderr, "Transaction error %s\n", db_strerror(rc));
-		EFSRepoDBClose(repo, &conn);
+		EFSRepoDBClose(repo, &db);
 		return rc;
 	}
 
@@ -289,7 +291,7 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 	}
 	if(DB_SUCCESS != rc) {
 		db_txn_abort(txn); txn = NULL;
-		EFSRepoDBClose(repo, &conn);
+		EFSRepoDBClose(repo, &db);
 		return rc;
 	}
 
@@ -304,7 +306,7 @@ err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFS
 	}
 
 	db_txn_abort(txn); txn = NULL;
-	EFSRepoDBClose(repo, &conn);
+	EFSRepoDBClose(repo, &db);
 	return DB_SUCCESS;
 }
 void EFSFileInfoCleanup(EFSFileInfo *const info) {

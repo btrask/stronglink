@@ -160,7 +160,7 @@ typedef struct async_pool_s async_pool_t;
 async_pool_t *async_pool_get_shared(void);
 async_pool_t *async_pool_create(void);
 void async_pool_free(async_pool_t *const pool);
-void async_pool_enter(async_pool_t *const pool);
+int async_pool_enter(async_pool_t *const pool);
 void async_pool_leave(async_pool_t *const pool);
 async_worker_t *async_pool_get_worker(void);
 

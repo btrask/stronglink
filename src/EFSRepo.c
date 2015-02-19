@@ -10,7 +10,7 @@ struct EFSRepo {
 	str_t *cacheDir;
 	str_t *DBPath;
 
-	EFSConnection conn[1];
+	DB_env *db;
 
 	async_mutex_t sub_mutex[1];
 	async_cond_t sub_cond[1];
@@ -24,7 +24,7 @@ struct EFSRepo {
 static void createDBConnection(EFSRepoRef const repo);
 static void loadPulls(EFSRepoRef const repo);
 
-static void debug_data(EFSConnection const *const conn);
+static void debug_data(DB_env *const db);
 
 EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 	assertf(dir, "EFSRepo dir required");
@@ -43,7 +43,7 @@ EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 	}
 
 	createDBConnection(repo);
-	debug_data(repo->conn); // TODO
+	debug_data(repo->db); // TODO
 	loadPulls(repo);
 
 	async_mutex_init(repo->sub_mutex, 0);
@@ -62,9 +62,7 @@ void EFSRepoFree(EFSRepoRef *const repoptr) {
 	FREE(&repo->cacheDir);
 	FREE(&repo->DBPath);
 
-	EFSConnection *const conn = repo->conn;
-	db_env_close(conn->env); conn->env = NULL;
-	memset(conn, 0, sizeof(*conn));
+	db_env_close(repo->db); repo->db = NULL;
 
 	async_mutex_destroy(repo->sub_mutex);
 	async_cond_destroy(repo->sub_cond);
@@ -110,15 +108,18 @@ strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo) {
 	return repo->cacheDir;
 }
 
-EFSConnection const *EFSRepoDBOpen(EFSRepoRef const repo) {
+int EFSRepoDBOpen(EFSRepoRef const repo, DB_env **const dbptr) {
 	assert(repo);
-	async_pool_enter(NULL);
-	return repo->conn;
+	assert(dbptr);
+	int rc = async_pool_enter(NULL);
+	if(rc < 0) return rc;
+	*dbptr = repo->db;
+	return 0;
 }
-void EFSRepoDBClose(EFSRepoRef const repo, EFSConnection const **const connptr) {
+void EFSRepoDBClose(EFSRepoRef const repo, DB_env **const dbptr) {
 	assert(repo);
 	async_pool_leave(NULL);
-	*connptr = NULL;
+	*dbptr = NULL;
 }
 
 void EFSRepoSubmissionEmit(EFSRepoRef const repo, uint64_t const sortID) {
@@ -156,20 +157,19 @@ void EFSRepoPullsStop(EFSRepoRef const repo) {
 static void createDBConnection(EFSRepoRef const repo) {
 	assert(repo);
 
-	EFSConnection *const conn = repo->conn;
-	int rc = db_env_create(&conn->env);
+	int rc = db_env_create(&repo->db);
+	rc = db_env_set_mapsize(repo->db, 1024 * 1024 * 256);
 	assertf(!rc, "Database error %s", db_strerror(rc));
-	rc = db_env_set_mapsize(conn->env, 1024 * 1024 * 256);
-	assertf(!rc, "Database error %s", db_strerror(rc));
-	rc = db_env_open(conn->env, repo->DBPath, 0, 0600);
+	rc = db_env_open(repo->db, repo->DBPath, 0, 0600);
 	assertf(!rc, "Database error %s", db_strerror(rc));
 }
 static void loadPulls(EFSRepoRef const repo) {
 	assert(repo);
-	EFSConnection const *conn = EFSRepoDBOpen(repo);
-	int rc;
+	DB_env *db = NULL;
+	int rc = EFSRepoDBOpen(repo, &db);
+	assert(rc >= 0);
 	DB_txn *txn = NULL;
-	rc = db_txn_begin(conn->env, NULL, DB_RDONLY, &txn);
+	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	assert(DB_SUCCESS == rc);
 
 	DB_cursor *cur = NULL;
@@ -204,12 +204,12 @@ static void loadPulls(EFSRepoRef const repo) {
 
 	db_cursor_close(cur); cur = NULL;
 	db_txn_abort(txn); txn = NULL;
-	EFSRepoDBClose(repo, &conn);
+	EFSRepoDBClose(repo, &db);
 }
-static void debug_data(EFSConnection const *const conn) {
+static void debug_data(DB_env *const db) {
 	int rc;
 	DB_txn *txn = NULL;
-	rc = db_txn_begin(conn->env, NULL, DB_RDWR, &txn);
+	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
 	assert(!rc);
 	assert(txn);
 

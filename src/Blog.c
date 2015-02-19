@@ -195,10 +195,11 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 	}
 	if(unsafe) return htmlenc(unsafe);
 
-	EFSConnection const *conn = EFSRepoDBOpen(state->blog->repo);
-	int rc;
+	DB_env *db = NULL;
+	int rc = EFSRepoDBOpen(state->blog->repo, &db);
+	assert(rc >= 0);
 	DB_txn *txn = NULL;
-	rc = db_txn_begin(conn->env, NULL, DB_RDONLY, &txn);
+	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	assert(DB_SUCCESS == rc);
 
 	DB_cursor *metafiles = NULL;
@@ -256,7 +257,7 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 	str_t *result = htmlenc(unsafe);
 
 	db_txn_abort(txn); txn = NULL;
-	EFSRepoDBClose(state->blog->repo, &conn);
+	EFSRepoDBClose(state->blog->repo, &db);
 	return result;
 }
 static void preview_free(preview_state const *const state, strarg_t const var, str_t **const val) {

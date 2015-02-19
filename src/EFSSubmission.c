@@ -156,9 +156,9 @@ err_t EFSSubmissionAddFile(EFSSubmissionRef const sub) {
 	FREE(&sub->tmppath);
 	return 0;
 }
-err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const conn, DB_txn *const txn) {
+err_t EFSSubmissionStore(EFSSubmissionRef const sub, DB_txn *const txn) {
 	if(!sub) return -1;
-	assertf(conn && txn, "EFSSubmissionStore DB connection required");
+	assert(txn);
 	if(sub->tmppath) return -1;
 	EFSSessionRef const session = sub->session;
 	EFSRepoRef const repo = EFSSubmissionGetRepo(sub);
@@ -223,7 +223,7 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, EFSConnection const *const 
 
 
 	strarg_t const primaryURI = EFSSubmissionGetPrimaryURI(sub);
-	if(EFSMetaFileStore(sub->meta, fileID, primaryURI, conn, txn) < 0) {
+	if(EFSMetaFileStore(sub->meta, fileID, primaryURI, txn) < 0) {
 		fprintf(stderr, "EFSMetaFileStore error\n");
 		return -1;
 	}
@@ -355,12 +355,15 @@ err_t EFSSubmissionCreateQuickPair(EFSSessionRef const session, strarg_t const t
 err_t EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const count) {
 	if(!count) return 0;
 	EFSRepoRef const repo = EFSSessionGetRepo(list[0]->session);
-	EFSConnection const *conn = EFSRepoDBOpen(repo);
-	int rc;
+	DB_env *db = NULL;
+	int rc = EFSRepoDBOpen(repo, &db);
+	if(rc < 0) {
+		return -1;
+	}
 	DB_txn *txn = NULL;
-	rc = db_txn_begin(conn->env, NULL, DB_RDWR, &txn);
+	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
 	if(DB_SUCCESS != rc) {
-		EFSRepoDBClose(repo, &conn);
+		EFSRepoDBClose(repo, &db);
 		return -1;
 	}
 	err_t err = 0;
@@ -368,7 +371,7 @@ err_t EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const 
 	for(index_t i = 0; i < count; ++i) {
 		assert(list[i]);
 		assert(repo == EFSSessionGetRepo(list[i]->session));
-		err = EFSSubmissionStore(list[i], conn, txn);
+		err = EFSSubmissionStore(list[i], txn);
 		if(err < 0) break;
 		uint64_t const metaFileID = EFSMetaFileGetID(list[i]->meta);
 		if(metaFileID > sortID) sortID = metaFileID;
@@ -379,7 +382,7 @@ err_t EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const 
 		rc = db_txn_commit(txn); txn = NULL;
 		if(DB_SUCCESS != rc) err = -1;
 	}
-	EFSRepoDBClose(repo, &conn);
+	EFSRepoDBClose(repo, &db);
 	if(err >= 0) EFSRepoSubmissionEmit(repo, sortID);
 	return err;
 }

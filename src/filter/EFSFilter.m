@@ -19,7 +19,7 @@
 - (err_t)addFilterArg:(EFSFilter *const)filter {
 	return -1;
 }
-- (err_t)prepare:(DB_txn *const)txn :(EFSConnection const *const)conn {
+- (err_t)prepare:(DB_txn *const)txn {
 	return 0;
 }
 @end
@@ -76,9 +76,9 @@ size_t EFSFilterToUserFilterString(EFSFilterRef const filter, str_t *const data,
 	assert(filter);
 	return [(EFSFilter *)filter getUserFilter:data :size :depth];
 }
-err_t EFSFilterPrepare(EFSFilterRef const filter, DB_txn *const txn, EFSConnection const *const conn) {
+err_t EFSFilterPrepare(EFSFilterRef const filter, DB_txn *const txn) {
 	assert(filter);
-	return [(EFSFilter *)filter prepare:txn :conn];
+	return [(EFSFilter *)filter prepare:txn];
 }
 void EFSFilterSeek(EFSFilterRef const filter, int const dir, uint64_t const sortID, uint64_t const fileID) {
 	[(EFSFilter *)filter seek:dir :sortID :fileID];
@@ -97,7 +97,7 @@ uint64_t EFSFilterAge(EFSFilterRef const filter, uint64_t const sortID, uint64_t
 	assert(filter);
 	return [(EFSFilter *)filter age:sortID :fileID];
 }
-str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, DB_txn *const txn, EFSConnection const *const conn) {
+str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, DB_txn *const txn) {
 	for(;; EFSFilterStep(filter, dir)) {
 		uint64_t sortID, fileID;
 		EFSFilterCurrent(filter, dir, &sortID, &fileID);

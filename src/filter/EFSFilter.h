@@ -23,7 +23,7 @@
 - (void)print:(count_t const)depth;
 - (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth;
 
-- (err_t)prepare:(DB_txn *const)txn :(EFSConnection const *const)conn;
+- (err_t)prepare:(DB_txn *const)txn;
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
 - (void)step:(int const)dir;
@@ -40,7 +40,7 @@
 }
 - (EFSFilter *)unwrap;
 
-- (err_t)prepare:(DB_txn *const)txn :(EFSConnection const *const)conn;
+- (err_t)prepare:(DB_txn *const)txn;
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
 - (void)step:(int const)dir;
