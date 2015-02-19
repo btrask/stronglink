@@ -14,22 +14,25 @@ void async_mutex_destroy(async_mutex_t *const mutex) {
 	assert(0 == mutex->depth);
 	async_sem_destroy(mutex->sem);
 }
-void async_mutex_lock(async_mutex_t *const mutex) {
+int async_mutex_lock(async_mutex_t *const mutex) {
 	assert(mutex);
 	async_t *const thread = async_active();
 	if(thread != mutex->active) {
-		async_sem_wait(mutex->sem);
+		int rc = async_sem_wait(mutex->sem);
+		if(rc < 0) return rc;
 		mutex->active = thread;
 		mutex->depth = 1;
 	} else {
 		++mutex->depth;
 	}
+	return 0;
 }
 int async_mutex_trylock(async_mutex_t *const mutex) {
 	assert(mutex);
 	async_t *const thread = async_active();
 	if(thread != mutex->active) {
-		if(async_sem_trywait(mutex->sem) < 0) return -1;
+		int rc = async_sem_trywait(mutex->sem);
+		if(rc < 0) return rc;
 		mutex->active = async_active();
 		mutex->depth = 1;
 	} else {

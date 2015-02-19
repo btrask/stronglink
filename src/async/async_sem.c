@@ -50,10 +50,8 @@ static void timeout_cb(uv_timer_t *const timer) {
 	async_switch(us->thread);
 }
 
-void async_sem_wait(async_sem_t *const sem) {
-	int const rc = async_sem_timedwait(sem, UINT64_MAX);
-	assert(rc >= 0);
-	UNUSED(rc);
+int async_sem_wait(async_sem_t *const sem) {
+	return async_sem_timedwait(sem, UINT64_MAX);
 }
 int async_sem_trywait(async_sem_t *const sem) {
 	assert(sem);
@@ -90,10 +88,11 @@ int async_sem_timedwait(async_sem_t *const sem, uint64_t const future) {
 		uv_timer_init(loop, timer);
 		uv_timer_start(timer, timeout_cb, future - now, 0);
 	}
-	async_yield();
+	int rc = async_yield_flags(sem->flags);
 	if(future < UINT64_MAX) {
 		async_close((uv_handle_t *)timer);
 	}
+	if(rc < 0) return rc;
 	return us->res;
 }
 

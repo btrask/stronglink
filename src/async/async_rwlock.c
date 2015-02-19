@@ -19,6 +19,7 @@ static void wake_next(async_rwlock_t *const lock);
 
 void async_rwlock_init(async_rwlock_t *const lock, unsigned const flags) {
 	assert(lock);
+	assert(!(ASYNC_CANCELABLE & flags)); // TODO: Unsupported.
 	lock->state = 0;
 	lock->rdhead = NULL;
 	lock->rdtail = NULL;

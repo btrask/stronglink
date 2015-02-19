@@ -41,6 +41,7 @@ void async_call(void (*const func)(void *), void *const arg); // Conceptually, y
 
 void async_yield(void);
 int async_yield_cancelable(void);
+int async_yield_flags(unsigned const flags);
 int async_canceled(void);
 void async_cancel(async_t *const thread);
 
@@ -96,7 +97,7 @@ typedef struct {
 void async_sem_init(async_sem_t *const sem, unsigned const value, unsigned const flags);
 void async_sem_destroy(async_sem_t *const sem);
 void async_sem_post(async_sem_t *const sem);
-void async_sem_wait(async_sem_t *const sem);
+int async_sem_wait(async_sem_t *const sem);
 int async_sem_trywait(async_sem_t *const sem);
 int async_sem_timedwait(async_sem_t *const sem, uint64_t const future);
 
@@ -108,7 +109,7 @@ typedef struct {
 } async_mutex_t;
 void async_mutex_init(async_mutex_t *const mutex, unsigned const flags);
 void async_mutex_destroy(async_mutex_t *const mutex);
-void async_mutex_lock(async_mutex_t *const mutex);
+int async_mutex_lock(async_mutex_t *const mutex);
 int async_mutex_trylock(async_mutex_t *const mutex);
 void async_mutex_unlock(async_mutex_t *const mutex);
 int async_mutex_check(async_mutex_t *const mutex);
@@ -144,7 +145,7 @@ void async_cond_init(async_cond_t *const cond, unsigned const flags);
 void async_cond_destroy(async_cond_t *const cond);
 void async_cond_signal(async_cond_t *const cond);
 void async_cond_broadcast(async_cond_t *const cond);
-void async_cond_wait(async_cond_t *const cond, async_mutex_t *const mutex);
+int async_cond_wait(async_cond_t *const cond, async_mutex_t *const mutex);
 int async_cond_timedwait(async_cond_t *const cond, async_mutex_t *const mutex, uint64_t const future);
 
 // async_worker.c

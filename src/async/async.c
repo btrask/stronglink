@@ -101,6 +101,11 @@ int async_yield_cancelable(void) {
 	}
 	return 0;
 }
+int async_yield_flags(unsigned const flags) {
+	if(ASYNC_CANCELABLE & flags) return async_yield_cancelable();
+	async_yield();
+	return 0;
+}
 int async_canceled(void) {
 	async_t *const thread = async_active();
 	if(ASYNC_CANCELED & thread->flags) {
