@@ -53,7 +53,7 @@ void async_close(uv_handle_t *const handle);
 
 // async_stream.c
 typedef struct {
-	cothread_t thread;
+	async_t *thread;
 	uv_buf_t buf[1];
 	int status;
 } async_read_t;
