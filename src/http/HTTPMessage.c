@@ -82,18 +82,12 @@ int HTTPConnectionCreateOutgoing(strarg_t const domain, HTTPConnectionRef *const
 		HTTPConnectionFree(&conn);
 		return rc;
 	}
-	async_state state[1];
-	state->thread = async_active();
-	uv_connect_t req[1];
-	req->data = state;
-	rc = uv_tcp_connect(req, conn->stream, info->ai_addr, async_connect_cb);
+	rc = async_tcp_connect(conn->stream, info->ai_addr);
+	uv_freeaddrinfo(info);
 	if(rc < 0) {
-		uv_freeaddrinfo(info);
 		HTTPConnectionFree(&conn);
 		return rc;
 	}
-	async_yield();
-	uv_freeaddrinfo(info);
 
 	http_parser_init(conn->parser, HTTP_RESPONSE);
 	conn->parser->data = conn;

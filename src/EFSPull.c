@@ -236,9 +236,13 @@ static err_t reconnect(EFSPullRef const pull) {
 	HTTPConnectionFree(&pull->conn);
 
 	int rc = HTTPConnectionCreateOutgoing(pull->host, &pull->conn);
-	if(rc < 0) return rc;
+	if(rc < 0) {
+		fprintf(stderr, "Pull couldn't connect to %s (%s)\n", pull->host, uv_strerror(rc));
+		return rc;
+	}
 	HTTPConnectionWriteRequest(pull->conn, HTTP_GET, "/efs/query?count=all", pull->host);
 	// TODO: Pagination...
+	// TODO: More careful error handling.
 	if(pull->cookie) HTTPConnectionWriteHeader(pull->conn, "Cookie", pull->cookie);
 	HTTPConnectionBeginBody(pull->conn);
 	rc = HTTPConnectionEnd(pull->conn);

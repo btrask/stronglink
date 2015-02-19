@@ -155,6 +155,9 @@ int async_getaddrinfo(char const *const node, char const *const service, struct 
 static void async_close_cb(uv_handle_t *const handle) {
 	async_switch(handle->data);
 }
+static void timer_cb(uv_timer_t *const timer) {
+	async_switch(timer->data);
+}
 int async_sleep(uint64_t const milliseconds) {
 	// TODO: Pool timers together.
 	uv_timer_t timer[1];
@@ -163,7 +166,7 @@ int async_sleep(uint64_t const milliseconds) {
 	err = uv_timer_init(loop, timer);
 	if(err < 0) return err;
 	if(milliseconds > 0) {
-		err = uv_timer_start(timer, async_timer_cb, milliseconds, 0);
+		err = uv_timer_start(timer, timer_cb, milliseconds, 0);
 		if(err < 0) return err;
 		async_yield();
 	}

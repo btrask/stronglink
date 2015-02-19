@@ -33,29 +33,11 @@ extern thread_local async_t *yield;
 
 void async_switch(async_t *const thread);
 
-// TODO: Get rid of all these.
-static void async_fs_cb(uv_fs_t *const req) {
-	async_switch(req->data);
-}
-static void async_timer_cb(uv_timer_t *const timer) {
-	async_switch(timer->data);
-}
-
+// TODO: Get rid of this.
 typedef struct {
 	async_t *thread;
 	int status;
 } async_state;
-
-static void async_exit_cb(uv_process_t *const proc, int64_t const status, int const signal) {
-	async_state *const state = proc->data;
-	state->status = status;
-	async_switch(state->thread);
-}
-static void async_connect_cb(uv_connect_t *const req, int const status) {
-	async_state *const state = req->data;
-	state->status = status;
-	async_switch(state->thread);
-}
 
 int async_init(void);
 
@@ -88,6 +70,7 @@ void async_read_cleanup(async_read_t *const req);
 void async_read_cancel(async_read_t *const req);
 
 int async_write(uv_stream_t *const stream, uv_buf_t const bufs[], unsigned const nbufs);
+int async_tcp_connect(uv_tcp_t *const stream, struct sockaddr const *const addr);
 
 // async_fs.c
 uv_file async_fs_open(const char* path, int flags, int mode);

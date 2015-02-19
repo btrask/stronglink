@@ -75,3 +75,20 @@ int async_write(uv_stream_t *const stream, uv_buf_t const bufs[], unsigned const
 	return state->status;
 }
 
+
+static void connect_cb(uv_connect_t *const req, int const status) {
+	async_state *const state = req->data;
+	state->status = status;
+	async_switch(state->thread);
+}
+int async_tcp_connect(uv_tcp_t *const stream, struct sockaddr const *const addr) {
+	async_state state[1];
+	state->thread = async_active();
+	uv_connect_t req[1];
+	req->data = state;
+	int rc = uv_tcp_connect(req, stream, addr, connect_cb);
+	if(rc < 0) return rc;
+	async_yield();
+	return state->status;
+}
+
