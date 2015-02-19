@@ -21,7 +21,7 @@ struct EFSPull {
 	async_read_t read[1];
 
 	async_mutex_t mutex[1];
-	async_cond_t *cond;
+	async_cond_t cond[1];
 	bool_t stop;
 	count_t tasks;
 	EFSSubmissionRef queue[QUEUE_SIZE];
@@ -185,11 +185,11 @@ err_t EFSPullStart(EFSPullRef const pull) {
 	assert(0 == pull->tasks);
 	async_mutex_init(pull->connlock, 0);
 	async_mutex_init(pull->mutex, 0);
-	pull->cond = async_cond_create();
+	async_cond_init(pull->cond, 0);
 	if(!pull->cond) {
 		async_mutex_destroy(pull->connlock);
 		async_mutex_destroy(pull->mutex);
-		async_cond_free(pull->cond); pull->cond = NULL;
+		async_cond_destroy(pull->cond);
 		return -1;
 	}
 	for(index_t i = 0; i < READER_COUNT; ++i) {
@@ -218,7 +218,7 @@ void EFSPullStop(EFSPullRef const pull) {
 	HTTPConnectionFree(&pull->conn);
 
 	async_mutex_destroy(pull->mutex);
-	async_cond_free(pull->cond); pull->cond = NULL;
+	async_cond_destroy(pull->cond);
 	pull->stop = false;
 
 	for(index_t i = 0; i < QUEUE_SIZE; ++i) {

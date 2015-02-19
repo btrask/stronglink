@@ -4,10 +4,9 @@
 
 void async_mutex_init(async_mutex_t *const mutex, unsigned const flags) {
 	assert(mutex);
-	async_sem_init(mutex->sem, 1, 0);
+	async_sem_init(mutex->sem, 1, flags);
 	mutex->active = NULL;
 	mutex->depth = 0;
-	mutex->flags = flags;
 }
 void async_mutex_destroy(async_mutex_t *const mutex) {
 	if(!mutex) return;

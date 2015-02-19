@@ -13,7 +13,7 @@ struct EFSRepo {
 	EFSConnection conn[1];
 
 	async_mutex_t sub_mutex[1];
-	async_cond_t *sub_cond;
+	async_cond_t sub_cond[1];
 	uint64_t sub_latest;
 
 	EFSPullRef *pulls;
@@ -47,11 +47,7 @@ EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 	loadPulls(repo);
 
 	async_mutex_init(repo->sub_mutex, 0);
-	repo->sub_cond = async_cond_create();
-	if(!repo->sub_cond) {
-		EFSRepoFree(&repo);
-		return NULL;
-	}
+	async_cond_init(repo->sub_cond, 0);
 	return repo;
 }
 void EFSRepoFree(EFSRepoRef *const repoptr) {
@@ -71,7 +67,7 @@ void EFSRepoFree(EFSRepoRef *const repoptr) {
 	memset(conn, 0, sizeof(*conn));
 
 	async_mutex_destroy(repo->sub_mutex);
-	async_cond_free(repo->sub_cond); repo->sub_cond = NULL;
+	async_cond_destroy(repo->sub_cond);
 	repo->sub_latest = 0;
 
 	for(index_t i = 0; i < repo->pull_count; ++i) {

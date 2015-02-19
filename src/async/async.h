@@ -105,7 +105,6 @@ typedef struct {
 	async_sem_t sem[1];
 	async_t *active;
 	int depth;
-	unsigned flags;
 } async_mutex_t;
 void async_mutex_init(async_mutex_t *const mutex, unsigned const flags);
 void async_mutex_destroy(async_mutex_t *const mutex);
@@ -115,9 +114,17 @@ void async_mutex_unlock(async_mutex_t *const mutex);
 int async_mutex_check(async_mutex_t *const mutex);
 
 // async_rwlock.c
-typedef struct async_rwlock_s async_rwlock_t;
-async_rwlock_t *async_rwlock_create(void);
-void async_rwlock_free(async_rwlock_t *const lock);
+typedef struct {
+	int state;
+	async_thread_list *rdhead;
+	async_thread_list *rdtail;
+	async_thread_list *wrhead;
+	async_thread_list *wrtail;
+	async_t *upgrade;
+	unsigned flags;
+} async_rwlock_t;
+void async_rwlock_init(async_rwlock_t *const lock, unsigned const flags);
+void async_rwlock_destroy(async_rwlock_t *const lock);
 void async_rwlock_rdlock(async_rwlock_t *const lock);
 int async_rwlock_tryrdlock(async_rwlock_t *const lock);
 void async_rwlock_rdunlock(async_rwlock_t *const lock);
@@ -128,9 +135,13 @@ int async_rwlock_upgrade(async_rwlock_t *const lock);
 void async_rwlock_downgrade(async_rwlock_t *const lock);
 
 // async_cond.c
-typedef struct async_cond_s async_cond_t;
-async_cond_t *async_cond_create(void);
-void async_cond_free(async_cond_t *const cond);
+typedef struct {
+	unsigned numWaiters;
+	async_sem_t sem[1];
+	async_mutex_t internalMutex[1];
+} async_cond_t;
+void async_cond_init(async_cond_t *const cond, unsigned const flags);
+void async_cond_destroy(async_cond_t *const cond);
 void async_cond_signal(async_cond_t *const cond);
 void async_cond_broadcast(async_cond_t *const cond);
 void async_cond_wait(async_cond_t *const cond, async_mutex_t *const mutex);

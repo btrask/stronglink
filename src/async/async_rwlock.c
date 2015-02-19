@@ -10,30 +10,22 @@ enum {
 	s_write = INT_MAX,
 };
 
-typedef struct thread_list thread_list;
-struct thread_list {
+struct async_thread_list {
 	async_t *thread;
-	thread_list *next;
-};
-
-struct async_rwlock_s {
-	int state;
-
-	thread_list *rdhead;
-	thread_list *rdtail;
-
-	thread_list *wrhead;
-	thread_list *wrtail;
-
-	async_t *upgrade;
+	async_thread_list *next;
 };
 
 static void wake_next(async_rwlock_t *const lock);
 
-async_rwlock_t *async_rwlock_create(void) {
-	async_rwlock_t *lock = calloc(1, sizeof(async_rwlock_t));
-	if(!lock) return NULL;
-	return lock;
+void async_rwlock_init(async_rwlock_t *const lock, unsigned const flags) {
+	assert(lock);
+	lock->state = 0;
+	lock->rdhead = NULL;
+	lock->rdtail = NULL;
+	lock->wrhead = NULL;
+	lock->wrtail = NULL;
+	lock->upgrade = NULL;
+	lock->flags = flags;
 }
 void async_rwlock_free(async_rwlock_t *const lock) {
 	if(!lock) return;
@@ -50,7 +42,7 @@ void async_rwlock_rdlock(async_rwlock_t *const lock) {
 	assert(yield);
 	assert(async_active() != yield);
 	if(async_rwlock_tryrdlock(lock) >= 0) return;
-	thread_list us = {
+	async_thread_list us = {
 		.thread = async_active(),
 		.next = NULL,
 	};
@@ -83,7 +75,7 @@ void async_rwlock_wrlock(async_rwlock_t *const lock) {
 	assert(yield);
 	assert(async_active() != yield);
 	if(async_rwlock_trywrlock(lock) >= 0) return;
-	thread_list us = {
+	async_thread_list us = {
 		.thread = async_active(),
 		.next = NULL,
 	};
@@ -144,14 +136,14 @@ static void wake_next(async_rwlock_t *const lock) {
 	} else if(lock->wrhead) {
 		if(lock->state > 0) return;
 		lock->state = s_write;
-		thread_list *const next = lock->wrhead;
+		async_thread_list *const next = lock->wrhead;
 		lock->wrhead = next->next;
 		if(!lock->wrhead) lock->wrtail = NULL;
 		async_wakeup(next->thread);
 	} else while(lock->rdhead) {
 		if(lock->state >= READERS_MAX) return;
 		++lock->state;
-		thread_list *const next = lock->rdhead;
+		async_thread_list *const next = lock->rdhead;
 		lock->rdhead = next->next;
 		if(!lock->rdhead) lock->rdtail = NULL;
 		async_wakeup(next->thread);

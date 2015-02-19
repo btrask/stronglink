@@ -8,26 +8,17 @@
 // https://en.wikipedia.org/w/index.php?title=Monitor_%28synchronization%29&oldid=622007170
 // Monitor (synchronization)
 
-struct async_cond_s {
-	unsigned numWaiters;
-	async_sem_t sem[1];
-	async_mutex_t internalMutex[1];
-};
-
-async_cond_t *async_cond_create(void) {
-	async_cond_t *const cond = calloc(1, sizeof(struct async_cond_s));
-	if(!cond) return NULL;
+void async_cond_init(async_cond_t *const cond, unsigned const flags) {
+	assert(cond);
 	cond->numWaiters = 0;
-	async_sem_init(cond->sem, 0, 0);
-	async_mutex_init(cond->internalMutex, 0);
-	return cond;
+	async_sem_init(cond->sem, 0, flags);
+	async_mutex_init(cond->internalMutex, flags);
 }
-void async_cond_free(async_cond_t *const cond) {
+void async_cond_destroy(async_cond_t *const cond) {
 	if(!cond) return;
 	assert(0 == cond->numWaiters);
 	async_sem_destroy(cond->sem);
 	async_mutex_destroy(cond->internalMutex);
-	free(cond);
 }
 void async_cond_signal(async_cond_t *const cond) {
 	async_mutex_lock(cond->internalMutex);
