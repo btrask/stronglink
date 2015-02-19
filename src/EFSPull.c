@@ -16,11 +16,11 @@ struct EFSPull {
 	str_t *cookie;
 	str_t *query;
 
-	async_mutex_t *connlock;
+	async_mutex_t connlock[1];
 	HTTPConnectionRef conn;
 	async_read_t read[1];
 
-	async_mutex_t *mutex;
+	async_mutex_t mutex[1];
 	async_cond_t *cond;
 	bool_t stop;
 	count_t tasks;
@@ -182,14 +182,13 @@ stop:
 }
 err_t EFSPullStart(EFSPullRef const pull) {
 	if(!pull) return 0;
-	assertf(!pull->connlock, "Pull already running");
 	assert(0 == pull->tasks);
-	pull->connlock = async_mutex_create();
-	pull->mutex = async_mutex_create();
+	async_mutex_init(pull->connlock, 0);
+	async_mutex_init(pull->mutex, 0);
 	pull->cond = async_cond_create();
-	if(!pull->connlock || !pull->mutex || !pull->cond) {
-		async_mutex_free(pull->connlock); pull->connlock = NULL;
-		async_mutex_free(pull->mutex); pull->mutex = NULL;
+	if(!pull->cond) {
+		async_mutex_destroy(pull->connlock);
+		async_mutex_destroy(pull->mutex);
 		async_cond_free(pull->cond); pull->cond = NULL;
 		return -1;
 	}
@@ -215,10 +214,10 @@ void EFSPullStop(EFSPullRef const pull) {
 	}
 	async_mutex_unlock(pull->mutex);
 
-	async_mutex_free(pull->connlock); pull->connlock = NULL;
+	async_mutex_destroy(pull->connlock);
 	HTTPConnectionFree(&pull->conn);
 
-	async_mutex_free(pull->mutex); pull->mutex = NULL;
+	async_mutex_destroy(pull->mutex);
 	async_cond_free(pull->cond); pull->cond = NULL;
 	pull->stop = false;
 

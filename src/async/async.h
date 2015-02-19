@@ -86,18 +86,29 @@ int async_fs_mkdirp_dirname(char const *const path, int const mode);
 char *async_fs_tempnam(char const *dir, char const *prefix);
 
 // async_sem.c
-typedef struct async_sem_s async_sem_t;
-async_sem_t *async_sem_create(unsigned int const value);
-void async_sem_free(async_sem_t *const sem);
+typedef struct async_thread_list async_thread_list;
+typedef struct {
+	async_thread_list *head;
+	async_thread_list *tail;
+	unsigned value;
+	unsigned flags;
+} async_sem_t;
+void async_sem_init(async_sem_t *const sem, unsigned const value, unsigned const flags);
+void async_sem_destroy(async_sem_t *const sem);
 void async_sem_post(async_sem_t *const sem);
 void async_sem_wait(async_sem_t *const sem);
 int async_sem_trywait(async_sem_t *const sem);
 int async_sem_timedwait(async_sem_t *const sem, uint64_t const future);
 
 // async_mutex.c
-typedef struct async_mutex_s async_mutex_t;
-async_mutex_t *async_mutex_create(void);
-void async_mutex_free(async_mutex_t *const mutex);
+typedef struct {
+	async_sem_t sem[1];
+	async_t *active;
+	int depth;
+	unsigned flags;
+} async_mutex_t;
+void async_mutex_init(async_mutex_t *const mutex, unsigned const flags);
+void async_mutex_destroy(async_mutex_t *const mutex);
 void async_mutex_lock(async_mutex_t *const mutex);
 int async_mutex_trylock(async_mutex_t *const mutex);
 void async_mutex_unlock(async_mutex_t *const mutex);

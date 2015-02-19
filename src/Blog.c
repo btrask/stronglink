@@ -43,7 +43,7 @@ struct Blog {
 	TemplateRef empty;
 	TemplateRef compose;
 
-	async_mutex_t *pending_mutex;
+	async_mutex_t pending_mutex[1];
 	async_cond_t *pending_cond;
 	strarg_t pending[PENDING_MAX];
 };
@@ -611,7 +611,7 @@ BlogRef BlogCreate(EFSRepoRef const repo) {
 	blog->compose = TemplateCreateFromPath(path);
 	FREE(&path);
 
-	blog->pending_mutex = async_mutex_create();
+	async_mutex_init(blog->pending_mutex, 0);
 	blog->pending_cond = async_cond_create();
 
 	return blog;
@@ -633,7 +633,7 @@ void BlogFree(BlogRef *const blogptr) {
 	TemplateFree(&blog->empty);
 	TemplateFree(&blog->compose);
 
-	async_mutex_free(blog->pending_mutex); blog->pending_mutex = NULL;
+	async_mutex_destroy(blog->pending_mutex);
 	async_cond_free(blog->pending_cond); blog->pending_cond = NULL;
 
 	FREE(blogptr); blog = NULL;

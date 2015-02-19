@@ -10,27 +10,23 @@
 
 struct async_cond_s {
 	unsigned numWaiters;
-	async_sem_t *sem;
-	async_mutex_t *internalMutex;
+	async_sem_t sem[1];
+	async_mutex_t internalMutex[1];
 };
 
 async_cond_t *async_cond_create(void) {
 	async_cond_t *const cond = calloc(1, sizeof(struct async_cond_s));
 	if(!cond) return NULL;
 	cond->numWaiters = 0;
-	cond->sem = async_sem_create(0);
-	cond->internalMutex = async_mutex_create();
-	if(!cond->sem || !cond->internalMutex) {
-		async_cond_free(cond);
-		return NULL;
-	}
+	async_sem_init(cond->sem, 0, 0);
+	async_mutex_init(cond->internalMutex, 0);
 	return cond;
 }
 void async_cond_free(async_cond_t *const cond) {
 	if(!cond) return;
 	assert(0 == cond->numWaiters);
-	async_sem_free(cond->sem); cond->sem = NULL;
-	async_mutex_free(cond->internalMutex); cond->internalMutex = NULL;
+	async_sem_destroy(cond->sem);
+	async_mutex_destroy(cond->internalMutex);
 	free(cond);
 }
 void async_cond_signal(async_cond_t *const cond) {

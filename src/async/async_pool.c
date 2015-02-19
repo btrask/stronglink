@@ -15,7 +15,7 @@
 struct async_pool_s {
 	async_worker_t *workers[WORKER_COUNT];
 	unsigned count;
-	async_sem_t *sem;
+	async_sem_t sem[1];
 };
 
 static thread_local async_pool_t *shared = NULL;
@@ -38,11 +38,7 @@ async_pool_t *async_pool_create(void) {
 		}
 	}
 	pool->count = WORKER_COUNT;
-	pool->sem = async_sem_create(1);
-	if(!pool->sem) {
-		async_pool_free(pool);
-		return NULL;
-	}
+	async_sem_init(pool->sem, 1, 0);
 	return pool;
 }
 void async_pool_free(async_pool_t *const pool) {
@@ -51,7 +47,7 @@ void async_pool_free(async_pool_t *const pool) {
 	for(unsigned i = 0; i < WORKER_COUNT; ++i) {
 		async_worker_free(pool->workers[i]); pool->workers[i] = NULL;
 	}
-	async_sem_free(pool->sem); pool->sem = NULL;
+	async_sem_destroy(pool->sem);
 	free(pool);
 }
 

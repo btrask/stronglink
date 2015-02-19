@@ -2,30 +2,18 @@
 #include <stdlib.h>
 #include "async.h"
 
-struct async_mutex_s {
-	async_sem_t *sem;
-	async_t *active;
-	int depth;
-};
-
-async_mutex_t *async_mutex_create(void) {
-	async_mutex_t *mutex = calloc(1, sizeof(struct async_mutex_s));
-	if(!mutex) return NULL;
-	mutex->sem = async_sem_create(1);
+void async_mutex_init(async_mutex_t *const mutex, unsigned const flags) {
+	assert(mutex);
+	async_sem_init(mutex->sem, 1, 0);
 	mutex->active = NULL;
 	mutex->depth = 0;
-	if(!mutex->sem) {
-		async_mutex_free(mutex);
-		return NULL;
-	}
-	return mutex;
+	mutex->flags = flags;
 }
-void async_mutex_free(async_mutex_t *const mutex) {
+void async_mutex_destroy(async_mutex_t *const mutex) {
 	if(!mutex) return;
 	assert(!mutex->active);
 	assert(0 == mutex->depth);
-	async_sem_free(mutex->sem); mutex->sem = NULL;
-	free(mutex);
+	async_sem_destroy(mutex->sem);
 }
 void async_mutex_lock(async_mutex_t *const mutex) {
 	assert(mutex);
