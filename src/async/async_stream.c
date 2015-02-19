@@ -2,6 +2,11 @@
 #include <stdlib.h>
 #include "async.h"
 
+typedef struct {
+	async_t *thread;
+	int status;
+} async_state;
+
 static void alloc_cb(uv_handle_t *const handle, size_t const suggested_size, uv_buf_t *const buf) {
 	buf->len = 1024 * 8; // suggested_size is hardcoded at 64k, shich seems large
 	buf->base = malloc(buf->len);

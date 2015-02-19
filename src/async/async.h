@@ -31,14 +31,6 @@ typedef struct {
 extern thread_local uv_loop_t loop[1];
 extern thread_local async_t *yield;
 
-void async_switch(async_t *const thread);
-
-// TODO: Get rid of this.
-typedef struct {
-	async_t *thread;
-	int status;
-} async_state;
-
 int async_init(void);
 
 async_t *async_active(void);
