@@ -39,7 +39,7 @@ void EFSMetaFileFree(EFSMetaFileRef *const metaptr) {
 	FREE(metaptr); meta = NULL;
 }
 
-err_t EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len) {
+int EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len) {
 	if(!meta) return 0;
 	if(meta->len >= META_MAX) return 0;
 	size_t const use = MIN(META_MAX-meta->len, len);
@@ -47,7 +47,7 @@ err_t EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_
 	meta->len += use;
 	return 0;
 }
-err_t EFSMetaFileEnd(EFSMetaFileRef const meta) {
+int EFSMetaFileEnd(EFSMetaFileRef const meta) {
 	if(!meta) return 0;
 	return 0;
 }
@@ -68,7 +68,7 @@ typedef struct {
 	str_t *field;
 } parser_context;
 
-err_t EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_t const fileURI, DB_txn *const txn) {
+int EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_t const fileURI, DB_txn *const txn) {
 	if(!meta) return 0;
 	if(meta->len < 3) return 0;
 
@@ -76,15 +76,15 @@ err_t EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_
 	size_t len = 0;
 	strarg_t targetURI = NULL;
 	for(index_t i = 0; i < MIN(URI_MAX, meta->len-3); ++i) {
-		bool_t const crlfcrlf =
+		bool const crlfcrlf =
 			'\r' == meta->buf[i+0] &&
 			'\n' == meta->buf[i+1] &&
 			'\r' == meta->buf[i+2] &&
 			'\n' == meta->buf[i+3];
-		bool_t const crcr =
+		bool const crcr =
 			'\r' == meta->buf[i+0] &&
 			'\r' == meta->buf[i+1];
-		bool_t const lflf =
+		bool const lflf =
 			'\n' == meta->buf[i+0] &&
 			'\n' == meta->buf[i+1];
 		if(!crlfcrlf && !crcr && !lflf) continue;

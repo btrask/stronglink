@@ -21,7 +21,7 @@
 		[self free];
 		return nil;
 	}
-	err_t rc = [main addFilterArg:internal];
+	int rc = [main addFilterArg:internal];
 	assert(rc >= 0);
 	UNUSED(rc);
 	return self;
@@ -39,7 +39,7 @@
 - (EFSFilter *)unwrap {
 	return [subfilter unwrap];
 }
-- (err_t)addFilterArg:(EFSFilter *const)filter {
+- (int)addFilterArg:(EFSFilter *const)filter {
 	if([internal addFilterArg:filter] < 0) return -1;
 	if([main addFilterArg:filter] < 0) return -1;
 	subfilter = filter;
@@ -57,7 +57,7 @@
 	return wr(data, size, "");
 }
 
-- (err_t)prepare:(DB_txn *const)txn {
+- (int)prepare:(DB_txn *const)txn {
 	assert(subfilter);
 	if([super prepare:txn] < 0) return -1;
 	if([main prepare:txn] < 0) return -1;
@@ -88,13 +88,13 @@
 	[super free];
 }
 
-- (err_t)addFilterArg:(EFSFilter *const)filter {
+- (int)addFilterArg:(EFSFilter *const)filter {
 	if(subfilter) return -1;
 	subfilter = filter;
 	return 0;
 }
 
-- (err_t)prepare:(DB_txn *const)txn {
+- (int)prepare:(DB_txn *const)txn {
 	assert(subfilter);
 	if([super prepare:txn] < 0) return -1;
 	db_cursor_renew(txn, &metafiles); // EFSMetaFileByID

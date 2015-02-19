@@ -12,7 +12,7 @@ struct cached_cookie {
 };
 static struct cached_cookie cookie_cache[COOKIE_CACHE_SIZE] = {};
 
-static bool_t cookie_cache_lookup(uint64_t const sessionID, strarg_t const sessionKey) {
+static bool cookie_cache_lookup(uint64_t const sessionID, strarg_t const sessionKey) {
 	assert(!async_pool_get_worker());
 	if(sessionID <= 0 || !sessionKey) return false;
 	index_t const x = sessionID+sessionKey[0] % COOKIE_CACHE_SIZE;
@@ -247,7 +247,7 @@ str_t **EFSSessionCopyFilteredURIs(EFSSessionRef const session, EFSFilterRef con
 	URIs[count] = NULL;
 	return URIs;
 }
-err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFSFileInfo *const info) {
+int EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFSFileInfo *const info) {
 	if(!session) return DB_EINVAL;
 	if(!URI) return DB_EINVAL;
 	// TODO: Check session mode.

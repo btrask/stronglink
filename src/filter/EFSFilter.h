@@ -18,12 +18,12 @@
 - (EFSFilterType)type;
 - (EFSFilter *)unwrap;
 - (strarg_t)stringArg:(index_t const)i;
-- (err_t)addStringArg:(strarg_t const)str :(size_t const)len;
-- (err_t)addFilterArg:(EFSFilter *const)filter;
+- (int)addStringArg:(strarg_t const)str :(size_t const)len;
+- (int)addFilterArg:(EFSFilter *const)filter;
 - (void)print:(count_t const)depth;
 - (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth;
 
-- (err_t)prepare:(DB_txn *const)txn;
+- (int)prepare:(DB_txn *const)txn;
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
 - (void)step:(int const)dir;
@@ -40,7 +40,7 @@
 }
 - (EFSFilter *)unwrap;
 
-- (err_t)prepare:(DB_txn *const)txn;
+- (int)prepare:(DB_txn *const)txn;
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
 - (void)step:(int const)dir;
@@ -50,7 +50,7 @@
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID;
 - (uint64_t)currentMeta:(int const)dir;
 - (uint64_t)stepMeta:(int const)dir;
-- (bool_t)match:(uint64_t const)metaFileID;
+- (bool)match:(uint64_t const)metaFileID;
 @end
 
 @interface EFSAllFilter : EFSIndividualFilter
@@ -92,7 +92,7 @@ struct token {
 	int sort;
 }
 - (EFSFilter *)unwrap;
-- (err_t)addFilterArg:(EFSFilter *const)filter;
+- (int)addFilterArg:(EFSFilter *const)filter;
 
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
 - (void)step:(int const)dir;
@@ -114,7 +114,7 @@ struct token {
 }
 @end
 
-static bool_t valid(uint64_t const x) {
+static bool valid(uint64_t const x) {
 	return 0 != x && UINT64_MAX != x;
 }
 static uint64_t invalid(int const dir) {
@@ -127,7 +127,7 @@ static uint64_t invalid(int const dir) {
 static void indent(count_t const depth) {
 	for(index_t i = 0; i < depth; ++i) fprintf(stderr, "\t");
 }
-static bool_t needs_quotes(strarg_t const str) {
+static bool needs_quotes(strarg_t const str) {
 	for(index_t i = 0; '\0' != str[i]; ++i) {
 		if(isspace(str[i])) return true;
 	}
@@ -141,7 +141,7 @@ static size_t wr(str_t *const data, size_t const size, strarg_t const str) {
 }
 static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str) {
 	size_t len = 0;
-	bool_t const quoted = needs_quotes(str);
+	bool const quoted = needs_quotes(str);
 	if(quoted) len += wr(data+len, size-len, "\"");
 	len += wr(data+len, size-len, str);
 	if(quoted) len += wr(data+len, size-len, "\"");

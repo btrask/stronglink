@@ -46,12 +46,12 @@ void HeadersFree(HeadersRef *const headersptr) {
 	assert_zeroed(headers, 1);
 	FREE(headersptr); headers = NULL;
 }
-err_t HeadersAppendFieldChunk(HeadersRef const headers, strarg_t const chunk, size_t const len) {
+int HeadersAppendFieldChunk(HeadersRef const headers, strarg_t const chunk, size_t const len) {
 	if(!headers) return 0;
 	append(headers->field, HEADER_FIELD_MAX, chunk, len);
 	return 0;
 }
-err_t HeadersAppendValueChunk(HeadersRef const headers, strarg_t const chunk, size_t const len) {
+int HeadersAppendValueChunk(HeadersRef const headers, strarg_t const chunk, size_t const len) {
 	if(!headers) return 0;
 	strarg_t const *const fields = headers->fields;
 	if(headers->field[0]) {

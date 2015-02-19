@@ -19,7 +19,7 @@ static strarg_t const EFSFormFields[] = {
 };
 
 // TODO: Put this somewhere.
-bool_t URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs) {
+bool URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs) {
 	size_t pathlen = prefix(path, URI);
 	if(!pathlen) return false;
 	if('/' == URI[pathlen]) ++pathlen;
@@ -31,7 +31,7 @@ bool_t URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs) {
 
 // TODO: These methods ought to be built on a public C API because the C API needs to support the same features as the HTTP interface.
 
-static bool_t postAuth(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool postAuth(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 //	if(HTTP_POST != method) return false;
 	if(!URIPath(URI, "/efs/auth", NULL)) return false;
 
@@ -50,7 +50,7 @@ static bool_t postAuth(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTP
 	FREE(&cookie);
 	return true;
 }
-static bool_t getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_GET != method && HTTP_HEAD != method) return false;
 	str_t algo[32] = {};
 	str_t hash[256] = {};
@@ -94,7 +94,7 @@ static bool_t getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPM
 	EFSSessionFree(&session);
 	return true;
 }
-static bool_t postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	return false; // TODO
 
 /*	if(HTTP_POST != method) return false;
@@ -198,7 +198,7 @@ static void cleanupURIs(str_t **const URIs, count_t const count) {
 		FREE(&URIs[i]);
 	}
 }
-static bool_t query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_POST != method && HTTP_GET != method) return false;
 	if(!URIPath(URI, "/efs/query", NULL)) return false;
 
@@ -268,7 +268,7 @@ static bool_t query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 
 	for(;;) {
 		uint64_t const timeout = uv_now(loop)+(1000 * 30);
-		bool_t const ready = EFSRepoSubmissionWait(repo, sortID, timeout);
+		bool const ready = EFSRepoSubmissionWait(repo, sortID, timeout);
 		if(!ready) {
 			uv_buf_t const parts[] = { uv_buf_init("\r\n", 2) };
 			if(HTTPConnectionWriteChunkv(conn, parts, numberof(parts)) < 0) break;
@@ -295,7 +295,7 @@ static bool_t query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 }
 
 
-bool_t EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+bool EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(postAuth(repo, conn, method, URI)) return true;
 	if(getFile(repo, conn, method, URI)) return true;
 	if(postFile(repo, conn, method, URI)) return true;

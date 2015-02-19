@@ -13,13 +13,13 @@
 @end
 
 @implementation EFSFilter
-- (err_t)addStringArg:(strarg_t const)str :(size_t const)len {
+- (int)addStringArg:(strarg_t const)str :(size_t const)len {
 	return -1;
 }
-- (err_t)addFilterArg:(EFSFilter *const)filter {
+- (int)addFilterArg:(EFSFilter *const)filter {
 	return -1;
 }
-- (err_t)prepare:(DB_txn *const)txn {
+- (int)prepare:(DB_txn *const)txn {
 	return 0;
 }
 @end
@@ -60,11 +60,11 @@ strarg_t EFSFilterGetStringArg(EFSFilterRef const filter, index_t const i) {
 	assert(filter);
 	return [(EFSFilter *)filter stringArg:i];
 }
-err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len) {
+int EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len) {
 	assert(filter);
 	return [(EFSFilter *)filter addStringArg:str :len];
 }
-err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter) {
+int EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter) {
 	assert(filter);
 	return [(EFSFilter *)filter addFilterArg:(EFSFilter *)subfilter];
 }
@@ -76,7 +76,7 @@ size_t EFSFilterToUserFilterString(EFSFilterRef const filter, str_t *const data,
 	assert(filter);
 	return [(EFSFilter *)filter getUserFilter:data :size :depth];
 }
-err_t EFSFilterPrepare(EFSFilterRef const filter, DB_txn *const txn) {
+int EFSFilterPrepare(EFSFilterRef const filter, DB_txn *const txn) {
 	assert(filter);
 	return [(EFSFilter *)filter prepare:txn];
 }

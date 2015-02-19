@@ -131,11 +131,11 @@ void EFSRepoSubmissionEmit(EFSRepoRef const repo, uint64_t const sortID) {
 	}
 	async_mutex_unlock(repo->sub_mutex);
 }
-bool_t EFSRepoSubmissionWait(EFSRepoRef const repo, uint64_t const sortID, uint64_t const future) {
+bool EFSRepoSubmissionWait(EFSRepoRef const repo, uint64_t const sortID, uint64_t const future) {
 	assert(repo);
 	async_mutex_lock(repo->sub_mutex);
 	while(repo->sub_latest <= sortID && async_cond_timedwait(repo->sub_cond, repo->sub_mutex, future) >= 0);
-	bool_t const res = repo->sub_latest > sortID;
+	bool const res = repo->sub_latest > sortID;
 	async_mutex_unlock(repo->sub_mutex);
 	return res;
 }

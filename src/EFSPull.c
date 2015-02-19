@@ -22,16 +22,16 @@ struct EFSPull {
 
 	async_mutex_t mutex[1];
 	async_cond_t cond[1];
-	bool_t stop;
+	bool stop;
 	count_t tasks;
 	EFSSubmissionRef queue[QUEUE_SIZE];
-	bool_t filled[QUEUE_SIZE];
+	bool filled[QUEUE_SIZE];
 	index_t cur;
 	count_t count;
 };
 
-static err_t reconnect(EFSPullRef const pull);
-static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn);
+static int reconnect(EFSPullRef const pull);
+static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn);
 
 EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, uint64_t const pullID, uint64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query) {
 	EFSPullRef pull = calloc(1, sizeof(struct EFSPull));
@@ -180,7 +180,7 @@ stop:
 	async_cond_broadcast(pull->cond);
 	async_mutex_unlock(pull->mutex);
 }
-err_t EFSPullStart(EFSPullRef const pull) {
+int EFSPullStart(EFSPullRef const pull) {
 	if(!pull) return 0;
 	assert(0 == pull->tasks);
 	async_mutex_init(pull->connlock, 0);
@@ -229,9 +229,9 @@ void EFSPullStop(EFSPullRef const pull) {
 	pull->count = 0;
 }
 
-static err_t auth(EFSPullRef const pull);
+static int auth(EFSPullRef const pull);
 
-static err_t reconnect(EFSPullRef const pull) {
+static int reconnect(EFSPullRef const pull) {
 	HTTPConnectionFree(&pull->conn);
 
 	int rc = HTTPConnectionCreateOutgoing(pull->host, &pull->conn);
@@ -265,7 +265,7 @@ static err_t reconnect(EFSPullRef const pull) {
 	return 0;
 }
 
-static err_t auth(EFSPullRef const pull) {
+static int auth(EFSPullRef const pull) {
 	if(!pull) return 0;
 	FREE(&pull->cookie);
 
@@ -297,7 +297,7 @@ static err_t auth(EFSPullRef const pull) {
 }
 
 
-static err_t import(EFSPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn) {
+static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn) {
 	if(!pull) return 0;
 
 	// TODO: Even if there's nothing to do, we have to enqueue something to fill up our reserved slots. I guess it's better than doing a lot of work inside the connection lock, but there's got to be a better way.

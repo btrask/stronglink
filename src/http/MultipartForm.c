@@ -10,20 +10,20 @@ struct FormPart {
 	HeadersRef headers;
 	byte_t const *chunk;
 	size_t chunkLength;
-	bool_t eof;
+	bool eof;
 };
 struct MultipartForm {
 	HTTPConnectionRef msg;
 	multipart_parser *parser;
 	byte_t const *buf;
 	size_t len;
-	bool_t eof;
+	bool eof;
 	struct FormPart part[1];
 };
 
 static multipart_parser_settings const callbacks;
 
-static err_t readOnce(FormPartRef const part);
+static int readOnce(FormPartRef const part);
 
 MultipartFormRef MultipartFormCreate(HTTPConnectionRef const msg, strarg_t const type, strarg_t const *const fields, count_t const count) {
 	if(!msg) return NULL;
@@ -108,7 +108,7 @@ ssize_t FormPartGetBuffer(FormPartRef const part, byte_t const **const buf) {
 	return used;
 }
 
-static err_t readOnce(FormPartRef const part) {
+static int readOnce(FormPartRef const part) {
 	MultipartFormRef const form = part->form;
 	assertf(!part->chunkLength, "Reading when we already have a chunk");
 	if(form->eof) return -1;

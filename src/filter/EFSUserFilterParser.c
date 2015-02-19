@@ -8,8 +8,8 @@ static EFSFilterRef parse_exp(strarg_t *const query);
 static EFSFilterRef parse_parens(strarg_t *const query);
 static EFSFilterRef parse_link(strarg_t *const query);
 static EFSFilterRef parse_term(strarg_t *const query);
-static bool_t parse_space(strarg_t *const query);
-static bool_t parse_token(strarg_t *const query, strarg_t const token);
+static bool parse_space(strarg_t *const query);
+static bool parse_token(strarg_t *const query, strarg_t const token);
 
 EFSFilterRef EFSUserFilterParse(strarg_t const query) {
 	if(!query) return NULL;
@@ -102,14 +102,14 @@ static EFSFilterRef parse_term(strarg_t *const query) {
 	*query = q;
 	return filter;
 }
-static bool_t parse_space(strarg_t *const query) {
+static bool parse_space(strarg_t *const query) {
 	strarg_t q = *query;
-	bool_t space = false;
+	bool space = false;
 	for(; isspace(*q); ++q) space = true;
 	*query = q;
 	return space;
 }
-static bool_t parse_token(strarg_t *const query, strarg_t const token) {
+static bool parse_token(strarg_t *const query, strarg_t const token) {
 	strarg_t q = *query;
 	strarg_t t = token;
 	for(;;) {

@@ -47,7 +47,7 @@ strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo);
 int EFSRepoDBOpen(EFSRepoRef const repo, DB_env **const dbptr);
 void EFSRepoDBClose(EFSRepoRef const repo, DB_env **const dbptr);
 void EFSRepoSubmissionEmit(EFSRepoRef const repo, uint64_t const sortID);
-bool_t EFSRepoSubmissionWait(EFSRepoRef const repo, uint64_t const sortID, uint64_t const future);
+bool EFSRepoSubmissionWait(EFSRepoRef const repo, uint64_t const sortID, uint64_t const future);
 void EFSRepoPullsStart(EFSRepoRef const repo);
 void EFSRepoPullsStop(EFSRepoRef const repo);
 
@@ -65,34 +65,34 @@ void EFSSessionFree(EFSSessionRef *const sessionptr);
 EFSRepoRef EFSSessionGetRepo(EFSSessionRef const session);
 uint64_t EFSSessionGetUserID(EFSSessionRef const session);
 str_t **EFSSessionCopyFilteredURIs(EFSSessionRef const session, EFSFilterRef const filter, count_t const max); // TODO: Public API?
-err_t EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFSFileInfo *const info);
+int EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFSFileInfo *const info);
 void EFSFileInfoCleanup(EFSFileInfo *const info);
 
 EFSSubmissionRef EFSSubmissionCreate(EFSSessionRef const session, strarg_t const type);
 void EFSSubmissionFree(EFSSubmissionRef *const subptr);
 EFSRepoRef EFSSubmissionGetRepo(EFSSubmissionRef const sub);
-err_t EFSSubmissionWrite(EFSSubmissionRef const sub, byte_t const *const buf, size_t const len);
-err_t EFSSubmissionEnd(EFSSubmissionRef const sub);
-err_t EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context);
+int EFSSubmissionWrite(EFSSubmissionRef const sub, byte_t const *const buf, size_t const len);
+int EFSSubmissionEnd(EFSSubmissionRef const sub);
+int EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context);
 strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub);
-err_t EFSSubmissionAddFile(EFSSubmissionRef const sub);
-err_t EFSSubmissionStore(EFSSubmissionRef const sub, DB_txn *const txn);
+int EFSSubmissionAddFile(EFSSubmissionRef const sub);
+int EFSSubmissionStore(EFSSubmissionRef const sub, DB_txn *const txn);
 // Convenience methods
 EFSSubmissionRef EFSSubmissionCreateQuick(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context);
-err_t EFSSubmissionCreateQuickPair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title, EFSSubmissionRef *const outSub, EFSSubmissionRef *const outMeta);
-err_t EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const count);
+int EFSSubmissionCreateQuickPair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title, EFSSubmissionRef *const outSub, EFSSubmissionRef *const outMeta);
+int EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const count);
 
 EFSHasherRef EFSHasherCreate(strarg_t const type);
 void EFSHasherFree(EFSHasherRef *const hasherptr);
-err_t EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, size_t const len);
+int EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, size_t const len);
 str_t **EFSHasherEnd(EFSHasherRef const hasher);
 strarg_t EFSHasherGetInternalHash(EFSHasherRef const hasher);
 
 EFSMetaFileRef EFSMetaFileCreate(strarg_t const type);
 void EFSMetaFileFree(EFSMetaFileRef *const metaptr);
-err_t EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len);
-err_t EFSMetaFileEnd(EFSMetaFileRef const meta);
-err_t EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_t const URI, DB_txn *const txn);
+int EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len);
+int EFSMetaFileEnd(EFSMetaFileRef const meta);
+int EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_t const URI, DB_txn *const txn);
 uint64_t EFSMetaFileGetID(EFSMetaFileRef const meta);
 
 typedef enum {
@@ -115,11 +115,11 @@ void EFSFilterFree(EFSFilterRef *const filterptr);
 EFSFilterType EFSFilterGetType(EFSFilterRef const filter);
 EFSFilterRef EFSFilterUnwrap(EFSFilterRef const filter);
 strarg_t EFSFilterGetStringArg(EFSFilterRef const filter, index_t const i);
-err_t EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len);
-err_t EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
+int EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len);
+int EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter);
 void EFSFilterPrint(EFSFilterRef const filter, count_t const depth);
 size_t EFSFilterToUserFilterString(EFSFilterRef const filter, str_t *const data, size_t const size, count_t const depth);
-err_t EFSFilterPrepare(EFSFilterRef const filter, DB_txn *const txn);
+int EFSFilterPrepare(EFSFilterRef const filter, DB_txn *const txn);
 void EFSFilterSeek(EFSFilterRef const filter, int const dir, uint64_t const sortID, uint64_t const fileID);
 void EFSFilterCurrent(EFSFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID);
 void EFSFilterStep(EFSFilterRef const filter, int const dir);
@@ -136,13 +136,13 @@ EFSFilterRef EFSUserFilterParse(strarg_t const query);
 
 EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, uint64_t const pullID, uint64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query);
 void EFSPullFree(EFSPullRef *const pullptr);
-err_t EFSPullStart(EFSPullRef const pull);
+int EFSPullStart(EFSPullRef const pull);
 void EFSPullStop(EFSPullRef const pull);
 
 #define EFS_ALGO_SIZE 32
 #define EFS_HASH_SIZE 256
 #define EFS_INTERNAL_ALGO ((strarg_t)"sha256")
-static bool_t EFSParseURI(strarg_t const URI, str_t *const algo, str_t *const hash) {
+static bool EFSParseURI(strarg_t const URI, str_t *const algo, str_t *const hash) {
 	algo[0] = '\0';
 	hash[0] = '\0';
 	sscanf(URI, "hash://%31[a-zA-Z0-9.-]/%255[a-zA-Z0-9.%_-]", algo, hash);

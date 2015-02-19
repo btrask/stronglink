@@ -10,11 +10,11 @@ int passcmp(volatile strarg_t const a, volatile strarg_t const b) {
 	}
 	return r;
 }
-bool_t checkpass(strarg_t const pass, strarg_t const hash) {
+bool checkpass(strarg_t const pass, strarg_t const hash) {
 	int size = 0;
 	void *data = NULL;
 	strarg_t attempt = crypt_ra(pass, hash, &data, &size);
-	bool_t const success = (attempt && 0 == passcmp(attempt, hash));
+	bool const success = (attempt && 0 == passcmp(attempt, hash));
 	FREE(&data); attempt = NULL;
 	return success;
 }

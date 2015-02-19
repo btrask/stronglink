@@ -14,7 +14,7 @@
 	return self;
 }
 
-- (err_t)prepare:(DB_txn *const)txn {
+- (int)prepare:(DB_txn *const)txn {
 	if([super prepare:txn] < 0) return -1;
 	db_cursor_renew(txn, &step_target); // EFSMetaFileByID
 	db_cursor_renew(txn, &step_files); // EFSURIAndFileID
@@ -162,7 +162,7 @@
 	return wr(data, size, "");
 }
 
-- (err_t)prepare:(DB_txn *const)txn {
+- (int)prepare:(DB_txn *const)txn {
 	if([super prepare:txn] < 0) return -1;
 	db_cursor_renew(txn, &metafiles); // EFSMetaFileByID
 	return 0;
@@ -200,7 +200,7 @@
 	assert(EFSMetaFileByID == table);
 	return db_read_uint64(sortID_key);
 }
-- (bool_t)match:(uint64_t const)metaFileID {
+- (bool)match:(uint64_t const)metaFileID {
 	return true;
 }
 @end
@@ -224,7 +224,7 @@
 	if(0 != i) return NULL;
 	return term;
 }
-- (err_t)addStringArg:(strarg_t const)str :(size_t const)len {
+- (int)addStringArg:(strarg_t const)str :(size_t const)len {
 	if(!str) return -1;
 	if(0 == len) return -1;
 	if(term) return -1;
@@ -239,7 +239,7 @@
 	return wr_quoted(data, size, term);
 }
 
-- (err_t)prepare:(DB_txn *const)txn {
+- (int)prepare:(DB_txn *const)txn {
 	if([super prepare:txn] < 0) return -1;
 	db_cursor_renew(txn, &metafiles);
 	db_cursor_renew(txn, &match);
@@ -314,7 +314,7 @@
 	assert(0 == strcmp(tokens[0].str, token));
 	return db_read_uint64(sortID_key);
 }
-- (bool_t)match:(uint64_t const)metaFileID {
+- (bool)match:(uint64_t const)metaFileID {
 	DB_RANGE(range, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1);
 	db_bind_uint64(range->min, EFSTermMetaFileIDAndPosition);
 	db_bind_string(curtxn, range->min, tokens[0].str);
@@ -347,7 +347,7 @@
 		default: return NULL;
 	}
 }
-- (err_t)addStringArg:(strarg_t const)str :(size_t const)len {
+- (int)addStringArg:(strarg_t const)str :(size_t const)len {
 	if(!field) {
 		field = strndup(str, len);
 		return 0;
@@ -372,7 +372,7 @@
 	return len;
 }
 
-- (err_t)prepare:(DB_txn *const)txn {
+- (int)prepare:(DB_txn *const)txn {
 	if([super prepare:txn] < 0) return -1;
 	if(!field || !value) return -1;
 	db_cursor_renew(txn, &metafiles); // EFSFieldValueAndMetaFileID
@@ -431,7 +431,7 @@
 	assert(0 == strcmp(value, v));
 	return db_read_uint64(metadata_key);
 }
-- (bool_t)match:(uint64_t const)metaFileID {
+- (bool)match:(uint64_t const)metaFileID {
 	DB_VAL(metadata_key, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 2);
 	db_bind_uint64(metadata_key, EFSFieldValueAndMetaFileID);
 	db_bind_string(curtxn, metadata_key, field);

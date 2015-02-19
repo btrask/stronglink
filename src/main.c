@@ -5,13 +5,13 @@
 #include "EarthFS.h"
 #include "http/HTTPServer.h"
 
-bool_t EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI);
+bool EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI);
 
 typedef struct Blog* BlogRef;
 
 BlogRef BlogCreate(EFSRepoRef const repo);
 void BlogFree(BlogRef *const blogptr);
-bool_t BlogDispatch(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI);
+bool BlogDispatch(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI);
 
 static str_t *path = NULL;
 static EFSRepoRef repo = NULL;

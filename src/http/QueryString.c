@@ -46,7 +46,7 @@ void QSValuesFree(QSValues *const valuesptr, count_t const count) {
 }
 
 // Ported from Node.js QueryString.unescapeBuffer
-str_t *QSUnescape(strarg_t const s, size_t const slen, bool_t const decodeSpaces) {
+str_t *QSUnescape(strarg_t const s, size_t const slen, bool const decodeSpaces) {
 	str_t *const out = malloc(slen+1);
 	if(!out) return NULL;
 	enum { CHAR, HEX0, HEX1 } state = CHAR;

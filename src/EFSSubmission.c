@@ -81,7 +81,7 @@ EFSRepoRef EFSSubmissionGetRepo(EFSSubmissionRef const sub) {
 	return EFSSessionGetRepo(sub->session);
 }
 
-err_t EFSSubmissionWrite(EFSSubmissionRef const sub, byte_t const *const buf, size_t const len) {
+int EFSSubmissionWrite(EFSSubmissionRef const sub, byte_t const *const buf, size_t const len) {
 	if(!sub) return 0;
 	if(sub->tmpfile < 0) return -1;
 
@@ -97,7 +97,7 @@ err_t EFSSubmissionWrite(EFSSubmissionRef const sub, byte_t const *const buf, si
 	EFSMetaFileWrite(sub->meta, buf, len);
 	return 0;
 }
-err_t EFSSubmissionEnd(EFSSubmissionRef const sub) {
+int EFSSubmissionEnd(EFSSubmissionRef const sub) {
 	if(!sub) return 0;
 	if(sub->tmpfile < 0) return -1;
 	sub->URIs = EFSHasherEnd(sub->hasher);
@@ -112,7 +112,7 @@ err_t EFSSubmissionEnd(EFSSubmissionRef const sub) {
 	if(err < 0) return -1;
 	return 0;
 }
-err_t EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context) {
+int EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context) {
 	if(!sub) return 0;
 	assertf(read, "Read function required");
 	for(;;) {
@@ -132,13 +132,13 @@ strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub) {
 	return sub->URIs[0];
 }
 
-err_t EFSSubmissionAddFile(EFSSubmissionRef const sub) {
+int EFSSubmissionAddFile(EFSSubmissionRef const sub) {
 	if(!sub) return -1;
 	if(!sub->tmppath) return -1;
 	if(!sub->size) return -1;
 	EFSRepoRef const repo = EFSSubmissionGetRepo(sub);
 	str_t *internalPath = EFSRepoCopyInternalPath(repo, sub->internalHash);
-	err_t result = 0;
+	int result = 0;
 	result = async_fs_link(sub->tmppath, internalPath);
 	if(result < 0 && UV_EEXIST != result) {
 		if(UV_ENOENT == result) {
@@ -156,7 +156,7 @@ err_t EFSSubmissionAddFile(EFSSubmissionRef const sub) {
 	FREE(&sub->tmppath);
 	return 0;
 }
-err_t EFSSubmissionStore(EFSSubmissionRef const sub, DB_txn *const txn) {
+int EFSSubmissionStore(EFSSubmissionRef const sub, DB_txn *const txn) {
 	if(!sub) return -1;
 	assert(txn);
 	if(sub->tmppath) return -1;
@@ -234,13 +234,13 @@ err_t EFSSubmissionStore(EFSSubmissionRef const sub, DB_txn *const txn) {
 EFSSubmissionRef EFSSubmissionCreateQuick(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context) {
 	EFSSubmissionRef sub = EFSSubmissionCreate(session, type);
 	if(!sub) return NULL;
-	err_t err = 0;
+	int err = 0;
 	err = err < 0 ? err : EFSSubmissionWriteFrom(sub, read, context);
 	err = err < 0 ? err : EFSSubmissionAddFile(sub);
 	if(err < 0) EFSSubmissionFree(&sub);
 	return sub;
 }
-err_t EFSSubmissionCreateQuickPair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title, EFSSubmissionRef *const outSub, EFSSubmissionRef *const outMeta) {
+int EFSSubmissionCreateQuickPair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title, EFSSubmissionRef *const outSub, EFSSubmissionRef *const outMeta) {
 	EFSSubmissionRef sub = EFSSubmissionCreate(session, type);
 	EFSSubmissionRef meta = EFSSubmissionCreate(session, "text/efs-meta+json; charset=utf-8");
 	if(!sub || !meta) {
@@ -352,7 +352,7 @@ err_t EFSSubmissionCreateQuickPair(EFSSessionRef const session, strarg_t const t
 	*outMeta = meta;
 	return 0;
 }
-err_t EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const count) {
+int EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const count) {
 	if(!count) return 0;
 	EFSRepoRef const repo = EFSSessionGetRepo(list[0]->session);
 	DB_env *db = NULL;
@@ -366,7 +366,7 @@ err_t EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const 
 		EFSRepoDBClose(repo, &db);
 		return -1;
 	}
-	err_t err = 0;
+	int err = 0;
 	uint64_t sortID = 0;
 	for(index_t i = 0; i < count; ++i) {
 		assert(list[i]);

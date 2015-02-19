@@ -10,8 +10,8 @@ typedef struct Headers* HeadersRef;
 
 HeadersRef HeadersCreate(strarg_t const fields[], count_t const count);
 void HeadersFree(HeadersRef *const headersptr);
-err_t HeadersAppendFieldChunk(HeadersRef const headers, strarg_t const chunk, size_t const len);
-err_t HeadersAppendValueChunk(HeadersRef const headers, strarg_t const chunk, size_t const len);
+int HeadersAppendFieldChunk(HeadersRef const headers, strarg_t const chunk, size_t const len);
+int HeadersAppendValueChunk(HeadersRef const headers, strarg_t const chunk, size_t const len);
 void HeadersEnd(HeadersRef const headers);
 void *HeadersGetData(HeadersRef const headers);
 void HeadersClear(HeadersRef const headers);

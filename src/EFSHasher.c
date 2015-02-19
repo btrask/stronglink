@@ -32,7 +32,7 @@ void EFSHasherFree(EFSHasherRef *const hasherptr) {
 	assert_zeroed(hasher, 1);
 	FREE(hasherptr); hasher = NULL;
 }
-err_t EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, size_t const len) {
+int EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, size_t const len) {
 	if(!hasher) return 0;
 	if(!len) return 0;
 	assertf(buf, "Buffer required");

@@ -49,9 +49,9 @@ struct Blog {
 };
 
 // TODO: Real public API.
-bool_t URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs);
+bool URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs);
 
-static bool_t emptystr(strarg_t const str) {
+static bool emptystr(strarg_t const str) {
 	return !str || '\0' == str[0];
 }
 static str_t *BlogCopyPreviewPath(BlogRef const blog, strarg_t const hash) {
@@ -97,7 +97,7 @@ static int markdown_autolink(struct buf *ob, const struct buf *link, enum mkd_au
 	return rc;
 }
 
-static err_t genMarkdownPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const tmp, EFSFileInfo const *const info) {
+static int genMarkdownPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const tmp, EFSFileInfo const *const info) {
 	if(
 		0 != strcasecmp("text/markdown; charset=utf-8", info->type) &&
 		0 != strcasecmp("text/markdown", info->type)
@@ -160,7 +160,7 @@ err:
 	async_pool_leave(NULL);
 	return -1;
 }
-static err_t genPlainTextPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const tmp, EFSFileInfo const *const info) {
+static int genPlainTextPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const tmp, EFSFileInfo const *const info) {
 	if(
 		0 != strcasecmp("text/plain; charset=utf-8", info->type) &&
 		0 != strcasecmp("text/plain", info->type)
@@ -268,7 +268,7 @@ static TemplateArgCBs const preview_cbs = {
 	.free = (void (*)())preview_free,
 };
 
-static err_t genGenericPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const tmp, EFSFileInfo const *const info) {
+static int genGenericPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const tmp, EFSFileInfo const *const info) {
 	uv_file file = async_fs_open(tmp, O_CREAT | O_EXCL | O_WRONLY, 0400);
 	if(file < 0) return -1;
 
@@ -276,9 +276,9 @@ static err_t genGenericPreview(BlogRef const blog, EFSSessionRef const session, 
 		.blog = blog,
 		.fileURI = URI,
 	};
-	err_t const e1 = TemplateWriteFile(blog->preview, &preview_cbs, &state, file);
+	int const e1 = TemplateWriteFile(blog->preview, &preview_cbs, &state, file);
 
-	err_t const e2 = async_fs_close(file); file = -1;
+	int const e2 = async_fs_close(file); file = -1;
 	if(e1 < 0 || e2 < 0) {
 		async_fs_unlink(tmp);
 		return -1;
@@ -286,7 +286,7 @@ static err_t genGenericPreview(BlogRef const blog, EFSSessionRef const session, 
 	return 0;
 }
 
-static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const path) {
+static int genPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const path) {
 	EFSFileInfo info[1];
 	if(EFSSessionGetFileInfo(session, URI, info) < 0) return -1;
 	str_t *tmp = EFSRepoCopyTempPath(blog->repo);
@@ -295,7 +295,7 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 		return -1;
 	}
 
-	bool_t success = false;
+	bool success = false;
 	success = success || genMarkdownPreview(blog, session, URI, tmp, info) >= 0;
 	success = success || genPlainTextPreview(blog, session, URI, tmp, info) >= 0;
 	success = success || genGenericPreview(blog, session, URI, tmp, info) >= 0;
@@ -320,14 +320,14 @@ static err_t genPreview(BlogRef const blog, EFSSessionRef const session, strarg_
 	return success ? 0 : -1;
 }
 
-static bool_t gen_pending(BlogRef const blog, strarg_t const path) {
+static bool gen_pending(BlogRef const blog, strarg_t const path) {
 	for(index_t i = 0; i < PENDING_MAX; ++i) {
 		if(!blog->pending[i]) continue;
 		if(0 == strcmp(blog->pending[i], path)) return true;
 	}
 	return false;
 }
-static bool_t gen_available(BlogRef const blog, strarg_t const path, index_t *const x) {
+static bool gen_available(BlogRef const blog, strarg_t const path, index_t *const x) {
 	for(index_t i = 0; i < PENDING_MAX; ++i) {
 		if(blog->pending[i]) continue;
 		blog->pending[i] = path;
@@ -391,7 +391,7 @@ static strarg_t const BlogQueryFields[] = {
 	"q",
 	"f",
 };
-static bool_t getResultsPage(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool getResultsPage(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_GET != method) return false;
 	strarg_t qs = NULL;
 	if(!URIPath(URI, "/", &qs)) return false;
@@ -480,7 +480,7 @@ static bool_t getResultsPage(BlogRef const blog, HTTPConnectionRef const conn, H
 	EFSSessionFree(&session);
 	return true;
 }
-static bool_t getCompose(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool getCompose(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_GET != method) return false;
 	if(!URIPath(URI, "/compose", NULL)) return false;
 
@@ -511,7 +511,7 @@ static bool_t getCompose(BlogRef const blog, HTTPConnectionRef const conn, HTTPM
 	EFSSessionFree(&session);
 	return true;
 }
-static bool_t postSubmission(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool postSubmission(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_POST != method) return false;
 	if(!URIPath(URI, "/submission", NULL)) return false;
 
@@ -555,7 +555,7 @@ static bool_t postSubmission(BlogRef const blog, HTTPConnectionRef const conn, H
 	}
 
 	EFSSubmissionRef subs[2] = { sub, meta };
-	err_t err = EFSSubmissionBatchStore(subs, numberof(subs));
+	int err = EFSSubmissionBatchStore(subs, numberof(subs));
 
 	EFSSubmissionFree(&sub);
 	EFSSubmissionFree(&meta);
@@ -639,7 +639,7 @@ void BlogFree(BlogRef *const blogptr) {
 
 	FREE(blogptr); blog = NULL;
 }
-bool_t BlogDispatch(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+bool BlogDispatch(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(getResultsPage(blog, conn, method, URI)) return true;
 	if(getCompose(blog, conn, method, URI)) return true;
 	if(postSubmission(blog, conn, method, URI)) return true;

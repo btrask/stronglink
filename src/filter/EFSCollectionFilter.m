@@ -27,7 +27,7 @@ static int filtercmp_rev(EFSFilter *const *const a, EFSFilter *const *const b) {
 	if(1 == count) return [filters[0] unwrap];
 	return nil;
 }
-- (err_t)addFilterArg:(EFSFilter *const)filter {
+- (int)addFilterArg:(EFSFilter *const)filter {
 	assert(filter);
 	if(count+1 > asize) {
 		asize = MAX(8, asize * 2);
@@ -38,7 +38,7 @@ static int filtercmp_rev(EFSFilter *const *const a, EFSFilter *const *const b) {
 	return 0;
 }
 
-- (err_t)prepare:(DB_txn *const)txn {
+- (int)prepare:(DB_txn *const)txn {
 	if([super prepare:txn] < 0) return -1;
 	for(index_t i = 0; i < count; ++i) {
 		if([filters[i] prepare:txn] < 0) return -1;
@@ -83,7 +83,7 @@ static int filtercmp_rev(EFSFilter *const *const a, EFSFilter *const *const b) {
 }
 - (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID {
 	EFSFilterType const type = [self type]; // TODO: Polymorphism
-	bool_t hit = false;
+	bool hit = false;
 	// TODO: Maybe better to check in reverse order?
 	// May have to sort first
 	for(index_t i = 0; i < count; ++i) {

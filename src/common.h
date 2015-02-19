@@ -12,10 +12,8 @@
 typedef unsigned char byte_t;
 typedef char str_t;
 typedef str_t const *strarg_t; // A string that belongs to someone else.
-typedef signed char bool_t;
 typedef size_t index_t;
 typedef size_t count_t;
-typedef int err_t;
 
 #define numberof(x) (sizeof(x) / sizeof(*x))
 
@@ -69,7 +67,7 @@ typedef int err_t;
 })
 
 // Compares nul-terminated string `a` with substring of `blen` at `b`.
-static bool_t substr(strarg_t const a, strarg_t const b, size_t const blen) {
+static bool substr(strarg_t const a, strarg_t const b, size_t const blen) {
 	size_t i = 0;
 	for(; i < blen; ++i) {
 		if(a[i] != b[i]) return false;

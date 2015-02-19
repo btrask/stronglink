@@ -64,14 +64,14 @@ static int yajl_string(EFSJSONFilterParserRef const parser, strarg_t const  str,
 	if(depth < 0) return false;
 	EFSFilterRef filter = parser->stack[depth];
 	if(filter) {
-		err_t const err = EFSFilterAddStringArg(filter, str, len);
+		int const err = EFSFilterAddStringArg(filter, str, len);
 		if(err) return false;
 	} else {
 		filter = EFSFilterCreate(EFSFilterTypeFromString(str, len));
 		if(!filter) return false;
 		parser->stack[depth] = filter;
 		if(depth) {
-			err_t const err = EFSFilterAddFilterArg(parser->stack[depth-1], filter);
+			int const err = EFSFilterAddFilterArg(parser->stack[depth-1], filter);
 			if(err) return false;
 		}
 	}
