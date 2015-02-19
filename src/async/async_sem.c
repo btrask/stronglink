@@ -7,7 +7,7 @@
 typedef struct thread_list thread_list;
 struct thread_list {
 	async_sem_t *sem;
-	cothread_t thread;
+	async_t *thread;
 	thread_list *prev;
 	thread_list *next;
 	int res;
@@ -56,7 +56,7 @@ static void timeout_cb(uv_timer_t *const timer) {
 	if(us == sem->head) sem->head = us->next;
 	if(us == sem->tail) sem->tail = NULL;
 	us->res = UV_ETIMEDOUT;
-	co_switch(us->thread);
+	async_switch(us->thread);
 }
 
 void async_sem_wait(async_sem_t *const sem) {
@@ -73,7 +73,7 @@ int async_sem_trywait(async_sem_t *const sem) {
 int async_sem_timedwait(async_sem_t *const sem, uint64_t const future) {
 	assert(sem);
 	assert(yield);
-	assert(co_active() != yield);
+	assert(async_active() != yield); // TODO: Seems to be triggering...?
 	if(sem->value) {
 		--sem->value;
 		return 0;
@@ -85,7 +85,7 @@ int async_sem_timedwait(async_sem_t *const sem, uint64_t const future) {
 	}
 	thread_list us[1];
 	us->sem = sem;
-	us->thread = co_active();
+	us->thread = async_active();
 	us->prev = sem->tail;
 	us->next = NULL;
 	us->res = 0;

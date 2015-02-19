@@ -13,54 +13,63 @@
 // 4K on sjlj/32
 // 16K on sjlj/64?
 
-#ifndef ASYNC_DEBUG
-#define async_yield() (co_switch(yield))
-#else
-#define async_yield() ({ \
-	assert(yield); \
-	double const x = uv_now(loop) / 1000.0; \
-	co_switch(yield); \
-	double const y = uv_now(loop) / 1000.0; \
-	if(y - x > 1.0) fprintf(stderr, "%s blocked for %f s\n", __PRETTY_FUNCTION__, y-x); \
-})
-#endif
-
 #ifdef LIBCO_MP
 #define thread_local __thread
 #else
 #define thread_local
 #endif
 
-extern thread_local uv_loop_t *loop;
-extern thread_local cothread_t yield;
+enum {
+	ASYNC_CANCELED = 1 << 0,
+	ASYNC_CANCELABLE = 1 << 1,
+};
+typedef struct {
+	cothread_t fiber;
+	unsigned flags;
+} async_t;
 
+extern thread_local uv_loop_t loop[1];
+extern thread_local async_t *yield;
+
+void async_switch(async_t *const thread);
+
+// TODO: Get rid of all these.
 static void async_fs_cb(uv_fs_t *const req) {
-	co_switch(req->data);
+	async_switch(req->data);
 }
 static void async_timer_cb(uv_timer_t *const timer) {
-	co_switch(timer->data);
+	async_switch(timer->data);
 }
 
 typedef struct {
-	cothread_t thread;
+	async_t *thread;
 	int status;
 } async_state;
 
 static void async_exit_cb(uv_process_t *const proc, int64_t const status, int const signal) {
 	async_state *const state = proc->data;
 	state->status = status;
-	co_switch(state->thread);
+	async_switch(state->thread);
 }
 static void async_connect_cb(uv_connect_t *const req, int const status) {
 	async_state *const state = req->data;
 	state->status = status;
-	co_switch(state->thread);
+	async_switch(state->thread);
 }
 
-void async_init(void);
-int async_thread(size_t const stack, void (*const func)(void *), void *const arg);
+int async_init(void);
+
+async_t *async_active(void);
+int async_spawn(size_t const stack, void (*const func)(void *), void *const arg);
+void async_switch(async_t *const thread);
+void async_wakeup(async_t *const thread);
 void async_call(void (*const func)(void *), void *const arg); // Conceptually, yields and then calls `func` from the main thread. Similar to `nextTick`.
-void async_wakeup(cothread_t const thread);
+
+void async_yield(void);
+int async_yield_cancelable(void);
+int async_canceled(void);
+void async_cancel(async_t *const thread);
+
 
 int async_random(unsigned char *const buf, size_t const len);
 int async_getaddrinfo(char const *const node, char const *const service, struct addrinfo const *const hints, struct addrinfo **const res);

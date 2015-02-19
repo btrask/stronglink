@@ -4,58 +4,117 @@
 #include <openssl/rand.h>
 #include "async.h"
 
-static thread_local uv_loop_t _loop;
-thread_local uv_loop_t *loop = NULL;
-thread_local cothread_t yield = NULL;
+thread_local uv_loop_t loop[1] = {};
+thread_local async_t *yield = NULL;
 
-void async_init(void) {
-	uv_loop_init(&_loop);
-	loop = &_loop;
-	yield = co_active();
-}
+static thread_local async_t master[1] = {};
+static thread_local async_t *active = NULL;
 
 static thread_local cothread_t trampoline = NULL;
 static thread_local void (*arg_func)(void *) = NULL;
 static thread_local void *arg_arg = NULL;
 
+static void async_wakeup0(cothread_t const fiber);
+static void trampoline_fn(void);
+
+int async_init(void) {
+	int rc = uv_loop_init(loop);
+	if(rc < 0) return rc;
+	master->fiber = co_active();
+	master->flags = 0;
+	active = master;
+	yield = master;
+	trampoline = co_create(STACK_DEFAULT, trampoline_fn);
+	if(!trampoline) return UV_ENOMEM;
+	return 0;
+}
+
+async_t *async_active(void) {
+	return active;
+}
+static void async_start(void) {
+	async_t thread[1];
+	thread->fiber = co_active();
+	thread->flags = 0;
+	active = thread;
+	void (*const func)(void *) = arg_func;
+	void *arg = arg_arg;
+	func(arg);
+	async_call(co_delete, thread->fiber);
+}
+int async_spawn(size_t const stack, void (*const func)(void *), void *const arg) {
+	cothread_t const fiber = co_create(stack, async_start);
+	if(!fiber) return UV_ENOMEM;
+	arg_func = func;
+	arg_arg = arg;
+	async_wakeup0(fiber);
+	return 0;
+}
+void async_switch(async_t *const thread) {
+	active = thread;
+	co_switch(thread->fiber);
+}
+static void async_wakeup0(cothread_t const fiber) {
+	// Either `active` has already been seet (async_wakeup)
+	// or will be set shortly (async_spawn)
+	assert(fiber != yield->fiber);
+	async_t *const original = yield;
+	yield = async_active();
+	co_switch(fiber);
+	yield = original;
+}
+void async_wakeup(async_t *const thread) {
+	active = thread;
+	async_wakeup0(active->fiber);
+}
 static void trampoline_fn(void) {
 	for(;;) {
 		void (*const func)(void *) = arg_func;
 		void *const arg = arg_arg;
 		func(arg);
-		co_switch(yield);
+		async_switch(yield);
 	}
-}
-static void async_start(void) {
-	void (*const func)(void *) = arg_func;
-	void *const arg = arg_arg;
-	func(arg);
-	async_call(co_delete, co_active());
-}
-int async_thread(size_t const stack, void (*const func)(void *), void *const arg) {
-	cothread_t const thread = co_create(stack, async_start);
-	if(!thread) return -1;
-	arg_func = func;
-	arg_arg = arg;
-	async_wakeup(thread);
-	return 0;
 }
 void async_call(void (*const func)(void *), void *const arg) {
-	if(!trampoline) {
-		trampoline = co_create(STACK_DEFAULT, trampoline_fn);
-		assert(trampoline);
-	}
 	arg_func = func;
 	arg_arg = arg;
+	active = yield;
 	co_switch(trampoline);
 }
-void async_wakeup(cothread_t const thread) {
-	if(thread == yield) return; // The main thread will get woken up when we yield to it. It would never yield back to us.
-	cothread_t const original = yield;
-	yield = co_active();
-	co_switch(thread);
-	yield = original;
+
+void async_yield(void) {
+	async_switch(yield);
 }
+int async_yield_cancelable(void) {
+	async_t *const thread = async_active();
+	if(ASYNC_CANCELED & thread->flags) {
+		thread->flags &= ~ASYNC_CANCELED;
+		return UV_ECANCELED;
+	}
+	assert(!(ASYNC_CANCELABLE & thread->flags));
+	thread->flags |= ASYNC_CANCELABLE;
+	async_yield();
+	thread->flags &= ~ASYNC_CANCELABLE;
+	if(ASYNC_CANCELED & thread->flags) {
+		thread->flags &= ~ASYNC_CANCELED;
+		return UV_ECANCELED;
+	}
+	return 0;
+}
+int async_canceled(void) {
+	async_t *const thread = async_active();
+	if(ASYNC_CANCELED & thread->flags) {
+		thread->flags &= ~ASYNC_CANCELED;
+		return UV_ECANCELED;
+	}
+	return 0;
+}
+void async_cancel(async_t *const thread) {
+	if(!thread) return;
+	thread->flags |= ASYNC_CANCELED;
+	if(ASYNC_CANCELABLE & thread->flags) async_wakeup(thread);
+}
+
 
 int async_random(unsigned char *const buf, size_t const len) {
 	// TODO: Come up with a thread-safe and lock-free RNG. Maybe just read from /dev/urandom ourselves on appropriate platforms.
@@ -67,7 +126,7 @@ int async_random(unsigned char *const buf, size_t const len) {
 }
 
 typedef struct {
-	cothread_t thread;
+	async_t *thread;
 	int status;
 	struct addrinfo *res;
 } getaddrinfo_state;
@@ -75,31 +134,31 @@ static void getaddrinfo_cb(uv_getaddrinfo_t *const req, int const status, struct
 	getaddrinfo_state *const state = req->data;
 	state->status = status;
 	state->res = res;
-	co_switch(state->thread);
+	async_switch(state->thread);
 }
 int async_getaddrinfo(char const *const node, char const *const service, struct addrinfo const *const hints, struct addrinfo **const res) {
-	getaddrinfo_state state;
-	uv_getaddrinfo_t req;
-	req.data = &state;
+	getaddrinfo_state state[1];
+	uv_getaddrinfo_t req[1];
+	req->data = state;
 	uv_getaddrinfo_cb cb = NULL;
 	if(yield) {
-		state.thread = co_active();
+		state->thread = async_active();
 		cb = getaddrinfo_cb;
 	}
-	int const err = uv_getaddrinfo(loop, &req, cb, node, service, hints);
+	int const err = uv_getaddrinfo(loop, req, cb, node, service, hints);
 	if(err < 0) return err;
 	if(cb) async_yield();
-	if(res) *res = state.res;
-	return state.status;
+	if(res) *res = state->res;
+	return state->status;
 }
 
 static void async_close_cb(uv_handle_t *const handle) {
-	co_switch(handle->data);
+	async_switch(handle->data);
 }
 int async_sleep(uint64_t const milliseconds) {
 	// TODO: Pool timers together.
 	uv_timer_t timer[1];
-	timer->data = co_active();
+	timer->data = async_active();
 	int err;
 	err = uv_timer_init(loop, timer);
 	if(err < 0) return err;
@@ -113,7 +172,7 @@ int async_sleep(uint64_t const milliseconds) {
 	return 0;
 }
 void async_close(uv_handle_t *const handle) {
-	handle->data = co_active();
+	handle->data = async_active();
 	uv_close(handle, async_close_cb);
 	async_yield();
 }

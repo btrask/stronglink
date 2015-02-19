@@ -12,7 +12,7 @@ enum {
 
 typedef struct thread_list thread_list;
 struct thread_list {
-	cothread_t thread;
+	async_t *thread;
 	thread_list *next;
 };
 
@@ -25,7 +25,7 @@ struct async_rwlock_s {
 	thread_list *wrhead;
 	thread_list *wrtail;
 
-	cothread_t upgrade;
+	async_t *upgrade;
 };
 
 static void wake_next(async_rwlock_t *const lock);
@@ -48,10 +48,10 @@ void async_rwlock_free(async_rwlock_t *const lock) {
 void async_rwlock_rdlock(async_rwlock_t *const lock) {
 	assert(lock);
 	assert(yield);
-	assert(co_active() != yield);
+	assert(async_active() != yield);
 	if(async_rwlock_tryrdlock(lock) >= 0) return;
 	thread_list us = {
-		.thread = co_active(),
+		.thread = async_active(),
 		.next = NULL,
 	};
 	if(!lock->rdhead) lock->rdhead = &us;
@@ -81,10 +81,10 @@ void async_rwlock_rdunlock(async_rwlock_t *const lock) {
 void async_rwlock_wrlock(async_rwlock_t *const lock) {
 	assert(lock);
 	assert(yield);
-	assert(co_active() != yield);
+	assert(async_active() != yield);
 	if(async_rwlock_trywrlock(lock) >= 0) return;
 	thread_list us = {
-		.thread = co_active(),
+		.thread = async_active(),
 		.next = NULL,
 	};
 	if(!lock->wrhead) lock->wrhead = &us;
@@ -117,7 +117,7 @@ int async_rwlock_upgrade(async_rwlock_t *const lock) {
 	if(lock->upgrade) return -1;
 	--lock->state;
 	if(lock->state > 0) {
-		lock->upgrade = co_active();
+		lock->upgrade = async_active();
 		async_yield();
 		assert(!lock->upgrade && "Upgrade not cleared");
 		assert(s_write == lock->state && "Wrong upgrade woken");
@@ -138,7 +138,7 @@ static void wake_next(async_rwlock_t *const lock) {
 	if(lock->upgrade) {
 		if(lock->state > 0) return;
 		lock->state = s_write;
-		cothread_t const next = lock->upgrade;
+		async_t *const next = lock->upgrade;
 		lock->upgrade = NULL;
 		async_wakeup(next);
 	} else if(lock->wrhead) {

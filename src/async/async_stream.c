@@ -18,11 +18,11 @@ static void read_cb(uv_stream_t *const stream, ssize_t const nread, uv_buf_t con
 		req->buf->len = nread;
 		req->status = 0;
 	}
-	co_switch(req->thread);
+	async_switch(req->thread);
 }
 int async_read(async_read_t *const req, uv_stream_t *const stream) {
 	assert(req);
-	req->thread = co_active();
+	req->thread = async_active();
 	*req->buf = uv_buf_init(NULL, 0);
 	req->status = 0;
 	stream->data = req;
@@ -54,7 +54,7 @@ void async_read_cancel(async_read_t *const req) {
 	free(req->buf->base);
 	*req->buf = uv_buf_init(NULL, 0);
 	req->status = UV_ECANCELED;
-	cothread_t const thread = req->thread;
+	async_t *const thread = req->thread;
 	req->thread = NULL;
 	if(thread) async_wakeup(thread);
 }
@@ -62,11 +62,11 @@ void async_read_cancel(async_read_t *const req) {
 static void write_cb(uv_write_t *const req, int const status) {
 	async_state *const state = req->data;
 	state->status = status;
-	co_switch(state->thread);
+	async_switch(state->thread);
 }
 int async_write(uv_stream_t *const stream, uv_buf_t const bufs[], unsigned const nbufs) {
 	async_state state[1];
-	state->thread = co_active();
+	state->thread = async_active();
 	uv_write_t req[1];
 	req->data = &state;
 	int rc = uv_write(req, stream, bufs, nbufs, write_cb);

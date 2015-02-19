@@ -83,7 +83,7 @@ int HTTPConnectionCreateOutgoing(strarg_t const domain, HTTPConnectionRef *const
 		return rc;
 	}
 	async_state state[1];
-	state->thread = co_active();
+	state->thread = async_active();
 	uv_connect_t req[1];
 	req->data = state;
 	rc = uv_tcp_connect(req, conn->stream, info->ai_addr, async_connect_cb);

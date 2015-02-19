@@ -84,10 +84,10 @@ int main(int const argc, char const *const *const argv) {
 	}
 
 	// Even our init code wants to use async I/O.
-	async_thread(STACK_DEFAULT, init, NULL);
+	async_spawn(STACK_DEFAULT, init, NULL);
 	uv_run(loop, UV_RUN_DEFAULT);
 
-	async_thread(STACK_DEFAULT, term, NULL);
+	async_spawn(STACK_DEFAULT, term, NULL);
 	uv_run(loop, UV_RUN_DEFAULT); // Allows term() to execute.
 
 	FREE(&path);

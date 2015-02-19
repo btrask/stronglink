@@ -4,7 +4,7 @@
 
 struct async_mutex_s {
 	async_sem_t *sem;
-	cothread_t active;
+	async_t *active;
 	int depth;
 };
 
@@ -29,7 +29,7 @@ void async_mutex_free(async_mutex_t *const mutex) {
 }
 void async_mutex_lock(async_mutex_t *const mutex) {
 	assert(mutex);
-	cothread_t const thread = co_active();
+	async_t *const thread = async_active();
 	if(thread != mutex->active) {
 		async_sem_wait(mutex->sem);
 		mutex->active = thread;
@@ -40,10 +40,10 @@ void async_mutex_lock(async_mutex_t *const mutex) {
 }
 int async_mutex_trylock(async_mutex_t *const mutex) {
 	assert(mutex);
-	cothread_t const thread = co_active();
+	async_t *const thread = async_active();
 	if(thread != mutex->active) {
 		if(async_sem_trywait(mutex->sem) < 0) return -1;
-		mutex->active = co_active();
+		mutex->active = async_active();
 		mutex->depth = 1;
 	} else {
 		++mutex->depth;
@@ -52,7 +52,7 @@ int async_mutex_trylock(async_mutex_t *const mutex) {
 }
 void async_mutex_unlock(async_mutex_t *const mutex) {
 	assert(mutex);
-	cothread_t const thread = co_active();
+	async_t *const thread = async_active();
 	assert(thread == mutex->active && "Leaving someone else's mutex");
 	assert(mutex->depth > 0 && "Mutex recursion depth going negative");
 	if(--mutex->depth) return;
@@ -61,6 +61,6 @@ void async_mutex_unlock(async_mutex_t *const mutex) {
 }
 int async_mutex_check(async_mutex_t *const mutex) {
 	assert(mutex);
-	return co_active() == mutex->active;
+	return async_active() == mutex->active;
 }
 

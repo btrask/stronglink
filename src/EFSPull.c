@@ -195,10 +195,10 @@ err_t EFSPullStart(EFSPullRef const pull) {
 	}
 	for(index_t i = 0; i < READER_COUNT; ++i) {
 		pull->tasks++;
-		async_thread(STACK_DEFAULT, (void (*)())reader, pull);
+		async_spawn(STACK_DEFAULT, (void (*)())reader, pull);
 	}
 	pull->tasks++;
-	async_thread(STACK_DEFAULT, (void (*)())writer, pull);
+	async_spawn(STACK_DEFAULT, (void (*)())writer, pull);
 	// TODO: It'd be even better to have one writer shared between all pulls...
 
 	return 0;

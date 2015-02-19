@@ -89,6 +89,6 @@ static void connection(uv_stream_t *const socket) {
 	HTTPConnectionFree(&conn);
 }
 static void connection_cb(uv_stream_t *const socket, int const status) {
-	async_thread(STACK_DEFAULT, (void (*)())connection, socket);
+	async_spawn(STACK_DEFAULT, (void (*)())connection, socket);
 }
 
