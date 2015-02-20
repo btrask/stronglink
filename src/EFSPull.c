@@ -18,7 +18,6 @@ struct EFSPull {
 
 	async_mutex_t connlock[1];
 	HTTPConnectionRef conn;
-	async_read_t read[1];
 
 	async_mutex_t mutex[1];
 	async_cond_t cond[1];
@@ -74,7 +73,7 @@ static void reader(EFSPullRef const pull) {
 
 		async_mutex_lock(pull->connlock);
 
-		rc = HTTPConnectionReadBodyLine(pull->conn, URI, sizeof(URI), NULL);
+		rc = HTTPConnectionReadBodyLine(pull->conn, URI, sizeof(URI));
 		if(rc < 0) {
 			for(;;) {
 				if(reconnect(pull) >= 0) break;
@@ -249,7 +248,7 @@ static int reconnect(EFSPullRef const pull) {
 		fprintf(stderr, "Pull couldn't connect to %s (%s)\n", pull->host, uv_strerror(rc));
 		return rc;
 	}
-	int const status = HTTPConnectionReadResponseStatus(pull->conn, pull->read);
+	int const status = HTTPConnectionReadResponseStatus(pull->conn);
 	if(status < 0) {
 		fprintf(stderr, "Pull connection error %s\n", uv_strerror(status));
 		return status;
@@ -278,14 +277,14 @@ static int auth(EFSPullRef const pull) {
 	// TODO: Send credentials.
 	HTTPConnectionEnd(conn);
 
-	int const status = HTTPConnectionReadResponseStatus(conn, NULL);
+	int const status = HTTPConnectionReadResponseStatus(conn);
 	if(status < 0) return status;
 
 	static str_t const fields[][FIELD_MAX] = {
 		"set-cookie",
 	};
 	str_t headers[numberof(fields)][VALUE_MAX];
-	rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields), NULL);
+	rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields));
 	if(rc < 0) return rc;
 
 	fprintf(stderr, "Session cookie %s\n", headers[0]);
@@ -339,7 +338,7 @@ static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, 
 		fprintf(stderr, "Pull import request error %s\n", uv_strerror(rc));
 		goto fail;
 	}
-	int const status = HTTPConnectionReadResponseStatus(*conn, NULL);
+	int const status = HTTPConnectionReadResponseStatus(*conn);
 	if(status < 0) {
 		fprintf(stderr, "Pull import response error %s\n", uv_strerror(status));
 		goto fail;
@@ -354,7 +353,7 @@ static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, 
 		"content-length",
 	};
 	str_t headers[numberof(fields)][VALUE_MAX];
-	rc = HTTPConnectionReadHeaders(*conn, headers, fields, numberof(fields), NULL);
+	rc = HTTPConnectionReadHeaders(*conn, headers, fields, numberof(fields));
 	if(rc < 0) {
 		fprintf(stderr, "Pull import response error %s\n", uv_strerror(rc));
 		goto fail;
@@ -368,7 +367,7 @@ static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, 
 	for(;;) {
 		if(pull->stop) goto fail;
 		uv_buf_t buf[1];
-		rc = HTTPConnectionReadBody(*conn, buf, NULL);
+		rc = HTTPConnectionReadBody(*conn, buf);
 		if(rc < 0) {
 			fprintf(stderr, "Pull download error %s\n", uv_strerror(rc));
 			goto fail;

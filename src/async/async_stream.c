@@ -5,63 +5,46 @@
 typedef struct {
 	async_t *thread;
 	int status;
+	uv_buf_t buf[1];
 } async_state;
 
 static void alloc_cb(uv_handle_t *const handle, size_t const suggested_size, uv_buf_t *const buf) {
-	buf->len = 1024 * 8; // suggested_size is hardcoded at 64k, shich seems large
+	buf->len = 1024 * 8; // suggested_size is hardcoded at 64k, which seems large
 	buf->base = malloc(buf->len);
 }
 static void read_cb(uv_stream_t *const stream, ssize_t const nread, uv_buf_t const *const buf) {
-	async_read_t *const req = stream->data;
+	async_state *const state = stream->data;
 	if(nread < 0) {
 		free(buf->base);
-		req->buf->base = NULL;
-		req->buf->len = 0;
-		req->status = nread;
+		state->buf->base = NULL;
+		state->buf->len = 0;
+		state->status = nread;
 	} else {
-		req->buf->base = buf->base;
-		req->buf->len = nread;
-		req->status = 0;
+		state->buf->base = buf->base;
+		state->buf->len = nread;
+		state->status = 0;
 	}
-	async_switch(req->thread);
+	async_switch(state->thread);
 }
-int async_read(async_read_t *const req, uv_stream_t *const stream) {
-	assert(req);
-	req->thread = async_active();
-	*req->buf = uv_buf_init(NULL, 0);
-	req->status = 0;
-	stream->data = req;
+int async_read(uv_stream_t *const stream, uv_buf_t *const out) {
+	if(!stream) return UV_EINVAL;
+	if(!out) return UV_EINVAL;
+	async_state state[1];
+	state->thread = async_active();
+	state->status = 0;
+	*state->buf = uv_buf_init(NULL, 0);
+	stream->data = state;
 	int rc = uv_read_start(stream, alloc_cb, read_cb);
+	if(rc < 0) return rc;
+	rc = async_yield_cancelable();
+	uv_read_stop(stream);
 	if(rc < 0) {
-		async_read_cleanup(req);
-		req->status = rc;
+		free(state->buf->base);
 		return rc;
 	}
-	async_yield();
-	req->thread = NULL;
-	rc = uv_read_stop(stream);
-	if(rc < 0) {
-		async_read_cleanup(req);
-		req->status = rc;
-		return rc;
-	}
-	return req->status;
-}
-void async_read_cleanup(async_read_t *const req) {
-	assert(req);
-	free(req->buf->base);
-	req->thread = NULL;
-	*req->buf = uv_buf_init(NULL, 0);
-	req->status = 0;
-}
-void async_read_cancel(async_read_t *const req) {
-	assert(req);
-	free(req->buf->base);
-	*req->buf = uv_buf_init(NULL, 0);
-	req->status = UV_ECANCELED;
-	async_t *const thread = req->thread;
-	req->thread = NULL;
-	if(thread) async_wakeup(thread);
+	out->base = state->buf->base;
+	out->len = state->buf->len;
+	return state->status;
 }
 
 static void write_cb(uv_write_t *const req, int const status) {

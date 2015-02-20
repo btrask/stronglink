@@ -53,14 +53,7 @@ int async_sleep(uint64_t const milliseconds);
 void async_close(uv_handle_t *const handle);
 
 // async_stream.c
-typedef struct {
-	async_t *thread;
-	uv_buf_t buf[1];
-	int status;
-} async_read_t;
-int async_read(async_read_t *const req, uv_stream_t *const stream);
-void async_read_cleanup(async_read_t *const req);
-void async_read_cancel(async_read_t *const req);
+int async_read(uv_stream_t *const stream, uv_buf_t *const out);
 
 int async_write(uv_stream_t *const stream, uv_buf_t const bufs[], unsigned const nbufs);
 int async_tcp_connect(uv_tcp_t *const stream, struct sockaddr const *const addr);

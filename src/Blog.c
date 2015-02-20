@@ -401,7 +401,7 @@ static bool getResultsPage(BlogRef const blog, HTTPConnectionRef const conn, HTT
 		"content-type",
 	};
 	str_t headers[numberof(fields)][VALUE_MAX];
-	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields), NULL);
+	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields));
 	if(rc < 0) {
 		HTTPConnectionSendStatus(conn, 400);
 		return true;
@@ -489,7 +489,7 @@ static bool getCompose(BlogRef const blog, HTTPConnectionRef const conn, HTTPMet
 		"content-type",
 	};
 	str_t headers[numberof(fields)][VALUE_MAX];
-	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields), NULL);
+	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields));
 	if(rc < 0) {
 		HTTPConnectionSendStatus(conn, 400);
 		return true;
@@ -520,7 +520,7 @@ static bool postSubmission(BlogRef const blog, HTTPConnectionRef const conn, HTT
 		"content-type",
 	};
 	str_t headers[numberof(fields)][VALUE_MAX];
-	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields), NULL);
+	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields));
 	if(rc < 0) {
 		HTTPConnectionSendStatus(conn, 400);
 		return true;

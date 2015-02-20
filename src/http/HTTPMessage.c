@@ -111,7 +111,7 @@ void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
 	assert_zeroed(conn, 1);
 	FREE(connptr); conn = NULL;
 }
-int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_buf_t *const buf, async_read_t *const inreq) {
+int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_buf_t *const buf) {
 	if(!conn) return UV_EINVAL;
 	if(!type) return UV_EINVAL;
 	if(!buf) return UV_EINVAL;
@@ -135,14 +135,9 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 			*conn->raw = uv_buf_init(NULL, 0);
 			*conn->out = uv_buf_init(NULL, 0);
 
-			async_read_t alt[1];
-			async_read_t *const req = inreq ? inreq : alt;
-			rc = async_read(req, (uv_stream_t *)conn->stream);
+			rc = async_read((uv_stream_t *)conn->stream, conn->raw);
 			if(rc < 0) return rc;
-			conn->buf = req->buf->base;
-			*conn->raw = *req->buf;
-			req->buf->base = NULL;
-			async_read_cleanup(req);
+			conn->buf = conn->raw->base;
 		}
 		http_parser_pause(conn->parser, 0);
 		len = http_parser_execute(conn->parser, &settings, conn->raw->base, conn->raw->len);
@@ -173,7 +168,7 @@ void HTTPConnectionPop(HTTPConnectionRef const conn, size_t const len) {
 }
 
 
-int HTTPConnectionReadRequestURI(HTTPConnectionRef const conn, str_t *const out, size_t const max, HTTPMethod *const method, async_read_t *const req) {
+int HTTPConnectionReadRequestURI(HTTPConnectionRef const conn, str_t *const out, size_t const max, HTTPMethod *const method) {
 	if(!conn) return UV_EINVAL;
 	if(!max) return UV_EINVAL;
 	uv_buf_t buf[1];
@@ -181,7 +176,7 @@ int HTTPConnectionReadRequestURI(HTTPConnectionRef const conn, str_t *const out,
 	HTTPEvent type;
 	out[0] = '\0';
 	for(;;) {
-		rc = HTTPConnectionPeek(conn, &type, buf, req);
+		rc = HTTPConnectionPeek(conn, &type, buf);
 		if(rc < 0) return rc;
 		if(HTTPHeaderField == type || HTTPHeadersComplete == type) break;
 		HTTPConnectionPop(conn, buf->len);
@@ -192,14 +187,14 @@ int HTTPConnectionReadRequestURI(HTTPConnectionRef const conn, str_t *const out,
 	*method = conn->parser->method;
 	return 0;
 }
-int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn, async_read_t *const req) {
+int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn) {
 	if(!conn) return UV_EINVAL;
 	uv_buf_t buf[1];
 	int rc;
 	HTTPEvent type;
 	for(;;) {
 		if(conn->parser->status_code) break;
-		rc = HTTPConnectionPeek(conn, &type, buf, req);
+		rc = HTTPConnectionPeek(conn, &type, buf);
 		if(rc < 0) return rc;
 		if(HTTPHeaderField == type || HTTPHeadersComplete == type) break;
 		if(HTTPMessageBegin != type) return -1;
@@ -208,7 +203,7 @@ int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn, async_read_t 
 	return conn->parser->status_code;
 }
 
-int HTTPConnectionReadHeaders(HTTPConnectionRef const conn, str_t values[][VALUE_MAX], str_t const fields[][FIELD_MAX], size_t const nfields, async_read_t *const req) {
+int HTTPConnectionReadHeaders(HTTPConnectionRef const conn, str_t values[][VALUE_MAX], str_t const fields[][FIELD_MAX], size_t const nfields) {
 	if(!conn) return UV_EINVAL;
 	uv_buf_t buf[1];
 	int rc, n;
@@ -218,7 +213,7 @@ int HTTPConnectionReadHeaders(HTTPConnectionRef const conn, str_t values[][VALUE
 	for(;;) {
 		field[0] = '\0';
 		for(;;) {
-			rc = HTTPConnectionPeek(conn, &type, buf, req);
+			rc = HTTPConnectionPeek(conn, &type, buf);
 			if(rc < 0) return rc;
 			if(HTTPHeaderValue == type) break;
 			HTTPConnectionPop(conn, buf->len);
@@ -232,7 +227,7 @@ int HTTPConnectionReadHeaders(HTTPConnectionRef const conn, str_t values[][VALUE
 			break;
 		}
 		for(;;) {
-			rc = HTTPConnectionPeek(conn, &type, buf, req);
+			rc = HTTPConnectionPeek(conn, &type, buf);
 			if(rc < 0) return rc;
 			if(HTTPHeaderField == type) break;
 			HTTPConnectionPop(conn, buf->len);
@@ -245,16 +240,16 @@ int HTTPConnectionReadHeaders(HTTPConnectionRef const conn, str_t values[][VALUE
 done:
 	return 0;
 }
-int HTTPConnectionReadBody(HTTPConnectionRef const conn, uv_buf_t *const buf, async_read_t *const req) {
+int HTTPConnectionReadBody(HTTPConnectionRef const conn, uv_buf_t *const buf) {
 	if(!conn) return UV_EINVAL;
 	HTTPEvent type;
-	int rc = HTTPConnectionPeek(conn, &type, buf, req);
+	int rc = HTTPConnectionPeek(conn, &type, buf);
 	if(rc < 0) return rc;
 	if(HTTPBody != type && HTTPMessageEnd != type) return -1;
 	HTTPConnectionPop(conn, buf->len);
 	return 0;
 }
-int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, size_t const max, async_read_t *const req) {
+int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, size_t const max) {
 	if(!conn) return UV_EINVAL;
 	if(!max) return UV_EINVAL;
 	uv_buf_t buf[1];
@@ -263,7 +258,7 @@ int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, s
 	HTTPEvent type;
 	out[0] = '\0';
 	for(;;) {
-		rc = HTTPConnectionPeek(conn, &type, buf, req);
+		rc = HTTPConnectionPeek(conn, &type, buf);
 		if(rc < 0) return rc;
 		if(HTTPMessageEnd == type) {
 			HTTPConnectionPop(conn, buf->len);
@@ -279,7 +274,7 @@ int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, s
 		if(i < buf->len) break;
 	}
 
-	rc = HTTPConnectionPeek(conn, &type, buf, req);
+	rc = HTTPConnectionPeek(conn, &type, buf);
 	if(rc < 0) return rc;
 	if(HTTPMessageEnd == type) {
 		HTTPConnectionPop(conn, i);
@@ -288,7 +283,7 @@ int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, s
 	if(HTTPBody != type) return -1;
 	if('\r' == buf->base[0]) HTTPConnectionPop(conn, 1);
 
-	rc = HTTPConnectionPeek(conn, &type, buf, req);
+	rc = HTTPConnectionPeek(conn, &type, buf);
 	if(rc < 0) return rc;
 	if(HTTPMessageEnd == type) {
 		HTTPConnectionPop(conn, i);
@@ -299,14 +294,14 @@ int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, s
 
 	return 0;
 }
-int HTTPConnectionDrainMessage(HTTPConnectionRef const conn, async_read_t *const req) {
+int HTTPConnectionDrainMessage(HTTPConnectionRef const conn) {
 	if(!conn) return 0;
 	if(!(HTTPMessageIncomplete & conn->flags)) return 0;
 	uv_buf_t buf[1];
 	int rc;
 	HTTPEvent type;
 	for(;;) {
-		rc = HTTPConnectionPeek(conn, &type, buf, req);
+		rc = HTTPConnectionPeek(conn, &type, buf);
 		if(rc < 0) return rc;
 		assert(HTTPMessageBegin != type);
 		HTTPConnectionPop(conn, buf->len);

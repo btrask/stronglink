@@ -25,16 +25,16 @@ typedef struct HTTPConnection* HTTPConnectionRef;
 int HTTPConnectionCreateIncoming(uv_stream_t *const socket, HTTPConnectionRef *const out);
 int HTTPConnectionCreateOutgoing(strarg_t const domain, HTTPConnectionRef *const out);
 void HTTPConnectionFree(HTTPConnectionRef *const connptr);
-int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_buf_t *const buf, async_read_t *const inreq);
+int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_buf_t *const buf);
 void HTTPConnectionPop(HTTPConnectionRef const conn, size_t const len);
 
 // Reading
-int HTTPConnectionReadRequestURI(HTTPConnectionRef const conn, str_t *const out, size_t const max, HTTPMethod *const method, async_read_t *const req);
-int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn, async_read_t *const req);
-int HTTPConnectionReadHeaders(HTTPConnectionRef const conn, str_t values[][VALUE_MAX], str_t const fields[][FIELD_MAX], size_t const nfields, async_read_t *const req);
-int HTTPConnectionReadBody(HTTPConnectionRef const conn, uv_buf_t *const buf, async_read_t *const req);
-int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, size_t const max, async_read_t *const req);
-int HTTPConnectionDrainMessage(HTTPConnectionRef const conn, async_read_t *const req);
+int HTTPConnectionReadRequestURI(HTTPConnectionRef const conn, str_t *const out, size_t const max, HTTPMethod *const method);
+int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn);
+int HTTPConnectionReadHeaders(HTTPConnectionRef const conn, str_t values[][VALUE_MAX], str_t const fields[][FIELD_MAX], size_t const nfields);
+int HTTPConnectionReadBody(HTTPConnectionRef const conn, uv_buf_t *const buf);
+int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, size_t const max);
+int HTTPConnectionDrainMessage(HTTPConnectionRef const conn);
 
 
 // Writing

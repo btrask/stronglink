@@ -23,7 +23,7 @@ static int sig = 0;
 static void listener(void *ctx, HTTPConnectionRef const conn) {
 	HTTPMethod method;
 	str_t URI[URI_MAX];
-	int rc = HTTPConnectionReadRequestURI(conn, URI, URI_MAX, &method, NULL);
+	int rc = HTTPConnectionReadRequestURI(conn, URI, URI_MAX, &method);
 	if(rc < 0) return;
 	if(EFSServerDispatch(repo, conn, method, URI)) return;
 	if(BlogDispatch(blog, conn, method, URI)) return;

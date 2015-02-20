@@ -65,7 +65,7 @@ static bool getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMet
 		"content-type",
 	};
 	str_t headers[numberof(fields)][VALUE_MAX];
-	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields), NULL);
+	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields));
 	if(rc < 0) {
 		HTTPConnectionSendStatus(conn, 400);
 		return true;
@@ -105,7 +105,7 @@ static bool postFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMe
 		"content-type",
 	};
 	str_t headers[numberof(fields)][VALUE_MAX];
-	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields), NULL);
+	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields));
 	if(rc < 0) {
 		HTTPConnectionSendStatus(conn, 400);
 		return true;
@@ -207,7 +207,7 @@ static bool query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMetho
 		"content-type",
 	};
 	str_t headers[numberof(fields)][VALUE_MAX];
-	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields), NULL);
+	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields));
 	if(rc < 0) {
 		HTTPConnectionSendStatus(conn, 400);
 		return true;
@@ -226,7 +226,7 @@ static bool query(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMetho
 		parser = EFSJSONFilterParserCreate();
 		for(;;) {
 			uv_buf_t buf[1];
-			int rc = HTTPConnectionReadBody(conn, buf, NULL);
+			int rc = HTTPConnectionReadBody(conn, buf);
 			if(rc < 0) {
 				HTTPConnectionSendStatus(conn, 400);
 				EFSSessionFree(&session);
