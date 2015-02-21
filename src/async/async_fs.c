@@ -20,11 +20,13 @@ static void fs_cb(uv_fs_t *const req) {
 	} \
 	int rc = uv_fs_##name(loop, req, ##args, cb); \
 	if(rc < 0) return rc; \
-	rc = async_yield_cancelable(); \
-	if(UV_ECANCELED == rc) { \
-		uv_cancel((uv_req_t *)req); \
-		uv_fs_req_cleanup(req); \
-		return rc; \
+	if(yield) { \
+		rc = async_yield_cancelable(); \
+		if(UV_ECANCELED == rc) { \
+			uv_cancel((uv_req_t *)req); \
+			uv_fs_req_cleanup(req); \
+			return rc; \
+		} \
 	} \
 	uv_fs_req_cleanup(req); \
 	if(rc < 0) return rc; \
