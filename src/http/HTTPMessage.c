@@ -6,6 +6,7 @@
 
 enum {
 	HTTPMessageIncomplete = 1 << 0,
+	HTTPStreamEOF = 1 << 1,
 };
 
 static http_parser_settings const settings;
@@ -108,6 +109,8 @@ void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
 	conn->type = HTTPNothing;
 	*conn->out = uv_buf_init(NULL, 0);
 
+	conn->flags = 0;
+
 	assert_zeroed(conn, 1);
 	FREE(connptr); conn = NULL;
 }
@@ -117,6 +120,8 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 	if(!buf) return UV_EINVAL;
 	size_t len;
 	int rc;
+
+	if(HTTPStreamEOF & conn->flags) return UV_EOF;
 
 	// Repeat previous errors.
 	rc = HTTP_PARSER_ERRNO(conn->parser);
@@ -136,6 +141,7 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 			*conn->out = uv_buf_init(NULL, 0);
 
 			rc = async_read((uv_stream_t *)conn->stream, conn->raw);
+			if(UV_EOF == rc) conn->flags |= HTTPStreamEOF;
 			if(rc < 0) return rc;
 			conn->buf = conn->raw->base;
 		}
@@ -296,6 +302,7 @@ int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, s
 }
 int HTTPConnectionDrainMessage(HTTPConnectionRef const conn) {
 	if(!conn) return 0;
+	if(HTTPStreamEOF & conn->flags) return UV_EOF;
 	if(!(HTTPMessageIncomplete & conn->flags)) return 0;
 	uv_buf_t buf[1];
 	int rc;

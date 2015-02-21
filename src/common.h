@@ -51,8 +51,8 @@ typedef size_t count_t;
 #define assert_zeroed(buf, count) ({ \
 	for(index_t i = 0; i < sizeof(*buf) * count; ++i) { \
 		if(0 == ((byte_t const *)(buf))[i]) continue; \
-		fprintf(stderr, "Buffer at %p not zeroed (%ld)\n", \
-			(buf), i); \
+		fprintf(stderr, "%s:%d Buffer at %p not zeroed (%ld)\n", \
+			__FILE__, __LINE__, (buf), i); \
 		abort(); \
 	} \
 })
