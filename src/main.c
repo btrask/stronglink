@@ -2,6 +2,7 @@
 #include <signal.h>
 #include "async/async.h"
 #include "fts.h"
+#include "hash.h"
 #include "EarthFS.h"
 #include "http/HTTPServer.h"
 
@@ -39,6 +40,8 @@ static void stop(uv_signal_t *const signal, int const signum) {
 }
 
 static void init(void *const unused) {
+	async_random((byte_t *)hash_salt, HASH_SALT_SIZE);
+
 	repo = EFSRepoCreate(path);
 	blog = BlogCreate(repo);
 	server = HTTPServerCreate((HTTPListener)listener, blog);

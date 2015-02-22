@@ -39,6 +39,7 @@ HEADERS := \
 	$(SRC_DIR)/bcrypt.h \
 	$(SRC_DIR)/EarthFS.h \
 	$(SRC_DIR)/fts.h \
+	$(SRC_DIR)/hash.h \
 	$(SRC_DIR)/http/status.h \
 	$(SRC_DIR)/http/Headers.h \
 	$(SRC_DIR)/http/HTTPMessage.h \
@@ -74,6 +75,7 @@ OBJECTS := \
 	$(BUILD_DIR)/EFSPull.o \
 	$(BUILD_DIR)/EFSServer.o \
 	$(BUILD_DIR)/fts.o \
+	$(BUILD_DIR)/hash.o \
 	$(BUILD_DIR)/async/async.o \
 	$(BUILD_DIR)/async/async_cond.o \
 	$(BUILD_DIR)/async/async_fs.o \
