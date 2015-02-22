@@ -19,12 +19,14 @@ bool checkpass(strarg_t const pass, strarg_t const hash) {
 	return success;
 }
 str_t *hashpass(strarg_t const pass) {
-	async_pool_enter(NULL);
+	// TODO: async_random isn't currently parallel or thread-safe
+//	async_pool_enter(NULL);
 	char input[GENSALT_INPUT_SIZE];
 	if(async_random((byte_t *)input, GENSALT_INPUT_SIZE) < 0) {
 		async_pool_leave(NULL);
 		return NULL;
 	}
+	async_pool_enter(NULL); // TODO (above)
 	char *salt = crypt_gensalt_ra("$2a$", 8, input, GENSALT_INPUT_SIZE); // TODO: Use `$2y$` now? bcrypt library needs updating.
 	if(!salt) {
 		async_pool_leave(NULL);
