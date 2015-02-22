@@ -23,6 +23,8 @@ void async_sem_destroy(async_sem_t *const sem) {
 	if(!sem) return;
 	assert(!sem->head);
 	assert(!sem->tail);
+	sem->value = 0;
+	sem->flags = 0;
 }
 
 void async_sem_post(async_sem_t *const sem) {
