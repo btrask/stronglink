@@ -120,7 +120,7 @@ static bool valid(uint64_t const x) {
 static uint64_t invalid(int const dir) {
 	if(dir < 0) return 0;
 	if(dir > 0) return UINT64_MAX;
-	assert(9 && "Invalid dir");
+	assert(0 && "Invalid dir");
 	return 0;
 }
 
