@@ -48,7 +48,6 @@ int async_spawn(size_t const stack, void (*const func)(void *), void *const arg)
 	arg_arg = arg;
 
 	// Similar to async_wakeup but the new thread is not created yet
-	assert(fiber != yield->fiber);
 	async_t *const original = yield;
 	yield = async_active();
 	co_switch(fiber);
