@@ -14,7 +14,6 @@ static thread_local cothread_t trampoline = NULL;
 static thread_local void (*arg_func)(void *) = NULL;
 static thread_local void *arg_arg = NULL;
 
-static void async_wakeup0(cothread_t const fiber);
 static void trampoline_fn(void);
 
 int async_init(void) {
@@ -47,25 +46,26 @@ int async_spawn(size_t const stack, void (*const func)(void *), void *const arg)
 	if(!fiber) return UV_ENOMEM;
 	arg_func = func;
 	arg_arg = arg;
-	async_wakeup0(fiber);
+
+	// Similar to async_wakeup but the new thread is not created yet
+	assert(fiber != yield->fiber);
+	async_t *const original = yield;
+	yield = async_active();
+	co_switch(fiber);
+	yield = original;
+
 	return 0;
 }
 void async_switch(async_t *const thread) {
 	active = thread;
 	co_switch(thread->fiber);
 }
-static void async_wakeup0(cothread_t const fiber) {
-	// Either `active` has already been seet (async_wakeup)
-	// or will be set shortly (async_spawn)
-	assert(fiber != yield->fiber);
+void async_wakeup(async_t *const thread) {
+	assert(thread != yield);
 	async_t *const original = yield;
 	yield = async_active();
-	co_switch(fiber);
+	async_switch(thread);
 	yield = original;
-}
-void async_wakeup(async_t *const thread) {
-	active = thread;
-	async_wakeup0(active->fiber);
 }
 static void trampoline_fn(void) {
 	for(;;) {
