@@ -88,11 +88,10 @@ size_t hash_del_keyonly(hash_t *const hash, size_t const x) {
 	for(;;) {
 		size_t const next = (i + 1) % hash->count;
 		if(x == next) break;
-		char const *const k = HASH_KEY(hash, next);
-		if(0 == nulcmp(k, hash->keylen)) break;
-		size_t const alt = hash_func(hash, k);
+		if(0 == hash_bucket_empty(hash, next)) break;
+		size_t const alt = hash_func(hash, HASH_KEY(hash, next));
 		if(next == alt) break;
-		memcpy(HASH_KEY(hash, i), k, hash->keylen);
+		memcpy(HASH_KEY(hash, i), HASH_KEY(hash, next), hash->keylen);
 		i = next;
 	}
 	memset(HASH_KEY(hash, i), 0, hash->keylen);
