@@ -30,7 +30,6 @@ void hash_destroy(hash_t *const hash) {
 
 size_t hash_get(hash_t *const hash, char const *const key) {
 	size_t const x = hash_func(hash, key);
-	if(HASH_NOTFOUND == x) return x;
 	size_t i = x;
 	for(;;) {
 		if(0 == hash_bucket_empty(hash, i)) break;
@@ -42,7 +41,6 @@ size_t hash_get(hash_t *const hash, char const *const key) {
 }
 size_t hash_set(hash_t *const hash, char const *const key) {
 	size_t const x = hash_func(hash, key);
-	if(HASH_NOTFOUND == x) return x;
 	size_t i = x;
 	for(;;) {
 		if(0 == hash_bucket_empty(hash, i)) break;
