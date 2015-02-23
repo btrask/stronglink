@@ -56,10 +56,11 @@ size_t hash_set(hash_t *const hash, char const *const key) {
 
 void hash_del(hash_t *const hash, char const *const key, char *const data, size_t const dlen) {
 	size_t const x = hash_get(hash, key);
+	if(HASH_NOTFOUND == x) return;
 	hash_del_offset(hash, x, data, dlen);
 }
 void hash_del_offset(hash_t *const hash, size_t const x, char *const data, size_t const dlen) {
-	if(x >= hash->count) return;
+	assert(x < hash->count);
 	size_t const moved = hash_del_keyonly(hash, x);
 	if(!data) return;
 	size_t const part2 = (x + moved) % hash->count;
