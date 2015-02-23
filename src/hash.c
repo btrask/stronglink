@@ -6,9 +6,6 @@
 #define HASH_KEY(hash, x) ((hash)->keys + ((hash)->keylen * (x)))
 
 char hash_salt[HASH_SALT_SIZE] = {};
-static size_t hashfunc(hash_t *const hash, char const *const key) {
-	return 0; // TODO
-}
 
 static int nulcmp(char const *const buf, size_t const len) {
 	for(size_t i = 0; i < len; ++i) {
@@ -32,36 +29,38 @@ void hash_destroy(hash_t *const hash) {
 }
 
 size_t hash_get(hash_t *const hash, char const *const key) {
-	size_t const x = hashfunc(hash, key);
+	size_t const x = hash_func(hash, key);
 	if(HASH_NOTFOUND == x) return x;
 	size_t i = x;
 	for(;;) {
-		char const *const k = HASH_KEY(hash, i);
-		if(0 == nulcmp(k, hash->keylen)) break;
-		if(0 == memcmp(k, key, hash->keylen)) return i;
+		if(0 == hash_bucket_empty(hash, i)) break;
+		if(0 == hash_bucket_match(hash, i, key)) return i;
 		i = (i + 1) % hash->count;
 		if(x == i) return HASH_NOTFOUND;
 	}
 	return HASH_NOTFOUND;
 }
 size_t hash_set(hash_t *const hash, char const *const key) {
-	size_t const x = hashfunc(hash, key);
+	size_t const x = hash_func(hash, key);
 	if(HASH_NOTFOUND == x) return x;
 	size_t i = x;
 	for(;;) {
-		char const *const k = HASH_KEY(hash, i);
-		if(0 == nulcmp(k, hash->keylen)) break;
-		if(0 == memcmp(k, key, hash->keylen)) return i;
+		if(0 == hash_bucket_empty(hash, i)) break;
+		if(0 == hash_bucket_match(hash, i, key)) return i;
 		i = (i + 1) % hash->count;
 		if(x == i) return HASH_NOTFOUND;
 	}
 	memcpy(HASH_KEY(hash, i), key, hash->keylen);
 	return i;
 }
+
 void hash_del(hash_t *const hash, char const *const key, char *const data, size_t const dlen) {
 	size_t const x = hash_get(hash, key);
-	if(HASH_NOTFOUND == x) return;
-	size_t const moved = hash_del_internal(hash, x);
+	hash_del_offset(hash, x, data, dlen);
+}
+void hash_del_offset(hash_t *const hash, size_t const x, char *const data, size_t const dlen) {
+	if(x >= hash->count) return;
+	size_t const moved = hash_del_keyonly(hash, x);
 	if(!data) return;
 	size_t const part2 = (x + moved) % hash->count;
 	size_t const part1 = x + moved - part2;
@@ -71,15 +70,27 @@ void hash_del(hash_t *const hash, char const *const key, char *const data, size_
 		memmove(data + 0, data + (dlen * 1), (part2-1) * dlen);
 	}
 }
-size_t hash_del_internal(hash_t *const hash, size_t const x) {
-	if(x >= hash->count) return 0;
+
+size_t hash_func(hash_t *const hash, char const *const key) {
+	return 0; // TODO
+}
+int hash_bucket_empty(hash_t *const hash, size_t const x) {
+	assert(x < hash->count);
+	return nulcmp(HASH_KEY(hash, x), hash->keylen);
+}
+int hash_bucket_match(hash_t *const hash, size_t const x, char const *const key) {
+	assert(x < hash->count);
+	return memcmp(HASH_KEY(hash, x), key, hash->keylen);
+}
+size_t hash_del_keyonly(hash_t *const hash, size_t const x) {
+	assert(x < hash->count);
 	size_t i = x;
 	for(;;) {
 		size_t const next = (i + 1) % hash->count;
 		if(x == next) break;
 		char const *const k = HASH_KEY(hash, next);
 		if(0 == nulcmp(k, hash->keylen)) break;
-		size_t const alt = hashfunc(hash, k);
+		size_t const alt = hash_func(hash, k);
 		if(next == alt) break;
 		memcpy(HASH_KEY(hash, i), k, hash->keylen);
 		i = next;
