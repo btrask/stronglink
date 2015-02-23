@@ -54,23 +54,24 @@ size_t hash_set(hash_t *const hash, char const *const key) {
 	return i;
 }
 
-size_t hash_del(hash_t *const hash, char const *const key, char *const data, size_t const dlen) {
+size_t hash_del(hash_t *const hash, char const *const key, void *const values, size_t const len) {
 	size_t const x = hash_get(hash, key);
 	if(HASH_NOTFOUND == x) return x;
-	hash_del_offset(hash, x, data, dlen);
+	hash_del_offset(hash, x, values, len);
 	return 1;
 }
-void hash_del_offset(hash_t *const hash, size_t const x, char *const data, size_t const dlen) {
+void hash_del_offset(hash_t *const hash, size_t const x, void *const values, size_t const len) {
 	assert(x < hash->count);
 	size_t const moved = hash_del_keyonly(hash, x);
 	if(!moved) return;
-	if(!data) return;
+	if(!values) return;
+	char *const data = values;
 	size_t const part2 = (x + moved) % hash->count;
 	size_t const part1 = x + moved - part2;
-	memmove(data + (dlen * x), data + (dlen * (x+1)), part1 * dlen);
+	memmove(data + (len * x), data + (len * (x+1)), part1 * len);
 	if(!part2) return;
-	memcpy(data + (dlen * (hash->count-1)), data + 0, dlen);
-	memmove(data + 0, data + (dlen * 1), (part2-1) * dlen);
+	memcpy(data + (len * (hash->count-1)), data + 0, len);
+	memmove(data + 0, data + (len * 1), (part2-1) * len);
 }
 
 size_t hash_func(hash_t *const hash, char const *const key) {

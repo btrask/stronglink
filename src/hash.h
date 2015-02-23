@@ -19,8 +19,8 @@ size_t hash_get(hash_t *const hash, char const *const key);
 size_t hash_set(hash_t *const hash, char const *const key);
 
 /* Updates external data array for you (elements must be fixed size) */
-size_t hash_del(hash_t *const hash, char const *const key, char *const data, size_t const dlen);
-void hash_del_offset(hash_t *const hash, size_t const x, char *const data, size_t const dlen);
+size_t hash_del(hash_t *const hash, char const *const key, void *const values, size_t const len);
+void hash_del_offset(hash_t *const hash, size_t const x, void *const values, size_t const len);
 
 /* Low level functions */
 size_t hash_func(hash_t *const hash, char const *const key);
