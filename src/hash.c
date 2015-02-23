@@ -32,8 +32,8 @@ size_t hash_get(hash_t *const hash, char const *const key) {
 	size_t const x = hash_func(hash, key);
 	size_t i = x;
 	for(;;) {
-		if(0 == hash_bucket_empty(hash, i)) break;
 		if(0 == hash_bucket_match(hash, i, key)) return i;
+		if(0 == hash_bucket_empty(hash, i)) break;
 		i = (i + 1) % hash->count;
 		if(x == i) return HASH_NOTFOUND;
 	}
