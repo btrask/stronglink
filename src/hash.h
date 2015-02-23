@@ -26,5 +26,6 @@ void hash_del_offset(hash_t *const hash, size_t const x, void *const values, siz
 size_t hash_func(hash_t *const hash, char const *const key);
 int hash_bucket_empty(hash_t *const hash, size_t const x);
 int hash_bucket_match(hash_t *const hash, size_t const x, char const *const key);
+void hash_set_raw(hash_t *const hash, size_t const x, char const *const key);
 size_t hash_del_keyonly(hash_t *const hash, size_t const x);
 

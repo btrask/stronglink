@@ -50,7 +50,7 @@ size_t hash_set(hash_t *const hash, char const *const key) {
 		i = (i + 1) % hash->count;
 		if(x == i) return HASH_NOTFOUND;
 	}
-	memcpy(HASH_KEY(hash, i), key, hash->keylen);
+	hash_set_raw(hash, i, key);
 	return i;
 }
 
@@ -83,7 +83,13 @@ int hash_bucket_empty(hash_t *const hash, size_t const x) {
 }
 int hash_bucket_match(hash_t *const hash, size_t const x, char const *const key) {
 	assert(x < hash->count);
+	assert(key);
 	return memcmp(HASH_KEY(hash, x), key, hash->keylen);
+}
+void hash_set_raw(hash_t *const hash, size_t const x, char const *const key) {
+	assert(x < hash->count);
+	assert(key);
+	memcpy(HASH_KEY(hash, x), key, hash->keylen);
 }
 size_t hash_del_keyonly(hash_t *const hash, size_t const x) {
 	assert(x < hash->count);
