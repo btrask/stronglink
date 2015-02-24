@@ -62,7 +62,8 @@ void EFSSubmissionFree(EFSSubmissionRef *const subptr) {
 
 	if(sub->tmppath) async_fs_unlink(sub->tmppath);
 	FREE(&sub->tmppath);
-	assert(sub->tmpfile < 0); sub->tmpfile = 0;
+	if(sub->tmpfile >= 0) async_fs_close(sub->tmpfile);
+	sub->tmpfile = 0;
 	sub->size = 0;
 
 	EFSHasherFree(&sub->hasher);
