@@ -50,13 +50,18 @@ int HTTPServerListen(HTTPServerRef const server, strarg_t const port, uint32_t c
 		HTTPServerClose(server);
 		return rc;
 	}
-	rc = uv_tcp_bind(server->socket, info->ai_addr, 0);
-	if(rc < 0) {
-		uv_freeaddrinfo(info);
-		HTTPServerClose(server);
-		return rc;
+	int bound = 0;
+	rc = 0;
+	for(struct addrinfo *each = info; each; each = each->ai_next) {
+		rc = uv_tcp_bind(server->socket, each->ai_addr, 0);
+		if(rc >= 0) bound++;
 	}
 	uv_freeaddrinfo(info);
+	if(!bound) {
+		HTTPServerClose(server);
+		if(rc < 0) return rc;
+		return UV_EADDRNOTAVAIL;
+	}
 	rc = uv_listen((uv_stream_t *)server->socket, 511, connection_cb);
 	if(rc < 0) {
 		HTTPServerClose(server);
