@@ -7,6 +7,7 @@
 enum {
 	HTTPMessageIncomplete = 1 << 0,
 	HTTPStreamEOF = 1 << 1,
+	HTTPPeekedData = 1 << 2,
 };
 
 static http_parser_settings const settings;
@@ -110,7 +111,7 @@ void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
 	FREE(&conn->buf);
 	*conn->raw = uv_buf_init(NULL, 0);
 
-	conn->type = HTTPNothing;
+	conn->type = HTTPStart;
 	*conn->out = uv_buf_init(NULL, 0);
 
 	conn->flags = 0;
@@ -132,7 +133,7 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 	if(HPE_OK != rc && HPE_PAUSED != rc) return UV_UNKNOWN;
 
 	for(;;) {
-		if(HTTPNothing != conn->type) break;
+		if(HTTPPeekedData & conn->flags) break;
 		if(!conn->raw->len) {
 			// It might seem counterintuitive to free the buffer
 			// just before we could reuse it, but the one time we
@@ -154,6 +155,7 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 		rc = HTTP_PARSER_ERRNO(conn->parser);
 		conn->raw->base += len;
 		conn->raw->len -= len;
+		conn->flags |= HTTPPeekedData;
 		if(HPE_OK != rc && HPE_PAUSED != rc) {
 			fprintf(stderr, "HTTP parse error %s (%d)\n",
 				http_errno_name(rc),
@@ -162,6 +164,7 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 			return UV_UNKNOWN;
 		}
 	}
+	assertf(HTTPStart != conn->type, "HTTPConnectionPeek must return an event");
 	*type = conn->type;
 	*buf = *conn->out;
 	return 0;
@@ -172,8 +175,8 @@ void HTTPConnectionPop(HTTPConnectionRef const conn, size_t const len) {
 	conn->out->base += len;
 	conn->out->len -= len;
 	if(!conn->out->len) {
-		conn->type = HTTPNothing;
 		conn->out->base = NULL;
+		conn->flags &= ~HTTPPeekedData;
 	}
 }
 
@@ -181,6 +184,7 @@ void HTTPConnectionPop(HTTPConnectionRef const conn, size_t const len) {
 int HTTPConnectionReadRequestURI(HTTPConnectionRef const conn, str_t *const out, size_t const max, HTTPMethod *const method) {
 	if(!conn) return UV_EINVAL;
 	if(!max) return UV_EINVAL;
+	assert(HTTPStart == conn->type || HTTPMessageBegin == conn->type || HTTPMessageEnd == conn->type);
 	uv_buf_t buf[1];
 	int rc;
 	HTTPEvent type;
@@ -191,7 +195,10 @@ int HTTPConnectionReadRequestURI(HTTPConnectionRef const conn, str_t *const out,
 		if(HTTPHeaderField == type || HTTPHeadersComplete == type) break;
 		HTTPConnectionPop(conn, buf->len);
 		if(HTTPMessageBegin == type) continue;
-		if(HTTPURL != type) return UV_UNKNOWN;
+		if(HTTPURL != type) {
+			assertf(0, "Unexpected HTTP event %d", type);
+			return UV_UNKNOWN;
+		}
 		append(out, max, buf->base, buf->len);
 	}
 	*method = conn->parser->method;
@@ -199,15 +206,18 @@ int HTTPConnectionReadRequestURI(HTTPConnectionRef const conn, str_t *const out,
 }
 int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn) {
 	if(!conn) return UV_EINVAL;
+	assert(HTTPStart == conn->type || HTTPMessageBegin == conn->type || HTTPMessageEnd == conn->type);
 	uv_buf_t buf[1];
 	int rc;
 	HTTPEvent type;
 	for(;;) {
-		if(conn->parser->status_code) break;
 		rc = HTTPConnectionPeek(conn, &type, buf);
 		if(rc < 0) return rc;
 		if(HTTPHeaderField == type || HTTPHeadersComplete == type) break;
-		if(HTTPMessageBegin != type) return UV_UNKNOWN;
+		if(HTTPMessageBegin != type) {
+			assertf(0, "Unexpected HTTP event %d", type);
+			return UV_UNKNOWN;
+		}
 		HTTPConnectionPop(conn, buf->len);
 	}
 	return conn->parser->status_code;
@@ -215,6 +225,7 @@ int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn) {
 
 int HTTPConnectionReadHeaders(HTTPConnectionRef const conn, str_t values[][VALUE_MAX], str_t const fields[][FIELD_MAX], size_t const nfields) {
 	if(!conn) return UV_EINVAL;
+	assert(HTTPHeaderField == conn->type || HTTPHeadersComplete == conn->type);
 	uv_buf_t buf[1];
 	int rc, n;
 	HTTPEvent type;
@@ -228,7 +239,10 @@ int HTTPConnectionReadHeaders(HTTPConnectionRef const conn, str_t values[][VALUE
 			if(HTTPHeaderValue == type) break;
 			HTTPConnectionPop(conn, buf->len);
 			if(HTTPHeadersComplete == type) goto done;
-			if(HTTPHeaderField != type) return UV_UNKNOWN;
+			if(HTTPHeaderField != type) {
+				assertf(0, "Unexpected HTTP event %d", type);
+				return UV_UNKNOWN;
+			}
 			append(field, FIELD_MAX, buf->base, buf->len);
 		}
 		for(n = 0; n < nfields; ++n) {
@@ -242,7 +256,10 @@ int HTTPConnectionReadHeaders(HTTPConnectionRef const conn, str_t values[][VALUE
 			if(HTTPHeaderField == type) break;
 			HTTPConnectionPop(conn, buf->len);
 			if(HTTPHeadersComplete == type) goto done;
-			if(HTTPHeaderValue != type) return UV_UNKNOWN;
+			if(HTTPHeaderValue != type) {
+				assertf(0, "Unexpected HTTP event %d", type);
+				return UV_UNKNOWN;
+			}
 			if(n >= nfields) continue;
 			append(values[n], VALUE_MAX, buf->base, buf->len);
 		}
@@ -252,16 +269,23 @@ done:
 }
 int HTTPConnectionReadBody(HTTPConnectionRef const conn, uv_buf_t *const buf) {
 	if(!conn) return UV_EINVAL;
+	assert(HTTPBody == conn->type || HTTPMessageEnd == conn->type);
 	HTTPEvent type;
 	int rc = HTTPConnectionPeek(conn, &type, buf);
 	if(rc < 0) return rc;
-	if(HTTPBody != type && HTTPMessageEnd != type) return UV_UNKNOWN;
+	if(HTTPBody != type && HTTPMessageEnd != type) {
+		assertf(0, "Unexpected HTTP event %d", type);
+		return UV_UNKNOWN;
+	}
 	HTTPConnectionPop(conn, buf->len);
 	return 0;
 }
 int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, size_t const max) {
 	if(!conn) return UV_EINVAL;
 	if(!max) return UV_EINVAL;
+//	assert(HTTPBody == conn->type || HTTPMessageEnd == conn->type);
+	if(HTTPBody != conn->type && HTTPMessageEnd != conn->type) return UV_UNKNOWN;
+	// TODO: EFSPull reader abuses our error handling
 	uv_buf_t buf[1];
 	int rc;
 	size_t i;
@@ -274,7 +298,10 @@ int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, s
 			HTTPConnectionPop(conn, buf->len);
 			return UV_EOF;
 		}
-		if(HTTPBody != type) return UV_UNKNOWN;
+		if(HTTPBody != type) {
+			assertf(0, "Unexpected HTTP event %d", type);
+			return UV_UNKNOWN;
+		}
 		for(i = 0; i < buf->len; ++i) {
 			if('\r' == buf->base[i]) break;
 			if('\n' == buf->base[i]) break;
@@ -314,7 +341,10 @@ int HTTPConnectionDrainMessage(HTTPConnectionRef const conn) {
 	for(;;) {
 		rc = HTTPConnectionPeek(conn, &type, buf);
 		if(rc < 0) return rc;
-		assert(HTTPMessageBegin != type);
+		if(HTTPMessageBegin == type) {
+			assertf(0, "HTTPConnectionDrainMessage shouldn't start a new message");
+			return UV_UNKNOWN;
+		}
 		HTTPConnectionPop(conn, buf->len);
 		if(HTTPMessageEnd == type) break;
 	}
