@@ -129,7 +129,7 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 
 	// Repeat previous errors.
 	rc = HTTP_PARSER_ERRNO(conn->parser);
-	if(HPE_OK != rc && HPE_PAUSED != rc) return -1;
+	if(HPE_OK != rc && HPE_PAUSED != rc) return UV_UNKNOWN;
 
 	for(;;) {
 		if(HTTPNothing != conn->type) break;
@@ -159,7 +159,7 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 				http_errno_name(rc),
 				HTTP_PARSER_ERRNO_LINE(conn->parser));
 //			fprintf(stderr, "%s (%lu)\n", strndup(conn->raw->base, conn->raw->len), conn->raw->len);
-			return -1;
+			return UV_UNKNOWN;
 		}
 	}
 	*type = conn->type;
@@ -191,7 +191,7 @@ int HTTPConnectionReadRequestURI(HTTPConnectionRef const conn, str_t *const out,
 		if(HTTPHeaderField == type || HTTPHeadersComplete == type) break;
 		HTTPConnectionPop(conn, buf->len);
 		if(HTTPMessageBegin == type) continue;
-		if(HTTPURL != type) return -1;
+		if(HTTPURL != type) return UV_UNKNOWN;
 		append(out, max, buf->base, buf->len);
 	}
 	*method = conn->parser->method;
@@ -207,7 +207,7 @@ int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn) {
 		rc = HTTPConnectionPeek(conn, &type, buf);
 		if(rc < 0) return rc;
 		if(HTTPHeaderField == type || HTTPHeadersComplete == type) break;
-		if(HTTPMessageBegin != type) return -1;
+		if(HTTPMessageBegin != type) return UV_UNKNOWN;
 		HTTPConnectionPop(conn, buf->len);
 	}
 	return conn->parser->status_code;
@@ -228,7 +228,7 @@ int HTTPConnectionReadHeaders(HTTPConnectionRef const conn, str_t values[][VALUE
 			if(HTTPHeaderValue == type) break;
 			HTTPConnectionPop(conn, buf->len);
 			if(HTTPHeadersComplete == type) goto done;
-			if(HTTPHeaderField != type) return -1;
+			if(HTTPHeaderField != type) return UV_UNKNOWN;
 			append(field, FIELD_MAX, buf->base, buf->len);
 		}
 		for(n = 0; n < nfields; ++n) {
@@ -242,7 +242,7 @@ int HTTPConnectionReadHeaders(HTTPConnectionRef const conn, str_t values[][VALUE
 			if(HTTPHeaderField == type) break;
 			HTTPConnectionPop(conn, buf->len);
 			if(HTTPHeadersComplete == type) goto done;
-			if(HTTPHeaderValue != type) return -1;
+			if(HTTPHeaderValue != type) return UV_UNKNOWN;
 			if(n >= nfields) continue;
 			append(values[n], VALUE_MAX, buf->base, buf->len);
 		}
@@ -255,7 +255,7 @@ int HTTPConnectionReadBody(HTTPConnectionRef const conn, uv_buf_t *const buf) {
 	HTTPEvent type;
 	int rc = HTTPConnectionPeek(conn, &type, buf);
 	if(rc < 0) return rc;
-	if(HTTPBody != type && HTTPMessageEnd != type) return -1;
+	if(HTTPBody != type && HTTPMessageEnd != type) return UV_UNKNOWN;
 	HTTPConnectionPop(conn, buf->len);
 	return 0;
 }
@@ -274,7 +274,7 @@ int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, s
 			HTTPConnectionPop(conn, buf->len);
 			return UV_EOF;
 		}
-		if(HTTPBody != type) return -1;
+		if(HTTPBody != type) return UV_UNKNOWN;
 		for(i = 0; i < buf->len; ++i) {
 			if('\r' == buf->base[i]) break;
 			if('\n' == buf->base[i]) break;
@@ -290,7 +290,7 @@ int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, s
 		HTTPConnectionPop(conn, i);
 		return UV_EOF;
 	}
-	if(HTTPBody != type) return -1;
+	if(HTTPBody != type) return UV_UNKNOWN;
 	if('\r' == buf->base[0]) HTTPConnectionPop(conn, 1);
 
 	rc = HTTPConnectionPeek(conn, &type, buf);
@@ -299,7 +299,7 @@ int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, s
 		HTTPConnectionPop(conn, i);
 		return UV_EOF;
 	}
-	if(HTTPBody != type) return -1;
+	if(HTTPBody != type) return UV_UNKNOWN;
 	if('\n' == buf->base[0]) HTTPConnectionPop(conn, 1);
 
 	return 0;
@@ -436,7 +436,7 @@ int HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, uint64_t const 
 	if(!conn) return 0;
 	str_t str[16];
 	int const slen = snprintf(str, sizeof(str), "%llx\r\n", (unsigned long long)length);
-	if(slen < 0) return -1;
+	if(slen < 0) return UV_UNKNOWN;
 	return HTTPConnectionWrite(conn, (byte_t const *)str, slen);
 }
 int HTTPConnectionWriteChunkv(HTTPConnectionRef const conn, uv_buf_t const parts[], unsigned int const count) {

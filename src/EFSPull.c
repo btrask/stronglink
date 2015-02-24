@@ -351,7 +351,7 @@ static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, 
 		goto fail;
 	}
 	if(status < 200 || status >= 300) {
-		fprintf(stderr, "Pull import response error %d\n", status);
+		fprintf(stderr, "Pull import status error %d\n", status);
 		goto fail;
 	}
 
@@ -362,7 +362,7 @@ static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, 
 	str_t headers[numberof(fields)][VALUE_MAX];
 	rc = HTTPConnectionReadHeaders(*conn, headers, fields, numberof(fields));
 	if(rc < 0) {
-		fprintf(stderr, "Pull import response error %s\n", uv_strerror(rc));
+		fprintf(stderr, "Pull import headers error %s\n", uv_strerror(rc));
 		goto fail;
 	}
 
