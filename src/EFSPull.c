@@ -261,6 +261,13 @@ static int reconnect(EFSPullRef const pull) {
 		fprintf(stderr, "Pull connection error %d\n", status);
 		return -1;
 	}
+
+	rc = HTTPConnectionReadHeaders(pull->conn, NULL, NULL, 0);
+	if(rc < 0) {
+		fprintf(stderr, "Pull connection error %s\n", uv_strerror(rc));
+		return -1;
+	}
+
 	return 0;
 }
 
