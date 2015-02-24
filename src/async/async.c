@@ -179,8 +179,10 @@ int async_sleep(uint64_t const milliseconds) {
 	return 0;
 }
 void async_close(uv_handle_t *const handle) {
+	if(UV_UNKNOWN_HANDLE == handle->type) return;
 	handle->data = async_active();
 	uv_close(handle, async_close_cb);
 	async_yield();
+	handle->type = UV_UNKNOWN_HANDLE;
 }
 

@@ -86,10 +86,7 @@ int HTTPConnectionCreateOutgoing(strarg_t const domain, HTTPConnectionRef *const
 		rc = async_tcp_connect(conn->stream, each->ai_addr);
 		if(rc >= 0) break;
 
-		// It's apparently an error to close the stream here.
-		// I'm not sure but I think uv_connect closes it for us
-		// if it fails. 
-		//async_close((uv_handle_t *)conn->stream);
+		async_close((uv_handle_t *)conn->stream);
 	}
 	uv_freeaddrinfo(info);
 	if(rc < 0) {
