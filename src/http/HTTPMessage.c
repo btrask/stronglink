@@ -77,13 +77,20 @@ int HTTPConnectionCreateOutgoing(strarg_t const domain, HTTPConnectionRef *const
 		uv_freeaddrinfo(info);
 		return UV_ENOMEM;
 	}
-	rc = uv_tcp_init(loop, conn->stream);
-	if(rc < 0) {
-		uv_freeaddrinfo(info);
-		HTTPConnectionFree(&conn);
-		return rc;
+
+	rc = UV_EADDRNOTAVAIL;
+	for(struct addrinfo *each = info; each; each = each->ai_next) {
+		rc = uv_tcp_init(loop, conn->stream);
+		if(rc < 0) break;
+
+		rc = async_tcp_connect(conn->stream, each->ai_addr);
+		if(rc >= 0) break;
+
+		// It's apparently an error to close the stream here.
+		// I'm not sure but I think uv_connect closes it for us
+		// if it fails. 
+		//async_close((uv_handle_t *)conn->stream);
 	}
-	rc = async_tcp_connect(conn->stream, info->ai_addr);
 	uv_freeaddrinfo(info);
 	if(rc < 0) {
 		HTTPConnectionFree(&conn);
