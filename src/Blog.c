@@ -535,6 +535,7 @@ static bool postSubmission(BlogRef const blog, HTTPConnectionRef const conn, HTT
 	MultipartFormRef form = MultipartFormCreate(conn, headers[1], BlogSubmissionFields, numberof(BlogSubmissionFields));
 	FormPartRef const part = MultipartFormGetPart(form);
 	BlogSubmissionHeaders const *const fheaders = FormPartGetHeaders(part);
+	// TODO: Handle failures, e.g. submission of non-multipart data
 
 	strarg_t type;
 	if(0 == strcmp("form-data; name=\"markdown\"", fheaders->content_disposition)) {
