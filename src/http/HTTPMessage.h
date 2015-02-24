@@ -10,7 +10,7 @@
 
 typedef enum http_method HTTPMethod;
 typedef enum {
-	HTTPStart = 0,
+	HTTPNothing = 0,
 	HTTPMessageBegin,
 	HTTPURL,
 	HTTPHeaderField,

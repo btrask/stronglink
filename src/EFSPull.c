@@ -74,16 +74,15 @@ static void reader(EFSPullRef const pull) {
 		async_mutex_lock(pull->connlock);
 
 		rc = HTTPConnectionReadBodyLine(pull->conn, URI, sizeof(URI));
-		if(rc < 0) {
+		// With UV_EOF, we can still get a URI to process.
+		if(rc < 0 && (UV_EOF != rc || !URI[0])) {
 			for(;;) {
 				if(reconnect(pull) >= 0) break;
 				if(pull->stop) break;
 				async_sleep(1000 * 5);
 			}
 			async_mutex_unlock(pull->connlock);
-
-			// With UV_EOF, we can still get a URI to process.
-			if(!URI[0]) continue;
+			continue;
 		}
 
 		async_mutex_lock(pull->mutex);
