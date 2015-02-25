@@ -149,7 +149,9 @@ static void writer(EFSPullRef const pull) {
 		assert(count <= QUEUE_SIZE);
 
 		for(;;) {
-			if(EFSSubmissionBatchStore(queue, count) >= 0) break;
+			int rc = EFSSubmissionBatchStore(queue, count);
+			if(rc >= 0) break;
+			fprintf(stderr, "Submission error %s / %s (%d)\n", uv_strerror(rc), db_strerror(rc), rc);
 			async_sleep(1000 * 5);
 		}
 		for(index_t i = 0; i < count; ++i) {
@@ -384,7 +386,9 @@ static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, 
 			goto fail;
 		}
 	}
-	rc = EFSSubmissionEnd(sub);
+	rc = 0;
+	rc = rc < 0 ? rc : EFSSubmissionEnd(sub);
+	rc = rc < 0 ? rc : EFSSubmissionAddFile(sub);
 	if(rc < 0) {
 		fprintf(stderr, "Pull submission error\n");
 		goto fail;
