@@ -3,188 +3,21 @@
 #include "bcrypt.h"
 #include "EarthFS.h"
 
-#define COOKIE_CACHE_SIZE 1000
-
-struct cached_cookie {
-	uint64_t sessionID;
-	str_t *sessionKey;
-	uint64_t atime; // TODO: Prune old entries.
-};
-static struct cached_cookie cookie_cache[COOKIE_CACHE_SIZE] = {};
-
-static bool cookie_cache_lookup(uint64_t const sessionID, strarg_t const sessionKey) {
-	assert(!async_pool_get_worker());
-	if(sessionID <= 0 || !sessionKey) return false;
-	index_t const x = sessionID+sessionKey[0] % COOKIE_CACHE_SIZE;
-	if(cookie_cache[x].sessionID != sessionID) return false;
-	if(!cookie_cache[x].sessionKey) return false;
-	return 0 == passcmp(sessionKey, cookie_cache[x].sessionKey);
-}
-static void cookie_cache_store(uint64_t const sessionID, strarg_t const sessionKey) {
-	assert(!async_pool_get_worker());
-	if(sessionID <= 0 || !sessionKey) return;
-	index_t const x = sessionID+sessionKey[0] % COOKIE_CACHE_SIZE;
-	FREE(&cookie_cache[x].sessionKey);
-	cookie_cache[x].sessionID = sessionID;
-	cookie_cache[x].sessionKey = strdup(sessionKey);
-	cookie_cache[x].atime = uv_now(loop);
-}
-
 struct EFSSession {
 	EFSRepoRef repo;
 	uint64_t userID;
 };
 
-str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strarg_t const password) {
-	if(!repo) return NULL;
-	if(!username) return NULL;
-	if(!password) return NULL;
-
-	DB_env *db = NULL;
-	int rc = EFSRepoDBOpen(repo, &db);
-	if(rc < 0) return NULL;
-	DB_txn *txn = NULL;
-	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	if(DB_SUCCESS != rc) {
-		EFSRepoDBClose(repo, &db);
-		return NULL;
-	}
-
-	DB_VAL(username_key, DB_VARINT_MAX + DB_INLINE_MAX);
-	db_bind_uint64(username_key, EFSUserIDByName);
-	db_bind_string(txn, username_key, username);
-	DB_val userID_val[1];
-	rc = db_get(txn, username_key, userID_val);
-	uint64_t userID = 0;
-	DB_val user_val[1];
-	if(DB_SUCCESS == rc) {
-		userID = db_read_uint64(userID_val);
-		DB_VAL(userID_key, DB_VARINT_MAX + DB_VARINT_MAX);
-		db_bind_uint64(userID_key, EFSUserByID);
-		db_bind_uint64(userID_key, userID);
-		rc = db_get(txn, userID_key, user_val);
-	}
-	if(DB_SUCCESS != rc) {
-		db_txn_abort(txn); txn = NULL;
-		EFSRepoDBClose(repo, &db);
-		return NULL;
-	}
-	strarg_t const u = db_read_string(txn, user_val);
-	assert(0 == strcmp(username, u));
-	str_t *passhash = strdup(db_read_string(txn, user_val));
-
-	db_txn_abort(txn); txn = NULL;
-	EFSRepoDBClose(repo, &db);
-
-	if(userID <= 0 || !checkpass(password, passhash)) {
-		FREE(&passhash);
-		return NULL;
-	}
-	FREE(&passhash);
-
-	str_t *sessionKey = strdup("not-very-random"); // TODO: Generate
-	if(!sessionKey) {
-		return NULL;
-	}
-	str_t *sessionHash = hashpass(sessionKey);
-	if(!sessionHash) {
-		FREE(&sessionHash);
-		FREE(&sessionKey);
-		return NULL;
-	}
-
-	rc = EFSRepoDBOpen(repo, &db);
-	if(rc >= 0) rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
-	if(DB_SUCCESS != rc) {
-		FREE(&sessionHash);
-		FREE(&sessionKey);
-		return NULL;
-	}
-
-	uint64_t const sessionID = db_next_id(txn, EFSSessionByID);
-	DB_VAL(sessionID_key, DB_VARINT_MAX + DB_VARINT_MAX);
-	db_bind_uint64(sessionID_key, EFSSessionByID);
-	db_bind_uint64(sessionID_key, sessionID);
-	DB_VAL(session_val, DB_VARINT_MAX + DB_INLINE_MAX);
-	db_bind_uint64(session_val, userID);
-	db_bind_string(txn, session_val, sessionHash);
-	FREE(&sessionHash);
-	rc = db_put(txn, sessionID_key, session_val, DB_NOOVERWRITE_FAST);
-	if(DB_SUCCESS != rc) {
-		db_txn_abort(txn); txn = NULL;
-		EFSRepoDBClose(repo, &db);
-		FREE(&sessionKey);
-		return NULL;
-	}
-
-	rc = db_txn_commit(txn); txn = NULL;
-	EFSRepoDBClose(repo, &db);
-	if(DB_SUCCESS != rc) {
-		FREE(&sessionKey);
-		return NULL;
-	}
-
-	str_t *cookie = NULL;
-	if(asprintf(&cookie, "%llu:%s", (unsigned long long)sessionID, sessionKey) < 0) cookie = NULL;
-	FREE(&sessionKey);
-	return cookie;
-}
 EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie) {
-	if(!repo) return NULL;
-	if(!cookie) return NULL;
-
-	unsigned long long sessionID = -1;
-	str_t *sessionKey = calloc(strlen(cookie)+1, 1);
-	if(!sessionKey) return NULL;
-	sscanf(cookie, "s=%llu:%s", &sessionID, sessionKey);
-	if(!sessionID || '\0' == sessionKey[0]) {
-		FREE(&sessionKey);
-		return NULL;
+	uint64_t userID = 0;
+	int rc = EFSRepoCookieAuth(repo, cookie, &userID);
+	if(0 != rc) {
+		return NULL; // TODO
 	}
-
-	DB_env *db = NULL;
-	int rc = EFSRepoDBOpen(repo, &db);
-	if(rc < 0) {
-		FREE(&sessionKey);
-		return NULL;
-	}
-	DB_txn *txn = NULL;
-	db_txn_begin(db, NULL, DB_RDONLY, &txn);
-
-	DB_VAL(sessionID_key, DB_VARINT_MAX + DB_VARINT_MAX);
-	db_bind_uint64(sessionID_key, EFSSessionByID);
-	db_bind_uint64(sessionID_key, sessionID);
-	DB_val session_val[1];
-	rc = db_get(txn, sessionID_key, session_val);
-	if(DB_SUCCESS != rc) {
-		FREE(&sessionKey);
-		db_txn_abort(txn); txn = NULL;
-		EFSRepoDBClose(repo, &db);
-		return NULL;
-	}
-	uint64_t const userID = db_read_uint64(session_val);
-	str_t *sessionHash = strdup(db_read_string(txn, session_val));
-
-	db_txn_abort(txn); txn = NULL;
-	EFSRepoDBClose(repo, &db);
-
 	if(!userID) {
-		FREE(&sessionKey);
-		FREE(&sessionHash);
+		assert(0); // TODO
 		return NULL;
 	}
-
-	if(!cookie_cache_lookup(sessionID, sessionKey)) {
-		if(!checkpass(sessionKey, sessionHash)) {
-			FREE(&sessionKey);
-			FREE(&sessionHash);
-			return NULL;
-		}
-		cookie_cache_store(sessionID, sessionKey);
-	}
-	FREE(&sessionKey);
-	FREE(&sessionHash);
-
 	return EFSRepoCreateSessionInternal(repo, userID);
 }
 EFSSessionRef EFSRepoCreateSessionInternal(EFSRepoRef const repo, uint64_t const userID) {

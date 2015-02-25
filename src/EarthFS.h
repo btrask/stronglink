@@ -51,6 +51,10 @@ bool EFSRepoSubmissionWait(EFSRepoRef const repo, uint64_t const sortID, uint64_
 void EFSRepoPullsStart(EFSRepoRef const repo);
 void EFSRepoPullsStop(EFSRepoRef const repo);
 
+int EFSRepoCookieCreate(EFSRepoRef const repo, strarg_t const username, strarg_t const password, str_t **const outCookie);
+int EFSRepoCookieAuth(EFSRepoRef const repo, strarg_t const cookie, uint64_t *const outUserID);
+
+
 typedef struct {
 	str_t *hash; // Internal hash
 	str_t *path;
@@ -58,7 +62,6 @@ typedef struct {
 	uint64_t size;
 } EFSFileInfo;
 
-str_t *EFSRepoCreateCookie(EFSRepoRef const repo, strarg_t const username, strarg_t const password);
 EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie);
 EFSSessionRef EFSRepoCreateSessionInternal(EFSRepoRef const repo, uint64_t const userID); // TODO: Private
 void EFSSessionFree(EFSSessionRef *const sessionptr);

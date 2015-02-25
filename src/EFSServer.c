@@ -35,8 +35,9 @@ static bool postAuth(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMe
 //	if(HTTP_POST != method) return false;
 	if(!URIPath(URI, "/efs/auth", NULL)) return false;
 
-	str_t *cookie = EFSRepoCreateCookie(repo, "ben", "testing"); // TODO
-	if(!cookie) {
+	str_t *cookie = NULL;
+	int rc = EFSRepoCookieCreate(repo, "ben", "testing", &cookie); // TODO
+	if(0 != rc) {
 		HTTPConnectionSendStatus(conn, 403);
 		return true;
 	}

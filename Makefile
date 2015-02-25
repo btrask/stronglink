@@ -61,6 +61,7 @@ HEADERS := \
 # Generic library code
 OBJECTS := \
 	$(BUILD_DIR)/EFSRepo.o \
+	$(BUILD_DIR)/EFSRepoAuth.o \
 	$(BUILD_DIR)/EFSSession.o \
 	$(BUILD_DIR)/EFSSubmission.o \
 	$(BUILD_DIR)/EFSHasher.o \

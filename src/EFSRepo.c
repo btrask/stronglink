@@ -25,6 +25,11 @@ EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 	debug_data(repo->db); // TODO
 	loadPulls(repo);
 
+	if(EFSRepoAuthInit(repo) < 0) {
+		EFSRepoFree(&repo);
+		return NULL;
+	}
+
 	async_mutex_init(repo->sub_mutex, 0);
 	async_cond_init(repo->sub_cond, 0);
 	return repo;
@@ -42,6 +47,8 @@ void EFSRepoFree(EFSRepoRef *const repoptr) {
 	FREE(&repo->DBPath);
 
 	db_env_close(repo->db); repo->db = NULL;
+
+	EFSRepoAuthDestroy(repo);
 
 	async_mutex_destroy(repo->sub_mutex);
 	async_cond_destroy(repo->sub_cond);
