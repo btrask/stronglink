@@ -286,6 +286,7 @@ int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, s
 		rc = HTTPConnectionPeek(conn, &type, buf);
 		if(rc < 0) return rc;
 		if(HTTPMessageEnd == type) {
+			if(out[0]) return 0;
 			HTTPConnectionPop(conn, buf->len);
 			return UV_EOF;
 		}
@@ -305,6 +306,7 @@ int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, s
 	rc = HTTPConnectionPeek(conn, &type, buf);
 	if(rc < 0) return rc;
 	if(HTTPMessageEnd == type) {
+		if(out[0]) return 0;
 		HTTPConnectionPop(conn, i);
 		return UV_EOF;
 	}
@@ -314,6 +316,7 @@ int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, s
 	rc = HTTPConnectionPeek(conn, &type, buf);
 	if(rc < 0) return rc;
 	if(HTTPMessageEnd == type) {
+		if(out[0]) return 0;
 		HTTPConnectionPop(conn, i);
 		return UV_EOF;
 	}

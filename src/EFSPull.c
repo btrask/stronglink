@@ -74,8 +74,7 @@ static void reader(EFSPullRef const pull) {
 		async_mutex_lock(pull->connlock);
 
 		rc = HTTPConnectionReadBodyLine(pull->conn, URI, sizeof(URI));
-		// With UV_EOF, we can still get a URI to process.
-		if(rc < 0 && (UV_EOF != rc || !URI[0])) {
+		if(rc < 0) {
 			for(;;) {
 				if(reconnect(pull) >= 0) break;
 				if(pull->stop) break;
@@ -372,7 +371,7 @@ static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, 
 	}
 	for(;;) {
 		if(pull->stop) goto fail;
-		uv_buf_t buf[1];
+		uv_buf_t buf[1] = {};
 		rc = HTTPConnectionReadBody(*conn, buf);
 		if(rc < 0) {
 			fprintf(stderr, "Pull download error %s\n", uv_strerror(rc));
