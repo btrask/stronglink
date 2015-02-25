@@ -11,6 +11,15 @@ static void fs_cb(uv_fs_t *const req) {
 	async_switch(req->data);
 }
 
+#if 1
+#define ASYNC_FS_WRAP(name, args...) \
+	async_pool_enter(NULL); \
+	uv_fs_t req[1]; \
+	int const err = uv_fs_##name(loop, req, ##args, NULL); \
+	uv_fs_req_cleanup(req); \
+	async_pool_leave(NULL); \
+	return err;
+#else
 #define ASYNC_FS_WRAP(name, args...) \
 	uv_fs_t req[1]; \
 	uv_fs_cb cb = NULL; \
@@ -31,17 +40,7 @@ static void fs_cb(uv_fs_t *const req) {
 	uv_fs_req_cleanup(req); \
 	if(rc < 0) return rc; \
 	return req->result;
-
-// Alternate approach.
-// Doesn't support cancelation, but could.
-// Very elegant, not sure which is better.
-/*#define ASYNC_FS_WRAP(name, args...) \
-	async_pool_enter(NULL); \
-	uv_fs_t req[1]; \
-	int const err = uv_fs_##name(loop, req, ##args, NULL); \
-	uv_fs_req_cleanup(req); \
-	async_pool_leave(NULL); \
-	return err;*/
+#endif
 
 uv_file async_fs_open(const char* path, int flags, int mode) {
 	ASYNC_FS_WRAP(open, path, flags, mode)

@@ -2,15 +2,13 @@
 #include <stdlib.h>
 #include "async.h"
 
-#define WORKER_COUNT 4
-// Having a large number of worker threads (significantly more than the number
-// of CPU cores) should help the OS scheduler account for considerable
-// variability in each job (e.g. CPU- vs IO-bound, long vs short). A system like
-// libuv (Node.js) can get away with ~1 thread per core because all of the jobs
-// are relatively uniform, because they are as small as possible. However, I
-// believe the overhead of using such small jobs negates the benefit of lower
-// scheduling overhead.
-// Also based on whether we're using libuv's thread pool.
+#define WORKER_COUNT 16
+// 4 threads (libuv thread pool default) isn't enough for our I/O, at least
+// on my SSD.
+// Having more threads than CPUs also lets the OS scheduler do its thing, which
+// contrary to conventional wisdom I think is a good thing.
+// Our thread pool is (at least theoretically) more efficient than libuv's
+// because it never locks (AKA blocks) the main thread.
 
 struct async_pool_s {
 	async_worker_t *workers[WORKER_COUNT];
