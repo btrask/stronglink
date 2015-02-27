@@ -120,7 +120,8 @@ char const *db_read_string(DB_txn *const txn, DB_val *const val) {
 	return fstr;
 }
 void db_bind_string(DB_txn *const txn, DB_val *const val, char const *const str) {
-	db_bind_string_len(txn, val, str, strlen(str), true);
+	size_t const len = str ? strlen(str) : 0;
+	db_bind_string_len(txn, val, str, len, true);
 }
 void db_bind_string_len(DB_txn *const txn, DB_val *const val, char const *const str, size_t const len, int const nulterm) {
 	assert(val);

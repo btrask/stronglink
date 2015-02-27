@@ -229,7 +229,7 @@ static void debug_data(DB_env *const db) {
 	char const *const host = "localhost:8009";
 	char const *const remote_username = "ben";
 	char const *const remote_password = "testing";
-	char const *const cookie = "s=1:not-very-random";
+	char const *const cookie = NULL;
 	char const *const query = "";
 
 	DB_VAL(pull_val, DB_VARINT_MAX * 1 + DB_INLINE_MAX * 5);

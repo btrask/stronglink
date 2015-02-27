@@ -373,9 +373,8 @@ int HTTPConnectionWriteRequest(HTTPConnectionRef const conn, HTTPMethod const me
 #define str_len(str) (str), (sizeof(str)-1)
 
 int HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, strarg_t const message) {
+	assertf(status >= 100 && status < 600, "Invalid HTTP status %d", (int)status);
 	if(!conn) return 0;
-	if(status > 599) return UV_EINVAL;
-	if(status < 100) return UV_EINVAL;
 
 	str_t status_str[4+1];
 	int status_len = snprintf(status_str, sizeof(status_str), "%d", status);
@@ -391,6 +390,8 @@ int HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const sta
 	return HTTPConnectionWritev(conn, parts, numberof(parts));
 }
 int HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value) {
+	assert(field);
+	assert(value);
 	if(!conn) return 0;
 	uv_buf_t parts[] = {
 		uv_buf_init((char *)field, strlen(field)),
@@ -412,6 +413,9 @@ int HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, uint64_t cons
 	return HTTPConnectionWritev(conn, parts, numberof(parts));
 }
 int HTTPConnectionWriteSetCookie(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value, strarg_t const path, uint64_t const maxage) {
+	assert(field);
+	assert(value);
+	assert(path);
 	if(!conn) return 0;
 	str_t maxage_str[16];
 	int const maxage_len = snprintf(maxage_str, sizeof(maxage_str), "%llu", (unsigned long long)maxage);

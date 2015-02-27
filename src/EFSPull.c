@@ -185,12 +185,6 @@ int EFSPullStart(EFSPullRef const pull) {
 	async_mutex_init(pull->connlock, 0);
 	async_mutex_init(pull->mutex, 0);
 	async_cond_init(pull->cond, 0);
-	if(!pull->cond) {
-		async_mutex_destroy(pull->connlock);
-		async_mutex_destroy(pull->mutex);
-		async_cond_destroy(pull->cond);
-		return -1;
-	}
 	for(index_t i = 0; i < READER_COUNT; ++i) {
 		pull->tasks++;
 		async_spawn(STACK_DEFAULT, (void (*)())reader, pull);
@@ -231,9 +225,15 @@ void EFSPullStop(EFSPullRef const pull) {
 static int auth(EFSPullRef const pull);
 
 static int reconnect(EFSPullRef const pull) {
+	int rc;
 	HTTPConnectionFree(&pull->conn);
 
-	int rc = HTTPConnectionCreateOutgoing(pull->host, &pull->conn);
+	if(!pull->cookie) {
+		rc = auth(pull);
+		if(rc < 0) return rc;
+	}
+
+	rc = HTTPConnectionCreateOutgoing(pull->host, &pull->conn);
 	if(rc < 0) {
 		fprintf(stderr, "Pull couldn't connect to %s (%s)\n", pull->host, uv_strerror(rc));
 		return rc;
@@ -241,7 +241,8 @@ static int reconnect(EFSPullRef const pull) {
 	HTTPConnectionWriteRequest(pull->conn, HTTP_GET, "/efs/query?count=all", pull->host);
 	// TODO: Pagination...
 	// TODO: More careful error handling.
-	if(pull->cookie) HTTPConnectionWriteHeader(pull->conn, "Cookie", pull->cookie);
+	assert(pull->cookie);
+	HTTPConnectionWriteHeader(pull->conn, "Cookie", pull->cookie);
 	HTTPConnectionBeginBody(pull->conn);
 	rc = HTTPConnectionEnd(pull->conn);
 	if(rc < 0) {
@@ -254,18 +255,19 @@ static int reconnect(EFSPullRef const pull) {
 		return status;
 	}
 	if(403 == status) {
-		auth(pull);
-		return -1;
+		fprintf(stderr, "Pull connection authentication failed\n");
+		FREE(&pull->cookie);
+		return UV_EACCES;
 	}
 	if(status < 200 || status >= 300) {
 		fprintf(stderr, "Pull connection error %d\n", status);
-		return -1;
+		return UV_EPROTO;
 	}
 
 	rc = HTTPConnectionReadHeaders(pull->conn, NULL, NULL, 0);
 	if(rc < 0) {
 		fprintf(stderr, "Pull connection error %s\n", uv_strerror(rc));
-		return -1;
+		return rc;
 	}
 
 	return 0;
@@ -294,10 +296,20 @@ static int auth(EFSPullRef const pull) {
 	rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields));
 	if(rc < 0) return rc;
 
-	fprintf(stderr, "Session cookie %s\n", headers[0]);
-	// TODO: Parse and store.
-
 	HTTPConnectionFree(&conn);
+
+	strarg_t const cookie = headers[0];
+
+	if(!prefix("s=", cookie)) return -1;
+
+	strarg_t x = cookie+2;
+	while('\0' != *x && ';' != *x) x++;
+
+	FREE(&pull->cookie);
+	pull->cookie = strndup(cookie, x-cookie);
+	if(!pull->cookie) return UV_ENOMEM;
+	fprintf(stderr, "Cookie for %s: %s\n", pull->host, pull->cookie);
+	// TODO: Update database?
 
 	return 0;
 }
@@ -305,6 +317,7 @@ static int auth(EFSPullRef const pull) {
 
 static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn) {
 	if(!pull) return 0;
+	if(!pull->cookie) goto fail;
 
 	// TODO: Even if there's nothing to do, we have to enqueue something to fill up our reserved slots. I guess it's better than doing a lot of work inside the connection lock, but there's got to be a better way.
 	EFSSubmissionRef sub = NULL;
@@ -338,6 +351,7 @@ static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, 
 	rc = rc < 0 ? rc : HTTPConnectionWriteRequest(*conn, HTTP_GET, path, pull->host);
 	FREE(&path);
 
+	assert(pull->cookie);
 	rc = rc < 0 ? rc : HTTPConnectionWriteHeader(*conn, "Cookie", pull->cookie);
 	rc = rc < 0 ? rc : HTTPConnectionBeginBody(*conn);
 	rc = rc < 0 ? rc : HTTPConnectionEnd(*conn);
