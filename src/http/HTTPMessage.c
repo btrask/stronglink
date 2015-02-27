@@ -219,47 +219,76 @@ int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn) {
 	return conn->parser->status_code;
 }
 
+int HTTPConnectionReadHeaderField(HTTPConnectionRef const conn, str_t *const field, size_t const max) {
+	if(!conn) return UV_EINVAL;
+	uv_buf_t buf[1];
+	int rc;
+	HTTPEvent type;
+	if(max > 0) field[0] = '\0';
+	for(;;) {
+		rc = HTTPConnectionPeek(conn, &type, buf);
+		if(rc < 0) return rc;
+		if(HTTPHeaderValue == type) break;
+		if(HTTPHeadersComplete == type) break;
+		HTTPConnectionPop(conn, buf->len);
+		if(HTTPHeaderField != type) {
+			assertf(0, "Unexpected HTTP event %d", type);
+			return UV_UNKNOWN;
+		}
+		append(field, max, buf->base, buf->len);
+	}
+	return 0;
+}
+int HTTPConnectionReadHeaderValue(HTTPConnectionRef const conn, str_t *const value, size_t const max) {
+	if(!conn) return UV_EINVAL;
+	uv_buf_t buf[1];
+	int rc;
+	HTTPEvent type;
+	if(max > 0) value[0] = '\0';
+	for(;;) {
+		rc = HTTPConnectionPeek(conn, &type, buf);
+		if(rc < 0) return rc;
+		if(HTTPHeaderField == type) break;
+		if(HTTPHeadersComplete == type) break;
+		HTTPConnectionPop(conn, buf->len);
+		if(HTTPHeaderValue != type) {
+			assertf(0, "Unexpected HTTP event %d", type);
+			return UV_UNKNOWN;
+		}
+		append(value, max, buf->base, buf->len);
+	}
+	return 0;
+}
 int HTTPConnectionReadHeaders(HTTPConnectionRef const conn, str_t values[][VALUE_MAX], str_t const fields[][FIELD_MAX], size_t const nfields) {
 	if(!conn) return UV_EINVAL;
 	uv_buf_t buf[1];
 	int rc, n;
 	HTTPEvent type;
 	str_t field[FIELD_MAX];
+	str_t *value;
+	size_t max;
 	for(n = 0; n < nfields; ++n) values[n][0] = '\0';
 	for(;;) {
-		field[0] = '\0';
-		for(;;) {
-			rc = HTTPConnectionPeek(conn, &type, buf);
-			if(rc < 0) return rc;
-			if(HTTPHeaderValue == type) break;
+		rc = HTTPConnectionPeek(conn, &type, buf);
+		if(rc < 0) return rc;
+		if(HTTPHeadersComplete == type) {
 			HTTPConnectionPop(conn, buf->len);
-			if(HTTPHeadersComplete == type) goto done;
-			if(HTTPHeaderField != type) {
-				assertf(0, "Unexpected HTTP event %d", type);
-				return UV_UNKNOWN;
-			}
-			append(field, FIELD_MAX, buf->base, buf->len);
+			break;
 		}
+		rc = HTTPConnectionReadHeaderField(conn, field, FIELD_MAX);
+		if(rc < 0) return rc;
+		value = NULL;
+		max = 0;
 		for(n = 0; n < nfields; ++n) {
 			if(0 != strcasecmp(field, fields[n])) continue;
 			if(values[n][0]) continue;
+			value = values[n];
+			max = VALUE_MAX;
 			break;
 		}
-		for(;;) {
-			rc = HTTPConnectionPeek(conn, &type, buf);
-			if(rc < 0) return rc;
-			if(HTTPHeaderField == type) break;
-			HTTPConnectionPop(conn, buf->len);
-			if(HTTPHeadersComplete == type) goto done;
-			if(HTTPHeaderValue != type) {
-				assertf(0, "Unexpected HTTP event %d", type);
-				return UV_UNKNOWN;
-			}
-			if(n >= nfields) continue;
-			append(values[n], VALUE_MAX, buf->base, buf->len);
-		}
+		rc = HTTPConnectionReadHeaderValue(conn, value, max);
+		if(rc < 0) return rc;
 	}
-done:
 	return 0;
 }
 int HTTPConnectionReadBody(HTTPConnectionRef const conn, uv_buf_t *const buf) {
