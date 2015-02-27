@@ -20,9 +20,9 @@ struct cookie_t {
 
 static int user_auth(EFSRepoRef const repo, strarg_t const username, strarg_t const password, uint64_t *const outUserID) {
 	assert(repo);
+	assert(username);
+	assert(password);
 	assert(outUserID);
-	if(!username) return UV_EINVAL;
-	if(!password) return UV_EINVAL;
 
 	DB_env *db = NULL;
 	int rc = EFSRepoDBOpen(repo, &db);
@@ -79,9 +79,9 @@ static int user_auth(EFSRepoRef const repo, strarg_t const username, strarg_t co
 }
 static int session_create(EFSRepoRef const repo, uint64_t const userID, strarg_t const sessionKey, uint64_t *const outSessionID) {
 	assert(repo);
+	assert(userID);
+	assert(sessionKey);
 	assert(outSessionID);
-	if(!userID) return UV_EINVAL;
-	if(!sessionKey) return UV_EINVAL;
 
 	str_t *sessionHash = hashpass(sessionKey);
 	if(!sessionHash) {
@@ -127,6 +127,7 @@ static int session_create(EFSRepoRef const repo, uint64_t const userID, strarg_t
 }
 static void cookie_cache_store(EFSRepoRef const repo, uint64_t const userID, uint64_t const sessionID, strarg_t const sessionKey) {
 	assert(repo);
+	assert(userID);
 	assert(sessionID);
 	assert(sessionKey);
 	uint64_t const now = uv_now(loop);
@@ -153,6 +154,7 @@ static size_t cookie_cache_lookup(EFSRepoRef const repo, uint64_t const sessionI
 	assert(repo);
 	assert(sessionID);
 	assert(sessionKey);
+	assert(outUserID);
 
 	size_t const x = hash_func(repo->cookie_hash, (char const *)&sessionID);
 	fprintf(stderr, "checking from %zu\n", x);
