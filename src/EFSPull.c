@@ -326,7 +326,7 @@ static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, 
 
 	str_t algo[EFS_ALGO_SIZE];
 	str_t hash[EFS_HASH_SIZE];
-	if(!EFSParseURI(URI, algo, hash)) goto enqueue;
+	if(EFSParseURI(URI, algo, hash) < 0) goto enqueue;
 
 	if(EFSSessionGetFileInfo(pull->session, URI, NULL) >= 0) goto enqueue;
 

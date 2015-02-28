@@ -142,14 +142,21 @@ void EFSPullFree(EFSPullRef *const pullptr);
 int EFSPullStart(EFSPullRef const pull);
 void EFSPullStop(EFSPullRef const pull);
 
+#define EFS_INTERNAL_ALGO "sha256"
 #define EFS_ALGO_SIZE 32
 #define EFS_HASH_SIZE 256
-#define EFS_INTERNAL_ALGO ((strarg_t)"sha256")
-static bool EFSParseURI(strarg_t const URI, str_t *const algo, str_t *const hash) {
+#define EFS_ALGO_SCANNER "%31[a-zA-Z0-9.-]"
+#define EFS_HASH_SCANNER "%255[a-zA-Z0-9.%_-]"
+static int EFSParseURI(strarg_t const URI, str_t *const algo, str_t *const hash) {
+	int len = 0;
 	algo[0] = '\0';
 	hash[0] = '\0';
-	sscanf(URI, "hash://%31[a-zA-Z0-9.-]/%255[a-zA-Z0-9.%_-]", algo, hash);
-	return algo[0] && hash[0];
+	sscanf(URI, "hash://" EFS_ALGO_SCANNER "/" EFS_HASH_SCANNER "%n", algo, hash, &len);
+	if(!algo[0]) return -1;
+	if(!hash[0]) return -1;
+	if('/' == URI[len]) len++;
+	if('\0' != URI[len] && '?' != URI[len]) return -1;
+	return 0;
 }
 static str_t *EFSFormatURI(strarg_t const algo, strarg_t const hash) {
 	strarg_t const fmt = "hash://%s/%s";

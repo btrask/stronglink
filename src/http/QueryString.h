@@ -1,10 +1,5 @@
 #include "../common.h"
 
-static bool pathterm(strarg_t const URI, size_t const len) {
-	char const x = URI[len];
-	return '\0' == x || '?' == x;
-}
-
 typedef str_t** QSValues;
 
 void *QSValuesCopy(strarg_t const qs, strarg_t const fields[], count_t const count);

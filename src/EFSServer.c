@@ -20,11 +20,11 @@ static strarg_t const EFSFormFields[] = {
 
 // TODO: Put this somewhere.
 bool URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs) {
-	size_t pathlen = prefix(path, URI);
-	if(!pathlen) return false;
-	if('/' == URI[pathlen]) ++pathlen;
-	if(!pathterm(URI, pathlen)) return false;
-	if(qs) *qs = URI + pathlen;
+	size_t len = prefix(path, URI);
+	if(!len) return false;
+	if('/' == URI[len]) len++;
+	if('\0' != URI[len] && '?' != URI[len]) return false;
+	if(qs) *qs = URI + len;
 	return true;
 }
 
@@ -53,13 +53,15 @@ static bool postAuth(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMe
 }
 static bool getFile(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
 	if(HTTP_GET != method && HTTP_HEAD != method) return false;
-	str_t algo[32] = {};
-	str_t hash[256] = {};
-	int pathlen = 0;
-	(void)sscanf(URI, "/efs/file/%31[a-zA-Z0-9.-]/%255[a-zA-Z0-9.%_-]%n", algo, hash, &pathlen);
-	if(!pathlen) return false;
-	if('/' == URI[pathlen]) ++pathlen;
-	if(!pathterm(URI, pathlen)) return false;
+	int len = 0;
+	str_t algo[EFS_ALGO_SIZE];
+	str_t hash[EFS_HASH_SIZE];
+	algo[0] = '\0';
+	hash[0] = '\0';
+	sscanf(URI, "/efs/file/" EFS_ALGO_SCANNER "/" EFS_HASH_SCANNER "%n", algo, hash, &len);
+	if(!algo[0] || !hash[0]) return false;
+	if('/' == URI[len]) len++;
+	if('\0' != URI[len] && '?' != URI[len]) return false;
 
 	static str_t const fields[][FIELD_MAX] = {
 		"cookie",
