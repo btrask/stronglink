@@ -400,11 +400,9 @@ static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, 
 			goto fail;
 		}
 	}
-	rc = 0;
-	rc = rc < 0 ? rc : EFSSubmissionEnd(sub);
-	rc = rc < 0 ? rc : EFSSubmissionAddFile(sub);
+	rc = EFSSubmissionEnd(sub);
 	if(rc < 0) {
-		fprintf(stderr, "Pull submission error\n");
+		fprintf(stderr, "Pull submission error %s\n", uv_strerror(rc));
 		goto fail;
 	}
 

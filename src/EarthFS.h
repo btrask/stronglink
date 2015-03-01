@@ -78,7 +78,6 @@ int EFSSubmissionWrite(EFSSubmissionRef const sub, byte_t const *const buf, size
 int EFSSubmissionEnd(EFSSubmissionRef const sub);
 int EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context);
 strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub);
-int EFSSubmissionAddFile(EFSSubmissionRef const sub);
 int EFSSubmissionStore(EFSSubmissionRef const sub, DB_txn *const txn);
 // Convenience methods
 EFSSubmissionRef EFSSubmissionCreateQuick(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context);

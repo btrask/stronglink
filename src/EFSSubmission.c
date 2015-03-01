@@ -98,42 +98,7 @@ int EFSSubmissionWrite(EFSSubmissionRef const sub, byte_t const *const buf, size
 	EFSMetaFileWrite(sub->meta, buf, len);
 	return 0;
 }
-int EFSSubmissionEnd(EFSSubmissionRef const sub) {
-	if(!sub) return 0;
-	if(sub->tmpfile < 0) return -1;
-	sub->URIs = EFSHasherEnd(sub->hasher);
-	sub->internalHash = strdup(EFSHasherGetInternalHash(sub->hasher));
-	EFSHasherFree(&sub->hasher);
-
-	EFSMetaFileEnd(sub->meta);
-
-	if(async_fs_fsync(sub->tmpfile) < 0) return -1;
-	int err = async_fs_close(sub->tmpfile);
-	sub->tmpfile = -1;
-	if(err < 0) return -1;
-	return 0;
-}
-int EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context) {
-	if(!sub) return 0;
-	assertf(read, "Read function required");
-	for(;;) {
-		byte_t const *buf = NULL;
-		ssize_t const len = read(context, &buf);
-		if(0 == len) break;
-		if(len < 0) return -1;
-		if(EFSSubmissionWrite(sub, buf, len) < 0) return -1;
-	}
-	if(EFSSubmissionEnd(sub) < 0) return -1;
-	return 0;
-}
-
-strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub) {
-	if(!sub) return NULL;
-	if(!sub->URIs) return NULL;
-	return sub->URIs[0];
-}
-
-int EFSSubmissionAddFile(EFSSubmissionRef const sub) {
+static int add(EFSSubmissionRef const sub) {
 	if(!sub) return -1;
 	if(!sub->tmppath) return -1;
 	if(!sub->size) return -1;
@@ -157,6 +122,41 @@ int EFSSubmissionAddFile(EFSSubmissionRef const sub) {
 	FREE(&sub->tmppath);
 	return 0;
 }
+int EFSSubmissionEnd(EFSSubmissionRef const sub) {
+	if(!sub) return 0;
+	if(sub->tmpfile < 0) return -1;
+	sub->URIs = EFSHasherEnd(sub->hasher);
+	sub->internalHash = strdup(EFSHasherGetInternalHash(sub->hasher));
+	EFSHasherFree(&sub->hasher);
+
+	EFSMetaFileEnd(sub->meta);
+
+	if(async_fs_fsync(sub->tmpfile) < 0) return -1;
+	int err = async_fs_close(sub->tmpfile);
+	sub->tmpfile = -1;
+	if(err < 0) return -1;
+	return add(sub);
+}
+int EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context) {
+	if(!sub) return 0;
+	assertf(read, "Read function required");
+	for(;;) {
+		byte_t const *buf = NULL;
+		ssize_t const len = read(context, &buf);
+		if(0 == len) break;
+		if(len < 0) return -1;
+		if(EFSSubmissionWrite(sub, buf, len) < 0) return -1;
+	}
+	if(EFSSubmissionEnd(sub) < 0) return -1;
+	return 0;
+}
+
+strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub) {
+	if(!sub) return NULL;
+	if(!sub->URIs) return NULL;
+	return sub->URIs[0];
+}
+
 int EFSSubmissionStore(EFSSubmissionRef const sub, DB_txn *const txn) {
 	if(!sub) return -1;
 	assert(txn);
@@ -235,10 +235,8 @@ int EFSSubmissionStore(EFSSubmissionRef const sub, DB_txn *const txn) {
 EFSSubmissionRef EFSSubmissionCreateQuick(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context) {
 	EFSSubmissionRef sub = EFSSubmissionCreate(session, type);
 	if(!sub) return NULL;
-	int err = 0;
-	err = err < 0 ? err : EFSSubmissionWriteFrom(sub, read, context);
-	err = err < 0 ? err : EFSSubmissionAddFile(sub);
-	if(err < 0) EFSSubmissionFree(&sub);
+	int rc = EFSSubmissionWriteFrom(sub, read, context);
+	if(rc < 0) EFSSubmissionFree(&sub);
 	return sub;
 }
 int EFSSubmissionCreateQuickPair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title, EFSSubmissionRef *const outSub, EFSSubmissionRef *const outMeta) {
@@ -281,7 +279,7 @@ int EFSSubmissionCreateQuickPair(EFSSessionRef const session, strarg_t const typ
 	}
 
 
-	if(EFSSubmissionEnd(sub) < 0 || EFSSubmissionAddFile(sub) < 0) {
+	if(EFSSubmissionEnd(sub) < 0) {
 		FREE(&fulltext);
 		EFSSubmissionFree(&sub);
 		EFSSubmissionFree(&meta);
@@ -340,10 +338,7 @@ int EFSSubmissionCreateQuickPair(EFSSessionRef const session, strarg_t const typ
 	yajl_gen_free(json); json = NULL;
 	FREE(&fulltext);
 
-	if(
-		EFSSubmissionEnd(meta) < 0 ||
-		EFSSubmissionAddFile(meta) < 0
-	) {
+	if(EFSSubmissionEnd(meta) < 0) {
 		EFSSubmissionFree(&sub);
 		EFSSubmissionFree(&meta);
 		return -1;
