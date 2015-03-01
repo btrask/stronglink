@@ -136,6 +136,10 @@ int EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFSFi
 		info->path = EFSRepoCopyInternalPath(repo, internalHash);
 		info->type = strdup(type);
 		info->size = size;
+		if(!info->hash || !info->path || !info->type) {
+			EFSFileInfoCleanup(info);
+			return DB_ENOMEM;
+		}
 	}
 
 	db_txn_abort(txn); txn = NULL;
