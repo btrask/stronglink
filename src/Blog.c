@@ -9,6 +9,7 @@
 #include "EarthFS.h"
 #include "Template.h"
 #include "http/HTTPServer.h"
+#include "http/HTTPHeaders.h"
 #include "http/MultipartForm.h"
 #include "http/QueryString.h"
 
@@ -391,22 +392,13 @@ static strarg_t const BlogQueryFields[] = {
 	"q",
 	"f",
 };
-static bool getResultsPage(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool getResultsPage(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return false;
 	strarg_t qs = NULL;
 	if(!URIPath(URI, "/", &qs)) return false;
 
-	static str_t const fields[][FIELD_MAX] = {
-		"cookie",
-		"content-type",
-	};
-	str_t headers[numberof(fields)][VALUE_MAX];
-	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields));
-	if(rc < 0) {
-		HTTPConnectionSendStatus(conn, 400);
-		return true;
-	}
-	EFSSessionRef session = EFSRepoCreateSession(blog->repo, headers[0]);
+	strarg_t const cookie = HTTPHeadersGet(headers, "cookie");
+	EFSSessionRef session = EFSRepoCreateSession(blog->repo, cookie);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);
 		return true;
@@ -480,21 +472,12 @@ static bool getResultsPage(BlogRef const blog, HTTPConnectionRef const conn, HTT
 	EFSSessionFree(&session);
 	return true;
 }
-static bool getCompose(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool getCompose(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return false;
 	if(!URIPath(URI, "/compose", NULL)) return false;
 
-	static str_t const fields[][FIELD_MAX] = {
-		"cookie",
-		"content-type",
-	};
-	str_t headers[numberof(fields)][VALUE_MAX];
-	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields));
-	if(rc < 0) {
-		HTTPConnectionSendStatus(conn, 400);
-		return true;
-	}
-	EFSSessionRef session = EFSRepoCreateSession(blog->repo, headers[0]);
+	strarg_t const cookie = HTTPHeadersGet(headers, "cookie");
+	EFSSessionRef session = EFSRepoCreateSession(blog->repo, cookie);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);
 		return true;
@@ -511,28 +494,20 @@ static bool getCompose(BlogRef const blog, HTTPConnectionRef const conn, HTTPMet
 	EFSSessionFree(&session);
 	return true;
 }
-static bool postSubmission(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
+static bool postSubmission(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return false;
 	if(!URIPath(URI, "/submission", NULL)) return false;
 
-	static str_t const fields[][FIELD_MAX] = {
-		"cookie",
-		"content-type",
-	};
-	str_t headers[numberof(fields)][VALUE_MAX];
-	int rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields));
-	if(rc < 0) {
-		HTTPConnectionSendStatus(conn, 400);
-		return true;
-	}
-	EFSSessionRef session = EFSRepoCreateSession(blog->repo, headers[0]);
+	strarg_t const cookie = HTTPHeadersGet(headers, "cookie");
+	EFSSessionRef session = EFSRepoCreateSession(blog->repo, cookie);
 	if(!session) {
 		HTTPConnectionSendStatus(conn, 403);
 		return true;
 	}
 
 	// TODO: CSRF token
-	MultipartFormRef form = MultipartFormCreate(conn, headers[1], BlogSubmissionFields, numberof(BlogSubmissionFields));
+	strarg_t const formtype = HTTPHeadersGet(headers, "content-type"); 
+	MultipartFormRef form = MultipartFormCreate(conn, formtype, BlogSubmissionFields, numberof(BlogSubmissionFields));
 	FormPartRef const part = MultipartFormGetPart(form);
 	BlogSubmissionHeaders const *const fheaders = FormPartGetHeaders(part);
 	// TODO: Handle failures, e.g. submission of non-multipart data
@@ -640,10 +615,10 @@ void BlogFree(BlogRef *const blogptr) {
 
 	FREE(blogptr); blog = NULL;
 }
-bool BlogDispatch(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI) {
-	if(getResultsPage(blog, conn, method, URI)) return true;
-	if(getCompose(blog, conn, method, URI)) return true;
-	if(postSubmission(blog, conn, method, URI)) return true;
+bool BlogDispatch(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+	if(getResultsPage(blog, conn, method, URI, headers)) return true;
+	if(getCompose(blog, conn, method, URI, headers)) return true;
+	if(postSubmission(blog, conn, method, URI, headers)) return true;
 
 	if(HTTP_GET != method && HTTP_HEAD != method) return false;
 

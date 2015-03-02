@@ -45,6 +45,7 @@ HEADERS := \
 	$(SRC_DIR)/http/Headers.h \
 	$(SRC_DIR)/http/HTTPConnection.h \
 	$(SRC_DIR)/http/HTTPServer.h \
+	$(SRC_DIR)/http/HTTPHeaders.h \
 	$(SRC_DIR)/http/MultipartForm.h \
 	$(SRC_DIR)/http/QueryString.h \
 	$(DEPS_DIR)/libco/libco.h \
@@ -91,6 +92,7 @@ OBJECTS := \
 	$(BUILD_DIR)/http/Headers.o \
 	$(BUILD_DIR)/http/HTTPConnection.o \
 	$(BUILD_DIR)/http/HTTPServer.o \
+	$(BUILD_DIR)/http/HTTPHeaders.o \
 	$(BUILD_DIR)/http/MultipartForm.o \
 	$(BUILD_DIR)/http/QueryString.o \
 	$(BUILD_DIR)/crypt/crypt_blowfish.o \

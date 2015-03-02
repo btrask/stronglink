@@ -5,14 +5,15 @@
 #include "hash.h"
 #include "EarthFS.h"
 #include "http/HTTPServer.h"
+#include "http/HTTPHeaders.h"
 
-bool EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI);
+bool EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
 
 typedef struct Blog* BlogRef;
 
 BlogRef BlogCreate(EFSRepoRef const repo);
 void BlogFree(BlogRef *const blogptr);
-bool BlogDispatch(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI);
+bool BlogDispatch(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
 
 static str_t *path = NULL;
 static EFSRepoRef repo = NULL;
@@ -24,11 +25,18 @@ static int sig = 0;
 static void listener(void *ctx, HTTPConnectionRef const conn) {
 	HTTPMethod method;
 	str_t URI[URI_MAX];
-	int rc = HTTPConnectionReadRequestURI(conn, URI, URI_MAX, &method);
+	int rc = HTTPConnectionReadRequest(conn, &method, URI, URI_MAX);
 	if(rc < 0) return;
-	if(EFSServerDispatch(repo, conn, method, URI)) return;
-	if(BlogDispatch(blog, conn, method, URI)) return;
-	HTTPConnectionSendStatus(conn, 400);
+
+	HTTPHeadersRef headers = HTTPHeadersCreateFromConnection(conn);
+	if(!headers) return;
+
+	bool x = false;
+	x = x || EFSServerDispatch(repo, conn, method, URI, headers);
+	x = x || BlogDispatch(blog, conn, method, URI, headers);
+	if(!x) HTTPConnectionSendStatus(conn, 400);
+
+	HTTPHeadersFree(&headers);
 }
 
 static void ignore(uv_signal_t *const signal, int const signum) {

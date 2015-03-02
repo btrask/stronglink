@@ -5,9 +5,6 @@
 #include "../../deps/http_parser/http_parser.h"
 #include "../common.h"
 
-#define FIELD_MAX 80
-#define VALUE_MAX 1024
-
 typedef enum http_method HTTPMethod;
 typedef enum {
 	HTTPNothing = 0,
@@ -29,11 +26,10 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 void HTTPConnectionPop(HTTPConnectionRef const conn, size_t const len);
 
 // Reading
-int HTTPConnectionReadRequestURI(HTTPConnectionRef const conn, str_t *const out, size_t const max, HTTPMethod *const method);
+int HTTPConnectionReadRequest(HTTPConnectionRef const conn, HTTPMethod *const method, str_t *const out, size_t const max);
 int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn);
 int HTTPConnectionReadHeaderField(HTTPConnectionRef const conn, str_t *const field, size_t const max);
 int HTTPConnectionReadHeaderValue(HTTPConnectionRef const conn, str_t *const value, size_t const max);
-int HTTPConnectionReadHeaders(HTTPConnectionRef const conn, str_t values[][VALUE_MAX], str_t const fields[][FIELD_MAX], size_t const nfields);
 int HTTPConnectionReadBody(HTTPConnectionRef const conn, uv_buf_t *const buf);
 int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, size_t const max);
 int HTTPConnectionDrainMessage(HTTPConnectionRef const conn);

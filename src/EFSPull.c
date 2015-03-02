@@ -3,6 +3,7 @@
 #include "EarthFS.h"
 #include "async/async.h"
 #include "http/HTTPConnection.h"
+#include "http/HTTPHeaders.h"
 
 #define READER_COUNT 64
 #define QUEUE_SIZE 64 // TODO: Find a way to lower these without sacrificing performance, and perhaps automatically adjust them somehow.
@@ -264,11 +265,13 @@ static int reconnect(EFSPullRef const pull) {
 		return UV_EPROTO;
 	}
 
-	rc = HTTPConnectionReadHeaders(pull->conn, NULL, NULL, 0);
+	HTTPHeadersRef headers = HTTPHeadersCreateFromConnection(pull->conn);
+	HTTPHeadersFree(&headers); // TODO
+/*	rc = HTTPConnectionReadHeaders(pull->conn, NULL, NULL, 0);
 	if(rc < 0) {
 		fprintf(stderr, "Pull connection error %s\n", uv_strerror(rc));
 		return rc;
-	}
+	}*/
 
 	return 0;
 }
@@ -289,28 +292,31 @@ static int auth(EFSPullRef const pull) {
 	int const status = HTTPConnectionReadResponseStatus(conn);
 	if(status < 0) return status;
 
-	static str_t const fields[][FIELD_MAX] = {
-		"set-cookie",
-	};
-	str_t headers[numberof(fields)][VALUE_MAX];
-	rc = HTTPConnectionReadHeaders(conn, headers, fields, numberof(fields));
-	if(rc < 0) return rc;
+	HTTPHeadersRef headers = HTTPHeadersCreateFromConnection(conn);
+	assert(headers); // TODO
+	strarg_t const cookie = HTTPHeadersGet(headers, "set-cookie");
+	assert(cookie);
 
 	HTTPConnectionFree(&conn);
 
-	strarg_t const cookie = headers[0];
-
-	if(!prefix("s=", cookie)) return -1;
+	if(!prefix("s=", cookie)) {
+		HTTPHeadersFree(&headers);
+		return -1;
+	}
 
 	strarg_t x = cookie+2;
 	while('\0' != *x && ';' != *x) x++;
 
 	FREE(&pull->cookie);
 	pull->cookie = strndup(cookie, x-cookie);
-	if(!pull->cookie) return UV_ENOMEM;
+	if(!pull->cookie) {
+		HTTPHeadersFree(&headers);
+		return UV_ENOMEM;
+	}
 	fprintf(stderr, "Cookie for %s: %s\n", pull->host, pull->cookie);
 	// TODO: Update database?
 
+	HTTPHeadersFree(&headers);
 	return 0;
 }
 
@@ -321,6 +327,7 @@ static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, 
 
 	// TODO: Even if there's nothing to do, we have to enqueue something to fill up our reserved slots. I guess it's better than doing a lot of work inside the connection lock, but there's got to be a better way.
 	EFSSubmissionRef sub = NULL;
+	HTTPHeadersRef headers = NULL;
 
 	if(!URI) goto enqueue;
 
@@ -369,18 +376,15 @@ static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, 
 		goto fail;
 	}
 
-	static str_t const fields[][FIELD_MAX] = {
-		"content-type",
-		"content-length",
-	};
-	str_t headers[numberof(fields)][VALUE_MAX];
-	rc = HTTPConnectionReadHeaders(*conn, headers, fields, numberof(fields));
-	if(rc < 0) {
+	headers = HTTPHeadersCreateFromConnection(*conn);
+	assert(headers); // TODO
+/*	if(rc < 0) {
 		fprintf(stderr, "Pull import headers error %s\n", uv_strerror(rc));
 		goto fail;
-	}
+	}*/
+	strarg_t const type = HTTPHeadersGet(headers, "content-type");
 
-	sub = EFSSubmissionCreate(pull->session, headers[0]);
+	sub = EFSSubmissionCreate(pull->session, type);
 	if(!sub) {
 		fprintf(stderr, "Pull submission error\n");
 		goto fail;
@@ -407,6 +411,7 @@ static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, 
 	}
 
 enqueue:
+	HTTPHeadersFree(&headers);
 	async_mutex_lock(pull->mutex);
 	pull->queue[pos] = sub; sub = NULL;
 	pull->filled[pos] = true;
@@ -415,6 +420,7 @@ enqueue:
 	return 0;
 
 fail:
+	HTTPHeadersFree(&headers);
 	EFSSubmissionFree(&sub);
 	HTTPConnectionFree(conn);
 	return -1;
