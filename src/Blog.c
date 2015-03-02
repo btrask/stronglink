@@ -392,7 +392,7 @@ static strarg_t const BlogQueryFields[] = {
 	"q",
 	"f",
 };
-static int getResultsPage(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int GET_query(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
 	strarg_t qs = NULL;
 	if(!URIPath(URI, "/", &qs)) return -1;
@@ -462,7 +462,7 @@ static int getResultsPage(BlogRef const blog, EFSSessionRef const session, HTTPC
 	EFSFilterFree(&filter);
 	return 0;
 }
-static int getCompose(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int GET_new(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
 	if(!URIPath(URI, "/compose", NULL)) return -1;
 
@@ -475,7 +475,7 @@ static int getCompose(BlogRef const blog, EFSSessionRef const session, HTTPConne
 	HTTPConnectionEnd(conn);
 	return 0;
 }
-static int postSubmission(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int POST_submit(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return -1;
 	if(!URIPath(URI, "/submission", NULL)) return -1;
 
@@ -585,9 +585,9 @@ void BlogFree(BlogRef *const blogptr) {
 }
 int BlogDispatch(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	int rc = -1;
-	rc = rc >= 0 ? rc : getResultsPage(blog, session, conn, method, URI, headers);
-	rc = rc >= 0 ? rc : getCompose(blog, session, conn, method, URI, headers);
-	rc = rc >= 0 ? rc : postSubmission(blog, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : GET_query(blog, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : GET_new(blog, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : POST_submit(blog, session, conn, method, URI, headers);
 	if(rc >= 0) return rc;
 
 	if(HTTP_GET != method && HTTP_HEAD != method) return -1;

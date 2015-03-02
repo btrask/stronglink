@@ -33,7 +33,7 @@ bool URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs) {
 
 // TODO: These methods ought to be built on a public C API because the C API needs to support the same features as the HTTP interface.
 
-static int postAuth(EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int POST_auth(EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 //	if(HTTP_POST != method) return -1;
 	if(!URIPath(URI, "/efs/auth", NULL)) return -1;
 
@@ -51,7 +51,7 @@ static int postAuth(EFSSessionRef const session, HTTPConnectionRef const conn, H
 	FREE(&cookie);
 	return 0;
 }
-static int getFile(EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int GET_file(EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
 	int len = 0;
 	str_t algo[EFS_ALGO_SIZE];
@@ -78,7 +78,7 @@ static int getFile(EFSSessionRef const session, HTTPConnectionRef const conn, HT
 	EFSFileInfoCleanup(&info);
 	return 0;
 }
-static int postFile(EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int POST_file(EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	return -1; // TODO
 
 /*	if(HTTP_POST != method) return -1;
@@ -162,8 +162,8 @@ static void cleanupURIs(str_t **const URIs, count_t const count) {
 		FREE(&URIs[i]);
 	}
 }
-static int query(EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
-	if(HTTP_POST != method && HTTP_GET != method) return -1;
+static int POST_query(EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+	if(HTTP_POST != method && HTTP_GET != method) return -1; // TODO: GET is just for testing?
 	if(!URIPath(URI, "/efs/query", NULL)) return -1;
 
 	EFSJSONFilterParserRef parser = NULL;
@@ -239,10 +239,10 @@ static int query(EFSSessionRef const session, HTTPConnectionRef const conn, HTTP
 
 int EFSServerDispatch(EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	int rc = -1;
-	rc = rc >= 0 ? rc : postAuth(session, conn, method, URI, headers);
-	rc = rc >= 0 ? rc : getFile(session, conn, method, URI, headers);
-	rc = rc >= 0 ? rc : postFile(session, conn, method, URI, headers);
-	rc = rc >= 0 ? rc : query(session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : POST_auth(session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : GET_file(session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : POST_file(session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : POST_query(session, conn, method, URI, headers);
 	return rc;
 }
 
