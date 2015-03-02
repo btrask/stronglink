@@ -58,69 +58,83 @@ static int GET_file(EFSSessionRef const session, HTTPConnectionRef const conn, H
 	str_t hash[EFS_HASH_SIZE];
 	algo[0] = '\0';
 	hash[0] = '\0';
-	sscanf(URI, "/efs/file/" EFS_ALGO_SCANNER "/" EFS_HASH_SCANNER "%n", algo, hash, &len);
+	sscanf(URI, "/efs/file/" EFS_ALGO_FMT "/" EFS_HASH_FMT "%n", algo, hash, &len);
 	if(!algo[0] || !hash[0]) return -1;
 	if('/' == URI[len]) len++;
 	if('\0' != URI[len] && '?' != URI[len]) return -1;
 
-	str_t *fileURI = EFSFormatURI(algo, hash);
-	EFSFileInfo info;
-	if(EFSSessionGetFileInfo(session, fileURI, &info) < 0) {
-		fprintf(stderr, "Couldn't find %s", fileURI);
-		FREE(&fileURI);
-		return 404;
+	str_t fileURI[EFS_URI_MAX];
+	int rc = snprintf(fileURI, EFS_URI_MAX, "hash://%s/%s", algo, hash);
+	if(rc < 0 || rc >= EFS_URI_MAX) return 500;
+
+	EFSFileInfo info[1];
+	rc = EFSSessionGetFileInfo(session, fileURI, info);
+	if(rc < 0) switch(rc) { // TODO
+		case UV_ECANCELED: return 0;
+		case DB_NOTFOUND: return 404;
+		default: return 500;
 	}
-	FREE(&fileURI);
 
-	// TODO: Do we need to send other headers?
-	HTTPConnectionSendFile(conn, info.path, info.type, info.size);
-
-	EFSFileInfoCleanup(&info);
+	// TODO: Send other headers
+	// Content-Disposition? What else?
+	HTTPConnectionSendFile(conn, info->path, info->type, info->size);
+	EFSFileInfoCleanup(info);
 	return 0;
 }
 static int POST_file(EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
-	return -1; // TODO
+	if(HTTP_POST != method) return -1;
+	int len = 0;
+	sscanf(URI, "/efs/file%n", &len);
+	if(!len) return -1;
+	if('/' == URI[len]) len++;
+	if('\0' != URI[len] && '?' != URI[len]) return -1;
 
-/*	if(HTTP_POST != method) return -1;
-	if(!URIPath(URI, "/efs/file", NULL)) return -1;
+	strarg_t const type = HTTPHeadersGet(headers, "Content-Type");
+	if(!type) return 400;
 
-	// TODO: CSRF token
-
-	strarg_t type;
-	ssize_t (*read)();
-	void *context;
-
-	strarg_t const formtype = HTTPHeadersGet(headers, "content-type");
-	MultipartFormRef form = MultipartFormCreate(conn, formtype, EFSFormFields, numberof(EFSFormFields));
-	if(form) {
-		FormPartRef const part = MultipartFormGetPart(form);
-		if(!part) return 400;
-		EFSFormHeaders const *const formHeaders = FormPartGetHeaders(part);
-		type = formHeaders->content_type;
-		read = FormPartGetBuffer;
-		context = part;
-	} else {
-		type = headers[1];
-		read = HTTPConnectionGetBuffer;
-		context = conn;
+	int rc;
+	EFSSubmissionRef sub = EFSSubmissionCreate(session, type);
+	if(!sub) return 500;
+	for(;;) {
+		uv_buf_t buf[1] = {};
+		rc = HTTPConnectionReadBody(conn, buf);
+		if(rc < 0) {
+			EFSSubmissionFree(&sub);
+			return 0;
+		}
+		if(0 == buf->len) break;
+		rc = EFSSubmissionWrite(sub, (byte_t *)buf->base, buf->len);
+		if(rc < 0) {
+			EFSSubmissionFree(&sub);
+			return 500;
+		}
 	}
-
-	EFSSubmissionRef sub = EFSSubmissionCreateQuick(session, type, read, context);
-	if(sub && EFSSubmissionBatchStore(&sub, 1) >= 0) {
-		HTTPConnectionWriteResponse(conn, 201, "Created");
-		HTTPConnectionWriteHeader(conn, "X-Location", EFSSubmissionGetPrimaryURI(sub)); // TODO: X-Content-Address or something? Or X-Name?
-		HTTPConnectionWriteContentLength(conn, 0);
-		HTTPConnectionBeginBody(conn);
-		HTTPConnectionEnd(conn);
-//		fprintf(stderr, "POST %s -> %s\n", type, EFSSubmissionGetPrimaryURI(sub));
-	} else {
-		fprintf(stderr, "Submission error for file type %s\n", type);
+	rc = EFSSubmissionEnd(sub);
+	if(rc < 0) {
+		EFSSubmissionFree(&sub);
+		return 500;
+	}
+	rc = EFSSubmissionBatchStore(&sub, 1);
+	if(rc < 0) {
+		EFSSubmissionFree(&sub);
+		return 500;
+	}
+	strarg_t const location = EFSSubmissionGetPrimaryURI(sub);
+	if(!location) {
+		EFSSubmissionFree(&sub);
 		return 500;
 	}
 
+	rc = 0;
+	rc = rc < 0 ? rc : HTTPConnectionWriteResponse(conn, 201, "Created");
+	rc = rc < 0 ? rc : HTTPConnectionWriteHeader(conn, "X-Location", location);
+	// TODO: X-Content-Address or something? Or X-Name?
+	rc = rc < 0 ? rc : HTTPConnectionWriteContentLength(conn, 0);
+	rc = rc < 0 ? rc : HTTPConnectionBeginBody(conn);
+	rc = rc < 0 ? rc : HTTPConnectionEnd(conn);
 	EFSSubmissionFree(&sub);
-	MultipartFormFree(&form);
-	return 0;*/
+	if(rc < 0) return 500;
+	return 0;
 }
 
 static count_t getURIs(EFSSessionRef const session, EFSFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID, str_t **const URIs, count_t const max) {
