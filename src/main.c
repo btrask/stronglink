@@ -7,13 +7,13 @@
 #include "http/HTTPServer.h"
 #include "http/HTTPHeaders.h"
 
-bool EFSServerDispatch(EFSRepoRef const repo, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
+int EFSServerDispatch(EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
 
 typedef struct Blog* BlogRef;
 
 BlogRef BlogCreate(EFSRepoRef const repo);
 void BlogFree(BlogRef *const blogptr);
-bool BlogDispatch(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
+int BlogDispatch(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
 
 static str_t *path = NULL;
 static EFSRepoRef repo = NULL;
@@ -31,12 +31,22 @@ static void listener(void *ctx, HTTPConnectionRef const conn) {
 	HTTPHeadersRef headers = HTTPHeadersCreateFromConnection(conn);
 	if(!headers) return;
 
-	bool x = false;
-	x = x || EFSServerDispatch(repo, conn, method, URI, headers);
-	x = x || BlogDispatch(blog, conn, method, URI, headers);
-	if(!x) HTTPConnectionSendStatus(conn, 400);
+	strarg_t const cookie = HTTPHeadersGet(headers, "cookie");
+	EFSSessionRef session = EFSRepoCreateSession(repo, cookie);
+	if(!session) {
+		HTTPHeadersFree(&headers);
+		HTTPConnectionSendStatus(conn, 403); // TODO
+		return;
+	}
 
+	rc = -1;
+	rc = rc >= 0 ? rc : EFSServerDispatch(session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : BlogDispatch(blog, session, conn, method, URI, headers);
+
+	EFSSessionFree(&session);
 	HTTPHeadersFree(&headers);
+	if(rc < 0) rc = 404;
+	if(rc > 0) HTTPConnectionSendStatus(conn, rc);
 }
 
 static void ignore(uv_signal_t *const signal, int const signum) {

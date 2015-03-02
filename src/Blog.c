@@ -392,17 +392,10 @@ static strarg_t const BlogQueryFields[] = {
 	"q",
 	"f",
 };
-static bool getResultsPage(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
-	if(HTTP_GET != method) return false;
+static int getResultsPage(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+	if(HTTP_GET != method) return -1;
 	strarg_t qs = NULL;
-	if(!URIPath(URI, "/", &qs)) return false;
-
-	strarg_t const cookie = HTTPHeadersGet(headers, "cookie");
-	EFSSessionRef session = EFSRepoCreateSession(blog->repo, cookie);
-	if(!session) {
-		HTTPConnectionSendStatus(conn, 403);
-		return true;
-	}
+	if(!URIPath(URI, "/", &qs)) return -1;
 
 	BlogQueryValues *params = QSValuesCopy(qs, BlogQueryFields, numberof(BlogQueryFields));
 	EFSFilterRef filter = EFSUserFilterParse(params->query);
@@ -413,10 +406,8 @@ static bool getResultsPage(BlogRef const blog, HTTPConnectionRef const conn, HTT
 
 	str_t **URIs = EFSSessionCopyFilteredURIs(session, filter, RESULTS_MAX);
 	if(!URIs) {
-		HTTPConnectionSendStatus(conn, 500);
 		EFSFilterFree(&filter);
-		EFSSessionFree(&session);
-		return true;
+		return 500;
 	}
 
 	HTTPConnectionWriteResponse(conn, 200, "OK");
@@ -469,19 +460,11 @@ static bool getResultsPage(BlogRef const blog, HTTPConnectionRef const conn, HTT
 	for(index_t i = 0; URIs[i]; ++i) FREE(&URIs[i]);
 	FREE(&URIs);
 	EFSFilterFree(&filter);
-	EFSSessionFree(&session);
-	return true;
+	return 0;
 }
-static bool getCompose(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
-	if(HTTP_GET != method) return false;
-	if(!URIPath(URI, "/compose", NULL)) return false;
-
-	strarg_t const cookie = HTTPHeadersGet(headers, "cookie");
-	EFSSessionRef session = EFSRepoCreateSession(blog->repo, cookie);
-	if(!session) {
-		HTTPConnectionSendStatus(conn, 403);
-		return true;
-	}
+static int getCompose(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+	if(HTTP_GET != method) return -1;
+	if(!URIPath(URI, "/compose", NULL)) return -1;
 
 	HTTPConnectionWriteResponse(conn, 200, "OK");
 	HTTPConnectionWriteHeader(conn, "Content-Type", "text/html; charset=utf-8");
@@ -490,20 +473,11 @@ static bool getCompose(BlogRef const blog, HTTPConnectionRef const conn, HTTPMet
 	TemplateWriteHTTPChunk(blog->compose, NULL, NULL, conn);
 	HTTPConnectionWriteChunkv(conn, NULL, 0);
 	HTTPConnectionEnd(conn);
-
-	EFSSessionFree(&session);
-	return true;
+	return 0;
 }
-static bool postSubmission(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
-	if(HTTP_POST != method) return false;
-	if(!URIPath(URI, "/submission", NULL)) return false;
-
-	strarg_t const cookie = HTTPHeadersGet(headers, "cookie");
-	EFSSessionRef session = EFSRepoCreateSession(blog->repo, cookie);
-	if(!session) {
-		HTTPConnectionSendStatus(conn, 403);
-		return true;
-	}
+static int postSubmission(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+	if(HTTP_POST != method) return -1;
+	if(!URIPath(URI, "/submission", NULL)) return -1;
 
 	// TODO: CSRF token
 	strarg_t const formtype = HTTPHeadersGet(headers, "content-type"); 
@@ -524,10 +498,8 @@ static bool postSubmission(BlogRef const blog, HTTPConnectionRef const conn, HTT
 	EFSSubmissionRef sub = NULL;
 	EFSSubmissionRef meta = NULL;
 	if(EFSSubmissionCreateQuickPair(session, type, (ssize_t (*)())FormPartGetBuffer, part, title, &sub, &meta) < 0) {
-		HTTPConnectionSendStatus(conn, 500);
 		MultipartFormFree(&form);
-		EFSSessionFree(&session);
-		return true;
+		return 500;
 	}
 
 	EFSSubmissionRef subs[2] = { sub, meta };
@@ -536,19 +508,15 @@ static bool postSubmission(BlogRef const blog, HTTPConnectionRef const conn, HTT
 	EFSSubmissionFree(&sub);
 	EFSSubmissionFree(&meta);
 	MultipartFormFree(&form);
-	EFSSessionFree(&session);
 
-	if(err >= 0) {
-		HTTPConnectionWriteResponse(conn, 303, "See Other");
-		HTTPConnectionWriteHeader(conn, "Location", "/");
-		HTTPConnectionWriteContentLength(conn, 0);
-		HTTPConnectionBeginBody(conn);
-		HTTPConnectionEnd(conn);
-	} else {
-		HTTPConnectionSendStatus(conn, 500);
-	}
+	if(err < 0) return 500;
 
-	return true;
+	HTTPConnectionWriteResponse(conn, 303, "See Other");
+	HTTPConnectionWriteHeader(conn, "Location", "/");
+	HTTPConnectionWriteContentLength(conn, 0);
+	HTTPConnectionBeginBody(conn);
+	HTTPConnectionEnd(conn);
+	return 0;
 }
 
 
@@ -615,23 +583,22 @@ void BlogFree(BlogRef *const blogptr) {
 
 	FREE(blogptr); blog = NULL;
 }
-bool BlogDispatch(BlogRef const blog, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
-	if(getResultsPage(blog, conn, method, URI, headers)) return true;
-	if(getCompose(blog, conn, method, URI, headers)) return true;
-	if(postSubmission(blog, conn, method, URI, headers)) return true;
+int BlogDispatch(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+	int rc = -1;
+	rc = rc >= 0 ? rc : getResultsPage(blog, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : getCompose(blog, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : postSubmission(blog, session, conn, method, URI, headers);
+	if(rc >= 0) return rc;
 
-	if(HTTP_GET != method && HTTP_HEAD != method) return false;
+	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
 
 	// TODO: Ignore query parameters, check for `..` (security critical).
 	str_t *path;
 	int const plen = asprintf(&path, "%s%s", blog->staticDir, URI);
-	if(plen < 0) {
-		HTTPConnectionSendStatus(conn, 500);
-		return true;
-	}
+	if(plen < 0) return 500;
 
 	HTTPConnectionSendFile(conn, path, NULL, -1); // TODO: Determine file type.
 	FREE(&path);
-	return true;
+	return 0;
 }
 
