@@ -2,7 +2,7 @@
 #include <assert.h>
 #include "EarthFS.h"
 #include "async/async.h"
-#include "http/HTTPMessage.h"
+#include "http/HTTPConnection.h"
 
 #define READER_COUNT 64
 #define QUEUE_SIZE 64 // TODO: Find a way to lower these without sacrificing performance, and perhaps automatically adjust them somehow.

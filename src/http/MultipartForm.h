@@ -1,4 +1,4 @@
-#include "HTTPMessage.h"
+#include "HTTPConnection.h"
 
 typedef struct MultipartForm* MultipartFormRef;
 typedef struct FormPart* FormPartRef;

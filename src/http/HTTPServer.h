@@ -2,7 +2,7 @@
 #define HTTPSERVER_H
 
 #include "../common.h"
-#include "HTTPMessage.h"
+#include "HTTPConnection.h"
 
 typedef struct HTTPServer* HTTPServerRef;
 

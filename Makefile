@@ -43,7 +43,7 @@ HEADERS := \
 	$(SRC_DIR)/hash.h \
 	$(SRC_DIR)/http/status.h \
 	$(SRC_DIR)/http/Headers.h \
-	$(SRC_DIR)/http/HTTPMessage.h \
+	$(SRC_DIR)/http/HTTPConnection.h \
 	$(SRC_DIR)/http/HTTPServer.h \
 	$(SRC_DIR)/http/MultipartForm.h \
 	$(SRC_DIR)/http/QueryString.h \
@@ -89,7 +89,7 @@ OBJECTS := \
 	$(BUILD_DIR)/async/async_worker.o \
 	$(BUILD_DIR)/bcrypt.o \
 	$(BUILD_DIR)/http/Headers.o \
-	$(BUILD_DIR)/http/HTTPMessage.o \
+	$(BUILD_DIR)/http/HTTPConnection.o \
 	$(BUILD_DIR)/http/HTTPServer.o \
 	$(BUILD_DIR)/http/MultipartForm.o \
 	$(BUILD_DIR)/http/QueryString.o \

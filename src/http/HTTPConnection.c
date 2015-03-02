@@ -1,5 +1,5 @@
 #include <assert.h>
-#include "HTTPMessage.h"
+#include "HTTPConnection.h"
 #include "status.h"
 
 #define BUFFER_SIZE (1024 * 8)
