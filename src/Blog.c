@@ -539,7 +539,7 @@ BlogRef BlogCreate(EFSRepoRef const repo) {
 		return NULL;
 	}
 
-	str_t *path = malloc(PATH_MAX);
+	str_t path[PATH_MAX];
 	snprintf(path, PATH_MAX, "%s/header.html", blog->templateDir);
 	blog->header = TemplateCreateFromPath(path);
 	snprintf(path, PATH_MAX, "%s/footer.html", blog->templateDir);
@@ -554,7 +554,6 @@ BlogRef BlogCreate(EFSRepoRef const repo) {
 	blog->empty = TemplateCreateFromPath(path);
 	snprintf(path, PATH_MAX, "%s/compose.html", blog->templateDir);
 	blog->compose = TemplateCreateFromPath(path);
-	FREE(&path);
 
 	async_mutex_init(blog->pending_mutex, 0);
 	async_cond_init(blog->pending_cond, 0);
