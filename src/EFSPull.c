@@ -242,6 +242,7 @@ static int reconnect(EFSPullRef const pull) {
 	HTTPConnectionWriteRequest(pull->conn, HTTP_GET, "/efs/query?count=all", pull->host);
 	// TODO: Pagination...
 	// TODO: More careful error handling.
+	// TODO: POST an actual query, GET is just a hack.
 	assert(pull->cookie);
 	HTTPConnectionWriteHeader(pull->conn, "Cookie", pull->cookie);
 	HTTPConnectionBeginBody(pull->conn);

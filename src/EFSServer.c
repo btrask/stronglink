@@ -177,7 +177,7 @@ static void cleanupURIs(str_t **const URIs, count_t const count) {
 	}
 }
 static int POST_query(EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
-	if(HTTP_POST != method && HTTP_GET != method) return -1; // TODO: GET is just for testing?
+	if(HTTP_POST != method && HTTP_GET != method) return -1; // TODO: GET is just for testing
 	if(!URIPath(URI, "/efs/query", NULL)) return -1;
 
 	EFSJSONFilterParserRef parser = NULL;
