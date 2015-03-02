@@ -19,7 +19,7 @@ static str_t *path = NULL;
 static EFSRepoRef repo = NULL;
 static BlogRef blog = NULL;
 static HTTPServerRef server = NULL;
-static uv_signal_t sigint[1];
+static uv_signal_t sigint[1] = {};
 static int sig = 0;
 
 static void listener(void *ctx, HTTPConnectionRef const conn) {
