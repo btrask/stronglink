@@ -24,11 +24,11 @@ a:hover {
 
 body {
 	background: #eee;
+	font-size: 16px;
+	line-height: 1.5em;
 }
 body, input {
 	font-family: Helvetica, sans-serif;
-	font-size: 16px;
-	line-height: 1.5em;
 }
 input {
 	padding: 2px 4px;
