@@ -103,6 +103,7 @@ int markdown_convert(strarg_t const dst, strarg_t const src) {
 		MKDEXT_FENCED_CODE |
 		MKDEXT_NO_INTRA_EMPHASIS |
 		MKDEXT_SUPERSCRIPT |
+		MKDEXT_LAX_SPACING |
 		0;
 	size_t const nesting = 10;
 
