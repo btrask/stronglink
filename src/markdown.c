@@ -129,9 +129,6 @@ int markdown_convert(strarg_t const dst, strarg_t const src) {
 	sd_markdown_render(out, in, size, parser);
 	sd_markdown_free(parser); parser = NULL;
 
-	// TODO: How is this supposed to work? Aren't we only writing the first 8K?
-	// TODO: Are we even freeing `out`?
-
 	size_t written = 0;
 	for(;;) {
 		ssize_t const r = RETRY(write(file, out->data+written, out->size-written));
