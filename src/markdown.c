@@ -57,6 +57,7 @@ int markdown_convert(strarg_t const dst, strarg_t const src) {
 	size_t size = 0;
 	byte_t const *in = NULL;
 	struct buf *out = NULL;
+	struct sd_markdown *parser = NULL;
 
 	file = open(dst, O_CREAT | O_EXCL | O_RDWR, 0400);
 	if(file < 0) {
@@ -115,8 +116,16 @@ int markdown_convert(strarg_t const dst, strarg_t const src) {
 	callbacks->link = markdown_link;
 	callbacks->autolink = markdown_autolink;
 
-	struct sd_markdown *parser = sd_markdown_new(mflags, nesting, callbacks, state);
 	out = bufnew(1024 * 8); // Sundown grows this as needed.
+	if(!out) {
+		fprintf(stderr, "Can't allocate buffer\n");
+		goto err;
+	}
+	parser = sd_markdown_new(mflags, nesting, callbacks, state);
+	if(!parser) {
+		fprintf(stderr, "Can't allocate parser\n");
+		goto err;
+	}
 	sd_markdown_render(out, in, size, parser);
 	sd_markdown_free(parser); parser = NULL;
 
@@ -150,6 +159,7 @@ int markdown_convert(strarg_t const dst, strarg_t const src) {
 err:
 	unlink(dst);
 	close(file); file = -1;
+	sd_markdown_free(parser); parser = NULL;
 	munmap((byte_t *)in, size); in = NULL;
 	bufrelease(out); out = NULL;
 	return -1;
