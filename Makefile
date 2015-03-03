@@ -54,9 +54,6 @@ HEADERS := \
 	$(DEPS_DIR)/multipart-parser-c/multipart_parser.h \
 	$(DEPS_DIR)/lsmdb/liblmdb/lmdb.h \
 	$(DEPS_DIR)/fts3/fts3_tokenizer.h \
-	$(DEPS_DIR)/sundown/src/markdown.h \
-	$(DEPS_DIR)/sundown/html/html.h \
-	$(DEPS_DIR)/sundown/html/houdini.h \
 	$(YAJL_BUILD_DIR)/include/yajl/*.h
 
 # Generic library code
@@ -104,14 +101,6 @@ OBJECTS := \
 	$(BUILD_DIR)/lsmdb/liblmdb/mdb.o \
 	$(BUILD_DIR)/lsmdb/liblmdb/midl.o \
 	$(BUILD_DIR)/fts3/fts3_porter.o \
-	$(BUILD_DIR)/sundown/src/markdown.o \
-	$(BUILD_DIR)/sundown/src/autolink.o \
-	$(BUILD_DIR)/sundown/src/buffer.o \
-	$(BUILD_DIR)/sundown/src/stack.o \
-	$(BUILD_DIR)/sundown/html/html.o \
-	$(BUILD_DIR)/sundown/html/html_smartypants.o \
-	$(BUILD_DIR)/sundown/html/houdini_href_e.o \
-	$(BUILD_DIR)/sundown/html/houdini_html_e.o
 
 ifdef USE_VALGRIND
 HEADERS += $(DEPS_DIR)/libcoro/coro.h
@@ -121,14 +110,30 @@ else
 OBJECTS += $(BUILD_DIR)/libco/libco.o
 endif
 
+MARKDOWN_HEADERS := \
+	$(DEPS_DIR)/sundown/src/markdown.h \
+	$(DEPS_DIR)/sundown/html/html.h \
+	$(DEPS_DIR)/sundown/html/houdini.h
+MARKDOWN_OBJECTS := \
+	$(BUILD_DIR)/sundown/src/markdown.o \
+	$(BUILD_DIR)/sundown/src/autolink.o \
+	$(BUILD_DIR)/sundown/src/buffer.o \
+	$(BUILD_DIR)/sundown/src/stack.o \
+	$(BUILD_DIR)/sundown/html/html.o \
+	$(BUILD_DIR)/sundown/html/html_smartypants.o \
+	$(BUILD_DIR)/sundown/html/houdini_href_e.o \
+	$(BUILD_DIR)/sundown/html/houdini_html_e.o
 
 # Server executable-specific code
 HEADERS += \
-	$(SRC_DIR)/Template.h
+	$(SRC_DIR)/Template.h \
+	$(MARKDOWN_HEADERS)
 OBJECTS += \
 	$(BUILD_DIR)/Blog.o \
 	$(BUILD_DIR)/Template.o \
-	$(BUILD_DIR)/main.o
+	$(BUILD_DIR)/main.o \
+	$(BUILD_DIR)/markdown.o \
+	$(MARKDOWN_OBJECTS)
 
 MODULES :=
 
@@ -244,6 +249,16 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c $(HEADERS)
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) $(WARNINGS)
 
+.PHONY: sln-markdown
+sln-markdown: $(BUILD_DIR)/sln-markdown
+
+$(BUILD_DIR)/sln-markdown: $(BUILD_DIR)/markdown_standalone.o $(BUILD_DIR)/http/QueryString.o $(MARKDOWN_OBJECTS) $(SRC_DIR)/http/QueryString.h $(MARKDOWN_HEADERS)
+	@- mkdir -p $(dir $@)
+	$(CC) -o $@ $^ $(CFLAGS) -Werror -Wall -Wno-unused
+
+$(BUILD_DIR)/markdown_standalone.o: $(SRC_DIR)/markdown.c
+	@- mkdir -p $(dir $@)
+	$(CC) -c -o $@ $< $(CFLAGS) $(WARNINGS) -DMARKDOWN_STANDALONE
 
 .PHONY: clean
 clean:
