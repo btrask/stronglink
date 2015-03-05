@@ -40,6 +40,7 @@ struct Blog {
 	TemplateRef preview;
 	TemplateRef empty;
 	TemplateRef compose;
+	TemplateRef login;
 
 	async_mutex_t pending_mutex[1];
 	async_cond_t pending_cond[1];
@@ -378,11 +379,18 @@ static int GET_new(BlogRef const blog, EFSSessionRef const session, HTTPConnecti
 	if(HTTP_GET != method) return -1;
 	if(!URIPath(URI, "/compose", NULL)) return -1;
 
+	// TODO
+	TemplateStaticArg const args[] = {
+		{"reponame", "Blog"},
+		{"token", "asdf"},
+		{NULL, NULL},
+	};
+
 	HTTPConnectionWriteResponse(conn, 200, "OK");
 	HTTPConnectionWriteHeader(conn, "Content-Type", "text/html; charset=utf-8");
 	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
 	HTTPConnectionBeginBody(conn);
-	TemplateWriteHTTPChunk(blog->compose, NULL, NULL, conn);
+	TemplateWriteHTTPChunk(blog->compose, &TemplateStaticCBs, args, conn);
 	HTTPConnectionWriteChunkv(conn, NULL, 0);
 	HTTPConnectionEnd(conn);
 	return 0;
@@ -431,6 +439,71 @@ static int POST_submit(BlogRef const blog, EFSSessionRef const session, HTTPConn
 	return 0;
 }
 
+static int GET_login(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+	if(HTTP_GET != method) return -1;
+	if(!URIPath(URI, "/login", NULL)) return -1;
+
+	// TODO
+	TemplateStaticArg const args[] = {
+		{"reponame", "Blog"},
+		{"token", "asdf"},
+		{"userlen", "32"},
+		{"passlen", "64"},
+		{NULL, NULL},
+	};
+
+	HTTPConnectionWriteResponse(conn, 200, "OK");
+	HTTPConnectionWriteHeader(conn, "Content-Type", "text/html; charset=utf-8");
+	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
+	HTTPConnectionBeginBody(conn);
+	TemplateWriteHTTPChunk(blog->login, &TemplateStaticCBs, args, conn);
+	HTTPConnectionWriteChunkv(conn, NULL, 0);
+	HTTPConnectionEnd(conn);
+	return 0;
+}
+static int POST_auth(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+	if(HTTP_POST != method) return -1;
+	if(!URIPath(URI, "/auth", NULL)) return -1;
+
+
+// TODO: This is pretty ugly...
+// Do we need a streaming form-data parser?
+// Or a parser that uses our old predefined-fields trick?
+// It'd be good to cap the lengths
+
+#define FORMDATA_MAX 1024
+	str_t formdata[FORMDATA_MAX];
+	size_t len = 0;
+	for(;;) {
+		uv_buf_t buf[1];
+		int rc = HTTPConnectionReadBody(conn, buf);
+		if(rc < 0) return 500;
+		if(!buf->len) break;
+		if(len+buf->len >= FORMDATA_MAX) return 400; // TODO
+		memcpy(formdata, buf->base, buf->len);
+		len += buf->len;
+		formdata[len] = '\0';
+	}
+
+
+	EFSRepoRef const repo = EFSSessionGetRepo(session);
+	str_t *cookie = NULL;
+	int rc = EFSRepoCookieCreate(repo, "ben", "testing", &cookie); // TODO
+	if(0 != rc) {
+		FREE(&cookie);
+		return 403;
+	}
+
+	HTTPConnectionWriteResponse(conn, 303, "See Other");
+	HTTPConnectionWriteSetCookie(conn, "s", cookie, "/", 60 * 60 * 24 * 365);
+	HTTPConnectionWriteHeader(conn, "Location", "/");
+	HTTPConnectionWriteContentLength(conn, 0);
+	HTTPConnectionBeginBody(conn);
+	HTTPConnectionEnd(conn);
+
+	FREE(&cookie);
+	return 0;
+}
 
 void BlogFree(BlogRef *const blogptr);
 
@@ -466,6 +539,8 @@ BlogRef BlogCreate(EFSRepoRef const repo) {
 	blog->empty = TemplateCreateFromPath(path);
 	snprintf(path, PATH_MAX, "%s/compose.html", blog->templateDir);
 	blog->compose = TemplateCreateFromPath(path);
+	snprintf(path, PATH_MAX, "%s/login.html", blog->templateDir);
+	blog->login = TemplateCreateFromPath(path);
 
 	async_mutex_init(blog->pending_mutex, 0);
 	async_cond_init(blog->pending_cond, 0);
@@ -488,6 +563,7 @@ void BlogFree(BlogRef *const blogptr) {
 	TemplateFree(&blog->preview);
 	TemplateFree(&blog->empty);
 	TemplateFree(&blog->compose);
+	TemplateFree(&blog->login);
 
 	async_mutex_destroy(blog->pending_mutex);
 	async_cond_destroy(blog->pending_cond);
@@ -499,6 +575,8 @@ int BlogDispatch(BlogRef const blog, EFSSessionRef const session, HTTPConnection
 	rc = rc >= 0 ? rc : GET_query(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_new(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_submit(blog, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : GET_login(blog, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : POST_auth(blog, session, conn, method, URI, headers);
 	if(rc >= 0) return rc;
 
 	if(HTTP_GET != method && HTTP_HEAD != method) return -1;

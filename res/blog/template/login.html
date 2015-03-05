@@ -1,0 +1,17 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>{{reponame}} login</title>
+<link rel="stylesheet" type="text/css" href="/index.css">
+<style>
+/* form { background: red; } */
+</style>
+
+<form method="post" action="/auth">
+
+Username: <input type="text" name="user" maxlength="{{userlen}}"><br>
+Password: <input type="password" name="pass" maxlength="{{passlen}}"><br>
+<input type="hidden" name="token" value="{{token}}">
+<input type="submit" value="submit">
+
+</form>
+

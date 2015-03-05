@@ -1,6 +1,6 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>Blog Submission</title>
+<title>{{reponame}} Submission</title>
 <link rel="stylesheet" type="text/css" href="/index.css">
 <style>
 .absolute { position: absolute; }
@@ -18,15 +18,18 @@
 <script src="/marked.js"></script>
 
 <form method="POST" action="/submission" enctype="multipart/form-data">
-	<div class="absolute full">
-		<div class="absolute toolbar">
-			<input class="border button submit" type="submit" value="Submit">
-		</div>
-		<div class="absolute editor">
-			<textarea id="input" name="markdown" class="absolute textarea"></textarea>
-			<div id="output" class="absolute preview content scroll"></div>
-		</div>
+<input type="hidden" name="token" value="{{token}}">
+
+<div class="absolute full">
+	<div class="absolute toolbar">
+		<input class="border button submit" type="submit" value="Submit">
 	</div>
+	<div class="absolute editor">
+		<textarea id="input" name="markdown" class="absolute textarea"></textarea>
+		<div id="output" class="absolute preview content scroll"></div>
+	</div>
+</div>
+
 </form>
 
 <script>

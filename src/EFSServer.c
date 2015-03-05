@@ -40,7 +40,10 @@ static int POST_auth(EFSSessionRef const session, HTTPConnectionRef const conn, 
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	str_t *cookie = NULL;
 	int rc = EFSRepoCookieCreate(repo, "ben", "testing", &cookie); // TODO
-	if(0 != rc) return 403;
+	if(0 != rc) {
+		FREE(&cookie);
+		return 403;
+	}
 
 	HTTPConnectionWriteResponse(conn, 200, "OK");
 	HTTPConnectionWriteSetCookie(conn, "s", cookie, "/", 60 * 60 * 24 * 365);
