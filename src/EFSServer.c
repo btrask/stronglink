@@ -76,7 +76,18 @@ static int GET_file(EFSSessionRef const session, HTTPConnectionRef const conn, H
 	}
 
 	// TODO: Send other headers
-	// Content-Disposition? What else?
+	// Content-Disposition?
+	// http://www.ibuildings.com/blog/2013/03/4-http-security-headers-you-should-always-be-using
+	// X-Content-Type-Options: nosniff
+	// Content-Security-Policy (disable all js and embedded resources?)
+	// This requires some real thought because not all browsers support
+	// these headers, and because we'd like to let users view "regular"
+	// files in-line.
+	// Maybe the only truly secure option is to host this stuff from a
+	// different domain, but for regular users running home servers, that
+	// isn't really an option. Perhaps the best option is to host raw files
+	// on an alternate port. That still shares cookies (which is brain-dead)
+	// but there are things we can do to minimize that impact.
 	HTTPConnectionSendFile(conn, info->path, info->type, info->size);
 	EFSFileInfoCleanup(info);
 	return 0;
