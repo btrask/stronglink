@@ -495,8 +495,8 @@ static int POST_auth(BlogRef const blog, EFSSessionRef const session, HTTPConnec
 	}
 
 	HTTPConnectionWriteResponse(conn, 303, "See Other");
-	HTTPConnectionWriteSetCookie(conn, "s", cookie, "/", 60 * 60 * 24 * 365);
 	HTTPConnectionWriteHeader(conn, "Location", "/");
+	HTTPConnectionWriteSetCookie(conn, "s", cookie, "/", 60 * 60 * 24 * 365);
 	HTTPConnectionWriteContentLength(conn, 0);
 	HTTPConnectionBeginBody(conn);
 	HTTPConnectionEnd(conn);
