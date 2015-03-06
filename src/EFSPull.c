@@ -281,17 +281,26 @@ static int auth(EFSPullRef const pull) {
 	if(!pull) return 0;
 	FREE(&pull->cookie);
 
-	HTTPConnectionRef conn;
-	int rc = HTTPConnectionCreateOutgoing(pull->host, &conn);
-	// TODO: if(rc < 0) ...
-	HTTPConnectionWriteRequest(conn, HTTP_POST, "/efs/auth", pull->host);
-	HTTPConnectionWriteContentLength(conn, 0);
-	HTTPConnectionBeginBody(conn);
+	HTTPConnectionRef conn = NULL;
+	int rc = 0;
+	rc = rc < 0 ? rc : HTTPConnectionCreateOutgoing(pull->host, &conn);
+	rc = rc < 0 ? rc : HTTPConnectionWriteRequest(conn, HTTP_POST, "/efs/auth", pull->host);
+	rc = rc < 0 ? rc : HTTPConnectionWriteContentLength(conn, 0);
+	rc = rc < 0 ? rc : HTTPConnectionBeginBody(conn);
 	// TODO: Send credentials.
-	HTTPConnectionEnd(conn);
+	rc = rc < 0 ? rc : HTTPConnectionEnd(conn);
+	if(rc < 0) {
+		fprintf(stderr, "Pull authentication error %s\n", uv_strerror(rc));
+		HTTPConnectionFree(&conn);
+		return rc;
+	}
 
 	int const status = HTTPConnectionReadResponseStatus(conn);
-	if(status < 0) return status;
+	if(status < 0) {
+		fprintf(stderr, "Pull authentication status %d\n", status);
+		HTTPConnectionFree(&conn);
+		return status;
+	}
 
 	HTTPHeadersRef headers = HTTPHeadersCreateFromConnection(conn);
 	assert(headers); // TODO
