@@ -10,7 +10,7 @@ TOOLS_DIR := $(ROOT_DIR)/tools
 YAJL_BUILD_DIR := $(DEPS_DIR)/yajl/build/yajl-2.1.1
 
 # TODO: Switch to c99
-CFLAGS := -std=gnu99
+CFLAGS += -std=gnu99
 CFLAGS += -g -fno-omit-frame-pointer
 CFLAGS += -DLIBCO_MP
 
