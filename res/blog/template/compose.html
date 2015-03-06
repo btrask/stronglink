@@ -13,7 +13,10 @@
 .scroll { overflow: auto; overflow-x: hidden; }
 .button { background: -webkit-linear-gradient(top, #eee, #ddd); background: -moz-linear-gradient(top, #eee, #ddd); }
 .button:active { background: -webkit-linear-gradient(top, #ddd, #eee); background: -moz-linear-gradient(top, #ddd, #eee); }
-.submit { position: absolute; right: 0; top: 0; bottom: 0; width: 8em; border-width: 0 0 0 1px; }
+.toolbar > .button { height: 100%; }
+.toolbar > .padding { padding: 0 1em; }
+.toolbar > .label { font-size: small; }
+.submit { border-width: 0 0 0 1px; }
 </style>
 <script src="/marked.js"></script>
 
@@ -23,7 +26,9 @@
 
 <div class="absolute full">
 	<div class="absolute toolbar">
-		<input class="border button submit" type="submit" value="Submit">
+		<div class="label padding floatl"><a href="#">Markdown help</a></div> <!--TODO-->
+		<input class="submit border button padding floatr" type="submit" value="Submit">
+		<div class="label padding floatr"><a href="/">Cancel</a></div>
 	</div>
 	<div class="absolute editor">
 		<textarea id="input" name="markdown" class="absolute textarea"></textarea>
