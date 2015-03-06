@@ -317,25 +317,38 @@ static int GET_query(BlogRef const blog, EFSSessionRef const session, HTTPConnec
 
 //	EFSFilterPrint(filter, 0); // DEBUG
 
+	// TODO: str_t *URIs[RESULTS_MAX]; ?
 	str_t **URIs = EFSSessionCopyFilteredURIs(session, filter, RESULTS_MAX);
 	if(!URIs) {
 		EFSFilterFree(&filter);
 		return 500;
 	}
 
-	HTTPConnectionWriteResponse(conn, 200, "OK");
-	HTTPConnectionWriteHeader(conn, "Content-Type", "text/html; charset=utf-8");
-	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
-	HTTPConnectionBeginBody(conn);
+	str_t *reponame_HTMLSafe = htmlenc(EFSRepoGetName(EFSSessionGetRepo(session)));
 
 	str_t q[200];
 	size_t qlen = EFSFilterToUserFilterString(filter, q, sizeof(q), 0);
 	str_t *q_HTMLSafe = htmlenc(q);
+
+	if(!reponame_HTMLSafe || !q_HTMLSafe) {
+		FREE(&reponame_HTMLSafe);
+		FREE(&q_HTMLSafe);
+		for(index_t i = 0; URIs[i]; ++i) FREE(&URIs[i]); // TODO
+		FREE(&URIs);
+		EFSFilterFree(&filter);
+		return 500;
+	}
+
 	TemplateStaticArg const args[] = {
+		{"reponame", reponame_HTMLSafe},
 		{"q", q_HTMLSafe},
 		{NULL, NULL},
 	};
 
+	HTTPConnectionWriteResponse(conn, 200, "OK");
+	HTTPConnectionWriteHeader(conn, "Content-Type", "text/html; charset=utf-8");
+	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
+	HTTPConnectionBeginBody(conn);
 	TemplateWriteHTTPChunk(blog->header, &TemplateStaticCBs, args, conn);
 
 	// TODO: This is pretty broken. We probably need a whole separate mode.
@@ -379,9 +392,10 @@ static int GET_new(BlogRef const blog, EFSSessionRef const session, HTTPConnecti
 	if(HTTP_GET != method) return -1;
 	if(!URIPath(URI, "/compose", NULL)) return -1;
 
-	// TODO
+	str_t *reponame_HTMLSafe = htmlenc(EFSRepoGetName(EFSSessionGetRepo(session)));
+	if(!reponame_HTMLSafe) return 500;
 	TemplateStaticArg const args[] = {
-		{"reponame", "Blog"},
+		{"reponame", reponame_HTMLSafe},
 		{"token", "asdf"},
 		{NULL, NULL},
 	};
@@ -393,6 +407,8 @@ static int GET_new(BlogRef const blog, EFSSessionRef const session, HTTPConnecti
 	TemplateWriteHTTPChunk(blog->compose, &TemplateStaticCBs, args, conn);
 	HTTPConnectionWriteChunkv(conn, NULL, 0);
 	HTTPConnectionEnd(conn);
+
+	FREE(&reponame_HTMLSafe);
 	return 0;
 }
 static int POST_submit(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
@@ -443,10 +459,11 @@ static int GET_login(BlogRef const blog, EFSSessionRef const session, HTTPConnec
 	if(HTTP_GET != method) return -1;
 	if(!URIPath(URI, "/login", NULL)) return -1;
 
-	// TODO
+	str_t *reponame_HTMLSafe = htmlenc(EFSRepoGetName(EFSSessionGetRepo(session)));
+	if(!reponame_HTMLSafe) return 500;
 	TemplateStaticArg const args[] = {
-		{"reponame", "Blog"},
-		{"token", "asdf"},
+		{"reponame", reponame_HTMLSafe},
+		{"token", "asdf"}, // TODO
 		{"userlen", "32"},
 		{"passlen", "64"},
 		{NULL, NULL},
@@ -459,6 +476,8 @@ static int GET_login(BlogRef const blog, EFSSessionRef const session, HTTPConnec
 	TemplateWriteHTTPChunk(blog->login, &TemplateStaticCBs, args, conn);
 	HTTPConnectionWriteChunkv(conn, NULL, 0);
 	HTTPConnectionEnd(conn);
+
+	FREE(&reponame_HTMLSafe);
 	return 0;
 }
 static int POST_auth(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {

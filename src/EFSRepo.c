@@ -93,6 +93,10 @@ strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->cacheDir;
 }
+strarg_t EFSRepoGetName(EFSRepoRef const repo) {
+	if(!repo) return NULL;
+	return "unnamed repo"; // TODO: By default, just use the name of the directory?
+}
 
 int EFSRepoDBOpen(EFSRepoRef const repo, DB_env **const dbptr) {
 	assert(repo);

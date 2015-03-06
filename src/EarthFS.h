@@ -44,6 +44,7 @@ str_t *EFSRepoCopyInternalPath(EFSRepoRef const repo, strarg_t const internalHas
 strarg_t EFSRepoGetTempDir(EFSRepoRef const repo);
 str_t *EFSRepoCopyTempPath(EFSRepoRef const repo);
 strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo);
+strarg_t EFSRepoGetName(EFSRepoRef const repo);
 int EFSRepoDBOpen(EFSRepoRef const repo, DB_env **const dbptr);
 void EFSRepoDBClose(EFSRepoRef const repo, DB_env **const dbptr);
 void EFSRepoSubmissionEmit(EFSRepoRef const repo, uint64_t const sortID);
