@@ -207,9 +207,10 @@ static int cookie_auth(EFSRepoRef const repo, strarg_t const cookie, uint64_t *c
 	assert(cookie);
 	assert(outUserID);
 
-	unsigned long long sessionID = 0;
+	unsigned long long sessionID_ULL = 0;
 	str_t sessionKey[SESSION_KEY_LEN+1] = {};
-	sscanf(cookie, "s=%llu:%" SESSION_KEY_LEN_STR "s", &sessionID, sessionKey);
+	sscanf(cookie, "s=%llu:%" SESSION_KEY_LEN_STR "s", &sessionID_ULL, sessionKey);
+	uint64_t const sessionID = sessionID_ULL;
 	if(!sessionID) return UV_EACCES;
 	if(strlen(sessionKey) != SESSION_KEY_LEN) return UV_EACCES;
 
