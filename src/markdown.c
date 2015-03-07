@@ -34,7 +34,7 @@ static int markdown_link(struct buf *ob, const struct buf *link, const struct bu
 
 	bufputs(ob, "<sup>[");
 	struct buf icon = BUF_STATIC("#");
-	struct buf info = BUF_STATIC("Hash address");
+	struct buf info = BUF_STATIC("Hash URI (right click and choose copy link)");
 	state->link(ob, link, &info, &icon, opaque);
 	bufputs(ob, "]</sup>");
 
