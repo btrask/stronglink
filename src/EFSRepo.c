@@ -98,13 +98,11 @@ strarg_t EFSRepoGetName(EFSRepoRef const repo) {
 	return "unnamed repo"; // TODO: By default, just use the name of the directory?
 }
 
-int EFSRepoDBOpen(EFSRepoRef const repo, DB_env **const dbptr) {
+void EFSRepoDBOpen(EFSRepoRef const repo, DB_env **const dbptr) {
 	assert(repo);
 	assert(dbptr);
-	int rc = async_pool_enter(NULL);
-	if(rc < 0) return rc;
+	async_pool_enter(NULL);
 	*dbptr = repo->db;
-	return 0;
 }
 void EFSRepoDBClose(EFSRepoRef const repo, DB_env **const dbptr) {
 	assert(repo);
@@ -156,10 +154,9 @@ static void createDBConnection(EFSRepoRef const repo) {
 static void loadPulls(EFSRepoRef const repo) {
 	assert(repo);
 	DB_env *db = NULL;
-	int rc = EFSRepoDBOpen(repo, &db);
-	assert(rc >= 0);
+	EFSRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
-	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	assert(DB_SUCCESS == rc);
 
 	DB_cursor *cur = NULL;

@@ -352,12 +352,9 @@ int EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const co
 	if(!count) return 0;
 	EFSRepoRef const repo = EFSSessionGetRepo(list[0]->session);
 	DB_env *db = NULL;
-	int rc = EFSRepoDBOpen(repo, &db);
-	if(rc < 0) {
-		return -1;
-	}
+	EFSRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
-	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
+	int rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
 	if(DB_SUCCESS != rc) {
 		EFSRepoDBClose(repo, &db);
 		return -1;

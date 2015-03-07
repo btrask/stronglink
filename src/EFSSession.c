@@ -54,14 +54,9 @@ str_t **EFSSessionCopyFilteredURIs(EFSSessionRef const session, EFSFilterRef con
 //	uint64_t const then = uv_hrtime();
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	DB_env *db = NULL;
-	int rc = EFSRepoDBOpen(repo, &db);
-	if(rc < 0) {
-		FREE(&URIs);
-		return NULL;
-	}
-
+	EFSRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
-	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	assert(DB_SUCCESS == rc);
 
 	count_t count = 0;
@@ -86,13 +81,9 @@ int EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFSFi
 	// TODO: Check session mode.
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	DB_env *db = NULL;
-	int rc = EFSRepoDBOpen(repo, &db);
-	if(rc < 0) {
-		fprintf(stderr, "Database error %s\n", uv_strerror(rc));
-		return rc;
-	}
+	EFSRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
-	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	if(DB_SUCCESS != rc) {
 		fprintf(stderr, "Transaction error %s\n", db_strerror(rc));
 		EFSRepoDBClose(repo, &db);

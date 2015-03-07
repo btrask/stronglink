@@ -110,10 +110,9 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 	if(unsafe) return htmlenc(unsafe);
 
 	DB_env *db = NULL;
-	int rc = EFSRepoDBOpen(state->blog->repo, &db);
-	assert(rc >= 0);
+	EFSRepoDBOpen(state->blog->repo, &db);
 	DB_txn *txn = NULL;
-	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	assert(DB_SUCCESS == rc);
 
 	DB_cursor *metafiles = NULL;

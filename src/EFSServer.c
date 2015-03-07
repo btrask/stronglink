@@ -154,10 +154,9 @@ static int POST_file(EFSSessionRef const session, HTTPConnectionRef const conn, 
 static count_t getURIs(EFSSessionRef const session, EFSFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID, str_t **const URIs, count_t const max) {
 	EFSRepoRef const repo = EFSSessionGetRepo(session);
 	DB_env *db = NULL;
-	int rc = EFSRepoDBOpen(repo, &db);
-	assert(rc >= 0);
+	EFSRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
-	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
 
 	EFSFilterPrepare(filter, txn);

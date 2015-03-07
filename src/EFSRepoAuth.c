@@ -25,10 +25,9 @@ static int user_auth(EFSRepoRef const repo, strarg_t const username, strarg_t co
 	assert(outUserID);
 
 	DB_env *db = NULL;
-	int rc = EFSRepoDBOpen(repo, &db);
-	if(rc < 0) return rc;
+	EFSRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
-	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	if(DB_SUCCESS != rc) {
 		EFSRepoDBClose(repo, &db);
 		return rc;
@@ -89,13 +88,9 @@ static int session_create(EFSRepoRef const repo, uint64_t const userID, strarg_t
 	}
 
 	DB_env *db = NULL;
-	int rc = EFSRepoDBOpen(repo, &db);
-	if(rc < 0) {
-		FREE(&sessionHash);
-		return rc;
-	}
+	EFSRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
-	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
+	int rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
 	if(DB_SUCCESS != rc) {
 		FREE(&sessionHash);
 		return rc;
@@ -227,10 +222,9 @@ fprintf(stderr, "%s:%d\n", __FILE__, __LINE__);
 fprintf(stderr, "%s:%d\n", __FILE__, __LINE__);
 
 	DB_env *db = NULL;
-	int rc = EFSRepoDBOpen(repo, &db);
-	if(rc < 0) return rc;
+	EFSRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
-	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	if(DB_SUCCESS != rc) return rc;
 
 	DB_VAL(sessionID_key, DB_VARINT_MAX + DB_VARINT_MAX);
