@@ -1,3 +1,11 @@
+
+
+// TODO: This code is obsolete and unused. Read-write locks should probably be
+// re-written on top of async_sem (if possible?). Or, better yet, don't use
+// read-write locks at all: either use plain locks, or use a data-structure that
+// gracefully handles concurrent reads.
+
+
 #include <assert.h>
 #include <stdio.h> /* For debugging */
 #include <stdlib.h>
@@ -36,6 +44,7 @@ void async_rwlock_free(async_rwlock_t *const lock) {
 	assert(!lock->wrhead);
 	assert(!lock->wrtail);
 	assert(!lock->upgrade);
+	lock->flags = 0;
 	free(lock);
 }
 void async_rwlock_rdlock(async_rwlock_t *const lock) {
