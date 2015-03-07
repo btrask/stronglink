@@ -9,11 +9,11 @@
 #define COOKIE_CACHE_SEARCH 15
 #define COOKIE_CACHE_TIMEOUT (1000 * 60 * 5)
 
-#define SESSION_KEY_LEN 31
-#define SESSION_KEY_LEN_STR "31" // HACK
+#define SESSION_KEY_LEN 32
+#define SESSION_KEY_FMT "%31s"
 
 struct cookie_t {
-	str_t sessionKey[SESSION_KEY_LEN+1];
+	str_t sessionKey[SESSION_KEY_LEN];
 	uint64_t time;
 	uint64_t userID;
 };
@@ -180,8 +180,8 @@ static int cookie_create(EFSRepoRef const repo, strarg_t const username, strarg_
 	int rc = user_auth(repo, username, password, &userID);
 	if(0 != rc) return rc;
 
-	byte_t bytes[(SESSION_KEY_LEN+1)/2];
-	str_t sessionKey[SESSION_KEY_LEN+1] = "1111111111" "1111111111" "1111111111" "1";
+	byte_t bytes[SESSION_KEY_LEN/2];
+	str_t sessionKey[SESSION_KEY_LEN] = "1111111111" "1111111111" "1111111111" "1";
 	// TODO: Generate and convert to hex
 	// Make sure to nul-terminate
 
@@ -204,11 +204,11 @@ static int cookie_auth(EFSRepoRef const repo, strarg_t const cookie, uint64_t *c
 	assert(outUserID);
 
 	unsigned long long sessionID_ULL = 0;
-	str_t sessionKey[SESSION_KEY_LEN+1] = {};
-	sscanf(cookie, "s=%llu:%" SESSION_KEY_LEN_STR "s", &sessionID_ULL, sessionKey);
+	str_t sessionKey[SESSION_KEY_LEN] = {};
+	sscanf(cookie, "s=%llu:" SESSION_KEY_FMT, &sessionID_ULL, sessionKey);
 	uint64_t const sessionID = sessionID_ULL;
 	if(!sessionID) return UV_EACCES;
-	if(strlen(sessionKey) != SESSION_KEY_LEN) return UV_EACCES;
+	if(strlen(sessionKey) != SESSION_KEY_LEN-1) return UV_EACCES;
 
 	uint64_t userID = 0;
 	if(HASH_NOTFOUND != cookie_cache_lookup(repo, sessionID, sessionKey, &userID)) {
