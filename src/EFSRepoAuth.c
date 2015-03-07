@@ -139,7 +139,6 @@ static void cookie_cache_store(EFSRepoRef const repo, uint64_t const userID, uin
 		if(x == i) break;
 	}
 
-	fprintf(stderr, "storing in %zu\n", i);
 	hash_set_raw(repo->cookie_hash, i, (char const *)&sessionID);
 	memcpy(&repo->cookie_data[i].sessionKey, sessionKey, 32);
 	repo->cookie_data[i].userID = userID;
@@ -152,7 +151,6 @@ static size_t cookie_cache_lookup(EFSRepoRef const repo, uint64_t const sessionI
 	assert(outUserID);
 
 	size_t const x = hash_func(repo->cookie_hash, (char const *)&sessionID);
-	fprintf(stderr, "checking from %zu\n", x);
 	size_t i = x;
 	for(;;) {
 		if(0 == hash_bucket_match(repo->cookie_hash, i, (char const *)&sessionID)) break;
@@ -162,9 +160,7 @@ static size_t cookie_cache_lookup(EFSRepoRef const repo, uint64_t const sessionI
 		if(x == i) return HASH_NOTFOUND;
 	}
 
-	fprintf(stderr, "checking %zu\n", i);
 	if(0 != passcmp(repo->cookie_data[i].sessionKey, sessionKey)) return HASH_NOTFOUND;
-	fprintf(stderr, "loading\n");
 
 	uint64_t const now = uv_now(loop);
 	uint64_t const expires = now - COOKIE_CACHE_TIMEOUT;
@@ -215,12 +211,10 @@ static int cookie_auth(EFSRepoRef const repo, strarg_t const cookie, uint64_t *c
 	if(strlen(sessionKey) != SESSION_KEY_LEN) return UV_EACCES;
 
 	uint64_t userID = 0;
-fprintf(stderr, "%s:%d\n", __FILE__, __LINE__);
 	if(HASH_NOTFOUND != cookie_cache_lookup(repo, sessionID, sessionKey, &userID)) {
 		*outUserID = userID;
 		return 0;
 	}
-fprintf(stderr, "%s:%d\n", __FILE__, __LINE__);
 
 	DB_env *db = NULL;
 	EFSRepoDBOpen(repo, &db);
