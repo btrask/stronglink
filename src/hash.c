@@ -1,11 +1,12 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include "../deps/smhasher/MurmurHash3.h"
 #include "hash.h"
 
 #define HASH_KEY(hash, x) ((hash)->keys + ((hash)->keylen * (x)))
 
-char hash_salt[HASH_SALT_SIZE] = {};
+uint32_t hash_salt = 0;
 
 static int nulcmp(char const *const buf, size_t const len) {
 	for(size_t i = 0; i < len; ++i) {
@@ -73,7 +74,9 @@ void hash_del_offset(hash_t *const hash, size_t const x, void *const values, siz
 }
 
 size_t hash_func(hash_t *const hash, char const *const key) {
-	return 0; // TODO
+	uint32_t x = 0;
+	MurmurHash3_x86_32(key, hash->keylen, hash_salt, &x);
+	return x % hash->count;
 }
 int hash_bucket_empty(hash_t *const hash, size_t const x) {
 	assert(x < hash->count);

@@ -58,7 +58,7 @@ static void stop(uv_signal_t *const signal, int const signum) {
 }
 
 static void init(void *const unused) {
-	async_random((byte_t *)hash_salt, HASH_SALT_SIZE);
+	async_random((byte_t *)&hash_salt, sizeof(hash_salt));
 
 	repo = EFSRepoCreate(path);
 	blog = BlogCreate(repo);

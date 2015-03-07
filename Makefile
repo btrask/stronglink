@@ -48,12 +48,13 @@ HEADERS := \
 	$(SRC_DIR)/http/HTTPHeaders.h \
 	$(SRC_DIR)/http/MultipartForm.h \
 	$(SRC_DIR)/http/QueryString.h \
-	$(DEPS_DIR)/libco/libco.h \
 	$(DEPS_DIR)/crypt_blowfish/ow-crypt.h \
-	$(DEPS_DIR)/http_parser/http_parser.h \
-	$(DEPS_DIR)/multipart-parser-c/multipart_parser.h \
-	$(DEPS_DIR)/lsmdb/liblmdb/lmdb.h \
 	$(DEPS_DIR)/fts3/fts3_tokenizer.h \
+	$(DEPS_DIR)/libco/libco.h \
+	$(DEPS_DIR)/http_parser/http_parser.h \
+	$(DEPS_DIR)/lsmdb/liblmdb/lmdb.h \
+	$(DEPS_DIR)/multipart-parser-c/multipart_parser.h \
+	$(DEPS_DIR)/smhasher/MurmurHash3.h \
 	$(YAJL_BUILD_DIR)/include/yajl/*.h
 
 # Generic library code
@@ -92,22 +93,23 @@ OBJECTS := \
 	$(BUILD_DIR)/http/HTTPHeaders.o \
 	$(BUILD_DIR)/http/MultipartForm.o \
 	$(BUILD_DIR)/http/QueryString.o \
-	$(BUILD_DIR)/crypt/crypt_blowfish.o \
-	$(BUILD_DIR)/crypt/crypt_gensalt.o \
-	$(BUILD_DIR)/crypt/wrapper.o \
-	$(BUILD_DIR)/crypt/x86.S.o \
-	$(BUILD_DIR)/http_parser.o \
-	$(BUILD_DIR)/multipart_parser.o \
-	$(BUILD_DIR)/lsmdb/liblmdb/mdb.o \
-	$(BUILD_DIR)/lsmdb/liblmdb/midl.o \
-	$(BUILD_DIR)/fts3/fts3_porter.o \
+	$(BUILD_DIR)/deps/crypt/crypt_blowfish.o \
+	$(BUILD_DIR)/deps/crypt/crypt_gensalt.o \
+	$(BUILD_DIR)/deps/crypt/wrapper.o \
+	$(BUILD_DIR)/deps/crypt/x86.S.o \
+	$(BUILD_DIR)/deps/fts3/fts3_porter.o \
+	$(BUILD_DIR)/deps/http_parser.o \
+	$(BUILD_DIR)/deps/lsmdb/liblmdb/mdb.o \
+	$(BUILD_DIR)/deps/lsmdb/liblmdb/midl.o \
+	$(BUILD_DIR)/deps/multipart_parser.o \
+	$(BUILD_DIR)/deps/smhasher/MurmurHash3.o
 
 ifdef USE_VALGRIND
 HEADERS += $(DEPS_DIR)/libcoro/coro.h
-OBJECTS += $(BUILD_DIR)/libcoro/coro.o $(BUILD_DIR)/libco_coro.o
+OBJECTS += $(BUILD_DIR)/deps/libcoro/coro.o $(BUILD_DIR)/deps/libco_coro.o
 CFLAGS += -DCORO_USE_VALGRIND
 else
-OBJECTS += $(BUILD_DIR)/libco/libco.o
+OBJECTS += $(BUILD_DIR)/deps/libco/libco.o
 endif
 
 MARKDOWN_HEADERS := \
@@ -115,14 +117,14 @@ MARKDOWN_HEADERS := \
 	$(DEPS_DIR)/sundown/html/html.h \
 	$(DEPS_DIR)/sundown/html/houdini.h
 MARKDOWN_OBJECTS := \
-	$(BUILD_DIR)/sundown/src/markdown.o \
-	$(BUILD_DIR)/sundown/src/autolink.o \
-	$(BUILD_DIR)/sundown/src/buffer.o \
-	$(BUILD_DIR)/sundown/src/stack.o \
-	$(BUILD_DIR)/sundown/html/html.o \
-	$(BUILD_DIR)/sundown/html/html_smartypants.o \
-	$(BUILD_DIR)/sundown/html/houdini_href_e.o \
-	$(BUILD_DIR)/sundown/html/houdini_html_e.o
+	$(BUILD_DIR)/deps/sundown/src/markdown.o \
+	$(BUILD_DIR)/deps/sundown/src/autolink.o \
+	$(BUILD_DIR)/deps/sundown/src/buffer.o \
+	$(BUILD_DIR)/deps/sundown/src/stack.o \
+	$(BUILD_DIR)/deps/sundown/html/html.o \
+	$(BUILD_DIR)/deps/sundown/html/html_smartypants.o \
+	$(BUILD_DIR)/deps/sundown/html/houdini_href_e.o \
+	$(BUILD_DIR)/deps/sundown/html/houdini_html_e.o
 
 # Server executable-specific code
 HEADERS += \
@@ -164,7 +166,7 @@ else ifeq ($(DB),hyper)
   OBJECTS += $(BUILD_DIR)/db/db_base_leveldb.o
 else ifeq ($(DB),lsmdb)
   HEADERS += $(DEPS_DIR)/lsmdb/lsmdb.h
-  OBJECTS += $(BUILD_DIR)/lsmdb/lsmdb.o
+  OBJECTS += $(BUILD_DIR)/deps/lsmdb/lsmdb.o
   OBJECTS += $(BUILD_DIR)/db/db_base_lsmdb.o
 else ifeq ($(DB),mdb)
   OBJECTS += $(BUILD_DIR)/db/db_base_mdb.o
@@ -205,41 +207,45 @@ libuv:
 	cd $(DEPS_DIR)/uv && make
 #	cd $(DEPS_DIR)/uv && make check
 
-$(BUILD_DIR)/crypt/%.S.o: $(DEPS_DIR)/crypt_blowfish/%.S
+$(BUILD_DIR)/deps/crypt/%.S.o: $(DEPS_DIR)/crypt_blowfish/%.S
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-$(BUILD_DIR)/crypt/%.o: $(DEPS_DIR)/crypt_blowfish/%.c $(DEPS_DIR)/crypt_blowfish/crypt.h $(DEPS_DIR)/crypt_blowfish/ow-crypt.h
+$(BUILD_DIR)/deps/crypt/%.o: $(DEPS_DIR)/crypt_blowfish/%.c $(DEPS_DIR)/crypt_blowfish/crypt.h $(DEPS_DIR)/crypt_blowfish/ow-crypt.h
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-$(BUILD_DIR)/http_parser.o: $(DEPS_DIR)/http_parser/http_parser.c $(DEPS_DIR)/http_parser/http_parser.h
+$(BUILD_DIR)/deps/http_parser.o: $(DEPS_DIR)/http_parser/http_parser.c $(DEPS_DIR)/http_parser/http_parser.h
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) -Werror -Wall
 
-$(BUILD_DIR)/libco/%.o: $(DEPS_DIR)/libco/%.c $(DEPS_DIR)/libco/libco.h
+$(BUILD_DIR)/deps/libco/%.o: $(DEPS_DIR)/libco/%.c $(DEPS_DIR)/libco/libco.h
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) -Wno-parentheses
 
-$(BUILD_DIR)/libcoro/%.o: $(DEPS_DIR)/libcoro/%.c $(DEPS_DIR)/libcoro/coro.h
+$(BUILD_DIR)/deps/libcoro/%.o: $(DEPS_DIR)/libcoro/%.c $(DEPS_DIR)/libcoro/coro.h
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-$(BUILD_DIR)/multipart_parser.o: $(DEPS_DIR)/multipart-parser-c/multipart_parser.c $(DEPS_DIR)/multipart-parser-c/multipart_parser.h
+$(BUILD_DIR)/deps/multipart_parser.o: $(DEPS_DIR)/multipart-parser-c/multipart_parser.c $(DEPS_DIR)/multipart-parser-c/multipart_parser.h
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) -std=c89 -ansi -pedantic -Wall
 
-$(BUILD_DIR)/lsmdb/%.o: $(DEPS_DIR)/lsmdb/%.c $(DEPS_DIR)/lsmdb/lsmdb.h $(DEPS_DIR)/lsmdb/liblmdb/lmdb.h
+$(BUILD_DIR)/deps/lsmdb/%.o: $(DEPS_DIR)/lsmdb/%.c $(DEPS_DIR)/lsmdb/lsmdb.h $(DEPS_DIR)/lsmdb/liblmdb/lmdb.h
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) $(WARNINGS) -Wno-format-extra-args
 
-$(BUILD_DIR)/fts3/%.o: $(DEPS_DIR)/fts3/%.c $(DEPS_DIR)/fts3/fts3Int.h $(DEPS_DIR)/fts3/fts3_tokenizer.h $(DEPS_DIR)/fts3/sqlite3.h
+$(BUILD_DIR)/deps/fts3/%.o: $(DEPS_DIR)/fts3/%.c $(DEPS_DIR)/fts3/fts3Int.h $(DEPS_DIR)/fts3/fts3_tokenizer.h $(DEPS_DIR)/fts3/sqlite3.h
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) $(WARNINGS)
 
-$(BUILD_DIR)/sundown/%.o: $(DEPS_DIR)/sundown/%.c
+$(BUILD_DIR)/deps/sundown/%.o: $(DEPS_DIR)/sundown/%.c
 	@- mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(CFLAGS) $(WARNINGS) #-I$(DEPS_DIR)/sundown/src
+
+$(BUILD_DIR)/deps/smhasher/MurmurHash3.o: $(DEPS_DIR)/smhasher/MurmurHash3.cpp $(DEPS_DIR)/smhasher/MurmurHash3.h
+	@- mkdir -p $(dir $@)
+	$(CXX) -c -o $@ $< $(CXXFLAGS) $(WARNINGS)
 
 $(BUILD_DIR)/filter/%.o: $(SRC_DIR)/filter/%.m $(HEADERS)
 	@- mkdir -p $(dir $@)

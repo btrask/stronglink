@@ -2,8 +2,7 @@
 
 #define HASH_NOTFOUND (SIZE_MAX-1)
 
-#define HASH_SALT_SIZE 16
-extern char hash_salt[HASH_SALT_SIZE]; /* Set this first */
+extern uint32_t hash_salt; /* Set this first */
 
 typedef struct {
 	size_t count;
