@@ -12,7 +12,7 @@ extern "C"
 
 #include <stdlib.h>
 #include <ctype.h>
-#include <unistd.h> /* Hack */
+#include <unistd.h>
 
 typedef struct multipart_parser multipart_parser;
 typedef struct multipart_parser_settings multipart_parser_settings;
