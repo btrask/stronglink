@@ -6,25 +6,25 @@
 struct EFSSession {
 	EFSRepoRef repo;
 	uint64_t userID;
+	int autherr;
 };
 
 EFSSessionRef EFSRepoCreateSession(EFSRepoRef const repo, strarg_t const cookie) {
-	uint64_t userID = 0;
+	uint64_t userID;
 	int rc = EFSRepoCookieAuth(repo, cookie, &userID);
-	if(0 != rc) {
-		return NULL; // TODO
+	if(rc < 0) userID = 0; // Public access
+	EFSSessionRef session = EFSRepoCreateSessionInternal(repo, userID);
+	if(session) {
+		session->autherr = rc;
 	}
-	if(!userID) {
-		assert(0); // TODO
-		return NULL;
-	}
-	return EFSRepoCreateSessionInternal(repo, userID);
+	return session;
 }
 EFSSessionRef EFSRepoCreateSessionInternal(EFSRepoRef const repo, uint64_t const userID) {
 	EFSSessionRef const session = calloc(1, sizeof(struct EFSSession));
 	if(!session) return NULL;
 	session->repo = repo;
 	session->userID = userID;
+	session->autherr = 0;
 	return session;
 }
 void EFSSessionFree(EFSSessionRef *const sessionptr) {
@@ -32,6 +32,7 @@ void EFSSessionFree(EFSSessionRef *const sessionptr) {
 	if(!session) return;
 	session->repo = NULL;
 	session->userID = 0;
+	session->autherr = 0;
 	assert_zeroed(session, 1);
 	FREE(sessionptr); session = NULL;
 }
@@ -42,6 +43,10 @@ EFSRepoRef EFSSessionGetRepo(EFSSessionRef const session) {
 uint64_t EFSSessionGetUserID(EFSSessionRef const session) {
 	if(!session) return -1;
 	return session->userID;
+}
+int EFSSessionGetAuthError(EFSSessionRef const session) {
+	if(!session) return DB_EINVAL;
+	return session->autherr;
 }
 
 str_t **EFSSessionCopyFilteredURIs(EFSSessionRef const session, EFSFilterRef const filter, count_t const max) { // TODO: Sort order, pagination.

@@ -68,6 +68,7 @@ EFSSessionRef EFSRepoCreateSessionInternal(EFSRepoRef const repo, uint64_t const
 void EFSSessionFree(EFSSessionRef *const sessionptr);
 EFSRepoRef EFSSessionGetRepo(EFSSessionRef const session);
 uint64_t EFSSessionGetUserID(EFSSessionRef const session);
+int EFSSessionGetAuthError(EFSSessionRef const session);
 str_t **EFSSessionCopyFilteredURIs(EFSSessionRef const session, EFSFilterRef const filter, count_t const max); // TODO: Public API?
 int EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFSFileInfo *const info);
 void EFSFileInfoCleanup(EFSFileInfo *const info);
