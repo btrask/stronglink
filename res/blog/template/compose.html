@@ -57,5 +57,20 @@ input.oninput = input.onpropertychange = function() {
 	}, 1000 * 0.5);
 };
 
+var TAB = 9;
+input.onkeydown = function(e) {
+	if(TAB !== e.keyCode && TAB !== e.which) return;
+	e.preventDefault();
+	var t = "\t";
+	var s = this.selectionStart + t.length;
+
+	// TODO: With long documents, this is slow and messes up scrolling.
+	// There's gotta be a better way.
+	// Only tested on Firefox so far...
+	this.setRangeText(t, this.selectionStart, this.selectionEnd);
+
+	this.setSelectionRange(s, s);
+};
+
 </script>
 
