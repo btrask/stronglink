@@ -20,6 +20,7 @@ int hash_init(hash_t *const hash, size_t const count, size_t const keylen) {
 	hash->count = count;
 	hash->keylen = keylen;
 	hash->keys = calloc(count, keylen);
+	if(!hash->keys) return -1;
 	return 0;
 }
 void hash_destroy(hash_t *const hash) {
