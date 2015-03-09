@@ -28,10 +28,10 @@ void HTTPConnectionPop(HTTPConnectionRef const conn, size_t const len);
 // Reading
 int HTTPConnectionReadRequest(HTTPConnectionRef const conn, HTTPMethod *const method, str_t *const out, size_t const max);
 int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn);
-int HTTPConnectionReadHeaderField(HTTPConnectionRef const conn, str_t *const field, size_t const max);
-int HTTPConnectionReadHeaderValue(HTTPConnectionRef const conn, str_t *const value, size_t const max);
+int HTTPConnectionReadHeaderField(HTTPConnectionRef const conn, str_t field[], size_t const max);
+int HTTPConnectionReadHeaderValue(HTTPConnectionRef const conn, str_t value[], size_t const max);
 int HTTPConnectionReadBody(HTTPConnectionRef const conn, uv_buf_t *const buf);
-int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, size_t const max);
+int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t out[], size_t const max);
 int HTTPConnectionDrainMessage(HTTPConnectionRef const conn);
 
 

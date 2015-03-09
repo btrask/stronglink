@@ -174,10 +174,9 @@ void HTTPConnectionPop(HTTPConnectionRef const conn, size_t const len) {
 	assert(len <= conn->out->len);
 	conn->out->base += len;
 	conn->out->len -= len;
-	if(!conn->out->len) {
-		conn->type = HTTPNothing;
-		conn->out->base = NULL;
-	}
+	if(conn->out->len) return;
+	conn->type = HTTPNothing;
+	conn->out->base = NULL;
 }
 
 
@@ -221,7 +220,7 @@ int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn) {
 	return conn->parser->status_code;
 }
 
-int HTTPConnectionReadHeaderField(HTTPConnectionRef const conn, str_t *const field, size_t const max) {
+int HTTPConnectionReadHeaderField(HTTPConnectionRef const conn, str_t field[], size_t const max) {
 	if(!conn) return UV_EINVAL;
 	uv_buf_t buf[1];
 	int rc;
@@ -241,7 +240,7 @@ int HTTPConnectionReadHeaderField(HTTPConnectionRef const conn, str_t *const fie
 	}
 	return 0;
 }
-int HTTPConnectionReadHeaderValue(HTTPConnectionRef const conn, str_t *const value, size_t const max) {
+int HTTPConnectionReadHeaderValue(HTTPConnectionRef const conn, str_t value[], size_t const max) {
 	if(!conn) return UV_EINVAL;
 	uv_buf_t buf[1];
 	int rc;
@@ -273,7 +272,7 @@ int HTTPConnectionReadBody(HTTPConnectionRef const conn, uv_buf_t *const buf) {
 	HTTPConnectionPop(conn, buf->len);
 	return 0;
 }
-int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t *const out, size_t const max) {
+int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t out[], size_t const max) {
 	if(!conn) return UV_EINVAL;
 	if(!max) return UV_EINVAL;
 	uv_buf_t buf[1];

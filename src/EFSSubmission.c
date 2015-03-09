@@ -2,12 +2,8 @@
 #include <assert.h>
 #include <ctype.h>
 #include <fcntl.h>
-#include <regex.h>
-#include <yajl/yajl_gen.h>
 #include "async/async.h"
 #include "EarthFS.h"
-
-#define FTS_MAX (1024 * 50)
 
 struct EFSSubmission {
 	EFSSessionRef session;
@@ -238,115 +234,6 @@ EFSSubmissionRef EFSSubmissionCreateQuick(EFSSessionRef const session, strarg_t 
 	int rc = EFSSubmissionWriteFrom(sub, read, context);
 	if(rc < 0) EFSSubmissionFree(&sub);
 	return sub;
-}
-int EFSSubmissionCreateQuickPair(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, strarg_t const title, EFSSubmissionRef *const outSub, EFSSubmissionRef *const outMeta) {
-	EFSSubmissionRef sub = EFSSubmissionCreate(session, type);
-	EFSSubmissionRef meta = EFSSubmissionCreate(session, "text/efs-meta+json; charset=utf-8");
-	if(!sub || !meta) {
-		EFSSubmissionFree(&sub);
-		EFSSubmissionFree(&meta);
-		return -1;
-	}
-
-
-	str_t *fulltext = NULL;
-	size_t fulltextlen = 0;
-	if(
-		0 == strcasecmp(type, "text/markdown; charset=utf-8") ||
-		0 == strcasecmp(type, "text/plain; charset=utf-8")
-	) {
-		fulltext = malloc(FTS_MAX + 1);
-		// TODO
-	}
-	for(;;) {
-		byte_t const *buf = NULL;
-		ssize_t const len = read(context, &buf);
-		if(0 == len) break;
-		if(len < 0 || EFSSubmissionWrite(sub, buf, len) < 0) {
-			FREE(&fulltext);
-			EFSSubmissionFree(&sub);
-			EFSSubmissionFree(&meta);
-			return -1;
-		}
-		if(fulltext) {
-			size_t const use = MIN(FTS_MAX-fulltextlen, (size_t)len);
-			memcpy(fulltext+fulltextlen, buf, use);
-			fulltextlen += use;
-		}
-	}
-	if(fulltext) {
-		fulltext[fulltextlen] = '\0';
-	}
-
-
-	if(EFSSubmissionEnd(sub) < 0) {
-		FREE(&fulltext);
-		EFSSubmissionFree(&sub);
-		EFSSubmissionFree(&meta);
-		return -1;
-	}
-
-	strarg_t const targetURI = EFSSubmissionGetPrimaryURI(sub);
-	EFSSubmissionWrite(meta, (byte_t const *)targetURI, strlen(targetURI));
-	EFSSubmissionWrite(meta, (byte_t const *)"\r\n\r\n", 4);
-
-	yajl_gen json = yajl_gen_alloc(NULL);
-	yajl_gen_config(json, yajl_gen_print_callback, (void (*)())EFSSubmissionWrite, meta);
-	yajl_gen_config(json, yajl_gen_beautify, (int)true);
-
-	yajl_gen_map_open(json);
-
-	if(title) {
-		yajl_gen_string(json, (byte_t const *)"title", strlen("title"));
-		yajl_gen_array_open(json);
-		yajl_gen_string(json, (byte_t const *)title, strlen(title));
-		if(fulltextlen) {
-			// TODO: Try to determine title from content
-		}
-		yajl_gen_array_close(json);
-	}
-
-	if(fulltextlen) {
-		yajl_gen_string(json, (byte_t const *)"fulltext", strlen("fulltext"));
-		yajl_gen_string(json, (byte_t const *)fulltext, fulltextlen);
-
-
-		yajl_gen_string(json, (byte_t const *)"link", strlen("link"));
-		yajl_gen_array_open(json);
-
-		regex_t linkify[1];
-		// <http://daringfireball.net/2010/07/improved_regex_for_matching_urls>
-		// Painstakingly ported to POSIX
-		int rc = regcomp(linkify, "([a-z][a-z0-9_-]+:(/{1,3}|[a-z0-9%])|www[0-9]{0,3}[.]|[a-z0-9.-]+[.][a-z]{2,4}/)([^[:space:]()<>]+|\\(([^[:space:]()<>]+|(\\([^[:space:]()<>]+\\)))*\\))+(\\(([^[:space:]()<>]+|(\\([^[:space:]()<>]+\\)))*\\)|[^][[:space:]`!(){};:'\".,<>?«»“”‘’])", REG_ICASE | REG_EXTENDED);
-		assert(0 == rc);
-
-		strarg_t pos = fulltext;
-		regmatch_t match;
-		while(0 == regexec(linkify, pos, 1, &match, 0)) {
-			regoff_t const loc = match.rm_so;
-			regoff_t const len = match.rm_eo - match.rm_so;
-			yajl_gen_string(json, (byte_t const *)pos+loc, len);
-			pos += loc+len;
-		}
-
-		regfree(linkify);
-
-		yajl_gen_array_close(json);
-	}
-
-	yajl_gen_map_close(json);
-	yajl_gen_free(json); json = NULL;
-	FREE(&fulltext);
-
-	if(EFSSubmissionEnd(meta) < 0) {
-		EFSSubmissionFree(&sub);
-		EFSSubmissionFree(&meta);
-		return -1;
-	}
-
-	*outSub = sub;
-	*outMeta = meta;
-	return 0;
 }
 int EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const count) {
 	if(!count) return 0;

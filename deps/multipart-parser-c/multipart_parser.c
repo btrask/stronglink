@@ -78,16 +78,19 @@ enum state {
 };
 
 multipart_parser* multipart_parser_init
-    (const char *boundary, const multipart_parser_settings* settings) {
+    (const char *boundary, size_t len, const multipart_parser_settings* settings) {
 
   multipart_parser* p = malloc(sizeof(multipart_parser) +
-                               strlen(boundary) +
-                               strlen(boundary) + 9);
+                               2+len+1 +
+                               2+len+1 + 7); /* TODO: Where does 7 come from? */
+  if(!p) return NULL;
 
-  strcpy(p->multipart_boundary, boundary);
-  p->boundary_length = strlen(boundary);
+  memcpy(p->multipart_boundary+0, "--", 2);
+  memcpy(p->multipart_boundary+2, boundary, len);
+  p->multipart_boundary[2+len] = '\0';
+  p->boundary_length = 2+len;
   
-  p->lookbehind = (p->multipart_boundary + p->boundary_length + 1);
+  p->lookbehind = p->multipart_boundary+2+len+1;
 
   p->index = 0;
   p->state = s_start;

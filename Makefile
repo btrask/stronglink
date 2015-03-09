@@ -42,7 +42,6 @@ HEADERS := \
 	$(SRC_DIR)/fts.h \
 	$(SRC_DIR)/hash.h \
 	$(SRC_DIR)/http/status.h \
-	$(SRC_DIR)/http/Headers.h \
 	$(SRC_DIR)/http/HTTPConnection.h \
 	$(SRC_DIR)/http/HTTPServer.h \
 	$(SRC_DIR)/http/HTTPHeaders.h \
@@ -87,7 +86,6 @@ OBJECTS := \
 	$(BUILD_DIR)/async/async_stream.o \
 	$(BUILD_DIR)/async/async_worker.o \
 	$(BUILD_DIR)/bcrypt.o \
-	$(BUILD_DIR)/http/Headers.o \
 	$(BUILD_DIR)/http/HTTPConnection.o \
 	$(BUILD_DIR)/http/HTTPServer.o \
 	$(BUILD_DIR)/http/HTTPHeaders.o \

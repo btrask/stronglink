@@ -14,15 +14,6 @@
 #define PENDING_MAX 4
 #define BUFFER_SIZE (1024 * 8)
 
-typedef struct {
-	strarg_t content_type;
-	strarg_t content_disposition;
-} BlogSubmissionHeaders;
-static strarg_t const BlogSubmissionFields[] = {
-	"content-type",
-	"content-disposition",
-};
-
 typedef struct Blog* BlogRef;
 
 struct Blog {
@@ -410,34 +401,208 @@ static int GET_new(BlogRef const blog, EFSSessionRef const session, HTTPConnecti
 	FREE(&reponame_HTMLSafe);
 	return 0;
 }
+
+
+
+
+
+#include <regex.h>
+#include <yajl/yajl_gen.h>
+
+#define FTS_MAX (1024 * 50)
+
+// TODO
+static int quickpair(EFSSessionRef const session, MultipartFormRef const form, strarg_t const title, EFSSubmissionRef *const outSub, EFSSubmissionRef *const outMeta) {
+assert(form);
+
+// TODO
+#define STR_LEN(x) x, sizeof(x)+1
+#define BUF_LEN(x) x, sizeof(x)
+
+	strarg_t const fields[] = {
+		"content-type",
+		"content-disposition",
+	};
+	char content_type[100];
+	char content_disposition[100];
+	uv_buf_t values[] = {
+		uv_buf_init(BUF_LEN(content_type)),
+		uv_buf_init(BUF_LEN(content_disposition)),
+	};
+	assert(numberof(fields) == numberof(values));
+	int rc = MultipartFormReadStaticHeaders(form, values, fields, numberof(values));
+	if(rc < 0) {
+		return rc;
+	}
+
+	strarg_t type;
+	if(0 == strcmp("form-data; name=\"markdown\"", content_disposition)) {
+		type = "text/markdown; charset=utf-8";
+	} else {
+		type = content_type;
+	}
+
+
+
+	EFSSubmissionRef sub = EFSSubmissionCreate(session, type);
+	EFSSubmissionRef meta = EFSSubmissionCreate(session, "text/efs-meta+json; charset=utf-8");
+	if(!sub || !meta) {
+		EFSSubmissionFree(&sub);
+		EFSSubmissionFree(&meta);
+		return -1;
+	}
+
+
+	str_t *fulltext = NULL;
+	size_t fulltextlen = 0;
+	if(
+		0 == strcasecmp(type, "text/markdown; charset=utf-8") ||
+		0 == strcasecmp(type, "text/plain; charset=utf-8")
+	) {
+		fulltext = malloc(FTS_MAX + 1);
+		// TODO
+	}
+	for(;;) {
+		uv_buf_t buf[1];
+		rc = MultipartFormReadData(form, buf);
+		if(rc < 0) {
+			FREE(&fulltext);
+			EFSSubmissionFree(&sub);
+			EFSSubmissionFree(&meta);
+			return rc;
+		}
+		if(0 == buf->len) break;
+		rc = EFSSubmissionWrite(sub, (byte_t const *)buf->base, buf->len);
+		if(rc < 0) {
+			FREE(&fulltext);
+			EFSSubmissionFree(&sub);
+			EFSSubmissionFree(&meta);
+			return rc;
+		}
+		if(fulltext) {
+			size_t const use = MIN(FTS_MAX-fulltextlen, buf->len);
+			memcpy(fulltext+fulltextlen, buf->base, use);
+			fulltextlen += use;
+		}
+	}
+	if(fulltext) {
+		fulltext[fulltextlen] = '\0';
+	}
+
+
+	if(EFSSubmissionEnd(sub) < 0) {
+		FREE(&fulltext);
+		EFSSubmissionFree(&sub);
+		EFSSubmissionFree(&meta);
+		return -1;
+	}
+
+	strarg_t const targetURI = EFSSubmissionGetPrimaryURI(sub);
+	EFSSubmissionWrite(meta, (byte_t const *)targetURI, strlen(targetURI));
+	EFSSubmissionWrite(meta, (byte_t const *)"\r\n\r\n", 4);
+
+	yajl_gen json = yajl_gen_alloc(NULL);
+	yajl_gen_config(json, yajl_gen_print_callback, (void (*)())EFSSubmissionWrite, meta);
+	yajl_gen_config(json, yajl_gen_beautify, (int)true);
+
+	yajl_gen_map_open(json);
+
+	if(title) {
+		yajl_gen_string(json, (byte_t const *)"title", strlen("title"));
+		yajl_gen_array_open(json);
+		yajl_gen_string(json, (byte_t const *)title, strlen(title));
+		if(fulltextlen) {
+			// TODO: Try to determine title from content
+		}
+		yajl_gen_array_close(json);
+	}
+
+	if(fulltextlen) {
+		yajl_gen_string(json, (byte_t const *)"fulltext", strlen("fulltext"));
+		yajl_gen_string(json, (byte_t const *)fulltext, fulltextlen);
+
+
+		yajl_gen_string(json, (byte_t const *)"link", strlen("link"));
+		yajl_gen_array_open(json);
+
+		regex_t linkify[1];
+		// <http://daringfireball.net/2010/07/improved_regex_for_matching_urls>
+		// Painstakingly ported to POSIX
+		int rc = regcomp(linkify, "([a-z][a-z0-9_-]+:(/{1,3}|[a-z0-9%])|www[0-9]{0,3}[.]|[a-z0-9.-]+[.][a-z]{2,4}/)([^[:space:]()<>]+|\\(([^[:space:]()<>]+|(\\([^[:space:]()<>]+\\)))*\\))+(\\(([^[:space:]()<>]+|(\\([^[:space:]()<>]+\\)))*\\)|[^][[:space:]`!(){};:'\".,<>?«»“”‘’])", REG_ICASE | REG_EXTENDED);
+		assert(0 == rc);
+
+		strarg_t pos = fulltext;
+		regmatch_t match;
+		while(0 == regexec(linkify, pos, 1, &match, 0)) {
+			regoff_t const loc = match.rm_so;
+			regoff_t const len = match.rm_eo - match.rm_so;
+			yajl_gen_string(json, (byte_t const *)pos+loc, len);
+			pos += loc+len;
+		}
+
+		regfree(linkify);
+
+		yajl_gen_array_close(json);
+	}
+
+	yajl_gen_map_close(json);
+	yajl_gen_free(json); json = NULL;
+	FREE(&fulltext);
+
+	if(EFSSubmissionEnd(meta) < 0) {
+		EFSSubmissionFree(&sub);
+		EFSSubmissionFree(&meta);
+		return -1;
+	}
+
+	*outSub = sub;
+	*outMeta = meta;
+	return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 static int POST_submit(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return -1;
 	if(!URIPath(URI, "/submission", NULL)) return -1;
 
 	// TODO: CSRF token
 	strarg_t const formtype = HTTPHeadersGet(headers, "content-type"); 
-	MultipartFormRef form = MultipartFormCreate(conn, formtype, BlogSubmissionFields, numberof(BlogSubmissionFields));
-	FormPartRef const part = MultipartFormGetPart(form);
-	BlogSubmissionHeaders const *const fheaders = FormPartGetHeaders(part);
-	// TODO: Handle failures, e.g. submission of non-multipart data
+	uv_buf_t boundary[1];
+	int rc = MultipartBoundaryFromType(formtype, boundary);
+	if(rc < 0) return 400;
 
-	strarg_t type;
-	if(0 == strcmp("form-data; name=\"markdown\"", fheaders->content_disposition)) {
-		type = "text/markdown; charset=utf-8";
-	} else {
-		type = fheaders->content_type;
+	MultipartFormRef form = NULL;
+	rc = MultipartFormCreate(conn, boundary, &form);
+	if(rc < 0) {
+		return 500;
 	}
+
 
 	strarg_t title = NULL; // TODO: Get file name from form part.
 
 	EFSSubmissionRef sub = NULL;
 	EFSSubmissionRef meta = NULL;
-	if(EFSSubmissionCreateQuickPair(session, type, (ssize_t (*)())FormPartGetBuffer, part, title, &sub, &meta) < 0) {
+
+
+	rc = quickpair(session, form, title, &sub, &meta);
+	if(rc < 0) {
 		MultipartFormFree(&form);
 		return 500;
 	}
 
-	EFSSubmissionRef subs[2] = { sub, meta };
+	EFSSubmissionRef subs[] = { sub, meta };
 	int err = EFSSubmissionBatchStore(subs, numberof(subs));
 
 	EFSSubmissionFree(&sub);
