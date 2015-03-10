@@ -30,6 +30,7 @@ struct Blog {
 	TemplateRef preview;
 	TemplateRef empty;
 	TemplateRef compose;
+	TemplateRef upload;
 	TemplateRef login;
 
 	async_mutex_t pending_mutex[1];
@@ -54,7 +55,9 @@ int markdown_convert(strarg_t const dst, strarg_t const src);
 static int genMarkdownPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const tmp, EFSFileInfo const *const info) {
 	if(
 		0 != strcasecmp("text/markdown; charset=utf-8", info->type) &&
-		0 != strcasecmp("text/markdown", info->type)
+		0 != strcasecmp("text/markdown", info->type) &&
+		0 != strcasecmp("text/x-markdown; charset=utf-8", info->type) &&
+		0 != strcasecmp("text/x-markdown", info->type)
 	) return -1; // TODO: Other types, plugins, w/e.
 
 	async_pool_enter(NULL);
@@ -377,9 +380,11 @@ static int GET_query(BlogRef const blog, EFSSessionRef const session, HTTPConnec
 	EFSFilterFree(&filter);
 	return 0;
 }
+
+// TODO: Lots of duplication here
 static int GET_new(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
-	if(!URIPath(URI, "/compose", NULL)) return -1;
+	if(!URIPath(URI, "/new", NULL)) return -1;
 
 	str_t *reponame_HTMLSafe = htmlenc(EFSRepoGetName(EFSSessionGetRepo(session)));
 	if(!reponame_HTMLSafe) return 500;
@@ -394,6 +399,29 @@ static int GET_new(BlogRef const blog, EFSSessionRef const session, HTTPConnecti
 	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
 	HTTPConnectionBeginBody(conn);
 	TemplateWriteHTTPChunk(blog->compose, &TemplateStaticCBs, args, conn);
+	HTTPConnectionWriteChunkv(conn, NULL, 0);
+	HTTPConnectionEnd(conn);
+
+	FREE(&reponame_HTMLSafe);
+	return 0;
+}
+static int GET_up(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+	if(HTTP_GET != method) return -1;
+	if(!URIPath(URI, "/up", NULL)) return -1;
+
+	str_t *reponame_HTMLSafe = htmlenc(EFSRepoGetName(EFSSessionGetRepo(session)));
+	if(!reponame_HTMLSafe) return 500;
+	TemplateStaticArg const args[] = {
+		{"reponame", reponame_HTMLSafe},
+		{"token", "asdf"},
+		{NULL, NULL},
+	};
+
+	HTTPConnectionWriteResponse(conn, 200, "OK");
+	HTTPConnectionWriteHeader(conn, "Content-Type", "text/html; charset=utf-8");
+	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
+	HTTPConnectionBeginBody(conn);
+	TemplateWriteHTTPChunk(blog->upload, &TemplateStaticCBs, args, conn);
 	HTTPConnectionWriteChunkv(conn, NULL, 0);
 	HTTPConnectionEnd(conn);
 
@@ -456,7 +484,11 @@ assert(form);
 	size_t fulltextlen = 0;
 	if(
 		0 == strcasecmp(type, "text/markdown; charset=utf-8") ||
-		0 == strcasecmp(type, "text/plain; charset=utf-8")
+		0 == strcasecmp(type, "text/markdown") ||
+		0 == strcasecmp(type, "text/x-markdown; charset=utf-8") ||
+		0 == strcasecmp(type, "text/x-markdown") ||
+		0 == strcasecmp(type, "text/plain; charset=utf-8") ||
+		0 == strcasecmp(type, "text/plain")
 	) {
 		fulltext = malloc(FTS_MAX + 1);
 		// TODO
@@ -721,6 +753,8 @@ BlogRef BlogCreate(EFSRepoRef const repo) {
 	blog->empty = TemplateCreateFromPath(path);
 	snprintf(path, PATH_MAX, "%s/compose.html", blog->templateDir);
 	blog->compose = TemplateCreateFromPath(path);
+	snprintf(path, PATH_MAX, "%s/upload.html", blog->templateDir);
+	blog->upload = TemplateCreateFromPath(path);
 	snprintf(path, PATH_MAX, "%s/login.html", blog->templateDir);
 	blog->login = TemplateCreateFromPath(path);
 
@@ -745,6 +779,7 @@ void BlogFree(BlogRef *const blogptr) {
 	TemplateFree(&blog->preview);
 	TemplateFree(&blog->empty);
 	TemplateFree(&blog->compose);
+	TemplateFree(&blog->upload);
 	TemplateFree(&blog->login);
 
 	async_mutex_destroy(blog->pending_mutex);
@@ -756,6 +791,7 @@ int BlogDispatch(BlogRef const blog, EFSSessionRef const session, HTTPConnection
 	int rc = -1;
 	rc = rc >= 0 ? rc : GET_query(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_new(blog, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : GET_up(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_submit(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_login(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_auth(blog, session, conn, method, URI, headers);
