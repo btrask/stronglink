@@ -119,13 +119,15 @@ int EFSSubmissionParseMetaFile(EFSSubmissionRef const sub, uint64_t const fileID
 	}
 
 //	rc = db_txn_commit(subtxn); subtxn = NULL;
+	if(DB_SUCCESS != rc) goto cleanup;
+
+	*out = metaFileID;
 
 cleanup:
 //	db_txn_abort(subtxn); subtxn = NULL;
 	FREE(&buf->base);
 	if(parser) yajl_free(parser); parser = NULL;
 	FREE(&ctx->field);
-	if(DB_SUCCESS == rc) *out = metaFileID;
 	return rc;
 }
 
