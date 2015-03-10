@@ -1,5 +1,4 @@
 #define _GNU_SOURCE
-#include "async/async.h"
 #include "bcrypt.h"
 #include "EarthFS.h"
 

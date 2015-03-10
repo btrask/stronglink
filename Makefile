@@ -62,8 +62,8 @@ OBJECTS := \
 	$(BUILD_DIR)/EFSRepoAuth.o \
 	$(BUILD_DIR)/EFSSession.o \
 	$(BUILD_DIR)/EFSSubmission.o \
+	$(BUILD_DIR)/EFSSubmissionMeta.o \
 	$(BUILD_DIR)/EFSHasher.o \
-	$(BUILD_DIR)/EFSMetaFile.o \
 	$(BUILD_DIR)/db/db_ext.o \
 	$(BUILD_DIR)/db/db_schema.o \
 	$(BUILD_DIR)/filter/EFSFilter.o \

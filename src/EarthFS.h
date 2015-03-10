@@ -2,6 +2,7 @@
 #define EARTHFS_H
 
 #include "db/db_schema.h"
+#include "async/async.h"
 #include "common.h"
 
 #define URI_MAX 1024
@@ -10,7 +11,6 @@ typedef struct EFSRepo* EFSRepoRef;
 typedef struct EFSSession* EFSSessionRef;
 typedef struct EFSSubmission* EFSSubmissionRef;
 typedef struct EFSHasher* EFSHasherRef;
-typedef struct EFSMetaFile* EFSMetaFileRef;
 typedef struct EFSFilter* EFSFilterRef;
 typedef struct EFSJSONFilterParser* EFSJSONFilterParserRef;
 typedef struct EFSPull* EFSPullRef;
@@ -76,6 +76,8 @@ void EFSFileInfoCleanup(EFSFileInfo *const info);
 EFSSubmissionRef EFSSubmissionCreate(EFSSessionRef const session, strarg_t const type);
 void EFSSubmissionFree(EFSSubmissionRef *const subptr);
 EFSRepoRef EFSSubmissionGetRepo(EFSSubmissionRef const sub);
+strarg_t EFSSubmissionGetType(EFSSubmissionRef const sub);
+uv_file EFSSubmissionGetFile(EFSSubmissionRef const sub);
 int EFSSubmissionWrite(EFSSubmissionRef const sub, byte_t const *const buf, size_t const len);
 int EFSSubmissionEnd(EFSSubmissionRef const sub);
 int EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context);
@@ -90,13 +92,6 @@ void EFSHasherFree(EFSHasherRef *const hasherptr);
 int EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, size_t const len);
 str_t **EFSHasherEnd(EFSHasherRef const hasher);
 strarg_t EFSHasherGetInternalHash(EFSHasherRef const hasher);
-
-EFSMetaFileRef EFSMetaFileCreate(strarg_t const type);
-void EFSMetaFileFree(EFSMetaFileRef *const metaptr);
-int EFSMetaFileWrite(EFSMetaFileRef const meta, byte_t const *const buf, size_t const len);
-int EFSMetaFileEnd(EFSMetaFileRef const meta);
-int EFSMetaFileStore(EFSMetaFileRef const meta, uint64_t const fileID, strarg_t const URI, DB_txn *const txn);
-uint64_t EFSMetaFileGetID(EFSMetaFileRef const meta);
 
 typedef enum {
 	EFSFilterTypeInvalid = 0,

@@ -1,6 +1,5 @@
 #define _GNU_SOURCE /* asprintf() */
 #include <assert.h>
-#include "async/async.h"
 #include "EarthFS.h"
 #include "hash.h"
 

@@ -2,7 +2,6 @@
 #include <assert.h>
 #include <ctype.h>
 #include <fcntl.h>
-#include "async/async.h"
 #include "EarthFS.h"
 
 struct EFSSubmission {
@@ -14,11 +13,13 @@ struct EFSSubmission {
 	uint64_t size;
 
 	EFSHasherRef hasher;
-	EFSMetaFileRef meta;
+	uint64_t metaFileID;
 
 	str_t **URIs;
 	str_t *internalHash;
 };
+
+int EFSSubmissionParseMetaFile(EFSSubmissionRef const sub, uint64_t const fileID, DB_txn *const txn, uint64_t *const out);
 
 EFSSubmissionRef EFSSubmissionCreate(EFSSessionRef const session, strarg_t const type) {
 	if(!session) return NULL;
@@ -31,7 +32,7 @@ EFSSubmissionRef EFSSubmissionCreate(EFSSessionRef const session, strarg_t const
 	sub->type = strdup(type);
 
 	sub->tmppath = EFSRepoCopyTempPath(EFSSessionGetRepo(session));
-	sub->tmpfile = async_fs_open(sub->tmppath, O_CREAT | O_EXCL | O_TRUNC | O_WRONLY, 0400);
+	sub->tmpfile = async_fs_open(sub->tmppath, O_CREAT | O_EXCL | O_TRUNC | O_RDWR, 0400);
 	if(sub->tmpfile < 0) {
 		if(UV_ENOENT == sub->tmpfile) {
 			async_fs_mkdirp_dirname(sub->tmppath, 0700);
@@ -45,7 +46,7 @@ EFSSubmissionRef EFSSubmissionCreate(EFSSessionRef const session, strarg_t const
 	}
 
 	sub->hasher = EFSHasherCreate(sub->type);
-	sub->meta = EFSMetaFileCreate(sub->type);
+	sub->metaFileID = 0;
 
 	return sub;
 }
@@ -63,7 +64,7 @@ void EFSSubmissionFree(EFSSubmissionRef *const subptr) {
 	sub->size = 0;
 
 	EFSHasherFree(&sub->hasher);
-	EFSMetaFileFree(&sub->meta);
+	sub->metaFileID = 0;
 
 	if(sub->URIs) for(index_t i = 0; sub->URIs[i]; ++i) FREE(&sub->URIs[i]);
 	FREE(&sub->URIs);
@@ -76,6 +77,14 @@ void EFSSubmissionFree(EFSSubmissionRef *const subptr) {
 EFSRepoRef EFSSubmissionGetRepo(EFSSubmissionRef const sub) {
 	if(!sub) return NULL;
 	return EFSSessionGetRepo(sub->session);
+}
+strarg_t EFSSubmissionGetType(EFSSubmissionRef const sub) {
+	if(!sub) return NULL;
+	return sub->type;
+}
+uv_file EFSSubmissionGetFile(EFSSubmissionRef const sub) {
+	if(!sub) return -1;
+	return sub->tmpfile;
 }
 
 int EFSSubmissionWrite(EFSSubmissionRef const sub, byte_t const *const buf, size_t const len) {
@@ -91,7 +100,6 @@ int EFSSubmissionWrite(EFSSubmissionRef const sub, byte_t const *const buf, size
 
 	sub->size += len;
 	EFSHasherWrite(sub->hasher, buf, len);
-	EFSMetaFileWrite(sub->meta, buf, len);
 	return 0;
 }
 static int add(EFSSubmissionRef const sub) {
@@ -125,12 +133,7 @@ int EFSSubmissionEnd(EFSSubmissionRef const sub) {
 	sub->internalHash = strdup(EFSHasherGetInternalHash(sub->hasher));
 	EFSHasherFree(&sub->hasher);
 
-	EFSMetaFileEnd(sub->meta);
-
 	if(async_fs_fsync(sub->tmpfile) < 0) return -1;
-	int err = async_fs_close(sub->tmpfile);
-	sub->tmpfile = -1;
-	if(err < 0) return -1;
 	return add(sub);
 }
 int EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context) {
@@ -219,10 +222,10 @@ int EFSSubmissionStore(EFSSubmissionRef const sub, DB_txn *const txn) {
 	EXEC(insertFilePermission); insertFilePermission = NULL;*/
 
 
-	strarg_t const primaryURI = EFSSubmissionGetPrimaryURI(sub);
-	if(EFSMetaFileStore(sub->meta, fileID, primaryURI, txn) < 0) {
-		fprintf(stderr, "EFSMetaFileStore error\n");
-		return -1;
+	rc = EFSSubmissionParseMetaFile(sub, fileID, txn, &sub->metaFileID);
+	if(rc < 0) {
+		fprintf(stderr, "Submission meta-file error %s\n", db_strerror(rc));
+		return rc;
 	}
 
 	return 0;
@@ -253,7 +256,7 @@ int EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const co
 		assert(repo == EFSSessionGetRepo(list[i]->session));
 		err = EFSSubmissionStore(list[i], txn);
 		if(err < 0) break;
-		uint64_t const metaFileID = EFSMetaFileGetID(list[i]->meta);
+		uint64_t const metaFileID = list[i]->metaFileID;
 		if(metaFileID > sortID) sortID = metaFileID;
 	}
 	if(err < 0) {

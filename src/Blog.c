@@ -2,7 +2,6 @@
 #include <yajl/yajl_tree.h>
 #include <limits.h>
 #include "common.h"
-#include "async/async.h"
 #include "EarthFS.h"
 #include "Template.h"
 #include "http/HTTPServer.h"

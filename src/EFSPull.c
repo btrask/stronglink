@@ -1,7 +1,6 @@
 #define _GNU_SOURCE
 #include <assert.h>
 #include "EarthFS.h"
-#include "async/async.h"
 #include "http/HTTPConnection.h"
 #include "http/HTTPHeaders.h"
 

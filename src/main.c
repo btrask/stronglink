@@ -1,6 +1,5 @@
 #include <limits.h>
 #include <signal.h>
-#include "async/async.h"
 #include "fts.h"
 #include "hash.h"
 #include "EarthFS.h"
