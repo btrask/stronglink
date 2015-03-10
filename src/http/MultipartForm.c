@@ -223,6 +223,7 @@ static int on_headers_complete(multipart_parser *const parser) {
 	return -1;
 }
 static int on_part_data(multipart_parser *const parser, char const *const at, size_t const len) {
+	if(!len) return 0;
 	MultipartFormRef const form = multipart_parser_get_data(parser);
 	form->type = MultipartPartData;
 	*form->out = uv_buf_init((char *)at, len);
