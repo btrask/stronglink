@@ -72,6 +72,7 @@ int EFSSessionGetAuthError(EFSSessionRef const session);
 str_t **EFSSessionCopyFilteredURIs(EFSSessionRef const session, EFSFilterRef const filter, count_t const max); // TODO: Public API?
 int EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFSFileInfo *const info);
 void EFSFileInfoCleanup(EFSFileInfo *const info);
+int EFSSessionGetValueForField(EFSSessionRef const session, str_t value[], size_t const max, strarg_t const fileURI, strarg_t const field);
 
 EFSSubmissionRef EFSSubmissionCreate(EFSSessionRef const session, strarg_t const type);
 void EFSSubmissionFree(EFSSubmissionRef *const subptr);

@@ -80,6 +80,7 @@ static int genPlainTextPreview(BlogRef const blog, EFSSessionRef const session, 
 
 typedef struct {
 	BlogRef blog;
+	EFSSessionRef session;
 	strarg_t fileURI;
 } preview_state;
 static str_t *preview_metadata(preview_state const *const state, strarg_t const var) {
@@ -102,58 +103,9 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 	}
 	if(unsafe) return htmlenc(unsafe);
 
-	DB_env *db = NULL;
-	EFSRepoDBOpen(state->blog->repo, &db);
-	DB_txn *txn = NULL;
-	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	assert(DB_SUCCESS == rc);
-
-	DB_cursor *metafiles = NULL;
-	rc = db_cursor_open(txn, &metafiles);
-	assert(DB_SUCCESS == rc);
-
-	DB_cursor *values = NULL;
-	rc = db_cursor_open(txn, &values);
-	assert(DB_SUCCESS == rc);
-
-	DB_RANGE(metaFileIDs, DB_VARINT_MAX + DB_INLINE_MAX);
-	db_bind_uint64(metaFileIDs->min, EFSTargetURIAndMetaFileID);
-	db_bind_string(txn, metaFileIDs->min, state->fileURI);
-	db_range_genmax(metaFileIDs);
-	DB_val metaFileID_key[1];
-	rc = db_cursor_firstr(metafiles, metaFileIDs, metaFileID_key, NULL, +1);
-	assert(DB_SUCCESS == rc || DB_NOTFOUND == rc);
-	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(metafiles, metaFileIDs, metaFileID_key, NULL, +1)) {
-		uint64_t const table = db_read_uint64(metaFileID_key);
-		assert(EFSTargetURIAndMetaFileID == table);
-		strarg_t const u = db_read_string(txn, metaFileID_key);
-		assert(0 == strcmp(state->fileURI, u));
-		uint64_t const metaFileID = db_read_uint64(metaFileID_key);
-		DB_RANGE(vrange, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1);
-		db_bind_uint64(vrange->min, EFSMetaFileIDFieldAndValue);
-		db_bind_uint64(vrange->min, metaFileID);
-		db_bind_string(txn, vrange->min, var);
-		db_range_genmax(vrange);
-		DB_val value_val[1];
-		rc = db_cursor_firstr(values, vrange, value_val, NULL, +1);
-		assert(DB_SUCCESS == rc || DB_NOTFOUND == rc);
-		for(; DB_SUCCESS == rc; rc = db_cursor_nextr(values, vrange, value_val, NULL, +1)) {
-			uint64_t const table2 = db_read_uint64(value_val);
-			assert(EFSMetaFileIDFieldAndValue == table2);
-			uint64_t const m = db_read_uint64(value_val);
-			assert(metaFileID == m);
-			strarg_t const f = db_read_string(txn, value_val);
-			assert(0 == strcmp(var, f));
-			strarg_t const value = db_read_string(txn, value_val);
-			if(0 == strcmp("", value)) continue;
-			unsafe = value;
-			break;
-		}
-		if(unsafe) break;
-	}
-
-	db_cursor_close(values); values = NULL;
-	db_cursor_close(metafiles); metafiles = NULL;
+	str_t value[1024 * 4];
+	int rc = EFSSessionGetValueForField(state->session, value, sizeof(value), state->fileURI, var);
+	if(DB_SUCCESS == rc && '\0' != value[0]) unsafe = value;
 
 	if(!unsafe) {
 		if(0 == strcmp(var, "thumbnailURI")) unsafe = "/file.png";
@@ -162,8 +114,6 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 	}
 	str_t *result = htmlenc(unsafe);
 
-	db_txn_abort(txn); txn = NULL;
-	EFSRepoDBClose(state->blog->repo, &db);
 	return result;
 }
 static void preview_free(preview_state const *const state, strarg_t const var, str_t **const val) {
@@ -180,6 +130,7 @@ static int genGenericPreview(BlogRef const blog, EFSSessionRef const session, st
 
 	preview_state const state = {
 		.blog = blog,
+		.session = session,
 		.fileURI = URI,
 	};
 	int const e1 = TemplateWriteFile(blog->preview, &preview_cbs, &state, file);
@@ -254,6 +205,7 @@ static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, EFSSes
 
 	preview_state const state = {
 		.blog = blog,
+		.session = session,
 		.fileURI = URI,
 	};
 	TemplateWriteHTTPChunk(blog->entry_start, &preview_cbs, &state, conn);
