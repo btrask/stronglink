@@ -60,9 +60,11 @@ int EFSSubmissionParseMetaFile(EFSSubmissionRef const sub, uint64_t const fileID
 		goto cleanup;
 	}
 
-	// TODO: We already have a lot of meta-files that use \r\n...
 	size_t i;
-	for(i = 0; i < len; i++) if('\r' == buf->base[i]) break;
+	for(i = 0; i < len; i++) {
+		char const c = buf->base[i];
+		if('\r' == c || '\n' == c) break;
+	}
 	if(i >= len) {
 		fprintf(stderr, "Submission meta-file parse error (invalid target URI)\n");
 		rc = -1;
