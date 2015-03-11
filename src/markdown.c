@@ -54,75 +54,93 @@ static int markdown_autolink(struct buf *ob, const struct buf *link, enum mkd_au
 	return rc;
 }*/
 
-static void md_escape(cmark_event_type const event, cmark_node **const node) {
-	if(CMARK_EVENT_ENTER != event) return;
-	if(CMARK_NODE_HTML != cmark_node_get_type(*node)) return;
-	char const *const str = cmark_node_get_literal(*node);
-	cmark_node *p = cmark_node_new(CMARK_NODE_PARAGRAPH);
-	cmark_node *text = cmark_node_new(CMARK_NODE_TEXT);
-	cmark_node_set_literal(text, str);
-	cmark_node_append_child(p, text);
-	cmark_node_insert_before(*node, p);
-	cmark_node_free(*node); *node = p;
-}
-static void md_escape_inline(cmark_event_type const event, cmark_node **const node) {
-	if(CMARK_EVENT_ENTER != event) return;
-	if(CMARK_NODE_INLINE_HTML != cmark_node_get_type(*node)) return;
-	char const *const str = cmark_node_get_literal(*node);
-	cmark_node *text = cmark_node_new(CMARK_NODE_TEXT);
-	cmark_node_set_literal(text, str);
-	cmark_node_insert_before(*node, text);
-	cmark_node_free(*node); *node = text;
-}
-static void md_autolink(cmark_event_type const event, cmark_node **const node) {
-	if(CMARK_EVENT_ENTER != event) return;
-	if(CMARK_NODE_TEXT != cmark_node_get_type(*node)) return;
+static void md_escape(cmark_iter *const iter) {
+	for(;;) {
+		cmark_event_type const event = cmark_iter_next(iter);
+		if(CMARK_EVENT_DONE == event) break;
+		if(CMARK_EVENT_ENTER != event) continue;
+		cmark_node *const node = cmark_iter_get_node(iter);
+		if(CMARK_NODE_HTML != cmark_node_get_type(node)) continue;
 
+		char const *const str = cmark_node_get_literal(node);
+		cmark_node *p = cmark_node_new(CMARK_NODE_PARAGRAPH);
+		cmark_node *text = cmark_node_new(CMARK_NODE_TEXT);
+		cmark_node_set_literal(text, str);
+		cmark_node_append_child(p, text);
+		cmark_node_insert_before(node, p);
+		cmark_node_free(node);
+	}
+}
+static void md_escape_inline(cmark_iter *const iter) {
+	for(;;) {
+		cmark_event_type const event = cmark_iter_next(iter);
+		if(CMARK_EVENT_DONE == event) break;
+		if(CMARK_EVENT_ENTER != event) continue;
+		cmark_node *const node = cmark_iter_get_node(iter);
+		if(CMARK_NODE_INLINE_HTML != cmark_node_get_type(node)) continue;
+
+		char const *const str = cmark_node_get_literal(node);
+		cmark_node *text = cmark_node_new(CMARK_NODE_TEXT);
+		cmark_node_set_literal(text, str);
+		cmark_node_insert_before(node, text);
+		cmark_node_free(node);
+	}
+}
+static void md_autolink(cmark_iter *const iter) {
 	regex_t linkify[1];
 	// <http://daringfireball.net/2010/07/improved_regex_for_matching_urls>
 	// Painstakingly ported to POSIX
 	int rc = regcomp(linkify, "([a-z][a-z0-9_-]+:(/{1,3}|[a-z0-9%])|www[0-9]{0,3}[.]|[a-z0-9.-]+[.][a-z]{2,4}/)([^[:space:]()<>]+|\\(([^[:space:]()<>]+|(\\([^[:space:]()<>]+\\)))*\\))+(\\(([^[:space:]()<>]+|(\\([^[:space:]()<>]+\\)))*\\)|[^][[:space:]`!(){};:'\".,<>?«»“”‘’])", REG_ICASE | REG_EXTENDED);
 	assert(0 == rc);
 
-	char const *const str = cmark_node_get_literal(*node);
-	char const *pos = str;
-	regmatch_t match;
-	while(0 == regexec(linkify, pos, 1, &match, 0)) {
-		regoff_t const loc = match.rm_so;
-		regoff_t const len = match.rm_eo - match.rm_so;
+	for(;;) {
+		cmark_event_type const event = cmark_iter_next(iter);
+		if(CMARK_EVENT_DONE == event) break;
+		if(CMARK_EVENT_ENTER != event) continue;
+		cmark_node *const node = cmark_iter_get_node(iter);
+		if(CMARK_NODE_TEXT != cmark_node_get_type(node)) continue;
 
+		char const *const str = cmark_node_get_literal(node);
+		char const *pos = str;
+		regmatch_t match;
+		while(0 == regexec(linkify, pos, 1, &match, 0)) {
+			regoff_t const loc = match.rm_so;
+			regoff_t const len = match.rm_eo - match.rm_so;
 
-		char *a = strndup(pos, loc);
-		char *b = strndup(pos+loc, len);
-		assert(a);
-		assert(b);
+			char *a = strndup(pos, loc);
+			char *b = strndup(pos+loc, len);
+			assert(a);
+			assert(b);
 
-		cmark_node *text = cmark_node_new(CMARK_NODE_TEXT);
-		cmark_node_set_literal(text, a);
-		cmark_node *link = cmark_node_new(CMARK_NODE_LINK);
-		cmark_node_set_url(link, b);
-//		cmark_node_set_title(link, );
-		cmark_node *face = cmark_node_new(CMARK_NODE_TEXT);
-		cmark_node_set_literal(face, b);
-		cmark_node_append_child(link, face);
-		cmark_node_insert_before(*node, text);
-		cmark_node_insert_before(*node, link);
+			cmark_node *text = cmark_node_new(CMARK_NODE_TEXT);
+			cmark_node_set_literal(text, a);
+			cmark_node *link = cmark_node_new(CMARK_NODE_LINK);
+			cmark_node_set_url(link, b);
+//			cmark_node_set_title(link, );
+			cmark_node *face = cmark_node_new(CMARK_NODE_TEXT);
+			cmark_node_set_literal(face, b);
+			cmark_node_append_child(link, face);
+			cmark_node_insert_before(node, text);
+			cmark_node_insert_before(node, link);
 
-		free(a); a = NULL;
-		free(b); b = NULL;
+			free(a); a = NULL;
+			free(b); b = NULL;
 
-		pos += loc+len;
+			pos += loc+len;
+		}
+
+		if(str != pos) {
+			cmark_node *text = cmark_node_new(CMARK_NODE_TEXT);
+			cmark_node_set_literal(text, pos);
+			cmark_node_insert_before(node, text);
+			cmark_node_free(node);
+		}
+
 	}
-
-	if(str != pos) {
-		cmark_node *text = cmark_node_new(CMARK_NODE_TEXT);
-		cmark_node_set_literal(text, pos);
-		cmark_node_insert_before(*node, text);
-
-		cmark_node_free(*node); *node = NULL; // TODO
-	}
-
 	regfree(linkify);
+}
+static void md_convert_hashes(cmark_iter *const iter) {
+	// TODO
 }
 
 int markdown_convert(char const *const dst, char const *const src) {
@@ -155,17 +173,21 @@ int markdown_convert(char const *const dst, char const *const src) {
 	fclose(s); s = NULL;
 	assert(node); // TODO
 
-
-	cmark_iter *iter = cmark_iter_new(node);
+	// TODO: We should be able to reset the iterator, but resetting to CMARK_EVENT_NONE doesn't work.
+	cmark_iter *iter = NULL;
+	iter = cmark_iter_new(node);
 	assert(iter);
-	for(;;) {
-		cmark_event_type const event = cmark_iter_next(iter);
-		if(CMARK_EVENT_DONE == event) break;
-		cmark_node *node = cmark_iter_get_node(iter);
-		md_escape(event, &node);
-		md_escape_inline(event, &node);
-		md_autolink(event, &node);
-	}
+	md_escape(iter);
+	cmark_iter_free(iter); iter = NULL;
+
+	iter = cmark_iter_new(node);
+	assert(iter);
+	md_escape_inline(iter);
+	cmark_iter_free(iter); iter = NULL;
+
+	iter = cmark_iter_new(node);
+	assert(iter);
+	md_autolink(iter);
 	cmark_iter_free(iter); iter = NULL;
 
 
