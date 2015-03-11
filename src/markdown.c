@@ -11,6 +11,7 @@
 #include <regex.h>
 
 #include "../deps/cmark/src/cmark.h"
+#include "../deps/cmark/src/buffer.h"
 
 //#include "http/QueryString.h"
 
@@ -116,7 +117,6 @@ static void md_autolink(cmark_iter *const iter) {
 			cmark_node_set_literal(text, a);
 			cmark_node *link = cmark_node_new(CMARK_NODE_LINK);
 			cmark_node_set_url(link, b);
-//			cmark_node_set_title(link, );
 			cmark_node *face = cmark_node_new(CMARK_NODE_TEXT);
 			cmark_node_set_literal(face, b);
 			cmark_node_append_child(link, face);
@@ -140,7 +140,45 @@ static void md_autolink(cmark_iter *const iter) {
 	regfree(linkify);
 }
 static void md_convert_hashes(cmark_iter *const iter) {
-	// TODO
+	for(;;) {
+		cmark_event_type const event = cmark_iter_next(iter);
+		if(CMARK_EVENT_DONE == event) break;
+		if(CMARK_EVENT_ENTER != event) continue;
+		cmark_node *const node = cmark_iter_get_node(iter);
+		if(CMARK_NODE_LINK != cmark_node_get_type(node)) continue;
+
+#define STR_LEN(x) x, sizeof(x)-1
+
+		char const *const URI = cmark_node_get_url(node);
+		if(!URI) continue;
+		if(0 != strncasecmp(URI, STR_LEN("hash:"))) continue;
+
+		cmark_node *hashlink = cmark_node_new(CMARK_NODE_LINK);
+		cmark_node_set_url(hashlink, URI);
+		cmark_node_set_title(hashlink, "Hash URI (right click and choose copy link)");
+
+		cmark_node *sup_open = cmark_node_new(CMARK_NODE_INLINE_HTML);
+		cmark_node_set_literal(sup_open, "<sup>[");
+		cmark_node *sup_close = cmark_node_new(CMARK_NODE_INLINE_HTML);
+		cmark_node_set_literal(sup_close, "]</sup>");
+		cmark_node *face = cmark_node_new(CMARK_NODE_TEXT);
+		cmark_node_set_literal(face, "#");
+		cmark_node_append_child(hashlink, face);
+
+		cmark_node_insert_after(node, sup_open);
+		cmark_node_insert_after(sup_open, hashlink);
+		cmark_node_insert_after(hashlink, sup_close);
+
+		cmark_iter_reset(iter, sup_close, CMARK_EVENT_EXIT);
+
+		size_t const URILen = strlen(URI);
+		cmark_strbuf rel[1];
+		cmark_strbuf_init(rel, strlen("?q=")+URILen); // TODO: Escaping?
+		cmark_strbuf_put(rel, (unsigned char const *)STR_LEN("?q="));
+		cmark_strbuf_put(rel, (unsigned char const *)URI, URILen);
+		cmark_node_set_url(node, cmark_strbuf_cstr(rel));
+		cmark_strbuf_free(rel);
+	}
 }
 
 int markdown_convert(char const *const dst, char const *const src) {
@@ -188,6 +226,11 @@ int markdown_convert(char const *const dst, char const *const src) {
 	iter = cmark_iter_new(node);
 	assert(iter);
 	md_autolink(iter);
+	cmark_iter_free(iter); iter = NULL;
+
+	iter = cmark_iter_new(node);
+	assert(iter);
+	md_convert_hashes(iter);
 	cmark_iter_free(iter); iter = NULL;
 
 
