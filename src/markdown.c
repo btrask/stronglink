@@ -8,6 +8,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <regex.h>
+
 #include "../deps/cmark/src/cmark.h"
 
 //#include "http/QueryString.h"
@@ -75,7 +77,52 @@ static void md_escape_inline(cmark_event_type const event, cmark_node **const no
 static void md_autolink(cmark_event_type const event, cmark_node **const node) {
 	if(CMARK_EVENT_ENTER != event) return;
 	if(CMARK_NODE_TEXT != cmark_node_get_type(*node)) return;
-	// TODO
+
+	regex_t linkify[1];
+	// <http://daringfireball.net/2010/07/improved_regex_for_matching_urls>
+	// Painstakingly ported to POSIX
+	int rc = regcomp(linkify, "([a-z][a-z0-9_-]+:(/{1,3}|[a-z0-9%])|www[0-9]{0,3}[.]|[a-z0-9.-]+[.][a-z]{2,4}/)([^[:space:]()<>]+|\\(([^[:space:]()<>]+|(\\([^[:space:]()<>]+\\)))*\\))+(\\(([^[:space:]()<>]+|(\\([^[:space:]()<>]+\\)))*\\)|[^][[:space:]`!(){};:'\".,<>?«»“”‘’])", REG_ICASE | REG_EXTENDED);
+	assert(0 == rc);
+
+	char const *const str = cmark_node_get_literal(*node);
+	char const *pos = str;
+	regmatch_t match;
+	while(0 == regexec(linkify, pos, 1, &match, 0)) {
+		regoff_t const loc = match.rm_so;
+		regoff_t const len = match.rm_eo - match.rm_so;
+
+
+		char *a = strndup(pos, loc);
+		char *b = strndup(pos+loc, len);
+		assert(a);
+		assert(b);
+
+		cmark_node *text = cmark_node_new(CMARK_NODE_TEXT);
+		cmark_node_set_literal(text, a);
+		cmark_node *link = cmark_node_new(CMARK_NODE_LINK);
+		cmark_node_set_url(link, b);
+//		cmark_node_set_title(link, );
+		cmark_node *face = cmark_node_new(CMARK_NODE_TEXT);
+		cmark_node_set_literal(face, b);
+		cmark_node_append_child(link, face);
+		cmark_node_insert_before(*node, text);
+		cmark_node_insert_before(*node, link);
+
+		free(a); a = NULL;
+		free(b); b = NULL;
+
+		pos += loc+len;
+	}
+
+	if(str != pos) {
+		cmark_node *text = cmark_node_new(CMARK_NODE_TEXT);
+		cmark_node_set_literal(text, pos);
+		cmark_node_insert_before(*node, text);
+
+		cmark_node_free(*node); *node = NULL; // TODO
+	}
+
+	regfree(linkify);
 }
 
 int markdown_convert(char const *const dst, char const *const src) {
