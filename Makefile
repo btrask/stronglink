@@ -47,6 +47,8 @@ HEADERS := \
 	$(SRC_DIR)/http/HTTPHeaders.h \
 	$(SRC_DIR)/http/MultipartForm.h \
 	$(SRC_DIR)/http/QueryString.h \
+	$(DEPS_DIR)/cmark/src/cmark.h \
+	$(DEPS_DIR)/cmark/build/src/*.h \
 	$(DEPS_DIR)/crypt_blowfish/ow-crypt.h \
 	$(DEPS_DIR)/fts3/fts3_tokenizer.h \
 	$(DEPS_DIR)/libco/libco.h \
@@ -110,20 +112,6 @@ else
 OBJECTS += $(BUILD_DIR)/deps/libco/libco.o
 endif
 
-MARKDOWN_HEADERS := \
-	$(DEPS_DIR)/sundown/src/markdown.h \
-	$(DEPS_DIR)/sundown/html/html.h \
-	$(DEPS_DIR)/sundown/html/houdini.h
-MARKDOWN_OBJECTS := \
-	$(BUILD_DIR)/deps/sundown/src/markdown.o \
-	$(BUILD_DIR)/deps/sundown/src/autolink.o \
-	$(BUILD_DIR)/deps/sundown/src/buffer.o \
-	$(BUILD_DIR)/deps/sundown/src/stack.o \
-	$(BUILD_DIR)/deps/sundown/html/html.o \
-	$(BUILD_DIR)/deps/sundown/html/html_smartypants.o \
-	$(BUILD_DIR)/deps/sundown/html/houdini_href_e.o \
-	$(BUILD_DIR)/deps/sundown/html/houdini_html_e.o
-
 # Server executable-specific code
 HEADERS += \
 	$(SRC_DIR)/Template.h \
@@ -135,10 +123,12 @@ OBJECTS += \
 	$(BUILD_DIR)/markdown.o \
 	$(MARKDOWN_OBJECTS)
 
-MODULES :=
-
 STATIC_LIBS += $(YAJL_BUILD_DIR)/lib/libyajl_s.a
 CFLAGS += -I$(YAJL_BUILD_DIR)/include
+
+MODULES += cmark
+STATIC_LIBS += $(DEPS_DIR)/cmark/build/src/libcmark.a
+CFLAGS += -I$(DEPS_DIR)/cmark/build/src
 
 MODULES += libuv
 STATIC_LIBS += $(DEPS_DIR)/uv/.libs/libuv.a
@@ -186,11 +176,10 @@ $(BUILD_DIR)/earthfs: $(OBJECTS) $(MODULES)
 	@- mkdir -p $(dir $@)
 	$(CC) -o $@ $(OBJECTS) $(CFLAGS) -Werror -Wall $(STATIC_LIBS) $(LIBS)
 
+$(YAJL_BUILD_DIR)/include/yajl/*.h: yajl
 .PHONY: yajl
 yajl:
 	cd $(DEPS_DIR)/yajl/build && make yajl_s/fast
-
-$(YAJL_BUILD_DIR)/include/yajl/*.h: yajl
 
 .PHONY: leveldb
 leveldb:
@@ -199,6 +188,11 @@ leveldb:
 .PHONY: snappy
 snappy:
 	cd $(DEPS_DIR)/snappy && make
+
+$(DEPS_DIR)/cmark/build/src/*.h: cmark
+.PHONY: cmark
+cmark:
+	cd $(DEPS_DIR)/cmark && make
 
 .PHONY: libuv
 libuv:
@@ -270,6 +264,9 @@ clean:
 
 .PHONY: distclean
 distclean: clean
+	- cd $(DEPS_DIR)/cmark && make distclean
+	- cd $(DEPS_DIR)/leveldb && make clean
+	- cd $(DEPS_DIR)/snappy && make distclean
 	- cd $(DEPS_DIR)/uv && make distclean
 	- cd $(DEPS_DIR)/yajl && make distclean
-	- cd $(DEPS_DIR)/leveldb && make clean
+

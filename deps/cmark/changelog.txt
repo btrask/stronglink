@@ -1,0 +1,90 @@
+[0.18.1]
+
+  * Build static version of library in default build (#11).
+  * `cmark.h`:  Add missing argument to `cmark_parser_new` (#12).
+
+[0.18]
+
+  * Switch to 2-clause BSD license, with agreement of contributors.
+  * Added Profile build type, `make prof` target.
+  * Fixed autolink scanner to conform to the spec. Backslash escapes
+    not allowed in autolinks.
+  * Don't rely on strnlen being available (Nick Wellnhofer).
+  * Updated scanners for new whitespace definition.
+  * Added `CMARK_OPT_SMART` and `--smart` option, `smart.c`, `smart.h`.
+  * Added test for `--smart` option.
+  * Fixed segfault with --normalize (closes #7).
+  * Moved normalization step from XML renderer to `cmark_parser_finish`.
+  * Added options parameter to `cmark_parse_document`, `cmark_parse_file`.
+  * Fixed man renderer's escaping for unicode characters.
+  * Don't require python3 to make `cmark.3` man page.
+  * Use ASCII escapes for punctuation characters for portability.
+  * Made `options` an int rather than a long, for consistency.
+  * Packed `cmark_node` struct to fit into 128 bytes.
+    This gives a small performance boost and lowers memory usage.
+  * Repacked `delimiter` struct to avoid hole.
+  * Fixed use-after-free bug, which arose when a paragraph containing
+    only reference links and blank space was finalized (#9).
+    Avoid using `parser->current` in the loop that creates new
+    blocks, since `finalize` in `add_child` may have removed
+    the current parser (if it contains only reference definitions).
+    This isn't a great solution; in the long run we need to rewrite
+    to make the logic clearer and to make it harder to make
+    mistakes like this one.
+  * Added 'Asan' build type. `make asan` will link against ASan; the
+    resulting executable will do checks for memory access issues.
+    Thanks @JordanMilne for the suggestion.
+  * Add Makefile target to fuzz with AFL (Nick Wellnhofer)
+    The variable `$AFL_PATH` must point to the directory containing the AFL
+    binaries. It can be set as an environment variable or passed to make on
+    the command line.
+
+[0.17]
+
+  * Stripped out all JavaScript related code and documentation, moving
+    it to a separate repository (<https://github.com/jgm/commonmark.js>).
+  * Improved Makefile targets, so that `cmake` is run again only when
+    necessary (Nick Wellnhofer).
+  * Added `INSTALL_PREFIX` to the Makefile, allowing installation to a
+    location other than `/usr/local` without invoking `cmake`
+    manually (Nick Wellnhofer).
+  * `make test` now guarantees that the project will
+    be rebuilt before tests are run (Nick Wellnhofer).
+  * Prohibited overriding of some Makefile variables (Nick Wellnhofer).
+  * Provide version number and string, both as macros
+    (`CMARK_VERSION`, `CMARK_VERSION_STRING`) and as symbols
+    (`cmark_version`, `cmark_version_string`) (Nick Wellnhofer).  All of
+    these come from `cmark_version.h`, which is constructed from a
+    template `cmark_version.h.in` and data in `CMakeLists.txt`.
+  * Avoid calling `free` on null pointer.
+  * Added an accessor for an iterator's root node (`cmark_iter_get_root`).
+  * Added user data field for nodes (Nick Wellnhofer).  This is
+    intended mainly for use in bindings for dynamic languages, where
+    it could store a pointer to a target language object (#287).  But
+    it can be used for anything.
+  * Man renderer:  properly escape multiline strings.
+  * Added assertion to raise error if finalize is called on a closed block.
+  * Implemented the new spec rule for emphasis and strong emphasis with `_`.
+  * Moved the check for fence-close with the other checks for end-of-block.
+  * Fixed a bug with loose list detection with items containings
+    fenced code blocks (#285).
+  * Removed recursive algorithm in `ends_with_blank_line` (#286).
+  * Minor code reformatting: renamed parameters.
+
+[0.16]
+
+  * Added xml renderer (XML representation of the CommonMark AST,
+    which is described in `CommonMark.dtd`).
+  * Reduced size of gperf entity table (Nick Wellnhofer).
+  * Reworked iterators to allow deletion of nodes during iteration
+    (Nick Wellnhofer).
+  * Optimized `S_is_leaf`.
+  * Added `cmark_iter_reset` to iterator API.
+  * Added `cmark_consolidate_text_nodes` to API to combine adjacent
+    text nodes.
+  * Added `CMARK_OPT_NORMALIZE` to options (this combines adjacent
+    text nodes).
+  * Added `--normalize` option to command-line program.
+  * Improved regex for HTML comments in inline parsing.
+  * Python is no longer required for a basic build from the
+    repository.
