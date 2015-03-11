@@ -9,7 +9,6 @@
 #include <unistd.h>
 
 #include "../deps/cmark/src/cmark.h"
-#include "../deps/cmark/src/houdini.h"
 
 //#include "http/QueryString.h"
 
@@ -55,17 +54,24 @@ static int markdown_autolink(struct buf *ob, const struct buf *link, enum mkd_au
 
 static void md_escape(cmark_event_type const event, cmark_node_type const type, cmark_node *const node) {
 	if(CMARK_EVENT_ENTER != event) return;
-	if(CMARK_NODE_HTML != type && CMARK_NODE_INLINE_HTML != type) return;
-	// TODO: HTML nodes end up at the top level instead of wrapped in <p> tags.
-
-	char const *const raw = cmark_node_get_literal(node);
-	size_t const len = strlen(raw);
-	cmark_strbuf escaped[1] = { GH_BUF_INIT };
-	houdini_escape_html(escaped, (uint8_t const *)raw, len);
-	cmark_node_set_literal(node, cmark_strbuf_cstr(escaped));
-	cmark_strbuf_free(escaped);
+	if(CMARK_NODE_HTML != type) return;
+	char const *const str = cmark_node_get_literal(node);
+	cmark_node *p = cmark_node_new(CMARK_NODE_PARAGRAPH);
+	cmark_node *text = cmark_node_new(CMARK_NODE_TEXT);
+	cmark_node_set_literal(text, str);
+	cmark_node_append_child(p, text);
+	cmark_node_insert_before(node, p);
+	cmark_node_unlink(node);
 }
-
+static void md_escape_inline(cmark_event_type const event, cmark_node_type const type, cmark_node *const node) {
+	if(CMARK_EVENT_ENTER != event) return;
+	if(CMARK_NODE_INLINE_HTML != type) return;
+	char const *const str = cmark_node_get_literal(node);
+	cmark_node *text = cmark_node_new(CMARK_NODE_TEXT);
+	cmark_node_set_literal(text, str);
+	cmark_node_insert_before(node, text);
+	cmark_node_unlink(node);
+}
 
 int markdown_convert(char const *const dst, char const *const src) {
 	int d = -1;
@@ -106,6 +112,7 @@ int markdown_convert(char const *const dst, char const *const src) {
 		cmark_node *const node = cmark_iter_get_node(iter);
 		cmark_node_type const type = cmark_node_get_type(node);
 		md_escape(event, type, node);
+		md_escape_inline(event, type, node);
 	}
 	cmark_iter_free(iter); iter = NULL;
 
