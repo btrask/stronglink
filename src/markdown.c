@@ -60,7 +60,8 @@ void md_escape(cmark_iter *const iter) {
 		if(CMARK_EVENT_DONE == event) break;
 		cmark_node *const node = cmark_iter_get_node(iter);
 		cmark_node_type const type = cmark_node_get_type(node);
-		if(CMARK_NODE_INLINE_HTML != type) continue;
+		if(CMARK_NODE_HTML != type && CMARK_NODE_INLINE_HTML != type) continue;
+		// TODO: HTML nodes end up at the top level instead of wrapped in <p> tags.
 
 		char const *const raw = cmark_node_get_literal(node);
 		size_t const len = strlen(raw);
