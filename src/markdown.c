@@ -53,23 +53,17 @@ static int markdown_autolink(struct buf *ob, const struct buf *link, enum mkd_au
 	return rc;
 }*/
 
-void md_escape(cmark_iter *const iter) {
-	for(;;) {
-		cmark_event_type const event = cmark_iter_next(iter);
-		if(CMARK_EVENT_EXIT == event) continue;
-		if(CMARK_EVENT_DONE == event) break;
-		cmark_node *const node = cmark_iter_get_node(iter);
-		cmark_node_type const type = cmark_node_get_type(node);
-		if(CMARK_NODE_HTML != type && CMARK_NODE_INLINE_HTML != type) continue;
-		// TODO: HTML nodes end up at the top level instead of wrapped in <p> tags.
+static void md_escape(cmark_event_type const event, cmark_node_type const type, cmark_node *const node) {
+	if(CMARK_EVENT_ENTER != event) return;
+	if(CMARK_NODE_HTML != type && CMARK_NODE_INLINE_HTML != type) return;
+	// TODO: HTML nodes end up at the top level instead of wrapped in <p> tags.
 
-		char const *const raw = cmark_node_get_literal(node);
-		size_t const len = strlen(raw);
-		cmark_strbuf escaped[1] = { GH_BUF_INIT };
-		houdini_escape_html(escaped, (uint8_t const *)raw, len);
-		cmark_node_set_literal(node, cmark_strbuf_cstr(escaped));
-		cmark_strbuf_free(escaped);
-	}
+	char const *const raw = cmark_node_get_literal(node);
+	size_t const len = strlen(raw);
+	cmark_strbuf escaped[1] = { GH_BUF_INIT };
+	houdini_escape_html(escaped, (uint8_t const *)raw, len);
+	cmark_node_set_literal(node, cmark_strbuf_cstr(escaped));
+	cmark_strbuf_free(escaped);
 }
 
 
@@ -106,7 +100,13 @@ int markdown_convert(char const *const dst, char const *const src) {
 
 	cmark_iter *iter = cmark_iter_new(node);
 	assert(iter);
-	md_escape(iter);
+	for(;;) {
+		cmark_event_type const event = cmark_iter_next(iter);
+		if(CMARK_EVENT_DONE == event) break;
+		cmark_node *const node = cmark_iter_get_node(iter);
+		cmark_node_type const type = cmark_node_get_type(node);
+		md_escape(event, type, node);
+	}
 	cmark_iter_free(iter); iter = NULL;
 
 
