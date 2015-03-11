@@ -52,25 +52,30 @@ static int markdown_autolink(struct buf *ob, const struct buf *link, enum mkd_au
 	return rc;
 }*/
 
-static int md_escape(cmark_event_type const event, cmark_node_type const type, cmark_node *const node) {
-	if(CMARK_EVENT_ENTER != event) return 0;
-	if(CMARK_NODE_HTML != type) return 0;
-	char const *const str = cmark_node_get_literal(node);
+static void md_escape(cmark_event_type const event, cmark_node **const node) {
+	if(CMARK_EVENT_ENTER != event) return;
+	if(CMARK_NODE_HTML != cmark_node_get_type(*node)) return;
+	char const *const str = cmark_node_get_literal(*node);
 	cmark_node *p = cmark_node_new(CMARK_NODE_PARAGRAPH);
 	cmark_node *text = cmark_node_new(CMARK_NODE_TEXT);
 	cmark_node_set_literal(text, str);
 	cmark_node_append_child(p, text);
-	cmark_node_insert_before(node, p);
-	return -1;
+	cmark_node_insert_before(*node, p);
+	cmark_node_free(*node); *node = p;
 }
-static int md_escape_inline(cmark_event_type const event, cmark_node_type const type, cmark_node *const node) {
-	if(CMARK_EVENT_ENTER != event) return 0;
-	if(CMARK_NODE_INLINE_HTML != type) return 0;
-	char const *const str = cmark_node_get_literal(node);
+static void md_escape_inline(cmark_event_type const event, cmark_node **const node) {
+	if(CMARK_EVENT_ENTER != event) return;
+	if(CMARK_NODE_INLINE_HTML != cmark_node_get_type(*node)) return;
+	char const *const str = cmark_node_get_literal(*node);
 	cmark_node *text = cmark_node_new(CMARK_NODE_TEXT);
 	cmark_node_set_literal(text, str);
-	cmark_node_insert_before(node, text);
-	return -1;
+	cmark_node_insert_before(*node, text);
+	cmark_node_free(*node); *node = text;
+}
+static void md_autolink(cmark_event_type const event, cmark_node **const node) {
+	if(CMARK_EVENT_ENTER != event) return;
+	if(CMARK_NODE_TEXT != cmark_node_get_type(*node)) return;
+	// TODO
 }
 
 int markdown_convert(char const *const dst, char const *const src) {
@@ -109,12 +114,10 @@ int markdown_convert(char const *const dst, char const *const src) {
 	for(;;) {
 		cmark_event_type const event = cmark_iter_next(iter);
 		if(CMARK_EVENT_DONE == event) break;
-		cmark_node *const node = cmark_iter_get_node(iter);
-		cmark_node_type const type = cmark_node_get_type(node);
-		int x = 0;
-		x = x < 0 ? x : md_escape(event, type, node);
-		x = x < 0 ? x : md_escape_inline(event, type, node);
-		if(x < 0) cmark_node_free(node);
+		cmark_node *node = cmark_iter_get_node(iter);
+		md_escape(event, &node);
+		md_escape_inline(event, &node);
+		md_autolink(event, &node);
 	}
 	cmark_iter_free(iter); iter = NULL;
 
