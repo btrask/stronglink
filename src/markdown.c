@@ -147,11 +147,10 @@ static void md_convert_hashes(cmark_iter *const iter) {
 		cmark_node *const node = cmark_iter_get_node(iter);
 		if(CMARK_NODE_LINK != cmark_node_get_type(node)) continue;
 
-#define STR_LEN(x) x, sizeof(x)-1
-
 		char const *const URI = cmark_node_get_url(node);
 		if(!URI) continue;
-		if(0 != strncasecmp(URI, STR_LEN("hash:"))) continue;
+		char const hashpfx[] = "hash:";
+		if(0 != strncasecmp(URI, hashpfx, sizeof(hashpfx)-1)) continue;
 
 		cmark_node *hashlink = cmark_node_new(CMARK_NODE_LINK);
 		cmark_node_set_url(hashlink, URI);
@@ -173,8 +172,9 @@ static void md_convert_hashes(cmark_iter *const iter) {
 
 		size_t const URILen = strlen(URI);
 		cmark_strbuf rel[1];
-		cmark_strbuf_init(rel, strlen("?q=")+URILen); // TODO: Escaping?
-		cmark_strbuf_put(rel, (unsigned char const *)STR_LEN("?q="));
+		char const qpfx[] = "?q=";
+		cmark_strbuf_init(rel, sizeof(qpfx)-1+URILen); // TODO: Escaping?
+		cmark_strbuf_put(rel, (unsigned char const *)qpfx, sizeof(qpfx)-1);
 		cmark_strbuf_put(rel, (unsigned char const *)URI, URILen);
 		cmark_node_set_url(node, cmark_strbuf_cstr(rel));
 		cmark_strbuf_free(rel);
