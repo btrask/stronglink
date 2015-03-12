@@ -126,6 +126,7 @@ function md_convert_hashes(iter) {
 		if("Link" != node.type) continue;
 
 		URI = node.destination;
+		if(!URI) continue;
 		if("hash:" != URI.toLowerCase().slice(0, 5)) continue;
 
 		hashlink = new commonmark.Node("Link");
