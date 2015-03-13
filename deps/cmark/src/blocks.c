@@ -89,6 +89,9 @@ static bool is_blank(cmark_strbuf *s, int offset)
 {
 	while (offset < s->size) {
 		switch (s->ptr[offset]) {
+		case '\r':
+			if(s->ptr[offset+1] == '\n') offset++;
+			return true;
 		case '\n':
 			return true;
 		case ' ':
@@ -556,7 +559,7 @@ S_process_line(cmark_parser *parser, const unsigned char *buffer, size_t bytes)
 		}
 
 		indent = first_nonspace - offset;
-		blank = peek_at(&input, first_nonspace) == '\n';
+		blank = peek_at(&input, first_nonspace) == '\n' || peek_at(&input, first_nonspace) == '\r';
 
 		if (container->type == NODE_BLOCK_QUOTE) {
 			matched = indent <= 3 && peek_at(&input, first_nonspace) == '>';
@@ -657,7 +660,7 @@ S_process_line(cmark_parser *parser, const unsigned char *buffer, size_t bytes)
 			first_nonspace++;
 
 		indent = first_nonspace - offset;
-		blank = peek_at(&input, first_nonspace) == '\n';
+		blank = peek_at(&input, first_nonspace) == '\n' || peek_at(&input, first_nonspace) == '\r';
 
 		if (indent >= CODE_INDENT) {
 			if (!maybe_lazy && !blank) {
