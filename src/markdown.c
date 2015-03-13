@@ -143,7 +143,7 @@ static void md_convert_hashes(cmark_iter *const iter) {
 	for(;;) {
 		cmark_event_type const event = cmark_iter_next(iter);
 		if(CMARK_EVENT_DONE == event) break;
-		if(CMARK_EVENT_ENTER != event) continue;
+		if(CMARK_EVENT_EXIT != event) continue;
 		cmark_node *const node = cmark_iter_get_node(iter);
 		if(CMARK_NODE_LINK != cmark_node_get_type(node)) continue;
 

@@ -80,7 +80,7 @@ function md_convert_hashes(iter) {
 	for(;;) {
 		event = iter.next();
 		if(!event) break;
-		if(!event.entering) continue;
+		if(event.entering) continue;
 		node = event.node;
 		if("Link" != node.type) continue;
 
