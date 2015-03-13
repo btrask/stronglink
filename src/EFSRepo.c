@@ -163,22 +163,21 @@ static void loadPulls(EFSRepoRef const repo) {
 	rc = db_cursor_open(txn, &cur);
 	assertf(DB_SUCCESS == rc, "Database error %s\n", db_strerror(rc));
 
-	DB_RANGE(pulls, DB_VARINT_MAX);
-	db_bind_uint64(pulls->min, EFSPullByID);
-	db_range_genmax(pulls);
+	DB_range pulls[1];
+	EFSPullByIDRange0(pulls, txn);
 	DB_val pullID_key[1];
 	DB_val pull_val[1];
 	rc = db_cursor_firstr(cur, pulls, pullID_key, pull_val, +1);
 	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(cur, pulls, pullID_key, pull_val, +1)) {
-		uint64_t const table = db_read_uint64(pullID_key);
-		assert(EFSPullByID == table);
-		uint64_t const pullID = db_read_uint64(pullID_key);
-		uint64_t const userID = db_read_uint64(pull_val);
-		strarg_t const host = db_read_string(txn, pull_val);
-		strarg_t const username = db_read_string(txn, pull_val);
-		strarg_t const password = db_read_string(txn, pull_val);
-		strarg_t const cookie = db_read_string(txn, pull_val);
-		strarg_t const query = db_read_string(txn, pull_val);
+		uint64_t pullID;
+		EFSPullByIDKeyUnpack(pullID_key, txn, &pullID);
+		uint64_t userID;
+		strarg_t host;
+		strarg_t username;
+		strarg_t password;
+		strarg_t cookie;
+		strarg_t query;
+		EFSPullByIDValUnpack(pull_val, txn, &userID, &host, &username, &password, &cookie, &query);
 
 		EFSPullRef const pull = EFSRepoCreatePull(repo, pullID, userID, host, username, password, cookie, query);
 		if(repo->pull_count+1 > repo->pull_size) {
@@ -205,41 +204,29 @@ static void debug_data(DB_env *const db) {
 	char const *const passhash = "$2a$08$lhAQjgGPuwvtErV.aK.MGO1T2W0UhN1r4IngmF5FvY0LM826aF8ye";
 	char const *const token = passhash;
 
-	DB_VAL(userID_key, DB_VARINT_MAX + DB_VARINT_MAX);
-	db_bind_uint64(userID_key, EFSUserByID);
-	db_bind_uint64(userID_key, userID);
-	DB_VAL(user_val, DB_INLINE_MAX * 3);
-	db_bind_string(txn, user_val, username);
-	db_bind_string(txn, user_val, passhash);
-	db_bind_string(txn, user_val, token);
+	DB_val userID_key[1];
+	EFSUserByIDKeyPack(userID_key, txn, userID);
+	DB_val user_val[1];
+	EFSUserByIDValPack(user_val, txn, username, passhash, token);
 	rc = db_put(txn, userID_key, user_val, 0);
 	assert(!rc);
 
-	DB_VAL(username_key, DB_VARINT_MAX + DB_INLINE_MAX);
-	db_bind_uint64(username_key, EFSUserIDByName);
-	db_bind_string(txn, username_key, username);
-	DB_VAL(userID_val, DB_VARINT_MAX);
-	db_bind_uint64(userID_val, userID);
+	DB_val username_key[1];
+	EFSUserIDByNameKeyPack(username_key, txn, username);
+	DB_val userID_val[1];
+	EFSUserIDByNameValPack(userID_val, txn, userID);
 	rc = db_put(txn, username_key, userID_val, 0);
 	assert(!rc);
 
-	DB_VAL(pullID_key, DB_VARINT_MAX + DB_VARINT_MAX);
-	db_bind_uint64(pullID_key, EFSPullByID);
-	db_bind_uint64(pullID_key, 1);
-
+	DB_val pullID_key[1];
+	EFSPullByIDKeyPack(pullID_key, txn, 1);
 	char const *const host = "localhost:8009";
 	char const *const remote_username = "ben";
 	char const *const remote_password = "testing";
 	char const *const cookie = NULL;
 	char const *const query = "";
-
-	DB_VAL(pull_val, DB_VARINT_MAX * 1 + DB_INLINE_MAX * 5);
-	db_bind_uint64(pull_val, userID);
-	db_bind_string(txn, pull_val, host);
-	db_bind_string(txn, pull_val, remote_username);
-	db_bind_string(txn, pull_val, remote_password);
-	db_bind_string(txn, pull_val, cookie);
-	db_bind_string(txn, pull_val, query);
+	DB_val pull_val[1];
+	EFSPullByIDValPack(pull_val, txn, userID, host, remote_username, remote_password, cookie, query);
 
 	rc = db_put(txn, pullID_key, pull_val, 0);
 	assert(!rc);

@@ -1,3 +1,6 @@
+#ifndef DB_BASE_H
+#define DB_BASE_H
+
 #include <errno.h>
 #include <sys/types.h>
 
@@ -55,3 +58,4 @@ int db_cursor_del(DB_cursor *const cursor);
 
 char const *db_strerror(int const err);
 
+#endif

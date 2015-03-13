@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include "bcrypt.h"
 #include "EarthFS.h"
+#include "EFSDB.h"
 
 struct EFSSession {
 	EFSRepoRef repo;
@@ -97,23 +98,20 @@ int EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFSFi
 	DB_cursor *cursor;
 	rc = db_txn_cursor(txn, &cursor);
 	assert(!rc);
-	DB_RANGE(fileIDs, DB_VARINT_MAX + DB_INLINE_MAX);
-	db_bind_uint64(fileIDs->min, EFSURIAndFileID);
-	db_bind_string(txn, fileIDs->min, URI);
-	db_range_genmax(fileIDs);
+
+	DB_range fileIDs[1];
+	EFSURIAndFileIDRange1(fileIDs, txn, URI);
 	DB_val URIAndFileID_key[1];
 	rc = db_cursor_firstr(cursor, fileIDs, URIAndFileID_key, NULL, +1);
 	DB_val file_val[1];
 	if(DB_SUCCESS == rc) {
-		uint64_t const table = db_read_uint64(URIAndFileID_key);
-		assert(EFSURIAndFileID == table);
-		strarg_t const URI2 = db_read_string(txn, URIAndFileID_key);
+		strarg_t URI2;
+		uint64_t fileID;
+		EFSURIAndFileIDKeyUnpack(URIAndFileID_key, txn, &URI2, &fileID);
 		assert(0 == strcmp(URI, URI2));
 		if(info) {
-			uint64_t const fileID = db_read_uint64(URIAndFileID_key);
-			DB_VAL(fileID_key, DB_VARINT_MAX + DB_VARINT_MAX);
-			db_bind_uint64(fileID_key, EFSFileByID);
-			db_bind_uint64(fileID_key, fileID);
+			DB_val fileID_key[1];
+			EFSFileByIDKeyPack(fileID_key, txn, fileID);
 			rc = db_get(txn, fileID_key, file_val);
 		}
 	}
@@ -168,35 +166,27 @@ int EFSSessionGetValueForField(EFSSessionRef const session, str_t value[], size_
 	rc = db_cursor_open(txn, &values);
 	if(DB_SUCCESS != rc) goto done;
 
-	DB_RANGE(metaFileIDs, DB_VARINT_MAX + DB_INLINE_MAX);
-	db_bind_uint64(metaFileIDs->min, EFSTargetURIAndMetaFileID);
-	db_bind_string(txn, metaFileIDs->min, fileURI);
-	db_range_genmax(metaFileIDs);
+	DB_range metaFileIDs[1];
+	EFSTargetURIAndMetaFileIDRange1(metaFileIDs, txn, fileURI);
 	DB_val metaFileID_key[1];
 	rc = db_cursor_firstr(metafiles, metaFileIDs, metaFileID_key, NULL, +1);
 	if(DB_SUCCESS != rc && DB_NOTFOUND != rc) goto done;
 	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(metafiles, metaFileIDs, metaFileID_key, NULL, +1)) {
-		uint64_t const table = db_read_uint64(metaFileID_key);
-		assert(EFSTargetURIAndMetaFileID == table);
-		strarg_t const u = db_read_string(txn, metaFileID_key);
+		strarg_t u;
+		uint64_t metaFileID;
+		EFSTargetURIAndMetaFileIDKeyUnpack(metaFileID_key, txn, &u, &metaFileID);
 		assert(0 == strcmp(fileURI, u));
-		uint64_t const metaFileID = db_read_uint64(metaFileID_key);
-		DB_RANGE(vrange, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1);
-		db_bind_uint64(vrange->min, EFSMetaFileIDFieldAndValue);
-		db_bind_uint64(vrange->min, metaFileID);
-		db_bind_string(txn, vrange->min, field);
-		db_range_genmax(vrange);
+		DB_range vrange[1];
+		EFSMetaFileIDFieldAndValueRange2(vrange, txn, metaFileID, field);
 		DB_val value_val[1];
 		rc = db_cursor_firstr(values, vrange, value_val, NULL, +1);
 		if(DB_SUCCESS != rc && DB_NOTFOUND != rc) goto done;
 		for(; DB_SUCCESS == rc; rc = db_cursor_nextr(values, vrange, value_val, NULL, +1)) {
-			uint64_t const table2 = db_read_uint64(value_val);
-			assert(EFSMetaFileIDFieldAndValue == table2);
-			uint64_t const m = db_read_uint64(value_val);
+			uint64_t m;
+			strarg_t f, v;
+			EFSMetaFileIDFieldAndValueKeyUnpack(value_val, txn, &m, &f, &v);
 			assert(metaFileID == m);
-			strarg_t const f = db_read_string(txn, value_val);
 			assert(0 == strcmp(field, f));
-			strarg_t const v = db_read_string(txn, value_val);
 			if(!v) continue;
 			if(0 == strcmp("", v)) continue;
 			size_t const len = strlen(v);

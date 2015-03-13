@@ -2,6 +2,7 @@
 #include <ctype.h>
 #include <objc/runtime.h>
 #include "../EarthFS.h"
+#include "../EFSDB.h"
 
 @interface EFSObject
 {

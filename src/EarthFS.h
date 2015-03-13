@@ -1,7 +1,7 @@
 #ifndef EARTHFS_H
 #define EARTHFS_H
 
-#include "db/db_schema.h"
+#include "db/db_base.h"
 #include "async/async.h"
 #include "common.h"
 
@@ -14,27 +14,6 @@ typedef struct EFSHasher* EFSHasherRef;
 typedef struct EFSFilter* EFSFilterRef;
 typedef struct EFSJSONFilterParser* EFSJSONFilterParserRef;
 typedef struct EFSPull* EFSPullRef;
-
-enum {
-	// 0-19 are reserved for the DB layer.
-	EFSUserByID = 20,
-	EFSUserIDByName = 21,
-	EFSSessionByID = 22,
-	EFSPullByID = 23, // by user ID?
-
-	EFSFileByID = 40,
-	EFSFileIDByInfo = 41,
-	EFSFileIDByType = 42,
-	EFSFileIDAndURI = 43,
-	EFSURIAndFileID = 44,
-
-	EFSMetaFileByID = 60,
-	EFSFileIDAndMetaFileID = 61,
-	EFSTargetURIAndMetaFileID = 62,
-	EFSMetaFileIDFieldAndValue = 63,
-	EFSFieldValueAndMetaFileID = 64,
-	EFSTermMetaFileIDAndPosition = 65,
-};
 
 EFSRepoRef EFSRepoCreate(strarg_t const dir);
 void EFSRepoFree(EFSRepoRef *const repoptr);

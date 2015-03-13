@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include "EarthFS.h"
+#include "EFSDB.h"
 
 struct EFSSubmission {
 	EFSSessionRef session;
@@ -167,22 +168,17 @@ int EFSSubmissionStore(EFSSubmissionRef const sub, DB_txn *const txn) {
 	int64_t fileID = db_next_id(txn, EFSFileByID);
 	int rc;
 
-	DB_VAL(dupFileID_val, DB_VARINT_MAX);
-	db_bind_uint64(dupFileID_val, fileID);
+	DB_val dupFileID_val[1];
+	EFSFileIDByInfoValPack(dupFileID_val, txn, fileID);
 
-	DB_VAL(fileInfo_key, DB_VARINT_MAX * 1 + DB_INLINE_MAX * 2);
-	db_bind_uint64(fileInfo_key, EFSFileIDByInfo);
-	db_bind_string(txn, fileInfo_key, sub->internalHash);
-	db_bind_string(txn, fileInfo_key, sub->type);
+	DB_val fileInfo_key[1];
+	EFSFileIDByInfoKeyPack(fileInfo_key, txn, sub->internalHash, sub->type);
 	rc = db_put(txn, fileInfo_key, dupFileID_val, DB_NOOVERWRITE);
 	if(DB_SUCCESS == rc) {
-		DB_VAL(fileID_key, DB_VARINT_MAX + DB_VARINT_MAX);
-		db_bind_uint64(fileID_key, EFSFileByID);
-		db_bind_uint64(fileID_key, fileID);
-		DB_VAL(file_val, DB_VARINT_MAX * 1 + DB_INLINE_MAX * 2);
-		db_bind_string(txn, file_val, sub->internalHash);
-		db_bind_string(txn, file_val, sub->type);
-		db_bind_uint64(file_val, sub->size);
+		DB_val fileID_key[1];
+		EFSFileByIDKeyPack(fileID_key, txn, fileID);
+		DB_val file_val[1];
+		EFSFileByIDValPack(file_val, txn, sub->internalHash, sub->type, sub->size);
 		rc = db_put(txn, fileID_key, file_val, DB_NOOVERWRITE_FAST);
 		if(DB_SUCCESS != rc) return -1;
 	} else if(DB_KEYEXIST == rc) {
@@ -193,17 +189,13 @@ int EFSSubmissionStore(EFSSubmissionRef const sub, DB_txn *const txn) {
 		strarg_t const URI = sub->URIs[i];
 		DB_val null = { 0, NULL };
 
-		DB_VAL(fwd, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1);
-		db_bind_uint64(fwd, EFSFileIDAndURI);
-		db_bind_uint64(fwd, fileID);
-		db_bind_string(txn, fwd, URI);
+		DB_val fwd[1];
+		EFSFileIDAndURIKeyPack(fwd, txn, fileID, URI);
 		rc = db_put(txn, fwd, &null, DB_NOOVERWRITE_FAST);
 		assert(DB_SUCCESS == rc || DB_KEYEXIST == rc);
 
-		DB_VAL(rev, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1);
-		db_bind_uint64(rev, EFSURIAndFileID);
-		db_bind_string(txn, rev, URI);
-		db_bind_uint64(rev, fileID);
+		DB_val rev[1];
+		EFSURIAndFileIDKeyPack(rev, txn, URI, fileID);
 		rc = db_put(txn, rev, &null, DB_NOOVERWRITE_FAST);
 		assert(DB_SUCCESS == rc || DB_KEYEXIST == rc);
 	}

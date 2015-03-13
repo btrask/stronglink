@@ -38,6 +38,7 @@ HEADERS := \
 	$(SRC_DIR)/filter/EFSFilter.h \
 	$(SRC_DIR)/bcrypt.h \
 	$(SRC_DIR)/EarthFS.h \
+	$(SRC_DIR)/EFSDB.h \
 	$(SRC_DIR)/EFSRepoPrivate.h \
 	$(SRC_DIR)/fts.h \
 	$(SRC_DIR)/hash.h \

@@ -9,7 +9,7 @@
 #define DB_RANGE(name, bytes) \
 	DB_VAL(__min_##name, (bytes)); \
 	DB_VAL(__max_##name, (bytes)); \
-	DB_range name[1] = {{ __min_##name, __max_##name }}
+	DB_range name[1] = {{ {*__min_##name}, {*__max_##name} }}
 
 /* These assertions shouldn't be disabled by NDEBUG because they check data integrity at runtime. */
 #define db_assert(x) assert(x)

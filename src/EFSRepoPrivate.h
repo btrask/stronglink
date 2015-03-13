@@ -1,6 +1,7 @@
 #define _GNU_SOURCE /* asprintf() */
 #include <assert.h>
 #include "EarthFS.h"
+#include "EFSDB.h"
 #include "hash.h"
 
 typedef struct cookie_t cookie_t;

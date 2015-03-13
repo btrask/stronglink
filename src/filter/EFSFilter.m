@@ -109,9 +109,8 @@ str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, DB_txn *co
 //		fprintf(stderr, "{%llu, %llu} -> %llu\n", (unsigned long long)sortID, (unsigned long long)fileID, (unsigned long long)age);
 		if(age != sortID) continue;
 
-		DB_VAL(fileID_key, DB_VARINT_MAX + DB_VARINT_MAX);
-		db_bind_uint64(fileID_key, EFSFileByID);
-		db_bind_uint64(fileID_key, fileID);
+		DB_val fileID_key[1];
+		EFSFileByIDKeyPack(fileID_key, txn, fileID);
 		DB_val file_val[1];
 		int rc = db_get(txn, fileID_key, file_val);
 		assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));

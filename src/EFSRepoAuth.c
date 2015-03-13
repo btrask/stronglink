@@ -33,9 +33,8 @@ static int user_auth(EFSRepoRef const repo, strarg_t const username, strarg_t co
 		return rc;
 	}
 
-	DB_VAL(username_key, DB_VARINT_MAX + DB_INLINE_MAX);
-	db_bind_uint64(username_key, EFSUserIDByName);
-	db_bind_string(txn, username_key, username);
+	DB_val username_key[1];
+	EFSUserIDByNameKeyPack(username_key, txn, username);
 	DB_val userID_val[1];
 	rc = db_get(txn, username_key, userID_val);
 	if(DB_SUCCESS != rc) {
@@ -50,9 +49,8 @@ static int user_auth(EFSRepoRef const repo, strarg_t const username, strarg_t co
 		return UV_EACCES;
 	}
 
-	DB_VAL(userID_key, DB_VARINT_MAX + DB_VARINT_MAX);
-	db_bind_uint64(userID_key, EFSUserByID);
-	db_bind_uint64(userID_key, userID);
+	DB_val userID_key[1];
+	EFSUserByIDKeyPack(userID_key, txn, userID);
 	DB_val user_val[1];
 	rc = db_get(txn, userID_key, user_val);
 	if(DB_SUCCESS != rc) {
@@ -97,12 +95,10 @@ static int session_create(EFSRepoRef const repo, uint64_t const userID, strarg_t
 	}
 
 	uint64_t const sessionID = db_next_id(txn, EFSSessionByID);
-	DB_VAL(sessionID_key, DB_VARINT_MAX + DB_VARINT_MAX);
-	db_bind_uint64(sessionID_key, EFSSessionByID);
-	db_bind_uint64(sessionID_key, sessionID);
-	DB_VAL(session_val, DB_VARINT_MAX + DB_INLINE_MAX);
-	db_bind_uint64(session_val, userID);
-	db_bind_string(txn, session_val, sessionHash);
+	DB_val sessionID_key[1];
+	EFSSessionByIDKeyPack(sessionID_key, txn, sessionID);
+	DB_val session_val[1];
+	EFSSessionByIDValPack(session_val, txn, userID, sessionHash);
 	FREE(&sessionHash);
 	rc = db_put(txn, sessionID_key, session_val, DB_NOOVERWRITE_FAST);
 	if(DB_SUCCESS != rc) {
@@ -222,9 +218,8 @@ static int cookie_auth(EFSRepoRef const repo, strarg_t const cookie, uint64_t *c
 	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	if(DB_SUCCESS != rc) return rc;
 
-	DB_VAL(sessionID_key, DB_VARINT_MAX + DB_VARINT_MAX);
-	db_bind_uint64(sessionID_key, EFSSessionByID);
-	db_bind_uint64(sessionID_key, sessionID);
+	DB_val sessionID_key[1];
+	EFSSessionByIDKeyPack(sessionID_key, txn, sessionID);
 	DB_val session_val[1];
 	rc = db_get(txn, sessionID_key, session_val);
 	if(DB_SUCCESS != rc) {

@@ -106,12 +106,10 @@
 }
 
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
-	DB_RANGE(range, DB_VARINT_MAX);
-	db_bind_uint64(range->min, EFSMetaFileByID);
-	db_range_genmax(range);
-	DB_VAL(metaFileID_key, DB_VARINT_MAX + DB_VARINT_MAX);
-	db_bind_uint64(metaFileID_key, EFSMetaFileByID);
-	db_bind_uint64(metaFileID_key, sortID);
+	DB_range range[1];
+	EFSMetaFileByIDRange0(range, curtxn);
+	DB_val metaFileID_key[1];
+	EFSMetaFileByIDKeyPack(metaFileID_key, curtxn, sortID);
 	DB_val metaFile_val[1];
 	int rc = db_cursor_seekr(metafiles, range, metaFileID_key, metaFile_val, dir);
 	assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
@@ -130,9 +128,8 @@
 	}
 }
 - (void)step:(int const)dir {
-	DB_RANGE(range, DB_VARINT_MAX);
-	db_bind_uint64(range->min, EFSMetaFileByID);
-	db_range_genmax(range);
+	DB_range range[1];
+	EFSMetaFileByIDRange0(range, curtxn);
 	DB_val ignore[1];
 	int rc = db_cursor_nextr(metafiles, range, ignore, NULL, dir);
 	assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
@@ -140,22 +137,18 @@
 - (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID {
 	assert(subfilter);
 
-	DB_RANGE(metaFileIDs, DB_VARINT_MAX + DB_VARINT_MAX);
-	db_bind_uint64(metaFileIDs->min, EFSFileIDAndMetaFileID);
-	db_bind_uint64(metaFileIDs->min, fileID);
-	db_range_genmax(metaFileIDs);
+	DB_range metaFileIDs[1];
+	EFSFileIDAndMetaFileIDRange1(metaFileIDs, curtxn, fileID);
 	DB_val fileIDAndMetaFileID_key[1];
 	int rc = db_cursor_firstr(age_metafile, metaFileIDs, fileIDAndMetaFileID_key, NULL, +1);
 	if(DB_SUCCESS != rc) return UINT64_MAX;
-	uint64_t const table = db_read_uint64(fileIDAndMetaFileID_key);
-	assert(EFSFileIDAndMetaFileID == table);
-	uint64_t const f = db_read_uint64(fileIDAndMetaFileID_key);
+	uint64_t f;
+	uint64_t metaFileID;
+	EFSFileIDAndMetaFileIDKeyUnpack(fileIDAndMetaFileID_key, curtxn, &f, &metaFileID);
 	assert(fileID == f);
-	uint64_t const metaFileID = db_read_uint64(fileIDAndMetaFileID_key);
 
-	DB_VAL(metaFileID_key, DB_VARINT_MAX + DB_VARINT_MAX);
-	db_bind_uint64(metaFileID_key, EFSMetaFileByID);
-	db_bind_uint64(metaFileID_key, metaFileID);
+	DB_val metaFileID_key[1];
+	EFSMetaFileByIDKeyPack(metaFileID_key, curtxn, metaFileID);
 	DB_val metaFile_val[1];
 	rc = db_cursor_seek(age_uri, metaFileID_key, metaFile_val, 0);
 	if(DB_SUCCESS != rc) return UINT64_MAX;
@@ -163,19 +156,16 @@
 	assert(fileID == f2);
 	strarg_t const targetURI = db_read_string(curtxn, metaFile_val);
 
-	DB_RANGE(targetFileIDs, DB_VARINT_MAX + DB_INLINE_MAX);
-	db_bind_uint64(targetFileIDs->min, EFSURIAndFileID);
-	db_bind_string(curtxn, targetFileIDs->min, targetURI);
-	db_range_genmax(targetFileIDs);
+	DB_range targetFileIDs[1];
+	EFSURIAndFileIDRange1(targetFileIDs, curtxn, targetURI);
 	DB_val targetFileID_key[1];
 	rc = db_cursor_firstr(age_files, targetFileIDs, targetFileID_key, NULL, +1);
 	assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
 	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(age_files, targetFileIDs, targetFileID_key, NULL, +1)) {
-		uint64_t const table3 = db_read_uint64(targetFileID_key);
-		assert(EFSURIAndFileID == table3);
-		strarg_t const u = db_read_string(curtxn, targetFileID_key);
+		strarg_t u;
+		uint64_t targetFileID;
+		EFSURIAndFileIDKeyUnpack(targetFileID_key, curtxn, &u, &targetFileID);
 		assert(0 == strcmp(targetURI, u));
-		uint64_t const targetFileID = db_read_uint64(targetFileID_key);
 		if([subfilter age:UINT64_MAX :targetFileID] < UINT64_MAX) return metaFileID;
 	}
 	return UINT64_MAX;
