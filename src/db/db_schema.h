@@ -1,17 +1,7 @@
 #include <stdint.h>
 #include "db_ext.h"
 
-#define DB_VAL(name, bytes) \
-	if((bytes) < DB_VARINT_MAX) abort(); \
-	uint8_t __buf_##name[(bytes)]; \
-	DB_val name[1] = {{ 0, __buf_##name }}
-
-#define DB_RANGE(name, bytes) \
-	DB_VAL(__min_##name, (bytes)); \
-	DB_VAL(__max_##name, (bytes)); \
-	DB_range name[1] = {{ {*__min_##name}, {*__max_##name} }}
-
-/* These assertions shouldn't be disabled by NDEBUG because they check data integrity at runtime. */
+/* TODO: These assertions shouldn't be disabled by NDEBUG because they check data integrity at runtime. */
 #define db_assert(x) assert(x)
 #define db_assertf(x, y, z...) assertf(x, y, ##z)
 
