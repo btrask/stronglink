@@ -14,7 +14,7 @@ function md_escape(iter) {
 		if(!event) break;
 		if(!event.entering) continue;
 		node = event.node;
-		if("HtmlBlock" != node.type) continue;
+		if("HtmlBlock" !== node.type) continue;
 
 		p = new commonmark.Node("Paragraph");
 		text = new commonmark.Node("Text");
@@ -31,7 +31,7 @@ function md_escape_inline(iter) {
 		if(!event) break;
 		if(!event.entering) continue;
 		node = event.node;
-		if("Html" != node.type) continue;
+		if("Html" !== node.type) continue;
 
 		text = new commonmark.Node("Text");
 		text.literal = node.literal;
@@ -51,7 +51,7 @@ function md_autolink(iter) {
 		if(!event) break;
 		if(!event.entering) continue;
 		node = event.node;
-		if("Text" != node.type) continue;
+		if("Text" !== node.type) continue;
 
 		str = node.literal;
 		while((match = linkify.exec(str))) {
@@ -75,6 +75,40 @@ function md_autolink(iter) {
 		}
 	}
 }
+function md_block_external_images(iter) {
+	var event, node, link, URI, text, child;
+	for(;;) {
+		event = iter.next();
+		if(!event) break;
+		if(event.entering) continue;
+		node = event.node;
+		if("Image" !== node.type) continue;
+
+		URI = node.destination;
+		if(URI) {
+			if("hash:" === URI.toLowerCase().slice(0, 5)) continue;
+			if("data:" === URI.toLowerCase().slice(0, 5)) continue;
+		}
+
+		link = new commonmark.Node("Link");
+		text = new commonmark.Node("Text");
+		link.destination = URI;
+		for(;;) {
+			child = node.firstChild;
+			if(!child) break;
+			link.appendChild(child);
+		}
+		if(link.firstChild) {
+			text.literal = " (external image)";
+		} else {
+			text.literal = "(external image)";
+		}
+		link.appendChild(text);
+
+		node.insertBefore(link);
+		node.unlink();
+	}
+}
 function md_convert_hashes(iter) {
 	var event, node, URI, hashlink, sup_open, sup_close, face;
 	for(;;) {
@@ -82,11 +116,11 @@ function md_convert_hashes(iter) {
 		if(!event) break;
 		if(event.entering) continue;
 		node = event.node;
-		if("Link" != node.type) continue;
+		if("Link" !== node.type && "Image" !== node.type) continue;
 
 		URI = node.destination;
 		if(!URI) continue;
-		if("hash:" != URI.toLowerCase().slice(0, 5)) continue;
+		if("hash:" !== URI.toLowerCase().slice(0, 5)) continue;
 
 		hashlink = new commonmark.Node("Link");
 		hashlink.destination = URI;
@@ -118,6 +152,7 @@ input.oninput = input.onpropertychange = function() {
 		md_escape(node.walker());
 		md_escape_inline(node.walker());
 		md_autolink(node.walker());
+		md_block_external_images(node.walker());
 		md_convert_hashes(node.walker());
 		// TODO: Use target=_blank for links.
 		output.innerHTML = renderer.render(node);

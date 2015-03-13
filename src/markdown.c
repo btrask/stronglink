@@ -16,44 +16,9 @@
 //#include "http/QueryString.h"
 
 #define CONVERT_MAX (1024 * 1024 * 1) /* TODO */
+
+#define STR_LEN(x) (x), (sizeof(x)-1)
 #define RETRY(x) ({ ssize_t __x; do __x = (x); while(-1 == __x && EINTR == errno); __x; })
-
-/*struct markdown_state {
-	struct html_renderopt opts;
-	int (*autolink)(struct buf *ob, const struct buf *link, enum mkd_autolink type, void *opaque);
-	int (*link)(struct buf *ob, const struct buf *link, const struct buf *title, const struct buf *content, void *opaque);
-};
-static int markdown_link(struct buf *ob, const struct buf *link, const struct buf *title, const struct buf *content, void *opaque) {
-	struct markdown_state *const state = opaque;
-	if(0 != bufprefix(link, "hash://")) {
-		return state->link(ob, link, title, content, opaque);
-	}
-	// TODO: Query string escaping
-	struct buf *rel = bufnew(strlen("?q=")+link->size);
-	bufputs(rel, "?q=");
-	bufput(rel, link->data, link->size);
-	int const r = state->link(ob, rel, title, content, opaque);
-	bufrelease(rel);
-
-	bufputs(ob, "<sup>[");
-	struct buf icon = BUF_STATIC("#");
-	struct buf info = BUF_STATIC("Hash URI (right click and choose copy link)");
-	state->link(ob, link, &info, &icon, opaque);
-	bufputs(ob, "]</sup>");
-
-	return r;
-}
-static int markdown_autolink(struct buf *ob, const struct buf *link, enum mkd_autolink type, void *opaque) {
-	struct markdown_state *const state = opaque;
-	if(MKDA_NORMAL != type) {
-		return state->autolink(ob, link, type, opaque);
-	}
-	char *decoded = QSUnescape((char const *)link->data, link->size, false);
-	struct buf content = BUF_VOLATILE(decoded);
-	int const rc = markdown_link(ob, link, NULL, &content, opaque);
-	FREE(&decoded);
-	return rc;
-}*/
 
 static void md_escape(cmark_iter *const iter) {
 	for(;;) {
@@ -139,18 +104,51 @@ static void md_autolink(cmark_iter *const iter) {
 	}
 	regfree(linkify);
 }
+static void md_block_external_images(cmark_iter *const iter) {
+	for(;;) {
+		cmark_event_type const event = cmark_iter_next(iter);
+		if(CMARK_EVENT_DONE == event) break;
+		if(CMARK_EVENT_EXIT != event) continue;
+		cmark_node *const node = cmark_iter_get_node(iter);
+		if(CMARK_NODE_IMAGE != cmark_node_get_type(node)) continue;
+
+		char const *const URI = cmark_node_get_url(node);
+		if(URI) {
+			if(0 == strncasecmp(URI, STR_LEN("hash:"))) continue;
+			if(0 == strncasecmp(URI, STR_LEN("data:"))) continue;
+		}
+
+		cmark_node *link = cmark_node_new(CMARK_NODE_LINK);
+		cmark_node *text = cmark_node_new(CMARK_NODE_TEXT);
+		cmark_node_set_url(link, URI);
+		for(;;) {
+			cmark_node *child = cmark_node_first_child(node);
+			if(!child) break;
+			cmark_node_append_child(link, child);
+		}
+		if(cmark_node_first_child(link)) {
+			cmark_node_set_literal(text, " (external image)");
+		} else {
+			cmark_node_set_literal(text, "(external image)");
+		}
+		cmark_node_append_child(link, text);
+
+		cmark_node_insert_before(node, link);
+		cmark_node_free(node);
+	}
+}
 static void md_convert_hashes(cmark_iter *const iter) {
 	for(;;) {
 		cmark_event_type const event = cmark_iter_next(iter);
 		if(CMARK_EVENT_DONE == event) break;
 		if(CMARK_EVENT_EXIT != event) continue;
 		cmark_node *const node = cmark_iter_get_node(iter);
-		if(CMARK_NODE_LINK != cmark_node_get_type(node)) continue;
+		cmark_node_type const type = cmark_node_get_type(node);
+		if(CMARK_NODE_LINK != type && CMARK_NODE_IMAGE != type) continue;
 
 		char const *const URI = cmark_node_get_url(node);
 		if(!URI) continue;
-		char const hashpfx[] = "hash:";
-		if(0 != strncasecmp(URI, hashpfx, sizeof(hashpfx)-1)) continue;
+		if(0 != strncasecmp(URI, STR_LEN("hash:"))) continue;
 
 		cmark_node *hashlink = cmark_node_new(CMARK_NODE_LINK);
 		cmark_node_set_url(hashlink, URI);
@@ -226,6 +224,11 @@ int markdown_convert(char const *const dst, char const *const src) {
 	iter = cmark_iter_new(node);
 	assert(iter);
 	md_autolink(iter);
+	cmark_iter_free(iter); iter = NULL;
+
+	iter = cmark_iter_new(node);
+	assert(iter);
+	md_block_external_images(iter);
 	cmark_iter_free(iter); iter = NULL;
 
 	iter = cmark_iter_new(node);
