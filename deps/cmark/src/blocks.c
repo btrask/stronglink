@@ -786,7 +786,7 @@ S_process_line(cmark_parser *parser, const unsigned char *buffer, size_t bytes)
 		first_nonspace++;
 
 	indent = first_nonspace - offset;
-	blank = peek_at(&input, first_nonspace) == '\n';
+	blank = peek_at(&input, first_nonspace) == '\n' || peek_at(&input, first_nonspace) == '\r';
 
 	if (blank && container->last_child) {
 		container->last_child->last_line_blank = true;
