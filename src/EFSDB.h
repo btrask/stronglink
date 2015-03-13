@@ -23,10 +23,14 @@ enum {
 	EFSMetaFileIDFieldAndValue = 63,
 	EFSFieldValueAndMetaFileID = 64,
 	EFSTermMetaFileIDAndPosition = 65,
+
+	// It's expected that values less than ~240 should fit in one byte
+	// Depending on the varint format, of course
 };
 
 
 // TODO: Don't use simple assertions for data integrity checks.
+// TODO: Accept NULL out parameters in unpack macros
 
 #define EFSUserByIDKeyPack(val, txn, userID) \
 	uint8_t __buf_##val[DB_VARINT_MAX + DB_VARINT_MAX]; \
@@ -50,7 +54,6 @@ enum {
 	*(val) = (DB_val){ 0, __buf_##val }; \
 	db_bind_uint64((val), (userID));
 
-
 #define EFSSessionByIDKeyPack(val, txn, sessionID) \
 	uint8_t __buf_##val[DB_VARINT_MAX + DB_VARINT_MAX]; \
 	*(val) = (DB_val){ 0, __buf_##val }; \
@@ -61,7 +64,6 @@ enum {
 	*(val) = (DB_val){ 0, __buf_##val }; \
 	db_bind_uint64((val), (userID)); \
 	db_bind_string((txn), (val), (sessionHash));
-
 
 #define EFSPullByIDKeyPack(val, txn, pullID) \
 	uint8_t __buf_##val[DB_VARINT_MAX + DB_VARINT_MAX]; \
@@ -98,21 +100,17 @@ enum {
 	*(query) = db_read_string((txn), (val)); \
 })
 
-
-
 #define EFSFileByIDKeyPack(val, txn, fileID) \
 	uint8_t __buf_##val[DB_VARINT_MAX + DB_VARINT_MAX]; \
 	*(val) = (DB_val){ 0, __buf_##val }; \
 	db_bind_uint64((val), EFSFileByID); \
 	db_bind_uint64((val), (fileID));
-
 #define EFSFileByIDValPack(val, txn, internalHash, type, size) \
 	uint8_t __buf_##val[DB_VARINT_MAX * 1 + DB_INLINE_MAX * 2]; \
 	*(val) = (DB_val){ 0, __buf_##val }; \
 	db_bind_string((txn), (val), (internalHash)); \
 	db_bind_string((txn), (val), (type)); \
 	db_bind_uint64((val), (size));
-
 
 #define EFSFileIDByInfoKeyPack(val, txn, internalHash, type) \
 	uint8_t __buf_##val[DB_VARINT_MAX * 1 + DB_INLINE_MAX * 2]; \
@@ -124,7 +122,6 @@ enum {
 	uint8_t __buf_##val[DB_VARINT_MAX]; \
 	*(val) = (DB_val){ 0, __buf_##val }; \
 	db_bind_uint64((val), (fileID));
-
 
 #define EFSFileIDAndURIKeyPack(val, txn, fileID, URI) \
 	uint8_t __buf_##val[DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1]; \
@@ -146,7 +143,6 @@ enum {
 	*(URI) = db_read_string((txn), (val)); \
 })
 
-
 #define EFSURIAndFileIDKeyPack(val, txn, URI, fileID) \
 	uint8_t __buf_##val[DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1]; \
 	*(val) = (DB_val){ 0, __buf_##val }; \
@@ -167,8 +163,6 @@ enum {
 	*(fileID) = db_read_uint64((val)); \
 })
 
-
-
 #define EFSMetaFileByIDKeyPack(val, txn, metaFileID) \
 	uint8_t __buf_##val[DB_VARINT_MAX + DB_VARINT_MAX]; \
 	*(val) = (DB_val){ 0, __buf_##val }; \
@@ -186,7 +180,6 @@ enum {
 	*(metaFileID) = db_read_uint64((val)); \
 })
 
-
 #define EFSMetaFileByIDValPack(val, txn, fileID, targetURI) \
 	uint8_t __buf_##val[DB_VARINT_MAX + DB_INLINE_MAX]; \
 	*(val) = (DB_val){ 0, __buf_##val }; \
@@ -196,7 +189,6 @@ enum {
 	*(fileID) = db_read_uint64((val)); \
 	*(targetURI) = db_read_string((txn), (val)); \
 })
-
 
 #define EFSFileIDAndMetaFileIDKeyPack(val, txn, fileID, metaFileID) \
 	uint8_t __buf_##val[DB_VARINT_MAX * 3]; \
@@ -218,7 +210,6 @@ enum {
 	*(metaFileID) = db_read_uint64((val)); \
 })
 
-
 #define EFSTargetURIAndMetaFileIDKeyPack(val, txn, targetURI, metaFileID) \
 	uint8_t __buf_##val[DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1]; \
 	*(val) = (DB_val){ 0, __buf_##val }; \
@@ -238,8 +229,6 @@ enum {
 	*(targetURI) = db_read_string((txn), (val)); \
 	*(metaFileID) = db_read_uint64((val)); \
 })
-
-
 
 #define EFSMetaFileIDFieldAndValueKeyPack(val, txn, metaFileID, field, value) \
 	uint8_t __buf_##val[DB_VARINT_MAX * 2 + DB_INLINE_MAX * 2]; \
@@ -264,8 +253,6 @@ enum {
 	*(value) = db_read_string(txn, (val)); \
 })
 
-
-
 #define EFSFieldValueAndMetaFileIDKeyPack(val, txn, field, value, metaFileID) \
 	uint8_t __buf_##val[DB_VARINT_MAX * 2 + DB_INLINE_MAX * 2]; \
 	*(val) = (DB_val){ 0, __buf_##val }; \
@@ -273,7 +260,6 @@ enum {
 	db_bind_string((txn), (val), field); \
 	db_bind_string((txn), (val), value); \
 	db_bind_uint64((val), (metaFileID));
-
 #define EFSFieldValueAndMetaFileIDRange2(range, txn, field, value) \
 	uint8_t __buf_min_##range[DB_VARINT_MAX * 1 + DB_INLINE_MAX * 2]; \
 	uint8_t __buf_max_##range[DB_VARINT_MAX * 1 + DB_INLINE_MAX * 2]; \
@@ -282,7 +268,6 @@ enum {
 	db_bind_string((txn), (range)->min, (field)); \
 	db_bind_string((txn), (range)->min, (value)); \
 	db_range_genmax((range));
-
 #define EFSFieldValueAndMetaFileIDKeyUnpack(val, txn, field, value, metaFileID) ({ \
 	uint64_t const table = db_read_uint64((val)); \
 	assert(EFSFieldValueAndMetaFileID == table); \
@@ -290,8 +275,6 @@ enum {
 	*(value) = db_read_string((txn), (val)); \
 	*(metaFileID) = db_read_uint64((val)); \
 })
-
-
 
 #define EFSTermMetaFileIDAndPositionKeyPack(val, txn, token, metaFileID, position) \
 	uint8_t __buf_##val[DB_VARINT_MAX * 3 + DB_INLINE_MAX * 1]; \
@@ -322,24 +305,4 @@ enum {
 	*(metaFileID) = db_read_uint64((val)); \
 	*(position) = db_read_uint64((val)); \
 })
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
