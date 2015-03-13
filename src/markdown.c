@@ -20,6 +20,8 @@
 #define STR_LEN(x) (x), (sizeof(x)-1)
 #define RETRY(x) ({ ssize_t __x; do __x = (x); while(-1 == __x && EINTR == errno); __x; })
 
+// Ported to the JS version in markdown.js
+// The output should be identical between each version
 static void md_escape(cmark_iter *const iter) {
 	for(;;) {
 		cmark_event_type const event = cmark_iter_next(iter);
