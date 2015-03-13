@@ -1,0 +1,8 @@
+TODO
+
+The license of this project hasn't been decided yet. Probably MIT.
+
+Dependencies are used under their own licenses. See each dependency directory in ./deps.
+
+The generic file icon is used under the LGPL. See ./res/blog/static/LICENSE.
+
