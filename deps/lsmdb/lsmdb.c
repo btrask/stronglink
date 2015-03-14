@@ -457,7 +457,10 @@ int lsmdb_cursor_current(LSMDB_cursor *const cursor, MDB_val *const key, MDB_val
 	LSMDB_xcursor *const xc = cursor->sorted[0];
 	if(!xc->cursor) return MDB_NOTFOUND;
 	if(!(C_INITIALIZED & xc->flags)) return MDB_NOTFOUND;
-	return mdb_cursor_get(xc->cursor, key, data, MDB_GET_CURRENT);
+	MDB_val _k[1], _d[1];
+	MDB_val *const k = key ? (MDB_val *)key : _k;
+	MDB_val *const d = data ? (MDB_val *)data : _d;
+	return mdb_cursor_get(xc->cursor, k, d, MDB_GET_CURRENT);
 }
 int lsmdb_cursor_seek(LSMDB_cursor *const cursor, MDB_val *const key, MDB_val *const data, int const dir) {
 	if(!cursor) return EINVAL;

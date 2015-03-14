@@ -18,6 +18,8 @@ enum {
 	DBBigString = 1,
 };
 
+int db_schema_verify(DB_txn *const txn);
+
 #define DB_VARINT_MAX 9
 uint64_t db_read_uint64(DB_val *const val);
 void db_bind_uint64(DB_val *const val, uint64_t const x);

@@ -474,11 +474,11 @@ static int db_cursor_update(DB_cursor *const cursor, int const rc1, MDB_val cons
 	if(0 == x) x = cursor->txn->env->cmp(k1, k2) * (dir ? dir : 1);
 	if(x <= 0) {
 		cursor->state = 0 == x ? S_EQUAL : S_PENDING;
-		*key = *(DB_val *)k1;
+		if(key) *key = *(DB_val *)k1;
 		if(data) *data = *(DB_val *)d1;
 	} else {
 		cursor->state = S_PERSIST;
-		*key = *(DB_val *)k2;
+		if(key) *key = *(DB_val *)k2;
 		if(data) *data = *(DB_val *)d2;
 	}
 	return MDB_SUCCESS;

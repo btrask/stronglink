@@ -60,6 +60,10 @@ static void init(void *const unused) {
 	async_random((byte_t *)&hash_salt, sizeof(hash_salt));
 
 	repo = EFSRepoCreate(path);
+	if(!repo) {
+		fprintf(stderr, "Repository could not be opened\n");
+		return;
+	}
 	blog = BlogCreate(repo);
 	server = HTTPServerCreate((HTTPListener)listener, blog);
 	uint32_t type;

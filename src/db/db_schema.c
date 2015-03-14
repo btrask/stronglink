@@ -16,6 +16,11 @@
 	DB_VAL(__max_##name, (bytes)); \
 	DB_range name[1] = {{ {*__min_##name}, {*__max_##name} }}
 
+// A better replacement
+#define DB_VAL_STORAGE(val, len) \
+	uint8_t __buf_##val[(len)]; \
+	*(val) = (DB_val){ 0, __buf_##val };
+
 
 static size_t varint_size(uint8_t const *const data) {
 	return (data[0] >> 4) + 1;
@@ -56,6 +61,40 @@ static size_t varint_seek(uint8_t const *const data, size_t const size, unsigned
 	}
 	assert(pos+1 <= size);
 	return pos;
+}
+
+
+int db_schema_verify(DB_txn *const txn) {
+	char const magic[] = "DBDB schema layer v1";
+	size_t const len = sizeof(magic)-1;
+
+	DB_val key[1];
+	DB_VAL_STORAGE(key, DB_VARINT_MAX*2);
+	db_bind_uint64(key, DBSchema);
+	db_bind_uint64(key, 0);
+	DB_val val[1];
+
+	DB_cursor *cur;
+	int rc = db_txn_cursor(txn, &cur);
+	if(DB_SUCCESS != rc) return rc;
+	rc = db_cursor_first(cur, NULL, NULL, +1);
+	if(DB_SUCCESS != rc && DB_NOTFOUND != rc) return rc;
+
+	// If the database is completely empty
+	// we can assume it's ours to play with
+	if(DB_NOTFOUND == rc) {
+		*val = (DB_val){ len, (char *)magic };
+		rc = db_put(txn, key, val, 0);
+		if(DB_SUCCESS != rc) return rc;
+		return DB_SUCCESS;
+	}
+
+	rc = db_get(txn, key, val);
+	if(DB_NOTFOUND == rc) return DB_VERSION_MISMATCH;
+	if(DB_SUCCESS != rc) return rc;
+	if(len != val->size) return DB_VERSION_MISMATCH;
+	if(0 != memcmp(val->data, magic, len)) return DB_VERSION_MISMATCH;
+	return DB_SUCCESS;
 }
 
 

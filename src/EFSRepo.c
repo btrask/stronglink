@@ -1,6 +1,6 @@
 #include "EFSRepoPrivate.h"
 
-static void createDBConnection(EFSRepoRef const repo);
+static int createDBConnection(EFSRepoRef const repo);
 static void loadPulls(EFSRepoRef const repo);
 
 static void debug_data(DB_env *const db);
@@ -21,7 +21,11 @@ EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 		return NULL;
 	}
 
-	createDBConnection(repo);
+	int rc = createDBConnection(repo);
+	if(DB_SUCCESS != rc) {
+		EFSRepoFree(&repo);
+		return NULL;
+	}
 	debug_data(repo->db); // TODO
 	loadPulls(repo);
 
@@ -142,14 +146,53 @@ void EFSRepoPullsStop(EFSRepoRef const repo) {
 }
 
 
-static void createDBConnection(EFSRepoRef const repo) {
+static int createDBConnection(EFSRepoRef const repo) {
 	assert(repo);
-
 	int rc = db_env_create(&repo->db);
 	rc = db_env_set_mapsize(repo->db, 1024 * 1024 * 256);
-	assertf(!rc, "Database error %s", db_strerror(rc));
+	if(DB_SUCCESS != rc) {
+		fprintf(stderr, "Database setup error (%s)\n", db_strerror(rc));
+		return rc;
+	}
 	rc = db_env_open(repo->db, repo->DBPath, 0, 0600);
-	assertf(!rc, "Database error %s", db_strerror(rc));
+	if(DB_SUCCESS != rc) {
+		fprintf(stderr, "Database open error (%s)\n", db_strerror(rc));
+		return rc;
+	}
+
+	DB_env *db = NULL;
+	EFSRepoDBOpen(repo, &db);
+	DB_txn *txn = NULL;
+	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
+	if(DB_SUCCESS != rc) {
+		EFSRepoDBClose(repo, &db);
+		fprintf(stderr, "Database transaction error (%s)\n", db_strerror(rc));
+		return rc;
+	}
+
+	rc = db_schema_verify(txn);
+	if(DB_VERSION_MISMATCH == rc) {
+		db_txn_abort(txn); txn = NULL;
+		EFSRepoDBClose(repo, &db);
+		fprintf(stderr, "Database incompatible with this software version\n");
+		return rc;
+	}
+	if(DB_SUCCESS != rc) {
+		db_txn_abort(txn); txn = NULL;
+		EFSRepoDBClose(repo, &db);
+		fprintf(stderr, "Database schema layer error (%s)\n", db_strerror(rc));
+		return rc;
+	}
+
+	// TODO: Application-level schema verification
+
+	rc = db_txn_commit(txn); txn = NULL;
+	EFSRepoDBClose(repo, &db);
+	if(DB_SUCCESS != rc) {
+		fprintf(stderr, "Database commit error (%s)\n", db_strerror(rc));
+		return rc;
+	}
+	return DB_SUCCESS;
 }
 static void loadPulls(EFSRepoRef const repo) {
 	assert(repo);
