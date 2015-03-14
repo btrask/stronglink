@@ -15,8 +15,8 @@
 	uint8_t __buf_##val[(len)]; \
 	*(val) = (DB_val){ 0, __buf_##val };
 #define DB_RANGE_STORAGE(range, len) \
-	uint8_t __buf_min_##range[len]; \
-	uint8_t __buf_max_##range[len]; \
+	uint8_t __buf_min_##range[(len)]; \
+	uint8_t __buf_max_##range[(len)]; \
 	*(range)->min = (DB_val){ 0, __buf_min_##range }; \
 	*(range)->max = (DB_val){ 0, __buf_max_##range };
 
