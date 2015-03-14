@@ -11,6 +11,15 @@
 #define DB_NOOVERWRITE_FAST 0
 #endif
 
+#define DB_VAL_STORAGE(val, len) \
+	uint8_t __buf_##val[(len)]; \
+	*(val) = (DB_val){ 0, __buf_##val };
+#define DB_RANGE_STORAGE(range, len) \
+	uint8_t __buf_min_##range[len]; \
+	uint8_t __buf_max_##range[len]; \
+	*(range)->min = (DB_val){ 0, __buf_min_##range }; \
+	*(range)->max = (DB_val){ 0, __buf_max_##range };
+
 typedef uint64_t dbid_t;
 enum {
 	/* 0-19 are reserved. */

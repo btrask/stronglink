@@ -33,47 +33,38 @@ enum {
 // TODO: Accept NULL out parameters in unpack macros
 
 #define EFSUserByIDKeyPack(val, txn, userID) \
-	uint8_t __buf_##val[DB_VARINT_MAX + DB_VARINT_MAX]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_VARINT_MAX); \
 	db_bind_uint64((val), EFSUserByID); \
 	db_bind_uint64((val), (userID));
 #define EFSUserByIDValPack(val, txn, username, passhash, token) \
-	uint8_t __buf_##val[DB_INLINE_MAX * 3]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_INLINE_MAX * 3); \
 	db_bind_string((val), (username), (txn)); \
 	db_bind_string((val), (passhash), (txn)); \
 	db_bind_string((val), (token), (txn));
 
 #define EFSUserIDByNameKeyPack(val, txn, username) \
-	uint8_t __buf_##val[DB_VARINT_MAX + DB_INLINE_MAX]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_INLINE_MAX); \
 	db_bind_uint64((val), EFSUserIDByName); \
 	db_bind_string((val), (username), (txn));
 #define EFSUserIDByNameValPack(val, txn, userID) \
-	uint8_t __buf_##val[DB_VARINT_MAX]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX); \
 	db_bind_uint64((val), (userID));
 
 #define EFSSessionByIDKeyPack(val, txn, sessionID) \
-	uint8_t __buf_##val[DB_VARINT_MAX + DB_VARINT_MAX]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_VARINT_MAX); \
 	db_bind_uint64((val), EFSSessionByID); \
 	db_bind_uint64((val), sessionID);
 #define EFSSessionByIDValPack(val, txn, userID, sessionHash) \
-	uint8_t __buf_##val[DB_VARINT_MAX + DB_INLINE_MAX]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_INLINE_MAX); \
 	db_bind_uint64((val), (userID)); \
 	db_bind_string((val), (sessionHash), (txn));
 
 #define EFSPullByIDKeyPack(val, txn, pullID) \
-	uint8_t __buf_##val[DB_VARINT_MAX + DB_VARINT_MAX]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_VARINT_MAX); \
 	db_bind_uint64((val), EFSPullByID); \
 	db_bind_uint64((val), (pullID));
 #define EFSPullByIDRange0(range, txn) \
-	uint8_t __buf_min_##range[DB_VARINT_MAX]; \
-	uint8_t __buf_max_##range[DB_VARINT_MAX]; \
-	*(range) = (DB_range){ {{ 0, __buf_min_##range }}, {{ 0, __buf_max_##range }} }; \
+	DB_RANGE_STORAGE(range, DB_VARINT_MAX); \
 	db_bind_uint64((range)->min, EFSPullByID); \
 	db_range_genmax((range));
 #define EFSPullByIDKeyUnpack(val, txn, pullID) ({ \
@@ -83,8 +74,7 @@ enum {
 })
 
 #define EFSPullByIDValPack(val, txn, userID, host, username, password, cookie, query) \
-	uint8_t __buf_##val[DB_VARINT_MAX * 1 + DB_INLINE_MAX * 5]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX * 1 + DB_INLINE_MAX * 5); \
 	db_bind_uint64((val), (userID)); \
 	db_bind_string((val), (host), (txn)); \
 	db_bind_string((val), (username), (txn)); \
@@ -101,38 +91,31 @@ enum {
 })
 
 #define EFSFileByIDKeyPack(val, txn, fileID) \
-	uint8_t __buf_##val[DB_VARINT_MAX + DB_VARINT_MAX]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_VARINT_MAX); \
 	db_bind_uint64((val), EFSFileByID); \
 	db_bind_uint64((val), (fileID));
 #define EFSFileByIDValPack(val, txn, internalHash, type, size) \
-	uint8_t __buf_##val[DB_VARINT_MAX * 1 + DB_INLINE_MAX * 2]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX * 1 + DB_INLINE_MAX * 2); \
 	db_bind_string((val), (internalHash), (txn)); \
 	db_bind_string((val), (type), (txn)); \
 	db_bind_uint64((val), (size));
 
 #define EFSFileIDByInfoKeyPack(val, txn, internalHash, type) \
-	uint8_t __buf_##val[DB_VARINT_MAX * 1 + DB_INLINE_MAX * 2]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX * 1 + DB_INLINE_MAX * 2); \
 	db_bind_uint64((val), EFSFileIDByInfo); \
 	db_bind_string((val), (internalHash), (txn)); \
 	db_bind_string((val), (type), (txn));
 #define EFSFileIDByInfoValPack(val, txn, fileID) \
-	uint8_t __buf_##val[DB_VARINT_MAX]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX); \
 	db_bind_uint64((val), (fileID));
 
 #define EFSFileIDAndURIKeyPack(val, txn, fileID, URI) \
-	uint8_t __buf_##val[DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1); \
 	db_bind_uint64((val), EFSFileIDAndURI); \
 	db_bind_uint64((val), (fileID)); \
 	db_bind_string((val), (URI), (txn));
 #define EFSFileIDAndURIRange1(range, txn, fileID) \
-	uint8_t __buf_min_##range[DB_VARINT_MAX + DB_VARINT_MAX]; \
-	uint8_t __buf_max_##range[DB_VARINT_MAX + DB_VARINT_MAX]; \
-	*(range) = (DB_range){ {{ 0, __buf_min_##range }}, {{ 0, __buf_max_##range }} }; \
+	DB_RANGE_STORAGE(range, DB_VARINT_MAX + DB_VARINT_MAX); \
 	db_bind_uint64((range)->min, EFSFileIDAndURI); \
 	db_bind_uint64((range)->min, (fileID)); \
 	db_range_genmax((range));
@@ -144,15 +127,12 @@ enum {
 })
 
 #define EFSURIAndFileIDKeyPack(val, txn, URI, fileID) \
-	uint8_t __buf_##val[DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1); \
 	db_bind_uint64((val), EFSURIAndFileID); \
 	db_bind_string((val), (URI), (txn)); \
 	db_bind_uint64((val), (fileID));
 #define EFSURIAndFileIDRange1(range, txn, URI) \
-	uint8_t __buf_min_##range[DB_VARINT_MAX + DB_INLINE_MAX]; \
-	uint8_t __buf_max_##range[DB_VARINT_MAX + DB_INLINE_MAX]; \
-	*(range) = (DB_range){ {{ 0, __buf_min_##range }}, {{ 0, __buf_max_##range }} }; \
+	DB_RANGE_STORAGE(range, DB_VARINT_MAX + DB_INLINE_MAX); \
 	db_bind_uint64((range)->min, EFSURIAndFileID); \
 	db_bind_string((range)->min, (URI), (txn)); \
 	db_range_genmax((range));
@@ -164,14 +144,11 @@ enum {
 })
 
 #define EFSMetaFileByIDKeyPack(val, txn, metaFileID) \
-	uint8_t __buf_##val[DB_VARINT_MAX + DB_VARINT_MAX]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_VARINT_MAX); \
 	db_bind_uint64((val), EFSMetaFileByID); \
 	db_bind_uint64((val), (metaFileID));
 #define EFSMetaFileByIDRange0(range, txn) \
-	uint8_t __buf_min_##range[DB_VARINT_MAX]; \
-	uint8_t __buf_max_##range[DB_VARINT_MAX]; \
-	*(range) = (DB_range){ {{ 0, __buf_min_##range }}, {{ 0, __buf_max_##range }} }; \
+	DB_RANGE_STORAGE(range, DB_VARINT_MAX); \
 	db_bind_uint64((range)->min, EFSMetaFileByID); \
 	db_range_genmax((range));
 #define EFSMetaFileByIDKeyUnpack(val, txn, metaFileID) ({ \
@@ -181,8 +158,7 @@ enum {
 })
 
 #define EFSMetaFileByIDValPack(val, txn, fileID, targetURI) \
-	uint8_t __buf_##val[DB_VARINT_MAX + DB_INLINE_MAX]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_INLINE_MAX); \
 	db_bind_uint64((val), (fileID)); \
 	db_bind_string((val), (targetURI), (txn));
 #define EFSMetaFileByIDValUnpack(val, txn, fileID, targetURI) ({ \
@@ -191,15 +167,12 @@ enum {
 })
 
 #define EFSFileIDAndMetaFileIDKeyPack(val, txn, fileID, metaFileID) \
-	uint8_t __buf_##val[DB_VARINT_MAX * 3]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX * 3); \
 	db_bind_uint64((val), EFSFileIDAndMetaFileID); \
 	db_bind_uint64((val), (fileID)); \
 	db_bind_uint64((val), (metaFileID));
 #define EFSFileIDAndMetaFileIDRange1(range, txn, fileID) \
-	uint8_t __buf_min_##range[DB_VARINT_MAX + DB_VARINT_MAX]; \
-	uint8_t __buf_max_##range[DB_VARINT_MAX + DB_VARINT_MAX]; \
-	*(range) = (DB_range){ {{ 0, __buf_min_##range }}, {{ 0, __buf_max_##range }} }; \
+	DB_RANGE_STORAGE(range, DB_VARINT_MAX + DB_VARINT_MAX); \
 	db_bind_uint64((range)->min, EFSFileIDAndMetaFileID); \
 	db_bind_uint64((range)->min, (fileID)); \
 	db_range_genmax((range));
@@ -211,15 +184,12 @@ enum {
 })
 
 #define EFSTargetURIAndMetaFileIDKeyPack(val, txn, targetURI, metaFileID) \
-	uint8_t __buf_##val[DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1); \
 	db_bind_uint64((val), EFSTargetURIAndMetaFileID); \
 	db_bind_string((val), (targetURI), (txn)); \
 	db_bind_uint64((val), (metaFileID));
 #define EFSTargetURIAndMetaFileIDRange1(range, txn, targetURI) \
-	uint8_t __buf_min_##range[DB_VARINT_MAX + DB_INLINE_MAX]; \
-	uint8_t __buf_max_##range[DB_VARINT_MAX + DB_INLINE_MAX]; \
-	*(range) = (DB_range){ {{ 0, __buf_min_##range }}, {{ 0, __buf_max_##range }} }; \
+	DB_RANGE_STORAGE(range, DB_VARINT_MAX + DB_INLINE_MAX); \
 	db_bind_uint64((range)->min, EFSTargetURIAndMetaFileID); \
 	db_bind_string((range)->min, (targetURI), (txn)); \
 	db_range_genmax((range));
@@ -231,16 +201,13 @@ enum {
 })
 
 #define EFSMetaFileIDFieldAndValueKeyPack(val, txn, metaFileID, field, value) \
-	uint8_t __buf_##val[DB_VARINT_MAX * 2 + DB_INLINE_MAX * 2]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 2); \
 	db_bind_uint64((val), EFSMetaFileIDFieldAndValue); \
 	db_bind_uint64((val), (metaFileID)); \
 	db_bind_string((val), (field), (txn)); \
 	db_bind_string((val), (value), (txn));
 #define EFSMetaFileIDFieldAndValueRange2(range, txn, metaFileID, field) \
-	uint8_t __buf_min_##range[DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1]; \
-	uint8_t __buf_max_##range[DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1]; \
-	*(range) = (DB_range){ {{ 0, __buf_min_##range }}, {{ 0, __buf_max_##range }} }; \
+	DB_RANGE_STORAGE(range, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1); \
 	db_bind_uint64((range)->min, EFSMetaFileIDFieldAndValue); \
 	db_bind_uint64((range)->min, (metaFileID)); \
 	db_bind_string((range)->min, (field), (txn)); \
@@ -254,16 +221,13 @@ enum {
 })
 
 #define EFSFieldValueAndMetaFileIDKeyPack(val, txn, field, value, metaFileID) \
-	uint8_t __buf_##val[DB_VARINT_MAX * 2 + DB_INLINE_MAX * 2]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 2); \
 	db_bind_uint64((val), EFSFieldValueAndMetaFileID); \
 	db_bind_string((val), field, (txn)); \
 	db_bind_string((val), value, (txn)); \
 	db_bind_uint64((val), (metaFileID));
 #define EFSFieldValueAndMetaFileIDRange2(range, txn, field, value) \
-	uint8_t __buf_min_##range[DB_VARINT_MAX * 1 + DB_INLINE_MAX * 2]; \
-	uint8_t __buf_max_##range[DB_VARINT_MAX * 1 + DB_INLINE_MAX * 2]; \
-	*(range) = (DB_range){ {{ 0, __buf_min_##range }}, {{ 0, __buf_max_##range }} }; \
+	DB_RANGE_STORAGE(range, DB_VARINT_MAX * 1 + DB_INLINE_MAX * 2); \
 	db_bind_uint64((range)->min, EFSFieldValueAndMetaFileID); \
 	db_bind_string((range)->min, (field), (txn)); \
 	db_bind_string((range)->min, (value), (txn)); \
@@ -277,23 +241,18 @@ enum {
 })
 
 #define EFSTermMetaFileIDAndPositionKeyPack(val, txn, token, metaFileID, position) \
-	uint8_t __buf_##val[DB_VARINT_MAX * 3 + DB_INLINE_MAX * 1]; \
-	*(val) = (DB_val){ 0, __buf_##val }; \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX * 3 + DB_INLINE_MAX * 1); \
 	db_bind_uint64((val), EFSTermMetaFileIDAndPosition); \
 	db_bind_string((val), (token), (txn)); \
 	db_bind_uint64((val), (metaFileID)); \
 	db_bind_uint64((val), (position));
 #define EFSTermMetaFileIDAndPositionRange1(range, txn, token) \
-	uint8_t __buf_min_##range[DB_VARINT_MAX + DB_INLINE_MAX]; \
-	uint8_t __buf_max_##range[DB_VARINT_MAX + DB_INLINE_MAX]; \
-	*(range) = (DB_range){ {{ 0, __buf_min_##range }}, {{ 0, __buf_max_##range }} }; \
+	DB_RANGE_STORAGE(range, DB_VARINT_MAX + DB_INLINE_MAX); \
 	db_bind_uint64((range)->min, EFSTermMetaFileIDAndPosition); \
 	db_bind_string((range)->min, (token), (txn)); \
 	db_range_genmax((range));
 #define EFSTermMetaFileIDAndPositionRange2(range, txn, token, metaFileID) \
-	uint8_t __buf_min_##range[DB_VARINT_MAX + DB_INLINE_MAX]; \
-	uint8_t __buf_max_##range[DB_VARINT_MAX + DB_INLINE_MAX]; \
-	*(range) = (DB_range){ {{ 0, __buf_min_##range }}, {{ 0, __buf_max_##range }} }; \
+	DB_RANGE_STORAGE(range, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1); \
 	db_bind_uint64((range)->min, EFSTermMetaFileIDAndPosition); \
 	db_bind_string((range)->min, (token), (txn)); \
 	db_bind_uint64((range)->min, (metaFileID)); \

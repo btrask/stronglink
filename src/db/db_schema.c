@@ -6,22 +6,6 @@
 #include "../common.h"
 #include "db_schema.h"
 
-// TODO: Get rid of these entirely
-#define DB_VAL(name, bytes) \
-	if((bytes) < DB_VARINT_MAX) abort(); \
-	uint8_t __buf_##name[(bytes)]; \
-	DB_val name[1] = {{ 0, __buf_##name }}
-#define DB_RANGE(name, bytes) \
-	DB_VAL(__min_##name, (bytes)); \
-	DB_VAL(__max_##name, (bytes)); \
-	DB_range name[1] = {{ {*__min_##name}, {*__max_##name} }}
-
-// A better replacement
-#define DB_VAL_STORAGE(val, len) \
-	uint8_t __buf_##val[(len)]; \
-	*(val) = (DB_val){ 0, __buf_##val };
-
-
 static size_t varint_size(uint8_t const *const data) {
 	return (data[0] >> 4) + 1;
 }
@@ -118,7 +102,8 @@ void db_bind_uint64(DB_val *const val, uint64_t const x) {
 uint64_t db_next_id(dbid_t const table, DB_txn *const txn) {
 	DB_cursor *cur = NULL;
 	if(DB_SUCCESS != db_txn_cursor(txn, &cur)) return 0;
-	DB_RANGE(range, DB_VARINT_MAX);
+	DB_range range[1];
+	DB_RANGE_STORAGE(range, DB_VARINT_MAX);
 	db_bind_uint64(range->min, table+0);
 	db_bind_uint64(range->max, table+1);
 	DB_val prev[1];
