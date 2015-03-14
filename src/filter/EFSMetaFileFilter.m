@@ -154,7 +154,7 @@
 	if(DB_SUCCESS != rc) return UINT64_MAX;
 	uint64_t const f2 = db_read_uint64(metaFile_val);
 	assert(fileID == f2);
-	strarg_t const targetURI = db_read_string(curtxn, metaFile_val);
+	strarg_t const targetURI = db_read_string(metaFile_val, curtxn);
 
 	DB_range targetFileIDs[1];
 	EFSURIAndFileIDRange1(targetFileIDs, curtxn, targetURI);

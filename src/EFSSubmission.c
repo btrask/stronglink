@@ -165,7 +165,7 @@ int EFSSubmissionStore(EFSSubmissionRef const sub, DB_txn *const txn) {
 	EFSRepoRef const repo = EFSSubmissionGetRepo(sub);
 	int64_t const userID = EFSSessionGetUserID(session);
 
-	int64_t fileID = db_next_id(txn, EFSFileByID);
+	int64_t fileID = db_next_id(EFSFileByID, txn);
 	int rc;
 
 	DB_val dupFileID_val[1];

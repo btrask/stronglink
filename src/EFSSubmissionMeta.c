@@ -234,7 +234,7 @@ static yajl_callbacks const callbacks = {
 };
 
 static uint64_t add_metafile(DB_txn *const txn, uint64_t const fileID, strarg_t const targetURI) {
-	uint64_t const metaFileID = db_next_id(txn, EFSMetaFileByID);
+	uint64_t const metaFileID = db_next_id(EFSMetaFileByID, txn);
 	assert(metaFileID);
 	int rc;
 	DB_val null = { 0, NULL };

@@ -115,7 +115,7 @@ str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, DB_txn *co
 		int rc = db_get(txn, fileID_key, file_val);
 		assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
 
-		strarg_t const hash = db_read_string(txn, file_val);
+		strarg_t const hash = db_read_string(file_val, txn);
 		assert(hash);
 		str_t *const URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
 		assert(URI);

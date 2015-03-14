@@ -122,8 +122,8 @@ int EFSSessionGetFileInfo(EFSSessionRef const session, strarg_t const URI, EFSFi
 	}
 
 	if(info) {
-		strarg_t const internalHash = db_read_string(txn, file_val);
-		strarg_t const type = db_read_string(txn, file_val);
+		strarg_t const internalHash = db_read_string(file_val, txn);
+		strarg_t const type = db_read_string(file_val, txn);
 		uint64_t const size = db_read_uint64(file_val);
 		info->hash = strdup(internalHash);
 		info->path = EFSRepoCopyInternalPath(repo, internalHash);

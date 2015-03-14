@@ -76,7 +76,7 @@ void db_bind_uint64(DB_val *const val, uint64_t const x) {
 	val->size += len;
 }
 
-uint64_t db_next_id(DB_txn *const txn, dbid_t const table) {
+uint64_t db_next_id(dbid_t const table, DB_txn *const txn) {
 	DB_cursor *cur = NULL;
 	if(DB_SUCCESS != db_txn_cursor(txn, &cur)) return 0;
 	DB_RANGE(range, DB_VARINT_MAX);
@@ -95,7 +95,7 @@ uint64_t db_next_id(DB_txn *const txn, dbid_t const table) {
 /* Inline strings can be up to 96 bytes including nul. Longer strings are truncated at 64 bytes (including nul), followed by the 32-byte SHA-256 hash. The first byte of the hash may not be 0x00 (if it's 0x00, it's replaced with 0x01). If a string is exactly 64 bytes (including nul), it's followed by an extra 0x00 to indicate it wasn't truncated. A null pointer is 0x00 00, and an empty string is 0x00 01. */
 #define DB_INLINE_TRUNC (DB_INLINE_MAX-SHA256_DIGEST_LENGTH)
 
-char const *db_read_string(DB_txn *const txn, DB_val *const val) {
+char const *db_read_string(DB_val *const val, DB_txn *const txn) {
 	assert(txn);
 	assert(val);
 	db_assert(val->size >= 1);
@@ -131,11 +131,11 @@ char const *db_read_string(DB_txn *const txn, DB_val *const val) {
 	db_assert('\0' == fstr[full->size]);
 	return fstr;
 }
-void db_bind_string(DB_txn *const txn, DB_val *const val, char const *const str) {
+void db_bind_string(DB_val *const val, char const *const str, DB_txn *const txn) {
 	size_t const len = str ? strlen(str) : 0;
-	db_bind_string_len(txn, val, str, len, true);
+	db_bind_string_len(val, str, len, true, txn);
 }
-void db_bind_string_len(DB_txn *const txn, DB_val *const val, char const *const str, size_t const len, int const nulterm) {
+void db_bind_string_len(DB_val *const val, char const *const str, size_t const len, int const nulterm, DB_txn *const txn) {
 	assert(val);
 	unsigned char *const out = val->data;
 	if(0 == len) {

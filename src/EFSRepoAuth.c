@@ -58,9 +58,9 @@ static int user_auth(EFSRepoRef const repo, strarg_t const username, strarg_t co
 		EFSRepoDBClose(repo, &db);
 		return rc;
 	}
-	strarg_t const u = db_read_string(txn, user_val);
+	strarg_t const u = db_read_string(user_val, txn);
 	assert(0 == strcmp(username, u));
-	str_t *passhash = strdup(db_read_string(txn, user_val));
+	str_t *passhash = strdup(db_read_string(user_val, txn));
 
 	db_txn_abort(txn); txn = NULL;
 	EFSRepoDBClose(repo, &db);
@@ -94,7 +94,7 @@ static int session_create(EFSRepoRef const repo, uint64_t const userID, strarg_t
 		return rc;
 	}
 
-	uint64_t const sessionID = db_next_id(txn, EFSSessionByID);
+	uint64_t const sessionID = db_next_id(EFSSessionByID, txn);
 	DB_val sessionID_key[1];
 	EFSSessionByIDKeyPack(sessionID_key, txn, sessionID);
 	DB_val session_val[1];
@@ -233,7 +233,7 @@ static int cookie_auth(EFSRepoRef const repo, strarg_t const cookie, uint64_t *c
 		EFSRepoDBClose(repo, &db);
 		return UV_EACCES;
 	}
-	str_t *sessionHash = strdup(db_read_string(txn, session_val));
+	str_t *sessionHash = strdup(db_read_string(session_val, txn));
 
 	db_txn_abort(txn); txn = NULL;
 	EFSRepoDBClose(repo, &db);

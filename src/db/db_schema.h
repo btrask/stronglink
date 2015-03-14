@@ -22,12 +22,12 @@ enum {
 uint64_t db_read_uint64(DB_val *const val);
 void db_bind_uint64(DB_val *const val, uint64_t const x);
 
-uint64_t db_next_id(DB_txn *const txn, dbid_t const table);
+uint64_t db_next_id(dbid_t const table, DB_txn *const txn);
 
 #define DB_INLINE_MAX 96
-char const *db_read_string(DB_txn *const txn, DB_val *const val);
-void db_bind_string(DB_txn *const txn, DB_val *const val, char const *const str);
-void db_bind_string_len(DB_txn *const txn, DB_val *const val, char const *const str, size_t const len, int const nulterm);
+char const *db_read_string(DB_val *const val, DB_txn *const txn);
+void db_bind_string(DB_val *const val, char const *const str, DB_txn *const txn);
+void db_bind_string_len(DB_val *const val, char const *const str, size_t const len, int const nulterm, DB_txn *const txn);
 
 /* Increments range->min and fills in range->max. Assumes lexicographic ordering. */
 void db_range_genmax(DB_range *const range);
