@@ -14,7 +14,7 @@ BlogRef BlogCreate(EFSRepoRef const repo);
 void BlogFree(BlogRef *const blogptr);
 int BlogDispatch(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
 
-static str_t *path = NULL;
+static strarg_t path = NULL;
 static EFSRepoRef repo = NULL;
 static BlogRef blog = NULL;
 static HTTPServerRef server = NULL;
@@ -114,15 +114,12 @@ int main(int const argc, char const *const *const argv) {
 	uv_signal_start(sigpipe, ignore, SIGPIPE);
 	uv_unref((uv_handle_t *)sigpipe);
 
-	if(argc > 1) {
-		path = strdup(argv[1]);
-	} else {
-		str_t str[PATH_MAX];
-		size_t len = PATH_MAX;
-		int err = uv_cwd(str, &len);
-		assertf(err >= 0, "Couldn't get working directory");
-		path = strdup(str);
+	// TODO: Real option parsing.
+	if(2 != argc || '-' == argv[1][0]) {
+		fprintf(stderr, "Usage:\n\t" "%s <repo>\n", argv[0]);
+		return 1;
 	}
+	path = argv[1];
 
 	// Even our init code wants to use async I/O.
 	async_spawn(STACK_DEFAULT, init, NULL);
@@ -131,7 +128,6 @@ int main(int const argc, char const *const *const argv) {
 	async_spawn(STACK_DEFAULT, term, NULL);
 	uv_run(loop, UV_RUN_DEFAULT); // Allows term() to execute.
 
-	FREE(&path);
 	uv_ref((uv_handle_t *)sigpipe);
 	uv_signal_stop(sigpipe);
 	uv_close((uv_handle_t *)sigpipe, NULL);
@@ -139,5 +135,5 @@ int main(int const argc, char const *const *const argv) {
 	// TODO: Windows?
 	if(sig) raise(sig);
 
-	return EXIT_SUCCESS;
+	return 0;
 }
