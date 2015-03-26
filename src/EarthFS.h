@@ -135,16 +135,7 @@ static int EFSParseURI(strarg_t const URI, str_t *const algo, str_t *const hash)
 	return 0;
 }
 static str_t *EFSFormatURI(strarg_t const algo, strarg_t const hash) {
-	strarg_t const fmt = "hash://%s/%s";
-	int const len = snprintf(NULL, 0, fmt, algo, hash)+1;
-	if(len < 0) return NULL;
-	str_t *URI = malloc(len);
-	if(!URI) return NULL;
-	if(snprintf(URI, len, fmt, algo, hash) < 0) {
-		FREE(&URI);
-		return NULL;
-	}
-	return URI;
+	return aasprintf("hash://%s/%s", algo, hash);
 }
 
 #endif
