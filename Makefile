@@ -116,14 +116,12 @@ endif
 
 # Server executable-specific code
 HEADERS += \
-	$(SRC_DIR)/Template.h \
-	$(MARKDOWN_HEADERS)
+	$(SRC_DIR)/Template.h
 OBJECTS += \
 	$(BUILD_DIR)/Blog.o \
 	$(BUILD_DIR)/Template.o \
 	$(BUILD_DIR)/main.o \
-	$(BUILD_DIR)/markdown.o \
-	$(MARKDOWN_OBJECTS)
+	$(BUILD_DIR)/markdown.o
 
 STATIC_LIBS += $(YAJL_BUILD_DIR)/lib/libyajl_s.a
 CFLAGS += -I$(YAJL_BUILD_DIR)/include
@@ -172,11 +170,11 @@ endif
 .DEFAULT_GOAL := all
 
 .PHONY: all
-all: $(BUILD_DIR)/stronglink
+all: $(BUILD_DIR)/stronglink $(BUILD_DIR)/sln-markdown
 
 $(BUILD_DIR)/stronglink: $(OBJECTS) $(MODULES)
 	@- mkdir -p $(dir $@)
-	$(CC) -o $@ $(OBJECTS) $(CFLAGS) -Werror -Wall $(STATIC_LIBS) $(LIBS)
+	$(CC) $(CFLAGS) $(WARNINGS) $(OBJECTS) $(STATIC_LIBS) $(LIBS) -o $@
 
 $(YAJL_BUILD_DIR)/include/yajl/*.h: yajl
 .PHONY: yajl
@@ -203,39 +201,39 @@ libuv:
 
 $(BUILD_DIR)/deps/crypt/%.S.o: $(DEPS_DIR)/crypt_blowfish/%.S
 	@- mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS)
+	$(CC) -c $(CFLAGS) $< -o $@
 
 $(BUILD_DIR)/deps/crypt/%.o: $(DEPS_DIR)/crypt_blowfish/%.c $(DEPS_DIR)/crypt_blowfish/crypt.h $(DEPS_DIR)/crypt_blowfish/ow-crypt.h
 	@- mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS)
+	$(CC) -c $(CFLAGS) $< -o $@
 
 $(BUILD_DIR)/deps/http_parser.o: $(DEPS_DIR)/http_parser/http_parser.c $(DEPS_DIR)/http_parser/http_parser.h
 	@- mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS) -Werror -Wall
+	$(CC) -c $(CFLAGS) -Werror -Wall $< -o $@
 
 $(BUILD_DIR)/deps/libco/%.o: $(DEPS_DIR)/libco/%.c $(DEPS_DIR)/libco/libco.h
 	@- mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS) -Wno-parentheses
+	$(CC) -c $(CFLAGS) -Wno-parentheses $< -o $@
 
 $(BUILD_DIR)/deps/libcoro/%.o: $(DEPS_DIR)/libcoro/%.c $(DEPS_DIR)/libcoro/coro.h
 	@- mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS)
+	$(CC) -c $(CFLAGS) $< -o $@
 
 $(BUILD_DIR)/deps/multipart_parser.o: $(DEPS_DIR)/multipart-parser-c/multipart_parser.c $(DEPS_DIR)/multipart-parser-c/multipart_parser.h
 	@- mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS) -std=c89 -ansi -pedantic -Wall
+	$(CC) -c $(CFLAGS) -std=c89 -ansi -pedantic -Wall $< -o $@
 
 $(BUILD_DIR)/deps/lsmdb/%.o: $(DEPS_DIR)/lsmdb/%.c $(DEPS_DIR)/lsmdb/lsmdb.h $(DEPS_DIR)/lsmdb/liblmdb/lmdb.h
 	@- mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS) $(WARNINGS) -Wno-format-extra-args
+	$(CC) -c $(CFLAGS) $(WARNINGS) -Wno-format-extra-args $< -o $@
 
 $(BUILD_DIR)/deps/fts3/%.o: $(DEPS_DIR)/fts3/%.c $(DEPS_DIR)/fts3/fts3Int.h $(DEPS_DIR)/fts3/fts3_tokenizer.h $(DEPS_DIR)/fts3/sqlite3.h
 	@- mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS) $(WARNINGS)
+	$(CC) -c $(CFLAGS) $(WARNINGS) $< -o $@
 
 $(BUILD_DIR)/deps/sundown/%.o: $(DEPS_DIR)/sundown/%.c
 	@- mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS) $(WARNINGS) #-I$(DEPS_DIR)/sundown/src
+	$(CC) -c $(CFLAGS) $(WARNINGS) $< -o $@ #-I$(DEPS_DIR)/sundown/src
 
 $(BUILD_DIR)/deps/smhasher/MurmurHash3.o: $(DEPS_DIR)/smhasher/MurmurHash3.cpp $(DEPS_DIR)/smhasher/MurmurHash3.h
 	@- mkdir -p $(dir $@)
@@ -243,22 +241,22 @@ $(BUILD_DIR)/deps/smhasher/MurmurHash3.o: $(DEPS_DIR)/smhasher/MurmurHash3.cpp $
 
 $(BUILD_DIR)/filter/%.o: $(SRC_DIR)/filter/%.m $(HEADERS)
 	@- mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS) $(WARNINGS)
+	$(CC) -c $(CFLAGS) $(WARNINGS) $< -o $@
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c $(HEADERS)
 	@- mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS) $(WARNINGS)
+	$(CC) -c $(CFLAGS) $(WARNINGS) $< -o $@
 
 .PHONY: sln-markdown
 sln-markdown: $(BUILD_DIR)/sln-markdown
 
-$(BUILD_DIR)/sln-markdown: $(BUILD_DIR)/markdown_standalone.o $(BUILD_DIR)/http/QueryString.o $(MARKDOWN_OBJECTS) $(SRC_DIR)/http/QueryString.h $(MARKDOWN_HEADERS)
+$(BUILD_DIR)/sln-markdown: $(BUILD_DIR)/markdown_standalone.o $(BUILD_DIR)/http/QueryString.o $(SRC_DIR)/http/QueryString.h
 	@- mkdir -p $(dir $@)
-	$(CC) -o $@ $^ $(CFLAGS) -Werror -Wall -Wno-unused
+	$(CC) $(CFLAGS) $(WARNINGS) $^ $(DEPS_DIR)/cmark/build/src/libcmark.a -o $@
 
 $(BUILD_DIR)/markdown_standalone.o: $(SRC_DIR)/markdown.c
 	@- mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(CFLAGS) $(WARNINGS) -DMARKDOWN_STANDALONE
+	$(CC) -c $(CFLAGS) $(WARNINGS) -DMARKDOWN_STANDALONE $< -o $@
 
 .PHONY: clean
 clean:
