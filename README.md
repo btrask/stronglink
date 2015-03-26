@@ -45,11 +45,11 @@ Hopefully, yes. The plan is to build a mutable interface layer on top of the imm
 File deletion support is also planned, but deletions will only apply to the current device (they won't sync).
 
 **Why is it written in C?**
-Eventually the core of StrongLink (without the blog interface) will be bundled as a reusable library. In this mode StrongLink would function more like a high level message queue, with high level filtering features. I'd also like to release a native version for iOS and Android, where footprint matters a lot.
+Eventually the core of StrongLink (without the blog interface) will be bundled as a reusable library. In this mode StrongLink would function more like a message queue with high level filtering features. I'd also like to release a native version for iOS and Android, where a small footprint is important. Using C opens up a lot of options.
 
 A small portion of the code is actually written in portable Objective-C. So far it's been tested on Linux and Mac OS X.
 
-We take [a long list of precautions](http://notes.bentrask.com/?q=hash://sha256/b5cfd43def108b74b5bb5da3ae92613fc27624811df8a6d1aea7ff558e8bc934) to ensure security, with more planned.
+We take [a long list of precautions](http://notes.bentrask.com/?q=hash://sha256/b5cfd43def108b74b5bb5da3ae92613fc27624811df8a6d1aea7ff558e8bc934) to ensure security, with more planned. Many are at the language layer, but many have nothing to do with the language used.
 
 **My question isn't answered here...**
 Please search the [development log](http://notes.bentrask.com/). Most questions have been answered and most suggestions have been considered.
