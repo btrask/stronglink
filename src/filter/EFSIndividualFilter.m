@@ -195,7 +195,10 @@
 	for(index_t i = 0; i < count; ++i) {
 		FREE(&tokens[i].str);
 	}
+	assert_zeroed(tokens, count);
 	FREE(&tokens);
+	count = 0;
+	asize = 0;
 	db_cursor_close(metafiles); metafiles = NULL;
 	db_cursor_close(match); match = NULL;
 	[super free];

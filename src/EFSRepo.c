@@ -60,6 +60,7 @@ void EFSRepoFree(EFSRepoRef *const repoptr) {
 	for(index_t i = 0; i < repo->pull_count; ++i) {
 		EFSPullFree(&repo->pulls[i]);
 	}
+	assert_zeroed(repo->pulls, repo->pull_count);
 	FREE(&repo->pulls);
 	repo->pull_count = 0;
 	repo->pull_size = 0;
