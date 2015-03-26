@@ -3,9 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h> /* For unlink(2) */
-#include "db_base.h"
+#include <sys/resource.h>
+
 #include <leveldb/c.h>
 #include "../../deps/lsmdb/liblmdb/lmdb.h"
+#include "db_base.h"
 
 #define MDB_RDWR 0
 
@@ -214,6 +216,14 @@ int db_env_create(DB_env **const out) {
 
 	leveldb_options_set_create_if_missing(env->opts, 1);
 	leveldb_options_set_compression(env->opts, leveldb_snappy_compression);
+
+	int maxfiles = 100; // Safe default
+//#ifdef __POSIX__
+	struct rlimit lim;
+	getrlimit(RLIMIT_NOFILE, &lim);
+	maxfiles = lim.rlim_cur / 3;
+//#endif
+	leveldb_options_set_max_open_files(env->opts, maxfiles);
 
 	env->filterpolicy = leveldb_filterpolicy_create_bloom(10);
 	if(!env->filterpolicy) {

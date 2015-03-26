@@ -18,9 +18,10 @@
 // DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
+#include <sys/resource.h>
 
 static void raiserlimit(void) {
-#ifdef __POSIX__
+//#ifdef __POSIX__
   // Raise the open file descriptor limit.
   {  // NOLINT (whitespace/braces)
     struct rlimit lim;
@@ -43,6 +44,6 @@ static void raiserlimit(void) {
       } while (min + 1 < max);
     }
   }
-#endif  // __POSIX__
+//#endif  // __POSIX__
 }
 
