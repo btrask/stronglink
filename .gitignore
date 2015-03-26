@@ -4,6 +4,9 @@ perf.data.old
 deps/uv/uv.xcodeproj
 *~
 
+/deps/lsmdb/liblmdb/mdb_dump
+/deps/lsmdb/liblmdb/mdb_load
+
 /deps/yajl/test/parsing/cases/am_stuff.json.out
 /deps/yajl/test/parsing/cases/am_stuff.json.test
 

@@ -101,8 +101,6 @@ OBJECTS := \
 	$(BUILD_DIR)/deps/crypt/x86.S.o \
 	$(BUILD_DIR)/deps/fts3/fts3_porter.o \
 	$(BUILD_DIR)/deps/http_parser.o \
-	$(BUILD_DIR)/deps/lsmdb/liblmdb/mdb.o \
-	$(BUILD_DIR)/deps/lsmdb/liblmdb/midl.o \
 	$(BUILD_DIR)/deps/multipart_parser.o \
 	$(BUILD_DIR)/deps/smhasher/MurmurHash3.o
 
@@ -129,6 +127,9 @@ CFLAGS += -I$(YAJL_BUILD_DIR)/include
 MODULES += cmark
 STATIC_LIBS += $(DEPS_DIR)/cmark/build/src/libcmark.a
 CFLAGS += -I$(DEPS_DIR)/cmark/build/src
+
+MODULES += mdb
+STATIC_LIBS += $(DEPS_DIR)/lsmdb/liblmdb/liblmdb.a
 
 MODULES += libuv
 STATIC_LIBS += $(DEPS_DIR)/uv/.libs/libuv.a
@@ -180,6 +181,10 @@ $(YAJL_BUILD_DIR)/include/yajl/*.h: yajl
 .PHONY: yajl
 yajl:
 	cd $(DEPS_DIR)/yajl/build && make yajl_s/fast
+
+.PHONY: mdb
+mdb:
+	cd $(DEPS_DIR)/lsmdb/liblmdb && make
 
 .PHONY: leveldb
 leveldb:
@@ -266,6 +271,7 @@ clean:
 distclean: clean
 	- cd $(DEPS_DIR)/cmark && make distclean
 	- cd $(DEPS_DIR)/leveldb && make clean
+	- cd $(DEPS_DIR)/lsmdb/liblmdb && make clean
 	- cd $(DEPS_DIR)/snappy && make distclean
 	- cd $(DEPS_DIR)/uv && make distclean
 	- cd $(DEPS_DIR)/yajl && make distclean
