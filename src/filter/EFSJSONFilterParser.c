@@ -27,6 +27,7 @@ void EFSJSONFilterParserFree(EFSJSONFilterParserRef *const parserptr) {
 	for(index_t i = 0; i < DEPTH_MAX; ++i) {
 		EFSFilterFree(&parser->stack[i]);
 	}
+	assert_zeroed(parser, 1);
 	FREE(parserptr); parser = NULL;
 }
 void EFSJSONFilterParserWrite(EFSJSONFilterParserRef const parser, strarg_t const json, size_t const len) {
