@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <title>{{reponame}} submission</title>
-<link rel="stylesheet" type="text/css" href="/index.css">
+<link rel="stylesheet" type="text/css" href="../index.css">
 <style>
 .absolute { position: absolute; }
 .full { top: 0; bottom: 0; left: 0; right: 0; }
@@ -20,7 +20,7 @@
 </style>
 <script src="../commonmark.min.js"></script>
 
-<form method="post" action="/submission" enctype="multipart/form-data">
+<form method="post" action="../submission" enctype="multipart/form-data">
 <!--<input type="hidden" name="token" value="{{token}}">-->
 <!--TODO-->
 
@@ -28,7 +28,7 @@
 	<div class="absolute toolbar">
 		<div class="label padding floatl"><a href="#">Markdown help</a></div> <!--TODO-->
 		<input class="submit border button padding floatr" type="submit" value="Submit">
-		<div class="label padding floatr"><a href="/">Cancel</a></div>
+		<div class="label padding floatr"><a href="../">Cancel</a></div>
 	</div>
 	<div class="absolute editor">
 		<textarea id="input" name="markdown" class="absolute textarea"></textarea>

@@ -17,6 +17,7 @@
 h1 { font-weight: initial; }
 .floatl { float: left; }
 .floatr { float: right; }
+[hidden] { display: none; }
 
 a:link {
 	text-decoration: none;
@@ -57,6 +58,10 @@ input {
 	width: 80px;
 	top: 0;
 	bottom: 0;
+}
+.footer {
+	text-align: center;
+	font-size: small;
 }
 
 .entry {
