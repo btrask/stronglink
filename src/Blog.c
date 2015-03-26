@@ -754,7 +754,8 @@ int BlogDispatch(BlogRef const blog, EFSSessionRef const session, HTTPConnection
 
 	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
 
-	// TODO: Ignore query parameters, check for `..` (security critical).
+	if(strchr(URI, '?')) return 500; // TODO: Ignore query parameters
+	if(strstr(URI, "..")) return 400;
 	str_t path[PATH_MAX];
 	rc = snprintf(path, PATH_MAX, "%s/static/%s", blog->dir, URI);
 	if(rc >= PATH_MAX) return 414; // Request-URI Too Large
