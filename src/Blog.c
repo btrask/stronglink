@@ -721,6 +721,8 @@ void BlogFree(BlogRef *const blogptr) {
 	BlogRef blog = *blogptr;
 	if(!blog) return;
 
+	blog->repo = NULL;
+
 	FREE(&blog->dir);
 	FREE(&blog->cacheDir);
 
@@ -737,6 +739,7 @@ void BlogFree(BlogRef *const blogptr) {
 	async_mutex_destroy(blog->pending_mutex);
 	async_cond_destroy(blog->pending_cond);
 
+	assert_zeroed(blog, 1);
 	FREE(blogptr); blog = NULL;
 }
 int BlogDispatch(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
