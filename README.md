@@ -1,9 +1,20 @@
 StrongLink - a searchable, syncable, content-addressable notetaking system
 ==========================================================================
 
-StrongLink is a notetaking/blogging system that supports search and sync. You can use content addresses in the format `hash://sha256/asdf` to link between entries, regardless of where they were created or where they're being viewed. Entries can't be edited after they've been written, which you can think of like writing in ink.
+StrongLink is a notetaking/blogging system that supports search and sync. You can use content addresses (hash links) to link between entries, regardless of where they were created or where they're being viewed. Entries can't be edited after they've been written, which you can think of like writing in ink.
 
-StrongLink is currently in alpha. Features are missing and things are broken.
+A raw hash link looks like this:
+
+>     hash://sha256/641b771e5cf5c6173843bc2eecc9f44f835c68b7a6f6b2fb35c60ed88af17928
+>     hash://sha256/641b771e5cf5c6173843bc2e (short version)
+
+A hash link that's "resolved" might look like this:
+
+> [link](http://notes.bentrask.com/?q=hash://sha256/641b771e5cf5c6173843bc2eecc9f44f835c68b7a6f6b2fb35c60ed88af17928)^\[[#](hash://sha256/641b771e5cf5c6173843bc2eecc9f44f835c68b7a6f6b2fb35c60ed88af17928)\]
+
+Hash links are universal but relative. You need a known location to resolve them in relation to. With StrongLink, this location is your own repository, which you might run on your own computer or in the cloud.
+
+StrongLink is currently in alpha. Features are missing and some things may be broken.
 
 Demo
 ----
@@ -16,7 +27,7 @@ FAQ
 **How does it compare to other notetaking systems?**
 StrongLink is designed to be highly scalable. It won't bog down or get harder to use as the number of notes grows. Designing the interface around a search engine is a major part of this.
 
-A lot of notetaking systems still don't have sync. Many will lose data during conflicts or just at random. The reason sync systems are so bad is because application developers don't recognize the seriousness of the problem: doing sync properly means building a distributed system. StrongLink is a distributed system based on an append-only log and is available, partition-tolerant, and eventually consistent.
+A lot of notetaking systems still don't have sync. Many that do will lose data during conflicts or just at random. The reason sync systems are so bad is because application developers don't recognize the seriousness of the problem: doing sync properly means building a distributed system. StrongLink is a distributed system based on an append-only log and is available, partition-tolerant, and eventually consistent.
 
 Currently the interface is web-based but I'd like to write a native Cocoa version at some point.
 
@@ -49,7 +60,7 @@ Eventually the core of StrongLink (without the blog interface) will be bundled a
 
 A small portion of the code is actually written in portable Objective-C. So far it's been tested on Linux and Mac OS X.
 
-We take [a long list of precautions](http://notes.bentrask.com/?q=hash://sha256/b5cfd43def108b74b5bb5da3ae92613fc27624811df8a6d1aea7ff558e8bc934) to ensure security, with more planned. Many are at the language layer, but many have nothing to do with the language used.
+We take [a long list of precautions](http://notes.bentrask.com/?q=hash://sha256/b5cfd43def108b74b5bb5da3ae92613fc27624811df8a6d1aea7ff558e8bc934)^\[[#](hash://sha256/b5cfd43def108b74b5bb5da3ae92613fc27624811df8a6d1aea7ff558e8bc934)\] to ensure security, with more planned. Many are at the language layer, but many have nothing to do with the language used.
 
 **My question isn't answered here...**
 Please search the [development log](http://notes.bentrask.com/). Most questions have been answered and most suggestions have been considered.
