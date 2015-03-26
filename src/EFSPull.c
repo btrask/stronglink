@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include <assert.h>
 #include "EarthFS.h"
 #include "http/HTTPConnection.h"
@@ -358,9 +357,9 @@ static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, 
 		}
 	}
 
-	str_t *path;
-	if(asprintf(&path, "/efs/file/%s/%s", algo, hash) < 0) {
-		fprintf(stderr, "asprintf() error\n");
+	str_t *path = aasprintf("/efs/file/%s/%s", algo, hash);
+	if(!path) {
+		fprintf(stderr, "Pull aasprintf error\n");
 		goto fail;
 	}
 	rc = 0;

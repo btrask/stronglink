@@ -10,13 +10,12 @@ EFSRepoRef EFSRepoCreate(strarg_t const dir) {
 	EFSRepoRef repo = calloc(1, sizeof(struct EFSRepo));
 	if(!repo) return NULL;
 	repo->dir = strdup(dir);
-	// TODO: If asprintf() fails, the string pointer is undefined.
-	if(
-		asprintf(&repo->dataDir, "%s/data", dir) < 0 ||
-		asprintf(&repo->tempDir, "%s/tmp", dir) < 0 ||
-		asprintf(&repo->cacheDir, "%s/cache", dir) < 0 ||
-		asprintf(&repo->DBPath, "%s/efs.db", dir) < 0
-	) {
+
+	repo->dataDir = aasprintf("%s/data", dir);
+	repo->tempDir = aasprintf("%s/tmp", dir);
+	repo->cacheDir = aasprintf("%s/cache", dir);
+	repo->DBPath = aasprintf("%s/efs.db", dir);
+	if(!repo->dataDir || !repo->tempDir || !repo->cacheDir || !repo->DBPath) {
 		EFSRepoFree(&repo);
 		return NULL;
 	}
@@ -81,9 +80,7 @@ str_t *EFSRepoCopyInternalPath(EFSRepoRef const repo, strarg_t const internalHas
 	if(!repo) return NULL;
 	assert(repo->dataDir);
 	assert(internalHash);
-	str_t *str;
-	if(asprintf(&str, "%s/%.2s/%s", repo->dataDir, internalHash, internalHash) < 0) return NULL;
-	return str;
+	return aasprintf("%s/%.2s/%s", repo->dataDir, internalHash, internalHash);
 }
 strarg_t EFSRepoGetTempDir(EFSRepoRef const repo) {
 	if(!repo) return NULL;

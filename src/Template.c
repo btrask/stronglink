@@ -68,7 +68,7 @@ TemplateRef TemplateCreateFromPath(strarg_t const path) {
 		return NULL;
 	}
 	int64_t const size = req.statbuf.st_size;
-	if(!size || size > TEMPLATE_MAX) {
+	if(size > TEMPLATE_MAX) {
 		async_fs_close(file);
 		return NULL;
 	}

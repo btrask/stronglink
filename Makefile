@@ -30,6 +30,7 @@ endif
 
 # TODO: Use compiler -M to track header dependencies automatically
 HEADERS := \
+	$(SRC_DIR)/aasprintf.h \
 	$(SRC_DIR)/common.h \
 	$(SRC_DIR)/async/async.h \
 	$(SRC_DIR)/db/db_base.h \

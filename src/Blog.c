@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include <yajl/yajl_tree.h>
 #include <limits.h>
 #include "common.h"
@@ -19,8 +18,6 @@ struct Blog {
 	EFSRepoRef repo;
 
 	str_t *dir;
-	str_t *staticDir;
-	str_t *templateDir;
 	str_t *cacheDir;
 
 	TemplateRef header;
@@ -45,9 +42,7 @@ static bool emptystr(strarg_t const str) {
 	return !str || '\0' == str[0];
 }
 static str_t *BlogCopyPreviewPath(BlogRef const blog, strarg_t const hash) {
-	str_t *path;
-	if(asprintf(&path, "%s/%.2s/%s", blog->cacheDir, hash, hash) < 0) return NULL;
-	return path;
+	return aasprintf("%s/%.2s/%s", blog->cacheDir, hash, hash);
 }
 
 
@@ -673,6 +668,19 @@ static int POST_auth(BlogRef const blog, EFSSessionRef const session, HTTPConnec
 
 void BlogFree(BlogRef *const blogptr);
 
+static bool load_template(BlogRef const blog, strarg_t const name, TemplateRef *const out) {
+	assert(out);
+	assert(blog->dir);
+	str_t path[PATH_MAX];
+	snprintf(path, PATH_MAX, "%s/template/%s", blog->dir, name);
+	TemplateRef t = TemplateCreateFromPath(path);
+	if(!t) {
+		fprintf(stderr, "Blog couldn't load template at %s\n", path);
+		return false;
+	}
+	*out = t;
+	return true;
+}
 BlogRef BlogCreate(EFSRepoRef const repo) {
 	assertf(repo, "Blog requires valid repo");
 
@@ -680,35 +688,28 @@ BlogRef BlogCreate(EFSRepoRef const repo) {
 	if(!blog) return NULL;
 	blog->repo = repo;
 
+	blog->dir = aasprintf("%s/blog", EFSRepoGetDir(repo));
+	blog->cacheDir = aasprintf("%s/blog", EFSRepoGetCacheDir(repo));
+	if(!blog->dir || !blog->cacheDir) {
+		BlogFree(&blog);
+		return NULL;
+	}
+
 	if(
-		asprintf(&blog->dir, "%s/blog", EFSRepoGetDir(repo)) < 0 ||
-		asprintf(&blog->staticDir, "%s/static", blog->dir) < 0 ||
-		asprintf(&blog->templateDir, "%s/template", blog->dir) < 0 ||
-		asprintf(&blog->cacheDir, "%s/blog", EFSRepoGetCacheDir(repo)) < 0
+		!load_template(blog, "header.html", &blog->header) ||
+		!load_template(blog, "footer.html", &blog->footer) ||
+		!load_template(blog, "entry-start.html", &blog->entry_start) ||
+		!load_template(blog, "entry-end.html", &blog->entry_end) ||
+		!load_template(blog, "preview.html", &blog->preview) ||
+		!load_template(blog, "empty.html", &blog->empty) ||
+		!load_template(blog, "compose.html", &blog->compose) ||
+		!load_template(blog, "upload.html", &blog->upload) ||
+		!load_template(blog, "login.html", &blog->login)
 	) {
 		BlogFree(&blog);
 		return NULL;
 	}
 
-	str_t path[PATH_MAX];
-	snprintf(path, PATH_MAX, "%s/header.html", blog->templateDir);
-	blog->header = TemplateCreateFromPath(path);
-	snprintf(path, PATH_MAX, "%s/footer.html", blog->templateDir);
-	blog->footer = TemplateCreateFromPath(path);
-	snprintf(path, PATH_MAX, "%s/entry-start.html", blog->templateDir);
-	blog->entry_start = TemplateCreateFromPath(path);
-	snprintf(path, PATH_MAX, "%s/entry-end.html", blog->templateDir);
-	blog->entry_end = TemplateCreateFromPath(path);
-	snprintf(path, PATH_MAX, "%s/preview.html", blog->templateDir);
-	blog->preview = TemplateCreateFromPath(path);
-	snprintf(path, PATH_MAX, "%s/empty.html", blog->templateDir);
-	blog->empty = TemplateCreateFromPath(path);
-	snprintf(path, PATH_MAX, "%s/compose.html", blog->templateDir);
-	blog->compose = TemplateCreateFromPath(path);
-	snprintf(path, PATH_MAX, "%s/upload.html", blog->templateDir);
-	blog->upload = TemplateCreateFromPath(path);
-	snprintf(path, PATH_MAX, "%s/login.html", blog->templateDir);
-	blog->login = TemplateCreateFromPath(path);
 
 	async_mutex_init(blog->pending_mutex, 0);
 	async_cond_init(blog->pending_cond, 0);
@@ -720,8 +721,6 @@ void BlogFree(BlogRef *const blogptr) {
 	if(!blog) return;
 
 	FREE(&blog->dir);
-	FREE(&blog->staticDir);
-	FREE(&blog->templateDir);
 	FREE(&blog->cacheDir);
 
 	TemplateFree(&blog->header);
@@ -752,12 +751,11 @@ int BlogDispatch(BlogRef const blog, EFSSessionRef const session, HTTPConnection
 	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
 
 	// TODO: Ignore query parameters, check for `..` (security critical).
-	str_t *path;
-	int const plen = asprintf(&path, "%s%s", blog->staticDir, URI);
-	if(plen < 0) return 500;
+	str_t path[PATH_MAX];
+	rc = snprintf(path, PATH_MAX, "%s/static/%s", blog->dir, URI);
+	if(rc < 0) return 500;
 
 	HTTPConnectionSendFile(conn, path, NULL, -1); // TODO: Determine file type.
-	FREE(&path);
 	return 0;
 }
 

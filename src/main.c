@@ -65,7 +65,15 @@ static void init(void *const unused) {
 		return;
 	}
 	blog = BlogCreate(repo);
+	if(!blog) {
+		fprintf(stderr, "Blog server could not be initialized\n");
+		return;
+	}
 	server = HTTPServerCreate((HTTPListener)listener, blog);
+	if(!server) {
+		fprintf(stderr, "Web server could not be initialized\n");
+		return;
+	}
 	uint32_t type;
 //	type = INADDR_ANY;
 	type = INADDR_LOOPBACK;

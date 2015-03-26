@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "bcrypt.h"
 #include "EarthFS.h"
 #include "EFSDB.h"

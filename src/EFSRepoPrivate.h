@@ -1,4 +1,3 @@
-#define _GNU_SOURCE /* asprintf() */
 #include <assert.h>
 #include "EarthFS.h"
 #include "EFSDB.h"

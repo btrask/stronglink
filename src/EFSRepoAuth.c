@@ -185,9 +185,8 @@ static int cookie_create(EFSRepoRef const repo, strarg_t const username, strarg_
 	rc = session_create(repo, userID, sessionKey, &sessionID);
 	if(0 != rc) return rc;
 
-	str_t *cookie = NULL;
-	rc = asprintf(&cookie, "%llu:%s", (unsigned long long)sessionID, sessionKey);
-	if(rc < 0) return -1;
+	str_t *cookie = aasprintf("%llu:%s", (unsigned long long)sessionID, sessionKey);
+	if(!cookie) return -1;
 
 	cookie_cache_store(repo, userID, sessionID, sessionKey);
 

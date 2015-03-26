@@ -1,9 +1,9 @@
-#define _GNU_SOURCE
 #include <stdio.h> /* For debugging */
 #include <stdlib.h>
 #include <string.h>
 
 #include "async.h"
+#include "../aasprintf.h"
 
 #define ENTROPY_BYTES 8
 
@@ -163,8 +163,7 @@ char *async_fs_tempnam(char const *dir, char const *prefix) {
 	char rand[ENTROPY_BYTES];
 	if(async_random((unsigned char *)rand, ENTROPY_BYTES) < 0) return NULL;
 	char *hex = tohex(rand, ENTROPY_BYTES);
-	char *path;
-	if(asprintf(&path, "%s/%s-%s", dir, prefix, hex) < 0) path = NULL;
+	char *path = aasprintf("%s/%s-%s", dir, prefix, hex);
 	free(hex); hex = NULL;
 	return path;
 }
