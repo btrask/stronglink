@@ -3,6 +3,7 @@
 
 @implementation EFSIndividualFilter
 - (void)free {
+	curtxn = NULL;
 	db_cursor_close(step_target); step_target = NULL;
 	db_cursor_close(step_files); step_files = NULL;
 	db_cursor_close(age_uris); age_uris = NULL;

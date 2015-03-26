@@ -19,7 +19,10 @@ static int filtercmp_rev(EFSFilter *const *const a, EFSFilter *const *const b) {
 
 @implementation EFSCollectionFilter
 - (void)free {
-	FREE(&filters);
+	FREE(&filters); filters = NULL;
+	count = 0;
+	asize = 0;
+	sort = 0;
 	[super free];
 }
 

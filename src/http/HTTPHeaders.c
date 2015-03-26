@@ -51,6 +51,7 @@ void HTTPHeadersFree(HTTPHeadersRef *const hptr) {
 	FREE(&h->offsets);
 	FREE(&h->values);
 	h->values_size = 0;
+	assert_zeroed(h, 1);
 	FREE(hptr); h = NULL;
 }
 int HTTPHeadersLoad(HTTPHeadersRef const h, HTTPConnectionRef const conn) {

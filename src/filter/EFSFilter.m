@@ -8,6 +8,9 @@
 	return self;
 }
 - (void)free {
+	size_t const extra = (char *)&isa + sizeof(isa) - (char *)self;
+	size_t const len = class_getInstanceSize(isa);
+	assert_zeroed((char *)self+extra, len-extra);
 	object_dispose(self);
 }
 @end

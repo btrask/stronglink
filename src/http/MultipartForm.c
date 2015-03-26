@@ -60,6 +60,7 @@ void MultipartFormFree(MultipartFormRef *const formptr) {
 	form->type = MultipartNothing;
 	*form->out = uv_buf_init(NULL, 0);
 	form->flags = 0;
+	assert_zeroed(form, 1);
 	FREE(formptr); form = NULL;
 }
 
