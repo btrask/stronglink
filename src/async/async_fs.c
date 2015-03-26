@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include "async.h"
-#include "../aasprintf.h"
+#include "../util/aasprintf.h"
 
 #define ENTROPY_BYTES 8
 

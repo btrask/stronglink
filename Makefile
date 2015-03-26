@@ -30,19 +30,20 @@ endif
 
 # TODO: Use compiler -M to track header dependencies automatically
 HEADERS := \
-	$(SRC_DIR)/aasprintf.h \
+	$(SRC_DIR)/util/aasprintf.h \
+	$(SRC_DIR)/util/bcrypt.h \
+	$(SRC_DIR)/util/fts.h \
+	$(SRC_DIR)/util/hash.h \
+	$(SRC_DIR)/util/raiserlimit.h \
 	$(SRC_DIR)/common.h \
 	$(SRC_DIR)/async/async.h \
 	$(SRC_DIR)/db/db_base.h \
 	$(SRC_DIR)/db/db_ext.h \
 	$(SRC_DIR)/db/db_schema.h \
 	$(SRC_DIR)/filter/EFSFilter.h \
-	$(SRC_DIR)/bcrypt.h \
 	$(SRC_DIR)/EarthFS.h \
 	$(SRC_DIR)/EFSDB.h \
 	$(SRC_DIR)/EFSRepoPrivate.h \
-	$(SRC_DIR)/fts.h \
-	$(SRC_DIR)/hash.h \
 	$(SRC_DIR)/http/status.h \
 	$(SRC_DIR)/http/HTTPConnection.h \
 	$(SRC_DIR)/http/HTTPServer.h \
@@ -78,8 +79,9 @@ OBJECTS := \
 	$(BUILD_DIR)/filter/EFSUserFilterParser.o \
 	$(BUILD_DIR)/EFSPull.o \
 	$(BUILD_DIR)/EFSServer.o \
-	$(BUILD_DIR)/fts.o \
-	$(BUILD_DIR)/hash.o \
+	$(BUILD_DIR)/util/bcrypt.o \
+	$(BUILD_DIR)/util/fts.o \
+	$(BUILD_DIR)/util/hash.o \
 	$(BUILD_DIR)/async/async.o \
 	$(BUILD_DIR)/async/async_cond.o \
 	$(BUILD_DIR)/async/async_fs.o \
@@ -89,7 +91,6 @@ OBJECTS := \
 	$(BUILD_DIR)/async/async_sem.o \
 	$(BUILD_DIR)/async/async_stream.o \
 	$(BUILD_DIR)/async/async_worker.o \
-	$(BUILD_DIR)/bcrypt.o \
 	$(BUILD_DIR)/http/HTTPConnection.o \
 	$(BUILD_DIR)/http/HTTPServer.o \
 	$(BUILD_DIR)/http/HTTPHeaders.o \
@@ -106,7 +107,7 @@ OBJECTS := \
 
 ifdef USE_VALGRIND
 HEADERS += $(DEPS_DIR)/libcoro/coro.h
-OBJECTS += $(BUILD_DIR)/deps/libcoro/coro.o $(BUILD_DIR)/deps/libco_coro.o
+OBJECTS += $(BUILD_DIR)/deps/libcoro/coro.o $(BUILD_DIR)/util/libco_coro.o
 CFLAGS += -DCORO_USE_VALGRIND
 else
 OBJECTS += $(BUILD_DIR)/deps/libco/libco.o

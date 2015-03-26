@@ -1,5 +1,5 @@
 #include "EFSRepoPrivate.h"
-#include "bcrypt.h"
+#include "util/bcrypt.h"
 
 // TODO: better handling of database errors
 // expected errors (e.g. DB_NOTFOUND) should be handled specifically

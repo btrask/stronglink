@@ -1,5 +1,5 @@
 #include "EFSFilter.h"
-#include "../fts.h"
+#include "../util/fts.h"
 
 @implementation EFSIndividualFilter
 - (void)free {

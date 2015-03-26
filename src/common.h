@@ -9,7 +9,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "aasprintf.h"
+#include "util/aasprintf.h"
 
 typedef unsigned char byte_t;
 typedef char str_t;

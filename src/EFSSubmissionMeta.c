@@ -1,5 +1,5 @@
 #include <yajl/yajl_parse.h>
-#include "fts.h"
+#include "util/fts.h"
 #include "EarthFS.h"
 #include "EFSDB.h"
 

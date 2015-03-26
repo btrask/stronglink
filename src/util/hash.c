@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../deps/smhasher/MurmurHash3.h"
+#include "../../deps/smhasher/MurmurHash3.h"
 #include "hash.h"
 
 #define HASH_KEY(hash, x) ((hash)->keys + ((hash)->keylen * (x)))

@@ -1,7 +1,8 @@
 #include <limits.h>
 #include <signal.h>
-#include "fts.h"
-#include "hash.h"
+#include "util/fts.h"
+#include "util/hash.h"
+#include "util/raiserlimit.h"
 #include "EarthFS.h"
 #include "http/HTTPServer.h"
 #include "http/HTTPHeaders.h"
@@ -105,6 +106,7 @@ int main(int const argc, char const *const *const argv) {
 	// network, so don't set this number too low.
 	if(!getenv("UV_THREADPOOL_SIZE")) putenv("UV_THREADPOOL_SIZE=4");
 
+	raiserlimit();
 	async_init();
 	uv_signal_t sigpipe[1];
 	uv_signal_init(loop, sigpipe);

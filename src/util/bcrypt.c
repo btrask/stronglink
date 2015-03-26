@@ -1,8 +1,10 @@
-#include "../deps/crypt_blowfish/ow-crypt.h"
+#include <stdlib.h>
+#include <string.h>
+#include "../../deps/crypt_blowfish/ow-crypt.h"
+#include "../async/async.h"
 #include "bcrypt.h"
-#include "async/async.h"
 
-int passcmp(volatile strarg_t const a, volatile strarg_t const b) {
+int passcmp(volatile char const *const a, volatile char const *const b) {
 	int r = 0;
 	for(size_t i = 0; ; ++i) {
 		if(a[i] != b[i]) r = -1;
@@ -10,19 +12,20 @@ int passcmp(volatile strarg_t const a, volatile strarg_t const b) {
 	}
 	return r;
 }
-bool checkpass(strarg_t const pass, strarg_t const hash) {
+bool checkpass(char const *const pass, char const *const hash) {
 	int size = 0;
 	void *data = NULL;
-	strarg_t attempt = crypt_ra(pass, hash, &data, &size);
+	char const *attempt = crypt_ra(pass, hash, &data, &size);
 	bool const success = (attempt && 0 == passcmp(attempt, hash));
-	FREE(&data); attempt = NULL;
+	free(data); data = NULL;
+	attempt = NULL;
 	return success;
 }
-str_t *hashpass(strarg_t const pass) {
+char *hashpass(char const *const pass) {
 	// TODO: async_random isn't currently parallel or thread-safe
 //	async_pool_enter(NULL);
 	char input[GENSALT_INPUT_SIZE];
-	if(async_random((byte_t *)input, GENSALT_INPUT_SIZE) < 0) {
+	if(async_random((unsigned char *)input, GENSALT_INPUT_SIZE) < 0) {
 		async_pool_leave(NULL);
 		return NULL;
 	}
@@ -34,10 +37,10 @@ str_t *hashpass(strarg_t const pass) {
 	}
 	int size = 0;
 	void *data = NULL;
-	strarg_t orig = crypt_ra(pass, salt, &data, &size);
-	str_t *hash = orig ? strdup(orig) : NULL;
-	FREE(&salt);
-	FREE(&data);
+	char const *orig = crypt_ra(pass, salt, &data, &size);
+	char *hash = orig ? strdup(orig) : NULL;
+	free(salt); salt = NULL;
+	free(data); data = NULL;
 	async_pool_leave(NULL);
 	return hash;
 }
