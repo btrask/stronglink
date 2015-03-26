@@ -672,7 +672,8 @@ static bool load_template(BlogRef const blog, strarg_t const name, TemplateRef *
 	assert(out);
 	assert(blog->dir);
 	str_t path[PATH_MAX];
-	snprintf(path, PATH_MAX, "%s/template/%s", blog->dir, name);
+	int rc = snprintf(path, PATH_MAX, "%s/template/%s", blog->dir, name);
+	if(rc < 0 || rc >= PATH_MAX) return false;
 	TemplateRef t = TemplateCreateFromPath(path);
 	if(!t) {
 		fprintf(stderr, "Blog couldn't load template at %s\n", path);
@@ -753,6 +754,7 @@ int BlogDispatch(BlogRef const blog, EFSSessionRef const session, HTTPConnection
 	// TODO: Ignore query parameters, check for `..` (security critical).
 	str_t path[PATH_MAX];
 	rc = snprintf(path, PATH_MAX, "%s/static/%s", blog->dir, URI);
+	if(rc >= PATH_MAX) return 414; // Request-URI Too Large
 	if(rc < 0) return 500;
 
 	HTTPConnectionSendFile(conn, path, NULL, -1); // TODO: Determine file type.
