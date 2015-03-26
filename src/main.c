@@ -78,7 +78,10 @@ static void init(void *const unused) {
 //	type = INADDR_ANY;
 	type = INADDR_LOOPBACK;
 	int rc = HTTPServerListen(server, "8000", type); // TODO
-	assertf(rc >= 0, "Unable to start server (%d, %s)", rc, uv_strerror(rc));
+	if(rc < 0) {
+		fprintf(stderr, "Unable to start server (%d, %s)", rc, uv_strerror(rc));
+		return;
+	}
 	fprintf(stderr, "StrongLink server running at http://localhost:8000/\n");
 	EFSRepoPullsStart(repo);
 
