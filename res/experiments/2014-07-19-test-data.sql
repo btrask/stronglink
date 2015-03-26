@@ -1,0 +1,4 @@
+
+INSERT INTO file_uris (file_id, uri) VALUES (0, 'hash://test/0123456789012345678901234567890123456789');
+
+

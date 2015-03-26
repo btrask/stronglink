@@ -1,0 +1,66 @@
+```
+metalinks
+---
+metalinkID
+fileID
+sourceURIID
+
+links
+---
+linkID
+fileID
+targetURIID
+```
+
+Wrong because we actually want to treat links from meta-files the same as links from regular files
+
+```
+links
+---
+linkID
+fileID
+sourceURIID / sourceFileID
+targetURIID
+```
+
+This is a problem because internal links come from a file, whereas meta-links come from a URI.
+
+I guess we just have to use a URI, the file's internal hash (which is assumed to be unique).
+
+So anyway this design is no worse than the two table version above, because we just look at all of the "trusted" files and ignore the links that aren't from them.
+
+We don't necessarily need to store the public key URI in the users table because that's a problem for the client. ...Although the client needs a way to determine it.
+
+```
+links-to(hash://users-public-key) // user's signature files
+```
+
+Okay, this is already a problem. Any file can link to a public key.
+
+I think we need to validate signature files as they're added, and track them in a separate table.
+
+```
+signatures
+---
+signatureID
+signatureFileID
+publicKeyFileID
+signedFileID
+```
+
+Then:
+
+```
+signed-by(hash://users-public-key)
+links-to(hash://special-public-key-type, signed-by(hash://users-public-key)) // Second parameter is "via"
+```
+
+In theory, this finds all of the public keys that are trusted by the user.
+
+However, in this case there is no difference between signing the file and signing the link, because the link is defined in the public key file itself.
+
+```
+links-to(hash://special-public-key-type) && signed-by(hash://users-public-key) // Equivalent
+```
+
+The answer is to use "standard" public key files in whatever existing format (PEM?), which don't embed our special link. Then the link is defined in a meta-file and we're safe.

@@ -1,0 +1,14 @@
+Feature requests:
+
+1. mdb_get_op() which accepts stateless cursor ops (i.e. first/last/range)
+2. mdb_txn_flags() function to tell if a transaction is read-only (akin to mdb_dbi_flags())
+3. Allow cursors to be reused across write transactions, or at least don't silently free them and have mdb_cursor_renew() indicate an error so they can manually be recreated (would be less of an issue if there were a way to tell which transactions were read-only)
+4. First class nested b-trees, beyond just dupsort
+5. Constant-time mdb_drop() (just add the whole tree to the free list as-is)
+
+Bug reports:
+
+1. MDB_PREV_DUP is broken (wrong indentation of else clause)
+2. Failing to pass a data argument for dupsort tables sometimes has side effects (leaving the xcursor uninitialized/unchanged)
+
+

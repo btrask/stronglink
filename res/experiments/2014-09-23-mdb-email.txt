@@ -1,0 +1,19 @@
+Nested b-trees (to write an LSM-tree wrapper for MDB)
+
+Hi,
+
+I've been working on a thin wrapper for MDB that provides LSM-tree support. My goal is to have multiple named b-trees and LSM-trees in the same file, support transactions across both, etc.
+
+However, all of the approaches I've come up with have problems:
+
+1. (What I started with) Prefix keys with the level number. Requires lots of management, e.g. preventing cursors from wrapping between layers, and probably slow because everything is in one big tree (can't use MDB_APPEND during merges).
+2. Use multiple DBIs per LSM-tree. Would be uglier and the docs warn about creating large numbers of DBIs.
+3. Use dupsort. Would be perfect if it were possible to store values for each nested key. There is plenty of "spare key-space" for the wrapper to store its own meta-data without it getting in the way.
+
+In my research of different databases, MDB seems like the best b-tree implementation. Thus an LSM-tree built on top of it would probably also be the best option for random-write workloads. If MDB exposed the support for nested b-trees that it already has, this would be possible.
+
+By contrast something like LevelDB is larger, less parallel and doesn't support transactions.
+
+Ben Trask
+
+

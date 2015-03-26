@@ -1,0 +1,27 @@
+CREATE TEMPORARY TABLE "deepLinks" (
+	"deepLinkID" bigint NOT NULL,
+	"sourceURIID" bigint NOT NULL,
+	"targetURIID" bigint NOT NULL,
+	"distance" bigint NOT NULL,
+);
+CREATE SEQUENCE "deepLinks_deepLinkID_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+INSERT INTO "signatures" ()
+SELECT ...
+FROM 
+
+INSERT INTO "deepLinks" ("sourceURIID", "targetURIID", "distance")
+SELECT l."sourceURIID", l."targetURIID", 1
+FROM "links" AS l
+WHERE 
+
+function deepLinks(userID) {
+	db.query('CREATE TEMPORARY TABLE ...');
+	db.query('
+}
+

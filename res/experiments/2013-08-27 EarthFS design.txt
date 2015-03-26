@@ -1,0 +1,82 @@
+EarthFS 2013-08-27
+
+I think the design of EarthFS is about as complex as the design of Hyperloop. urn:sha1:87e769745387bb389c4fedc2f3d0463ae053adb1
+
+Therefore, it's logical that, if we want to sell the idea, we should have a design document at least as detailed. Let's made a 57 page PDF.
+
+Things to cover:
+
+- Basic overview of the design
+	- Content addressing
+	- Immutability, append-only
+	- Distributed, decentralized
+	- Real time
+- An explanation of the pervasive replication concept
+	- Analysis of incentives
+	- The Internet Archive
+	- No way to tell people what to edit or delete
+		- Censorship and revisionist history
+		- Backups (specifically involving delayed pulls)
+- An explanation of the "distributed version control system for things that can't be diffed" concept
+	- Learning model
+	- Contrast Git working tree versus commits
+	- Analysis of incentives
+- An explanation of distributed+centralized (peer-to-peer) versus distributed+decentralized
+	- Contrast Git versus Wikipedia
+	- Analysis of incentives
+- Security
+	- HTTPS
+	- Cryptographic hashes
+	- Digital signatures
+	- No replication of untrusted data/meta-data
+	- Not addressed: perfect forward secrecy, OTR
+- Foreseen client applications and protocol bridges
+	- efs-web (web browser bridge)
+	- FUSE client (file system bridge)
+	- CLI interface
+	- Email bridge
+	- RSS bridge
+	- Calendar client
+	- Proxies
+	- URN handlers
+- Appendix A, rejected alternate designs
+	- Emphasis on client-side access with CORS
+	- A fixed local repo URL, to avoid using URNs directly
+	- OAuth (tentatively)
+	- RFC XXXX `urn:`-style URNs
+	- Pull replication and latency
+	- Designing around a single format
+	- Compressed entry storage
+	- Non-hashed meta-data
+	- Decoupled full text search
+	- Tags
+	- Multiple entries per HTTP request (scaling/efficiency)
+		- RSS
+		- Multipart
+		- REST
+		- SPDY
+	- Others, I'm sure
+- Appendix B, comparison to similar protocols
+	- The World Wide Web
+	- BitTorrent
+	- Dropbox
+	- Tent.io
+	- Freenet
+	- I2P
+	- WASTE
+	- DNS
+	- NNTP? Usenet?
+- Appendix C, semantic hashes
+- Appendix D, high latency web browser design
+- Appendix E, proposed file types
+	- Meta-files
+	- List files
+- Appendix F, API and standardization
+
+Open questions:
+
+- Client authentication (OAuth or similar?)
+- Client configuration (store config data in repo?)
+- efs-web web browser bridging
+
+Keywords: abstraction, models/equivalence/distinctions, notetaking, publishing

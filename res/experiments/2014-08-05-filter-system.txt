@@ -1,0 +1,155 @@
+
+
+1
+2
+3 text/x-bad-markup - mime
+4
+5
+6
+7 text/efs-meta - efs://user
+8
+9
+
+when all the filters have a lot of matches
+this is the best way to do it
+
+but what can we do for filters that don't have many/any matches?
+
+
+...right now we're stepping through the most frequent hits to make sure we get everything in the right order
+if we step through the most infrequent hits, we'll have to sort them after the fact?
+
+
+filter system is screwed...?
+can we simplify it?
+just deal with immutable files, allow clients to do fancier filtering?
+
+actually, with immutable files it would probably be simple enough to do it properly
+at least we'd have something closer to a fixed ordering?
+each query filter would have to check for duplicates, but collection filters wouldn't?
+
+can we do it without copying all of the old fields each time a new meta-file is submitted?
+
+
+...pagination-compatible techniques, which take linear time with the number of results (or number of files searched)?
+
+
+...find the meta-files (!) that match a particular filter
+then just search those
+isnt that what we're doing though?
+
+find the meta-files for the files that match a particular filter
+second order
+narrowing down the number of meta-files to search
+
+once we have a list of meta-files, it's just a matter of checking the age of each referenced file?
+
+step versus binding new parameters
+same thing, step would be faster but its nice to know our pagination is well tested
+just do whichever is easier / makes more sense
+
+well hang on
+step doesn't let us do fast joins
+thats the whole problem with our "advance" system right now
+
+for each meta-file, if any of the filters match it for the first time, and all the others match either before/after, then its a result
+
+filter -> meta-files -> files -> meta-files
+                              ^ the hard part?
+
+since we're trying to do pagination, we should start with the meta-files at the end
+except not really because that's what we're already doing
+
+we need one regular query with 'step' (or a cursor in a b-tree)
+and then the rest need to be specific lookups
+(actually, doing without step would be fine too)
+
+yup, i think thats what we need...
+
+
+
+....
+
+
+so about computing costs...?
+super important, otherwise we're back to square one
+
+if we're looking to move off sql eventually anyway
+we need to just track our costs directly
+
+
+for now just use sqlite `count(*)`?
+advantages: completely accurate, gives us a baseline to try to match
+might be misleading depending on how slow it is
+
+
+SELECT COUNT(DISTINCT m2.meta_file_id)
+FROM meta_data AS m1
+INNER JOIN file_uris AS f1
+	ON (f1.uri = m1.uri)
+INNER JOIN file_uris AS f2
+	ON (f2.file_id = f1.file_id)
+INNER JOIN meta_data AS m2
+	ON (m2.uri = f2.uri)
+WHERE (m1.field = 'link' AND m1.value = 'efs://user')
+
+
+
+SELECT m2.meta_file_id AS meta_file_id
+FROM meta_data AS m1
+INNER JOIN file_uris AS f1
+	ON (f1.uri = m1.uri)
+INNER JOIN file_uris AS f2
+	ON (f2.file_id = f1.file_id)
+INNER JOIN meta_data AS m2
+	ON (m2.uri = f2.uri)
+WHERE (m1.field = 'link' AND m1.value = 'efs://user')
+AND meta_file_id < ?
+ORDER BY meta_file_id DESC LIMIT 1
+
+
+---
+
+the minimum age of a file should be the file's own id
+important in case meta-files were submitted before the file was
+which we have to support
+
+figuring out the performance of matching files -> meta-files is key
+MAX() might help a bit...
+can't constrain by file id in case the meta-file was submitted first
+
+---
+
+SELECT MAX(m.meta_file_id)
+FROM files AS f
+INNER JOIN file_uris AS u
+	ON (u.file_id = f.file_id)
+INNER JOIN meta_data AS m
+	ON (m.uri = u.uri)
+WHERE f.file_type = 'text/x-bad-markup; charset=utf-8'
+AND m.meta_file_id < 5000
+
+---
+
+multiple files per meta-file
+since meta-files specify uri, not file id
+the solution is to push meta file and file id's out of the filter entirely
+the outer loop can perform one query for meta and file ids starting from the correct offset and step through it
+then pass the meta and file id pair into the filter
+
+---
+
+SELECT DISTINCT m.meta_file_id AS sort_id,
+	f.file_id AS file_id
+FROM meta_data AS m
+INNER JOIN file_uris AS f
+	ON (f.uri = m.uri)
+WHERE (sort_id = ? AND file_id < ?) OR sort_id < ?
+ORDER BY sort_id DESC, file_id DESC
+
+---
+
+god, now our filters are set up (i think) but we're having trouble with the simplest query in the world
+
+
+

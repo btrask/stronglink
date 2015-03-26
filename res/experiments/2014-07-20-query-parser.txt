@@ -1,0 +1,13 @@
+start <- exp* !.
+
+exp <- link
+
+link <- < scheme '://' [^ \n\t] > { fprintf(stderr, "%s\n", yytext); }
+
+scheme <- [a-z0-9-]+
+
+
+# hash://asdf/asdf
+# first, list the file, then list the files that link to it
+
+

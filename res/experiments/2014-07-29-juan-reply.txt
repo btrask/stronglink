@@ -1,0 +1,95 @@
+Hi Juan,
+
+Thanks for the feedback. I'll write a followup article that will try to address the many good points you made as soon as I have some time. I'll send you a copy to review (if you like) before I put it online.
+
+Instead of the term "namespacing," I'll start using "hash portability" from now on. You're right in that hashes aren't names, and it also conflicts with the concept of URN namespaces.
+
+The reason for allowing algorithms to output zero hashes is for type-specific cases like audio fingerprints, which may not support a given input. However, I think you're right that there's no need to support more than one output, and that would be a good simplification.
+
+I looked at the multihash spec. I don't think storing the algorithm name will be a bottleneck for the foreseeable future. As an analogy, consider how long HTTP has served us until SPDY was developed. The reason for using hex or base-64 is to have an ASCII representation of the (much shorter) binary data.
+
+Regarding paths versus URIs, I think a file system interface (e.g. FUSE) would be a big win in terms of compatibility with existing applications, but it (pretty much) requires high performance mutability support which seems challenging (maybe impossible). The prototypes I've worked on have all been immutable (append-only), which is a better fit for HTTP (GET and POST).
+
+
+
+
+
+> This isn't namespacing, at all. Namespacing is introducing additional data into a name to denote a hierarchical subspace.
+> 
+>     # namsepacing
+>     /ipfs/foobarbaz
+>     /bittorrent/foobarbaz
+> 
+>     # not namespacing
+>     H( foobarbaz || ipfs ) -> deadbeef...
+>     H( foobarbaz || bittorrent ) -> beadfeed...
+
+[...]
+
+> I wouldn't call this namespacing, as namespacing has a very precise meaning already and this is a confusing clash (as opposed to a non-confusing clash, like naming this _poisoning_, which is not a good name, but doesn't have a precise meaning to be confused with).
+> 
+> How about just _content address pollution_ or _hash pollution_. Or even _context salting_ (the analogy to password salts is a good one). 
+
+Namespacing isn't supposed to be a brand name, it's supposed to convey the implications of the problem. "Pollution" gets the nature of the problem wrong: the problem isn't "garbage hashes," it's that other projects can't access data that is partitioned off within the "hash space."
+
+What do you think of the term "hash portability"?
+
+I wasn't going to call them out publicly, but (as I understand it) Camlistore seems to be a big problem in this area. Resources are identified by hashes of their custom JSON block-lists. I don't understand yet what IPFS does in that case.
+
+> I woudln't blame bittorrent here. What you say is true, but the scope is different. BitTorrent never claimed that its infohashes were representations of the file, they are a hash of the .torrent file (correct me if I'm wrong).
+
+You're right. I wasn't trying to blame BitTorrent, because it obviously works very well for the purpose it was designed, and no one was even thinking about exposing or reusing its hashes 10+ years ago.
+
+> Part of the point of URNs was to dissociate the name from a particular organization's domain. Note that the URL spec always includes the `host` portion, which URNs don't.
+
+The problem with URNs is that they have to be assigned by some central authority. Removing that authority from the URI doesn't change that, it just becomes implicit. In practice, the URN namespace _is_ the authority, or for some there might be more complex rules (basically akin to sharding).
+
+> Yikes, fixed list of zero or more hashes? What does that even mean? Hash functions are well defined: [...]
+
+Hash functions are not so well-defined when you start getting into fuzzy and semantic hashes. The hash algorithm might decide based on the data-type that a particular piece of data is not supported at all (e.g. an audio fingerprint algorithm only supports audio formats), thus it needs to be able to return zero hashes.
+
+The analogy between hash algorithm and web server might be useful here. Sometimes servers make the same webpage available under several different URIs. Even if these URIs return the same data, they can have different use cases or meanings. For example, a blog post should have a canonical URI (permalink), but it might also be available on page 5, and have a short link as well.
+
+I can understand objecting to bundling this with the concept of the underlying algorithm, which may be an established cryptographic hash that doesn't care about how its output is presented or used. It also introduces hash portability problems that I hadn't given much thought to. For now I'm not sure these problems are severe, but I'll consider it some more.
+
+> This is already expressed by the word "Pure". If you mean to explain pure, then your paragraph is confusing.
+
+Yes, I agree it was poorly written. I was just trying to get the point across to a more general audience. (Later a non-technical friend read it and asked me what a hash was... I should've defined it.)
+
+> :( I dislike traditional URIs. Instead, I propose using paths.
+
+Paths can be wrapped in `file:` URIs, so perhaps this question really boils down to whether the system should be exposed over HTTP or over the file system.
+
+I've tried to design several FUSE clients for the prototypes I've worked on but the mapping has never made sense. IPFS exposes hash-relative paths so at least you have viable filenames (my systems did not). It's also difficult to use with existing applications unless you support full mutability, but that is a huge can of worms. Imagine someone trying to run a database on IPFS--I don't think any content addressing system could ever handle it. The impedence mismatch is too great.
+
+Applications understand that HTTP is mostly read-only, and `POST` fits nicely with submitting a file and having the server hash it and decide its "location."
+
+I believe that `readdir` is a problem too. Existing APIs can only cope with directory sizes up to a point, and using extra directories for pagination gets ugly quick. FUSE only helps a little. HTTP lets you be more dynamic, and gives you request headers and query strings to perform more complex queries, rather than just a path.
+
+But, if you can manage it, compatibility with all existing applications would be a big win. Some applications have a degree of HTTP support, but most don't.
+
+> Nope, completely disagreed. This is why git is "not good for large files". Blocking needs to be done at the application level, which it hasn't, but which things that deal with very large files -- filesystems like LBFS, or systems like `rsync`, `bup`, etc. -- do handle. The reality is that no underlying system can choose the best blocking for every data format, so ultimately some wide-reaching systems will even have to defer blocking to applications. This is a key design decision in IPFS, which will give it the ability to version notoriously complicated things, like word documents or images.
+
+I see what you're saying. Block deduplication is the best (only?) approach for efficient, application-generic mutability. I've only worked on immutable (append-only) designs, with the idea that it is useful enough by itself, and that mutability can be built on top using diffs later. Application-level diffs and merge conflict resolution would be a high cost for application developers, but it's the only way to deal with CAP. Blocking is a convenient heuristic but it's also more limited.
+
+> Fuzzy hashing could also match all sorts of other things that are not created by the author of the page, and instead are malicious copies.
+
+Yes. Authorship could be verified using digital signatures, but there is definitely a convenience/security tradeoff. For images and audio I think it might sometimes be worth it, for example see TinEye and Google Reverse Image Search. But there is also the risk of scope creep, and trying to do too many things (badly).
+
+
+
+
+
+
+
+
+
+> Instead, I would suggest this: Peer-to-Peer systems should use content-addressing aware data structures, that embed merkle links to system-agnostic data wherever possible.
+
+I saved this for last because I think it is our biggest disagreement and the core advantage of my system. I believe the Merkle DAG should be pushed up _into_ the user files, instead of existing as a separate layer supporting them. That is why content addresses should be URIs, and why hashes must be "bare" (portable, non-namespaced). When regular files embed content addresses as links, the web itself would turn into a Merkle DAG.
+
+> URIs provide path resolution over a global system, they tell computers how to use a link. If you build in support for a full blown URI, then you better understand how to handle other protocols. (e.g. ftp://..., http://..., -- otherwise, if you're going to support only one protocol, why specify it?) I claim that some self-contained systems may not want to allow other protocols, and thus should use hashes directly.
+
+When you are embedding links in user files, you do have to support arbitrary link schemes, but that mainly just means punting to the user's FTP client or web browser if they click on one. Embedding resources between `hash:` and `http:` is forbidden for security, the same way web pages can't embed arbitrary `file:` resources, or similar to the same-origin policy (although that restriction could be loosened in the future, perhaps by supporting a "click here to load external resources" button like in modern email clients). Using some schemes like `data:` or `mailto:` is okay and supported.
+
+

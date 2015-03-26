@@ -1,0 +1,103 @@
+More than I ever wanted to learn about database write performance
+
+For the past 6 months, I've been working on a high level, content addressable file system. Design requirements for it include fast synchronization between devices and user query support, including full-text search. Everything must run in a single process for ease of deployment (including, hopefully, to mobile devices), and it should be possible to embed the whole thing as a library in another application.
+
+Given the "embedded" constraint, my first choice of database was [SQLite](TODO). However, even using the [SQLite FTS4](TODO) extension for efficient full-text indexixng, synchronization performance dropped noticably as the database grew. To counter that I tried using larger and larger transactions, to the point of absurdity. Using write-ahead log mode and sacrificing durability to minimize fsyncs, the WAL would fill up in seconds and then halt progress for seconds more while a checkpoint occurred. I couldn't understand why the WAL was growing so many times faster than the rate at which real data was being written.
+
+I saw the [benchmarks](TODO) for [Lightning Memory Database](TODO) (LMDB, AKA MDB) and decided to port my application. Although it's much lower level than SQLite, I used [all of its features](TODO) including multiple "DBIs" (nested b-trees implementing separate key-spaces within a single database), "MDB_APPEND" (an optimization for sequential write performance), and "dupsort" where appropriate (including the full-text index).
+
+Read performance was remarkable with MDB (with all data cached, a simple application-level query could run in under one millisecond; unfortunately I don't have an apples-to-apples comparison with SQLite). Write performance seemed better, perhaps because MDB's clever design meant we didn't have to write data first to a WAL before copying it into the database proper. However, it still decayed badly as the database size grew.
+
+Aside: I am using [fibers](TODO) for non-blocking IO, and during that time I also switched from a custom [SQLite virtual file system](TODO) (VFS) that made SQLite itself asynchronous (without changing its API), to the idea of "big workers," where the fiber moves to a worker thread once, does all of the database access it needs to (with blocking IO), and then moves back when it's done. With the custom VFS and SQLite application-level caching enabled, it was just as fast and as regular (blocking) SQLite; however, with application-level caching disabled, async IO became roughly 5 times slower due to the overhead of scheduling each individual read and write on the thread pool. Switching to "big workers" restored performance, although the application has to be careful of what it does while on the worker thread. In practice it has been no trouble.
+
+Noticing MDB's lackluster write performance, I took a crash course in write-optimized data structures.
+
+Common sense suggests that the most efficient way to write to a database is to figure out exactly where the new value belongs, and write it directly to that location. In SQLite, this is (optionally) done via WAL; in MDB, a clever variant of an append-only b-tree is used. Either way, the important thing is that hard drives (whether mechanical or solid state) can't modify less than one block at a time, so an entire database page must be updated.
+
+Write optimized databases write all new data to a single "entry point" (some sort of log), and gradually rewrite it closer and closer to its final location. Intuitively, this causes "write amplification" because the same data has to be rewritten multiple times. However, simpler data structures also cause write amplification, because they can't update less than a block at a time. By writing everything to the same location, it all lands on the same block (or sequence of blocks), and later rewrites can consolidate all of the updates that touch a single block.
+
+As a b-tree becomes larger, random writes become more and more spread out, and thus less likely to land on the same block. This explains their pathological write performance, where throughput drops as transaction size remains constant and the database grows. In theory a write optimized database doesn't care about transaction size as long as the writes fill up an integral number of blocks (although in practice larger transactions still allow writes to be more sequential). The key here is useful work per block.
+
+Almost all modern databases provide ordered access to keys. This means the application can find an arbitrary key and then efficiently scan forward or backward. If a database is going to accept random writes and sequential reads, it means the data has to start out unordered and become ordered somehow. A write-optimized data structure, which only consolidates data once it can do so in bulk, is the only way to do this efficiently on-disk, where random writes have to update a whole block.
+
+Random access on solid state drives is a red herring. What matters more is the block size, which I understand is often larger on SSD than on mechanical disks.
+
+MDB's "MDB_APPEND" option claims to allow efficient writes to the end of a key-space, so an application might have the choice between using MDB_APPEND with several key-spaces (DBIs) or using a write-optimized database with a single key-space. If you're writing a single key per transaction, in theory it doesn't matter either way, because theoretically one block will have to be rewritten. However, if you want to append a value to several different DBIs, MDB has to write a whole page per DBI. A write-optimized database can write all of the keys to a single page in any order, and then gradually sort them later as it becomes efficient to do so.
+
+Aside: I'd highly recommend avoiding MDB's dupsort feature, even for applications where MDB is a good fit, due to several bugs I encountered with dupsort, and its apparent storage overhead (one page minimum as soon as you have two values for the same key, since internally it's creating a new nested b-tree).
+
+As mentioned above, my application supports device synchronization and full-text search. FTS is the poster boy for write-optimized databases. SQLite FTS1 used the regular SQLite b-tree, and [importing a large dataset took 13 hours](TODO). FTS2 added a simple write optimization in front and reduced that time to 30 minutes. Apache Lucene also uses [a simple form of write optimization](TODO). Notably, these databases only use a single batch size, so they can still (theoretically) see slowdowns as the database grows.
+
+LSM-trees seem to have been popularized by Google, with BigTable and especially LevelDB. Given Google Search's scale, it should be no surprise that they used an arbitrary number of levels to make sure that write and compaction performance is always optimal. That said, in retrospect LevelDB seems to be a poor fit for its use in Google Chrome for [IndexDB](TODO) storage.
+
+Like full-text search, synchronization between devices pretty much requires write-optimization if you're handling more than a tiny amount of data. A sync can dump lots of data at once and ought to go as fast as possible. Often times a user might be waiting for the sync to finish. Since SQLite3 isn't write optimized, any application that implements sync using it will probably get slower the more you use it.
+
+Howard Chu, the author of MDB, claims that [write optimization isn't necessary for applications that are read-heavy](TODO). Write performance necessarily comes at the cost of some read performance, so this may be true in some cases. He claims that OpenLDAP, the system for which MDB was originally developed, sees roughly 10 times as many reads as writes. However, according to his own benchmarks, MDB's read performance is [between 100 (async) and 1,000,000 (sync) times faster than its writes](TODO). Write optimization makes databases more balanced and I believe it's suitable for the vast majority of applications. SQLite4 will be write-optimized by default.
+
+Aside: in my benchmarks, MDB's sequential write performance with MDB_APPEND is actually worse than LevelDB's random write performance. Almost all of MDB's published benchmarks are asynchronous or entirely in-memory, which means that write-optimization doesn't apply. Under real world conditions with synchronous writes and 1,000 writes per transaction (on SSD), MDB's best-case (sequential) performance is surprisingly bad. MDB's benchmarks test one write per synchronous transaction, but that is misleading because the optimal performance in that case is updating a single block (which MDB can't even manage, a surprising downside of its clever MVCC design).
+
+In theory, a write-optimized database that doesn't receive any writes for a period of time should be able to do a full compaction and become just as efficient for reads as a simple b-tree. This would also help speed up future writes.
+
+At this point, what are our options? Surprisingly limited.
+
+LevelDB is frankly the only established write-optimized, embedded database. Unfortunately it consumes a file descriptor for every 2MB. The number of file descriptors is usually capped by the operating system at around 250-1000, and the host application will usually need many file descriptors of its own. A LevelDB database can't be accessed from multiple processes simultaneously. IMHO the biggest flaw is that LevelDB doesn't natively support transactions, so you'll probably need your own shim. Its API (especially its C API) is both bare-bones and verbose.
+
+Several forks of LevelDB, most notably RocksDB, take it in what I believe is the wrong direction. They try to tune it for performance without adding transaction support or otherwise fixing its API.
+
+Sophia is elegant and promising, but it seems to have a long list of missing features, questionable concurrency, and very little mainstream support.
+
+MDB isn't write optimized, of course, but it has the best API I've seen. I wrote a write-optimization layer on top of MDB called LSMDB, which in my benchmarks is roughly 12 times faster at random writes than plain MDB, but still 3 times slower than LevelDB. It supports transactions natively, and copies the MDB API (with some additional improvements). Both MDB and LSMDB have the problem of using up process address-space on 32-bit systems. LSMDB doesn't currently support background compaction.
+
+I found a couple of random LSM-tree implementations on GitHub, but none of them seemed usable.
+
+Fractal trees seem like an interesting alternative to LSM-trees. However, they are patented by Tokutek and the free version is licensed under the GPL, which limits the applications it can be embedded in. The API doesn't seem friendly to casual users. In contrast to [Tokutek's marketing propaganda](TODO), I don't believe fractal trees are any more "optimal" than b-trees or LSM-trees, although they do sit between them on the read/write tradeoff curve (meaning reads are theoretically slower than b-trees and writes are theoretically slower than LSM-trees).
+
+SQLite4 will have a [reusable LSM-tree back-end](TODO) as well as a [write-optimized b-tree](TODO). It supports memory mapping for performance (like MDB and LSMDB) on 64-bit, but falls back on read(2) so it doesn't run out of address-space on 32-bit. It has a clean API and native transaction support. I believe it will put every other embedded database out of its misery, and possibly some big database servers as well. The only problem with it is that it's not done yet, has no set release date, and progress on it appears to be extremely slow.
+
+So that's where we are now.
+
+
+Disclaimers:
+
+- Any write-optimized database's performance will go south as the size of keys and values being stored in it increases, because they have to be rewritten during compaction. If you need to track large values, store them outside of the database. This is good practice anyway, because most databases only allow a single writer, whereas file systems have no trouble with many concurrent writes. (Remember to fsync as necessary.)
+
+
+
+---
+
+todo
+links
+look into bitcoin's leveldb use some more
+	how does it use it without txns?
+look into indexeddb some more, maybe
+
+change lsmdb to return notfound from current()
+	same for mdb wrapper
+
+instead of whinging, just finish the leveldb wrapper?
+
+write-optimized backend makes sql file sort usable, although still less than ideal
+
+mdb is efficient at the level of memory allocations and system calls, NOT at the level of disk writes
+"how to benchmark" overview
+
+if you want to build your own fts engine, you cant do it on top of a regular b-tree, but you can do it on top of a regular lsm-tree
+
+write-optimized versus "locality"
+
+um, what about read locality?
+well, random writes plus sequential reads is perfectly valid
+but if you have random writes plus random reads, it would be good bias your keyspace the same way for both, right?
+...but you can still do that with a write-optimized database
+
+spark sorting world record?
+what method did they use?
+timsort, mapreduce
+not applicable since it isnt incremental
+
+bloom filters can make lsm-trees faster than b-trees for certain operations
+
+charts and graphs???
+painful but...
+
+

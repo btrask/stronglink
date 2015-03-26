@@ -1,0 +1,102 @@
+worker thread:
+
++ 75.7%, unix_syscall64, mach_kernel
+| - 16.5%, pwrite_nocancel, mach_kernel
+| - 13.4%, __semwait_signal_nocancel, mach_kernel
+| - 13.3%, link, mach_kernel
+| - 12.2%, write_nocancel, mach_kernel
+| - 4.4%, unlink, mach_kernel
+| - 4.4%, pread_nocancel, mach_kernel
+| - 3.6%, open_nocancel, mach_kernel
+| - 2.6%, close_nocancel, mach_kernel
+| - 1.9%, kevent, mach_kernel
+| - 1.3%, mkdir, mach_kernel
+| - 0.4%, workq_kernreturn, mach_kernel
+| - 0.4%, __semwait_signal, mach_kernel
+| - 0.1%, write, mach_kernel
+|   0.1%, pwrite, mach_kernel
++ 12.2%, thread_start, libSystem.B.dylib
+| + 12.2%, _pthread_start, libSystem.B.dylib
+| | + 12.2%, uv__thread_start, earthfs
+| | | + 11.9%, worker, earthfs
+| | | | - 4.9%, uv__fs_work, earthfs
+| | | | - 2.9%, uv_cond_wait, earthfs
+| | | | - 1.9%, uv_mutex_lock, earthfs
+| | | | - 0.7%, uv_async_send, earthfs
+| | | | - 0.4%, uv_mutex_unlock, earthfs
+| | | | - 0.3%, random_cb, earthfs
+| | |   0.1%, uv_mutex_lock, earthfs
+| | |   0.1%, uv__queue_work, earthfs
+
+---
+
+main thread:
+
++ 54.4%, _sigtramp, libSystem.B.dylib
+| + 54.4%, springboard, earthfs
+| | + 36.3%, writer, earthfs
+| | | + 30.8%, EFSSubmissionStore, earthfs
+| | | | - 20.4%, sqlite3_step, earthfs
+| | | | + 9.8%, EFSMetaFileStore, earthfs
+| | | | | - 8.2%, sqlite3_step, earthfs
+| | | | | - 1.2%, sqlite3f_prepare_v2, earthfs
+| | | | | - 0.2%, sqlite3_bind_text, earthfs
+| | | | | - 0.1%, sqlite3f_finalize, earthfs
+| | | | | - 0.1%, sqlite3_reset, earthfs
+| | | | | - 0.1%, sqlite3_column_text, earthfs
+| | | | - 0.2%, sqlite3_bind_text, earthfs
+| | | | - 0.1%, sqlite3_bind_int64, earthfs
+| | | | - 0.1%, sqlite3f_finalize, earthfs
+| | | | - 0.1%, sqlite3_reset, earthfs
+| | | |   0.0%, sqlite3f_prepare_v2, earthfs
+| | | | - 0.0%, sqlite3_column_int64, earthfs
+| | | |   0.0%, columnMem, earthfs
+| | | - 3.8%, sqlite3_step, earthfs
+| | | - 1.4%, EFSSubmissionFree, earthfs
+| | |   0.0%, sqlite3f_finalize, earthfs
+| | |   0.0%, sqlite3_bind_text, earthfs
+| | |   0.0%, sqlite3_bind_int64, earthfs
+| | |   0.0%, EFSSubmissionGetRepo, earthfs
+| | |   0.0%, EFSMetaFileStore, earthfs
+| | + 18.2%, reader, earthfs
+| | | + 18.1%, import, earthfs
+| | | | + 15.9%, EFSSubmissionCreatePair, earthfs
+| | | | | + 11.0%, EFSSubmissionCreate, earthfs
+| | | | | | + 10.5%, EFSMetaFileCreate, earthfs
+| | | | | | | - 5.0%, sqlite3f_prepare_v2, earthfs
+| | | | | | | - 4.3%, sqlite3_step, earthfs
+| | | | | | | - 1.1%, sqlite3_open_v2, earthfs
+| | | | | | |   0.0%, yajl_set_default_alloc_funcs, libyajl.2.dylib
+| | | | | | | - 0.0%, sqlite3f_finalize, earthfs
+| | | | | | - 0.2%, EFSRepoCopyTempPath, earthfs
+| | | | | | - 0.2%, async_fs_open, earthfs
+| | | | | | - 0.1%, async_fs_mkdirp_dirname, earthfs
+| | | | | |   0.0%, malloc, libSystem.B.dylib
+| | | | | |   0.0%, EFSHasherCreate, earthfs
+| | | | | + 2.8%, yajl_gen_string, libyajl.2.dylib
+| | | | | | + 2.4%, EFSSubmissionWrite, earthfs
+| | | | | | | - 2.0%, EFSMetaFileWrite, earthfs
+| | | | | | | - 0.4%, async_fs_write, earthfs
+| | | | | | - 0.4%, yajl_string_encode, libyajl.2.dylib
+| | | | | |   0.0%, EFSMetaFileWrite, earthfs
+| | | | | - 1.1%, EFSSubmissionWriteFrom, earthfs
+| | | | | - 0.3%, EFSSubmissionEnd, earthfs
+| | | | | - 0.2%, EFSSubmissionAddFile, earthfs
+| | | | | - 0.2%, yajl_gen_array_open, libyajl.2.dylib
+| | | | | - 0.2%, yajl_gen_array_close, libyajl.2.dylib
+| | | | | - 0.1%, yajl_gen_map_open, libyajl.2.dylib
+| | | | | - 0.0%, yajl_gen_map_close, libyajl.2.dylib
+| | | | |   0.0%, HTTPMessageGetBuffer, earthfs
+| | | | |   0.0%, EFSSubmissionWrite, earthfs
+| | | | - 1.8%, EFSSessionGetFileInfo, earthfs
+| | | | - 0.2%, HTTPMessageGetHeaders, earthfs
+| | | | - 0.1%, HTTPMessageFree, earthfs
+| | | | - 0.1%, HTTPMessageEnd, earthfs
+| | | | - 0.0%, HTTPMessageCreate, earthfs
+| | |   0.0%, HTTPMessageReadLine, earthfs
+
+and i'm 90% sure the time spent blocking ISN'T counted
+like in an application that was idle, it'd still be out of 100%
+when the main thread yields, it just goes on to do something else
+so the sampling can't measure it anyway
+

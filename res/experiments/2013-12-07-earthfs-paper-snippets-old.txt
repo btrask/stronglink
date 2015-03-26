@@ -1,0 +1,82 @@
+paper snippets:
+
+
+pervasive replication
+- "property ownership primer" and efficiency
+- inflection point between owning and renting?
+
+
+
+
+
+
+
+delayed replication is sounding pretty viable here...
+> As specified, EarthFS repositories replicate files from remote subscriptions as soon as those files are available. Instead, replication could be delayed until the resource was accessed locally. Indeed, that might be how some implementations work, or even provided as an option everywhere.
+
+
+
+Is it really better to develop a browser plugin for new URIs than to just figure out how to identify the repo and authenticate with cookies or something?
+A proxy wouldn't work because that's the problem with multiple users on the same machine...
+> This is an interesting opportunity given EarthFS's basis on common Web protocols, but there are too many problems with authentication to make it seem viable at present.
+
+
+
+What about HTTP proxies?
+- For our high latency web browser
+- For EarthFS itself
+
+
+
+to cover
+- relation to existing web servers and CDNs
+- DVCS
+	- branches versus users
+- Lookups/Retrival/Search
+	- Queries
+		- indexing
+		- backlink tracking
+	- URI resolution
+		- How we handle multiple files for the same URN
+	- Dynamic/centralized namer resolution failures?
+		- Can namers add files during resolution? (probably not)
+- How about a section just on the name?
+	- Earth vs cloud
+	- earth: URNs global scope
+		- universe: URNs on the roadmap for version 2.0
+- Rework incentives section
+- Remotes
+	- Repo discovery
+	- Pull queues and multiple remotes
+- File Meta-Data
+	- A better section on what is hashed and what is not, and why
+	- Read/unread status?
+- Background
+	- Explain/introduce content addressing better
+- Better system for hiding embedded files
+- File system:Dropbox::EarthFS:pulls
+- Should content authors use Web URIs or EarthFS URIs?
+	- Consider whether you would link to an archived page from the Wayback Machine
+- Copyright versus pervasive replication
+- Try to list prior art for each idea?
+	- Paul Vixie/fuzzy checksums -> semantic hashes
+- Code questions
+	- POST to /api/file or /api/submission?
+	- Support /api/file/[algo]/[hash]/first and last (for convenience)?
+	- How to close sessions after they are done, reliably?
+- "You'll also want an executive summary, which should be no more than a page long and describe in the most matter of fact language what you plan to do, why it's a good idea, and what progress you've made so far. The point of the summary is to remind the investor (who may have met many startups that day) what you talked about." -- http://paulgraham.com/fr.html
+- Remote repo auto-discovery and subscription process
+
+
+
+
+
+
+
+
+
+RESEARCH
+- Semantic hashes
+	- TinEye, Google Image Search
+	- Image comparison algorithms
+
