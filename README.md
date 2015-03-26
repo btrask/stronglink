@@ -39,6 +39,11 @@ It's currently missing a large number of features. There is no configuration int
 
 The sync API will change before final release. There will be a way to migrate your notes.
 
+**Will it ever support mutability?**
+Hopefully, yes. The plan is to build a mutable interface layer on top of the immutable data store. This will keep StrongLink's sync protocol simple and reliable while gradually supporting a broader range of uses. Mutable tags will come first, and then eventually mutable files (using diffs rather than block deduplication).
+
+File deletion support is also planned, but deletions will only apply to the current device (they won't sync).
+
 **Why is it written in C?**
 Eventually the core of StrongLink (without the blog interface) will be bundled as a reusable library. In this mode StrongLink would function more like a high level message queue, with high level filtering features. I'd also like to release a native version for iOS and Android, where footprint matters a lot.
 
