@@ -71,6 +71,7 @@ static void init(void *const unused) {
 	type = INADDR_LOOPBACK;
 	int rc = HTTPServerListen(server, "8000", type); // TODO
 	assertf(rc >= 0, "Unable to start server (%d, %s)", rc, uv_strerror(rc));
+	fprintf(stderr, "StrongLink server running at http://localhost:8000/\n");
 	EFSRepoPullsStart(repo);
 
 	uv_signal_init(loop, sigint);
@@ -78,7 +79,7 @@ static void init(void *const unused) {
 	uv_unref((uv_handle_t *)sigint);
 }
 static void term(void *const unused) {
-	fprintf(stderr, "\nStopping EarthFS...\n");
+	fprintf(stderr, "\nStopping StrongLink server...\n");
 	uv_ref((uv_handle_t *)sigint);
 	uv_signal_stop(sigint);
 	async_close((uv_handle_t *)sigint);

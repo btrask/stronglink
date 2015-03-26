@@ -171,9 +171,9 @@ endif
 .DEFAULT_GOAL := all
 
 .PHONY: all
-all: $(BUILD_DIR)/earthfs
+all: $(BUILD_DIR)/stronglink
 
-$(BUILD_DIR)/earthfs: $(OBJECTS) $(MODULES)
+$(BUILD_DIR)/stronglink: $(OBJECTS) $(MODULES)
 	@- mkdir -p $(dir $@)
 	$(CC) -o $@ $(OBJECTS) $(CFLAGS) -Werror -Wall $(STATIC_LIBS) $(LIBS)
 
