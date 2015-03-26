@@ -188,7 +188,11 @@ int HTTPConnectionReadRequest(HTTPConnectionRef const conn, HTTPMethod *const me
 	HTTPEvent type;
 	out[0] = '\0';
 	for(;;) {
+		// Use unref because we shouldn't block the server
+		// on a request that may never arrive.
+		uv_unref((uv_handle_t *)conn->stream);
 		rc = HTTPConnectionPeek(conn, &type, buf);
+		uv_ref((uv_handle_t *)conn->stream);
 		if(rc < 0) return rc;
 		if(HTTPHeaderField == type || HTTPHeadersComplete == type) break;
 		HTTPConnectionPop(conn, buf->len);
