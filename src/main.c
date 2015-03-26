@@ -97,9 +97,6 @@ static void term(void *const unused) {
 
 	EFSRepoPullsStop(repo);
 	HTTPServerClose(server);
-	HTTPServerFree(&server);
-	BlogFree(&blog);
-	EFSRepoFree(&repo);
 }
 int main(int const argc, char const *const *const argv) {
 	// Depending on how async_pool and async_fs are configured, we might be
@@ -127,6 +124,9 @@ int main(int const argc, char const *const *const argv) {
 
 	async_spawn(STACK_DEFAULT, term, NULL);
 	uv_run(loop, UV_RUN_DEFAULT); // Allows term() to execute.
+	HTTPServerFree(&server);
+	BlogFree(&blog);
+	EFSRepoFree(&repo);
 
 	uv_ref((uv_handle_t *)sigpipe);
 	uv_signal_stop(sigpipe);
