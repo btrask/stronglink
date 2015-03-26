@@ -12,12 +12,13 @@
 typedef unsigned char byte_t;
 typedef char str_t;
 typedef str_t const *strarg_t; // A string that belongs to someone else.
+
+// Deprecated
 typedef size_t index_t;
 typedef size_t count_t;
 
-#define numberof(x) (sizeof(x) / sizeof(*x))
+#define numberof(x) (sizeof(x) / sizeof(*(x)))
 
-// TODO: Where are these officially defined?
 #define MIN(a, b) ({ \
 	__typeof__(a) const __a = (a); \
 	__typeof__(b) const __b = (b); \
@@ -27,12 +28,6 @@ typedef size_t count_t;
 	__typeof__(a) const __a = (a); \
 	__typeof__(b) const __b = (b); \
 	__a > __b ? __a : __b; \
-})
-
-#define SUB_ZERO(a, b) ({ \
-	__typeof__(a) const __a = (a); \
-	__typeof__(b) const __b = (b); \
-	__a > __b ? __a - __b : 0; \
 })
 
 #ifdef NDEBUG
