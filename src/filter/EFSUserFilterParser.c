@@ -7,6 +7,7 @@ static EFSFilterRef parse_or(strarg_t *const query);
 static EFSFilterRef parse_exp(strarg_t *const query);
 static EFSFilterRef parse_parens(strarg_t *const query);
 static EFSFilterRef parse_link(strarg_t *const query);
+static EFSFilterRef parse_quoted(strarg_t *const query);
 static EFSFilterRef parse_term(strarg_t *const query);
 static bool parse_space(strarg_t *const query);
 static bool parse_token(strarg_t *const query, strarg_t const token);
@@ -55,6 +56,7 @@ static EFSFilterRef parse_exp(strarg_t *const query) {
 	EFSFilterRef exp = NULL;
 	if(!exp) exp = parse_parens(query);
 	if(!exp) exp = parse_link(query);
+	if(!exp) exp = parse_quoted(query);
 	if(!exp) exp = parse_term(query);
 	return exp;
 }
@@ -62,11 +64,7 @@ static EFSFilterRef parse_parens(strarg_t *const query) {
 	strarg_t q = *query;
 	if('(' != *q++) return NULL;
 	EFSFilterRef filter = parse_and(&q);
-	if(!filter) return NULL;
-	if(')' != *q++) {
-		EFSFilterFree(&filter);
-		return NULL;
-	}
+	if(')' == *q) q++;
 	*query = q;
 	return filter;
 }
@@ -82,6 +80,31 @@ static EFSFilterRef parse_link(strarg_t *const query) {
 	size_t const len = q - *query;
 	EFSFilterAddStringArg(filter, "link", sizeof("link")-1);
 	EFSFilterAddStringArg(filter, *query, len);
+	*query = q;
+	return filter;
+}
+static EFSFilterRef parse_quoted(strarg_t *const query) {
+	strarg_t q = *query;
+	char const op = *q++;
+	strarg_t const start = q;
+	if('\'' != op && '"' != op) return NULL;
+	for(;;) {
+		if('\0' == *q) break;
+		if(op == *q) break;
+		q++;
+	}
+	size_t const len = q - start;
+	if(0 == len) {
+		*query = q;
+		return NULL;
+	}
+	EFSFilterRef filter = EFSFilterCreate(EFSFulltextFilterType);
+	int rc = EFSFilterAddStringArg(filter, start, len);
+	if(rc < 0) {
+		EFSFilterFree(&filter);
+		filter = NULL;
+		// Fall through, swallowing token anyway
+	}
 	*query = q;
 	return filter;
 }
