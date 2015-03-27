@@ -9,10 +9,13 @@ TOOLS_DIR := $(ROOT_DIR)/tools
 # TODO: Hardcoded version number...
 YAJL_BUILD_DIR := $(DEPS_DIR)/yajl/build/yajl-2.1.1
 
+PREFIX ?= /usr/local
+
 # TODO: Switch to c99
 CFLAGS += -std=gnu99
 CFLAGS += -g -fno-omit-frame-pointer
 CFLAGS += -DLIBCO_MP
+CFLAGS += -DINSTALL_PREFIX=$(PREFIX)
 
 WARNINGS := -Werror -Wall
 WARNINGS += -Wno-unused
@@ -263,6 +266,15 @@ $(BUILD_DIR)/sln-markdown: $(BUILD_DIR)/markdown_standalone.o $(BUILD_DIR)/http/
 $(BUILD_DIR)/markdown_standalone.o: $(SRC_DIR)/blog/markdown.c cmark
 	@- mkdir -p $(dir $@)
 	$(CC) -c $(CFLAGS) $(WARNINGS) -DMARKDOWN_STANDALONE $< -o $@
+
+.PHONY: install
+install: all
+	install -d $(PREFIX)/bin
+	install -d $(PREFIX)/share/stronglink
+	install $(BUILD_DIR)/stronglink $(PREFIX)/bin
+	install $(BUILD_DIR)/sln-markdown $(PREFIX)/bin
+	#install $(ROOT_DIR)/res/blog $(PREFIX)/share/stronglink
+	# TODO: How do we install a directory?
 
 .PHONY: clean
 clean:
