@@ -102,8 +102,8 @@ static EFSFilterRef parse_quoted(strarg_t *const query) {
 	int rc = EFSFilterAddStringArg(filter, start, len);
 	if(rc < 0) {
 		EFSFilterFree(&filter);
-		filter = NULL;
-		// Fall through, swallowing token anyway
+		*query = q;
+		return NULL;
 	}
 	*query = q;
 	return filter;
@@ -124,8 +124,8 @@ static EFSFilterRef parse_term(strarg_t *const query) {
 	int rc = EFSFilterAddStringArg(filter, *query, len);
 	if(rc < 0) {
 		EFSFilterFree(&filter);
-		filter = NULL;
-		// Fall through, swallowing token anyway
+		*query = q;
+		return NULL;
 	}
 	*query = q;
 	return filter;
