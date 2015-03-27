@@ -36,11 +36,22 @@ enum {
 	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_VARINT_MAX); \
 	db_bind_uint64((val), SLNUserByID); \
 	db_bind_uint64((val), (userID));
-#define SLNUserByIDValPack(val, txn, username, passhash, token) \
-	DB_VAL_STORAGE(val, DB_INLINE_MAX * 3); \
+#define SLNUserByIDValPack(val, txn, username, passhash, token, mode, parent, time) \
+	DB_VAL_STORAGE(val, DB_INLINE_MAX * 3 + DB_VARINT_MAX * 3); \
 	db_bind_string((val), (username), (txn)); \
 	db_bind_string((val), (passhash), (txn)); \
-	db_bind_string((val), (token), (txn));
+	db_bind_string((val), (token), (txn)); \
+	db_bind_uint64((val), (mode)); \
+	db_bind_uint64((val), (parent)); \
+	db_bind_uint64((val), (time));
+#define SLNUserByIDValUnpack(val, txn, username, passhash, token, mode, parent, time) ({ \
+	*(username) = db_read_string((val), (txn)); \
+	*(passhash) = db_read_string((val), (txn)); \
+	*(token) = db_read_string((val), (txn)); \
+	*(mode) = (SLNMode)db_read_uint64((val)); \
+	*(parent) = db_read_uint64((val)); \
+	*(time) = db_read_uint64((val)); \
+})
 
 #define SLNUserIDByNameKeyPack(val, txn, username) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_INLINE_MAX); \
@@ -58,6 +69,10 @@ enum {
 	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_INLINE_MAX); \
 	db_bind_uint64((val), (userID)); \
 	db_bind_string((val), (sessionHash), (txn));
+#define SLNSessionByIDValUnpack(val, txn, userID, sessionHash) ({ \
+	*(userID) = db_read_uint64((val)); \
+	*(sessionHash) = db_read_string((val), (txn)); \
+})
 
 #define SLNPullByIDKeyPack(val, txn, pullID) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_VARINT_MAX); \

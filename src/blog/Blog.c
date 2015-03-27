@@ -648,8 +648,9 @@ static int POST_auth(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	SLNRepoRef const repo = SLNSessionGetRepo(session);
 	str_t *cookie = NULL;
-	int rc = SLNRepoCookieCreate(repo, "ben", "testing", &cookie); // TODO
-	if(0 != rc) {
+	SLNMode mode = 0;
+	int rc = SLNRepoCookieCreate(repo, "ben", "testing", &cookie, &mode); // TODO
+	if(DB_SUCCESS != rc) {
 		FREE(&cookie);
 		return 403;
 	}

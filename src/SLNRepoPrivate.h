@@ -16,6 +16,9 @@ struct SLNRepo {
 
 	DB_env *db;
 
+	SLNMode pub_mode;
+	SLNMode reg_mode;
+
 	hash_t cookie_hash[1];
 	cookie_t *cookie_data;
 

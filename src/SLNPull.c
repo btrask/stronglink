@@ -35,7 +35,7 @@ SLNPullRef SLNRepoCreatePull(SLNRepoRef const repo, uint64_t const pullID, uint6
 	SLNPullRef pull = calloc(1, sizeof(struct SLNPull));
 	if(!pull) return NULL;
 	pull->pullID = pullID;
-	pull->session = SLNRepoCreateSessionInternal(repo, userID);
+	pull->session = SLNRepoCreateSessionInternal(repo, userID, SLN_RDWR);
 	pull->username = strdup(username);
 	pull->password = strdup(password);
 	pull->cookie = cookie ? strdup(cookie) : NULL;

@@ -2,27 +2,36 @@
 #include "StrongLink.h"
 #include "SLNDB.h"
 
+#define USER_MIN 2
+#define USER_MAX 32
+#define PASS_MIN 0
+#define PASS_MAX 72
+
 struct SLNSession {
 	SLNRepoRef repo;
 	uint64_t userID;
+	SLNMode mode;
 	int autherr;
 };
 
 SLNSessionRef SLNRepoCreateSession(SLNRepoRef const repo, strarg_t const cookie) {
 	uint64_t userID;
-	int rc = SLNRepoCookieAuth(repo, cookie, &userID);
+	SLNMode mode;
+	int rc = SLNRepoCookieAuth(repo, cookie, &userID, &mode);
 	if(rc < 0) userID = 0; // Public access
-	SLNSessionRef session = SLNRepoCreateSessionInternal(repo, userID);
-	if(session) {
-		session->autherr = rc;
-	}
+	if(0 == userID) mode = SLNRepoGetPublicMode(repo);
+	SLNSessionRef session = SLNRepoCreateSessionInternal(repo, userID, mode);
+	if(session) session->autherr = rc;
 	return session;
 }
-SLNSessionRef SLNRepoCreateSessionInternal(SLNRepoRef const repo, uint64_t const userID) {
+SLNSessionRef SLNRepoCreateSessionInternal(SLNRepoRef const repo, uint64_t const userID, SLNMode const mode) {
+	assert(repo);
+	if(!mode) return NULL;
 	SLNSessionRef const session = calloc(1, sizeof(struct SLNSession));
 	if(!session) return NULL;
 	session->repo = repo;
 	session->userID = userID;
+	session->mode = mode;
 	session->autherr = 0;
 	return session;
 }
@@ -31,6 +40,7 @@ void SLNSessionFree(SLNSessionRef *const sessionptr) {
 	if(!session) return;
 	session->repo = NULL;
 	session->userID = 0;
+	session->mode = 0;
 	session->autherr = 0;
 	assert_zeroed(session, 1);
 	FREE(sessionptr); session = NULL;
@@ -46,6 +56,65 @@ uint64_t SLNSessionGetUserID(SLNSessionRef const session) {
 int SLNSessionGetAuthError(SLNSessionRef const session) {
 	if(!session) return DB_EINVAL;
 	return session->autherr;
+}
+
+int SLNSessionCreateUser(SLNSessionRef const session, strarg_t const username, strarg_t const password) {
+	if(!session) return DB_EINVAL;
+	if(!username) return DB_EINVAL;
+	if(!password) return DB_EINVAL;
+	size_t const ulen = strlen(username);
+	size_t const plen = strlen(password);
+	if(ulen < USER_MIN || ulen > USER_MAX) return DB_EINVAL;
+	if(plen < PASS_MIN || plen > PASS_MAX) return DB_EINVAL;
+
+	SLNRepoRef const repo = session->repo;
+	SLNMode const mode = SLNRepoGetRegistrationMode(repo);
+	if(!mode) return DB_EINVAL;
+	uint64_t const parent = session->userID;
+	uint64_t const time = uv_now(loop); // TODO: Appropriate timestamp?
+
+	DB_env *db;
+	SLNRepoDBOpen(repo, &db);
+	DB_txn *txn;
+	int rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
+	if(DB_SUCCESS != rc) return rc;
+
+	uint64_t const userID = db_next_id(SLNUserByID, txn);
+	if(!userID) {
+		db_txn_abort(txn);
+		SLNRepoDBClose(repo, &db);
+		return DB_EACCES;
+	}
+	str_t *passhash = hashpass(password);
+	if(!passhash) {
+		db_txn_abort(txn);
+		SLNRepoDBClose(repo, &db);
+		return DB_ENOMEM;
+	}
+
+	DB_val username_key[1], userID_val[1];
+	SLNUserIDByNameKeyPack(username_key, txn, username);
+	SLNUserIDByNameValPack(userID_val, txn, userID);
+	rc = db_put(txn, username_key, userID_val, DB_NOOVERWRITE);
+	if(DB_SUCCESS != rc) {
+		db_txn_abort(txn);
+		SLNRepoDBClose(repo, &db);
+		return rc;
+	}
+
+	DB_val userID_key[1], user_val[1];
+	SLNUserByIDKeyPack(userID_key, txn, userID);
+	SLNUserByIDValPack(user_val, txn, username, passhash, NULL, mode, parent, time);
+	rc = db_put(txn, userID_key, user_val, DB_NOOVERWRITE);
+	if(DB_SUCCESS != rc) {
+		db_txn_abort(txn);
+		SLNRepoDBClose(repo, &db);
+		return rc;
+	}
+
+	rc = db_txn_commit(txn); txn = NULL;
+	SLNRepoDBClose(repo, &db);
+	return rc;
 }
 
 str_t **SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const filter, count_t const max) { // TODO: Sort order, pagination.

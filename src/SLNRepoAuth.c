@@ -1,10 +1,6 @@
 #include "SLNRepoPrivate.h"
 #include "util/bcrypt.h"
 
-// TODO: better handling of database errors
-// expected errors (e.g. DB_NOTFOUND) should be handled specifically
-// unexpected errors should log a message and return an appropriate UV_* error
-
 #define COOKIE_CACHE_COUNT 1000
 #define COOKIE_CACHE_SEARCH 15
 #define COOKIE_CACHE_TIMEOUT (1000 * 60 * 5)
@@ -16,13 +12,15 @@ struct cookie_t {
 	str_t sessionKey[SESSION_KEY_LEN];
 	uint64_t time;
 	uint64_t userID;
+	SLNMode mode;
 };
 
-static int user_auth(SLNRepoRef const repo, strarg_t const username, strarg_t const password, uint64_t *const outUserID) {
+static int user_auth(SLNRepoRef const repo, strarg_t const username, strarg_t const password, uint64_t *const outUserID, SLNMode *const outMode) {
 	assert(repo);
 	assert(username);
 	assert(password);
 	assert(outUserID);
+	assert(outMode);
 
 	DB_env *db = NULL;
 	SLNRepoDBOpen(repo, &db);
@@ -43,11 +41,7 @@ static int user_auth(SLNRepoRef const repo, strarg_t const username, strarg_t co
 		return rc;
 	}
 	uint64_t const userID = db_read_uint64(userID_val);
-	if(!userID) {
-		db_txn_abort(txn); txn = NULL;
-		SLNRepoDBClose(repo, &db);
-		return UV_EACCES;
-	}
+	db_assert(userID);
 
 	DB_val userID_key[1];
 	SLNUserByIDKeyPack(userID_key, txn, userID);
@@ -58,21 +52,29 @@ static int user_auth(SLNRepoRef const repo, strarg_t const username, strarg_t co
 		SLNRepoDBClose(repo, &db);
 		return rc;
 	}
-	strarg_t const u = db_read_string(user_val, txn);
-	assert(0 == strcmp(username, u));
-	str_t *passhash = strdup(db_read_string(user_val, txn));
+	strarg_t u, p, ignore1;
+	SLNMode mode;
+	uint64_t ignore2, ignore3;
+	SLNUserByIDValUnpack(user_val, txn, &u, &p, &ignore1, &mode, &ignore2, &ignore3);
+	db_assert(0 == strcmp(username, u));
+	str_t *passhash = strdup(p);
 
 	db_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
 
+	if(!mode) {
+		FREE(&passhash);
+		return DB_EACCES;
+	}
 	if(!checkpass(password, passhash)) {
 		FREE(&passhash);
-		return UV_EACCES;
+		return DB_EACCES;
 	}
 	FREE(&passhash);
 
 	*outUserID = userID;
-	return 0;
+	*outMode = mode;
+	return DB_SUCCESS;
 }
 static int session_create(SLNRepoRef const repo, uint64_t const userID, strarg_t const sessionKey, uint64_t *const outSessionID) {
 	assert(repo);
@@ -82,7 +84,7 @@ static int session_create(SLNRepoRef const repo, uint64_t const userID, strarg_t
 
 	str_t *sessionHash = hashpass(sessionKey);
 	if(!sessionHash) {
-		return UV_ENOMEM;
+		return DB_ENOMEM;
 	}
 
 	DB_env *db = NULL;
@@ -114,11 +116,12 @@ static int session_create(SLNRepoRef const repo, uint64_t const userID, strarg_t
 	}
 
 	*outSessionID = sessionID;
-	return 0;
+	return DB_SUCCESS;
 }
-static void cookie_cache_store(SLNRepoRef const repo, uint64_t const userID, uint64_t const sessionID, strarg_t const sessionKey) {
+static void cookie_cache_store(SLNRepoRef const repo, uint64_t const userID, SLNMode const mode, uint64_t const sessionID, strarg_t const sessionKey) {
 	assert(repo);
 	assert(userID);
+	assert(mode);
 	assert(sessionID);
 	assert(sessionKey);
 	uint64_t const now = uv_now(loop);
@@ -138,13 +141,15 @@ static void cookie_cache_store(SLNRepoRef const repo, uint64_t const userID, uin
 	hash_set_raw(repo->cookie_hash, i, (char const *)&sessionID);
 	memcpy(&repo->cookie_data[i].sessionKey, sessionKey, 32);
 	repo->cookie_data[i].userID = userID;
+	repo->cookie_data[i].mode = mode;
 	repo->cookie_data[i].time = now;
 }
-static size_t cookie_cache_lookup(SLNRepoRef const repo, uint64_t const sessionID, strarg_t const sessionKey, uint64_t *const outUserID) {
+static size_t cookie_cache_lookup(SLNRepoRef const repo, uint64_t const sessionID, strarg_t const sessionKey, uint64_t *const outUserID, SLNMode *const outMode) {
 	assert(repo);
 	assert(sessionID);
 	assert(sessionKey);
 	assert(outUserID);
+	assert(outMode);
 
 	size_t const x = hash_func(repo->cookie_hash, (char const *)&sessionID);
 	size_t i = x;
@@ -164,17 +169,20 @@ static size_t cookie_cache_lookup(SLNRepoRef const repo, uint64_t const sessionI
 		repo->cookie_data[i].time = now;
 	}
 	*outUserID = repo->cookie_data[i].userID;
+	*outMode = repo->cookie_data[i].mode;
 	return i;
 }
-static int cookie_create(SLNRepoRef const repo, strarg_t const username, strarg_t const password, str_t **const outCookie) {
+static int cookie_create(SLNRepoRef const repo, strarg_t const username, strarg_t const password, str_t **const outCookie, SLNMode *const outMode) {
 	assert(repo);
 	assert(username);
 	assert(password);
 	assert(outCookie);
 
 	uint64_t userID = 0;
-	int rc = user_auth(repo, username, password, &userID);
-	if(0 != rc) return rc;
+	SLNMode mode = 0;
+	int rc = user_auth(repo, username, password, &userID, &mode);
+	if(DB_SUCCESS != rc) return rc;
+	assert(mode);
 
 	byte_t bytes[SESSION_KEY_LEN/2];
 	str_t sessionKey[SESSION_KEY_LEN] = "1111111111" "1111111111" "1111111111" "1";
@@ -183,17 +191,18 @@ static int cookie_create(SLNRepoRef const repo, strarg_t const username, strarg_
 
 	uint64_t sessionID = 0;
 	rc = session_create(repo, userID, sessionKey, &sessionID);
-	if(0 != rc) return rc;
+	if(DB_SUCCESS != rc) return rc;
 
 	str_t *cookie = aasprintf("%llu:%s", (unsigned long long)sessionID, sessionKey);
 	if(!cookie) return -1;
 
-	cookie_cache_store(repo, userID, sessionID, sessionKey);
+	cookie_cache_store(repo, userID, mode, sessionID, sessionKey);
 
 	*outCookie = cookie;
-	return 0;
+	*outMode = mode;
+	return DB_SUCCESS;
 }
-static int cookie_auth(SLNRepoRef const repo, strarg_t const cookie, uint64_t *const outUserID) {
+static int cookie_auth(SLNRepoRef const repo, strarg_t const cookie, uint64_t *const outUserID, SLNMode *const outMode) {
 	assert(repo);
 	assert(cookie);
 	assert(outUserID);
@@ -202,13 +211,15 @@ static int cookie_auth(SLNRepoRef const repo, strarg_t const cookie, uint64_t *c
 	str_t sessionKey[SESSION_KEY_LEN] = {};
 	sscanf(cookie, "s=%llu:" SESSION_KEY_FMT, &sessionID_ULL, sessionKey);
 	uint64_t const sessionID = sessionID_ULL;
-	if(!sessionID) return UV_EACCES;
-	if(strlen(sessionKey) != SESSION_KEY_LEN-1) return UV_EACCES;
+	if(!sessionID) return DB_EINVAL;
+	if(strlen(sessionKey) != SESSION_KEY_LEN-1) return DB_EINVAL;
 
 	uint64_t userID = 0;
-	if(HASH_NOTFOUND != cookie_cache_lookup(repo, sessionID, sessionKey, &userID)) {
+	SLNMode mode = 0;
+	if(HASH_NOTFOUND != cookie_cache_lookup(repo, sessionID, sessionKey, &userID, &mode)) {
 		*outUserID = userID;
-		return 0;
+		*outMode = mode;
+		return DB_SUCCESS;
 	}
 
 	DB_env *db = NULL;
@@ -226,37 +237,59 @@ static int cookie_auth(SLNRepoRef const repo, strarg_t const cookie, uint64_t *c
 		SLNRepoDBClose(repo, &db);
 		return rc;
 	}
-	userID = db_read_uint64(session_val);
-	if(!userID) {
+	strarg_t h;
+	SLNSessionByIDValUnpack(session_val, txn, &userID, &h);
+	db_assert(userID);
+	db_assert(h);
+
+	// This is painful... We have to do a whole extra lookup just
+	// to get the mode. We can't cache it with the session either,
+	// in case it goes stale.
+	// Maybe in the future we will be able to use the username, etc.
+	DB_val userID_key[1];
+	SLNUserByIDKeyPack(userID_key, txn, userID);
+	DB_val user_val[1];
+	rc = db_get(txn, userID_key, user_val);
+	if(DB_SUCCESS != rc) {
 		db_txn_abort(txn); txn = NULL;
 		SLNRepoDBClose(repo, &db);
-		return UV_EACCES;
+		return rc;
 	}
-	str_t *sessionHash = strdup(db_read_string(session_val, txn));
+	strarg_t ignore1, ignore2, ignore3;
+	uint64_t ignore4, ignore5;
+	SLNUserByIDValUnpack(user_val, txn, &ignore1, &ignore2, &ignore3, &mode, &ignore4, &ignore5);
+	if(!mode) {
+		db_txn_abort(txn); txn = NULL;
+		SLNRepoDBClose(repo, &db);
+		return DB_EACCES;
+	}
+
+	str_t *sessionHash = strdup(h);
 
 	db_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
 
-	if(!sessionHash) return UV_ENOMEM;
+	if(!sessionHash) return DB_ENOMEM;
 
 	if(!checkpass(sessionKey, sessionHash)) {
 		FREE(&sessionHash);
-		return UV_EACCES;
+		return DB_EACCES;
 	}
-	cookie_cache_store(repo, userID, sessionID, sessionKey);
+	cookie_cache_store(repo, userID, mode, sessionID, sessionKey);
 	FREE(&sessionHash);
 
 	*outUserID = userID;
-	return 0;
+	*outMode = mode;
+	return DB_SUCCESS;
 }
 
 int SLNRepoAuthInit(SLNRepoRef const repo) {
 	assert(repo);
 	int rc = hash_init(repo->cookie_hash, COOKIE_CACHE_COUNT, sizeof(uint64_t));
-	if(rc < 0) return rc;
+	if(rc < 0) return DB_ENOMEM;
 	repo->cookie_data = calloc(COOKIE_CACHE_COUNT, sizeof(struct cookie_t));
-	if(!repo->cookie_data) return UV_ENOMEM;
-	return 0;
+	if(!repo->cookie_data) return DB_ENOMEM;
+	return DB_SUCCESS;
 }
 void SLNRepoAuthDestroy(SLNRepoRef const repo) {
 	assert(repo);
@@ -264,15 +297,15 @@ void SLNRepoAuthDestroy(SLNRepoRef const repo) {
 	FREE(&repo->cookie_data);
 }
 
-int SLNRepoCookieCreate(SLNRepoRef const repo, strarg_t const username, strarg_t const password, str_t **const outCookie) {
-	if(!repo) return UV_EINVAL;
-	if(!username) return UV_EINVAL;
-	if(!password) return UV_EINVAL;
-	return cookie_create(repo, username, password, outCookie);
+int SLNRepoCookieCreate(SLNRepoRef const repo, strarg_t const username, strarg_t const password, str_t **const outCookie, SLNMode *const outMode) {
+	if(!repo) return DB_EINVAL;
+	if(!username) return DB_EINVAL;
+	if(!password) return DB_EINVAL;
+	return cookie_create(repo, username, password, outCookie, outMode);
 }
-int SLNRepoCookieAuth(SLNRepoRef const repo, strarg_t const cookie, uint64_t *const outUserID) {
-	if(!repo) return UV_EINVAL;
-	if(!cookie) return UV_EINVAL;
-	return cookie_auth(repo, cookie, outUserID);
+int SLNRepoCookieAuth(SLNRepoRef const repo, strarg_t const cookie, uint64_t *const outUserID, SLNMode *const outMode) {
+	if(!repo) return DB_EINVAL;
+	if(!cookie) return DB_EINVAL;
+	return cookie_auth(repo, cookie, outUserID, outMode);
 }
 

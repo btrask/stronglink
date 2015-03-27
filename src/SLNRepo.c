@@ -31,6 +31,11 @@ SLNRepoRef SLNRepoCreate(strarg_t const dir, strarg_t const name) {
 		SLNRepoFree(&repo);
 		return NULL;
 	}
+
+	// TODO: Configuration
+	repo->pub_mode = SLN_RDONLY;
+	repo->reg_mode = 0;
+
 	debug_data(repo->db); // TODO
 	loadPulls(repo);
 
@@ -58,6 +63,9 @@ void SLNRepoFree(SLNRepoRef *const repoptr) {
 	FREE(&repo->DBPath);
 
 	db_env_close(repo->db); repo->db = NULL;
+
+	repo->pub_mode = 0;
+	repo->reg_mode = 0;
 
 	SLNRepoAuthDestroy(repo);
 
@@ -119,6 +127,15 @@ void SLNRepoDBClose(SLNRepoRef const repo, DB_env **const dbptr) {
 	assert(repo);
 	async_pool_leave(NULL);
 	*dbptr = NULL;
+}
+
+SLNMode SLNRepoGetPublicMode(SLNRepoRef const repo) {
+	if(!repo) return 0;
+	return repo->pub_mode;
+}
+SLNMode SLNRepoGetRegistrationMode(SLNRepoRef const repo) {
+	if(!repo) return 0;
+	return repo->reg_mode;
 }
 
 void SLNRepoSubmissionEmit(SLNRepoRef const repo, uint64_t const sortID) {
@@ -252,27 +269,9 @@ static void debug_data(DB_env *const db) {
 	assert(!rc);
 	assert(txn);
 
-	uint64_t const userID = 1;
-	char const *const username = "ben";
-	char const *const passhash = "$2a$08$lhAQjgGPuwvtErV.aK.MGO1T2W0UhN1r4IngmF5FvY0LM826aF8ye";
-	char const *const token = passhash;
-
-	DB_val userID_key[1];
-	SLNUserByIDKeyPack(userID_key, txn, userID);
-	DB_val user_val[1];
-	SLNUserByIDValPack(user_val, txn, username, passhash, token);
-	rc = db_put(txn, userID_key, user_val, 0);
-	assert(!rc);
-
-	DB_val username_key[1];
-	SLNUserIDByNameKeyPack(username_key, txn, username);
-	DB_val userID_val[1];
-	SLNUserIDByNameValPack(userID_val, txn, userID);
-	rc = db_put(txn, username_key, userID_val, 0);
-	assert(!rc);
-
 	DB_val pullID_key[1];
 	SLNPullByIDKeyPack(pullID_key, txn, 1);
+	uint64_t const userID = 1;
 	char const *const host = "localhost:8009";
 	char const *const remote_username = "ben";
 	char const *const remote_password = "testing";
