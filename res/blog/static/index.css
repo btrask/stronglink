@@ -92,7 +92,8 @@ input {
 .content h4,
 .content h5,
 .content h6,
-.content > div {
+.content > div,
+.content > pre {
 	margin-top: 1em;
 	margin-bottom: 1em;
 }
