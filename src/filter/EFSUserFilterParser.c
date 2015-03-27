@@ -94,6 +94,7 @@ static EFSFilterRef parse_quoted(strarg_t *const query) {
 		q++;
 	}
 	size_t const len = q - start;
+	if(op == *q) q++;
 	if(0 == len) {
 		*query = q;
 		return NULL;
