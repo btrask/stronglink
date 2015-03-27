@@ -102,7 +102,7 @@ strarg_t SLNRepoGetTempDir(SLNRepoRef const repo) {
 }
 str_t *SLNRepoCopyTempPath(SLNRepoRef const repo) {
 	if(!repo) return NULL;
-	return async_fs_tempnam(repo->tempDir, "efs");
+	return async_fs_tempnam(repo->tempDir, "sln");
 }
 strarg_t SLNRepoGetCacheDir(SLNRepoRef const repo) {
 	if(!repo) return NULL;
