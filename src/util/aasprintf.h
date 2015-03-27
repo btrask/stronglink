@@ -1,6 +1,8 @@
 // More portable and friendlier replacements for asprintf.
 
 #include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 static char *vaasprintf(char const *const fmt, va_list ap) {
 	va_list ap2;
