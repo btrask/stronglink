@@ -15,7 +15,7 @@ typedef struct EFSFilter* EFSFilterRef;
 typedef struct EFSJSONFilterParser* EFSJSONFilterParserRef;
 typedef struct EFSPull* EFSPullRef;
 
-EFSRepoRef EFSRepoCreate(strarg_t const dir);
+EFSRepoRef EFSRepoCreate(strarg_t const dir, strarg_t const name);
 void EFSRepoFree(EFSRepoRef *const repoptr);
 strarg_t EFSRepoGetDir(EFSRepoRef const repo);
 strarg_t EFSRepoGetDataDir(EFSRepoRef const repo);

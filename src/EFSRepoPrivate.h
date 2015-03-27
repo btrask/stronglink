@@ -7,6 +7,8 @@ typedef struct cookie_t cookie_t;
 
 struct EFSRepo {
 	str_t *dir;
+	str_t *name;
+
 	str_t *dataDir;
 	str_t *tempDir;
 	str_t *cacheDir;

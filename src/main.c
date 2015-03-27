@@ -60,7 +60,7 @@ static void stop(uv_signal_t *const signal, int const signum) {
 static void init(void *const unused) {
 	async_random((byte_t *)&hash_salt, sizeof(hash_salt));
 
-	repo = EFSRepoCreate(path);
+	repo = EFSRepoCreate(path, "unnamed repo"); // TODO
 	if(!repo) {
 		fprintf(stderr, "Repository could not be opened\n");
 		return;

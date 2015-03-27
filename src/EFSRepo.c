@@ -5,11 +5,17 @@ static void loadPulls(EFSRepoRef const repo);
 
 static void debug_data(DB_env *const db);
 
-EFSRepoRef EFSRepoCreate(strarg_t const dir) {
-	assertf(dir, "EFSRepo dir required");
+EFSRepoRef EFSRepoCreate(strarg_t const dir, strarg_t const name) {
+	assert(dir);
+	assert(name);
 	EFSRepoRef repo = calloc(1, sizeof(struct EFSRepo));
 	if(!repo) return NULL;
 	repo->dir = strdup(dir);
+	repo->name = strdup(name);
+	if(!repo->dir || !repo->name) {
+		EFSRepoFree(&repo);
+		return NULL;
+	}
 
 	repo->dataDir = aasprintf("%s/data", dir);
 	repo->tempDir = aasprintf("%s/tmp", dir);
@@ -44,6 +50,8 @@ void EFSRepoFree(EFSRepoRef *const repoptr) {
 	EFSRepoPullsStop(repo);
 
 	FREE(&repo->dir);
+	FREE(&repo->name);
+
 	FREE(&repo->dataDir);
 	FREE(&repo->tempDir);
 	FREE(&repo->cacheDir);
@@ -73,6 +81,11 @@ strarg_t EFSRepoGetDir(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->dir;
 }
+strarg_t EFSRepoGetName(EFSRepoRef const repo) {
+	if(!repo) return NULL;
+	return repo->name;
+}
+
 strarg_t EFSRepoGetDataDir(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->dataDir;
@@ -94,10 +107,6 @@ str_t *EFSRepoCopyTempPath(EFSRepoRef const repo) {
 strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->cacheDir;
-}
-strarg_t EFSRepoGetName(EFSRepoRef const repo) {
-	if(!repo) return NULL;
-	return "unnamed repo"; // TODO: By default, just use the name of the directory?
 }
 
 void EFSRepoDBOpen(EFSRepoRef const repo, DB_env **const dbptr) {
