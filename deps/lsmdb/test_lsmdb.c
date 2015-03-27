@@ -50,7 +50,7 @@ int main(void) {
 	LSMDB_env *env;
 	chk( lsmdb_env_create(&env) );
 	chk( lsmdb_env_set_mapsize(env, MAP_SIZE) );
-	chk( lsmdb_env_open(env, "./data.lsmdb", MDB_NOSUBDIR | MDB_NOMETASYNC, 0600) );
+	chk( lsmdb_env_open(env, "./data.lsmdb", MDB_NOSUBDIR | (!SYNC * MDB_NOSYNC), 0600) );
 
 /*	MDB_dbi dbi;
 	{

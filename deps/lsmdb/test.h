@@ -31,7 +31,7 @@
 	} \
 })
 
-static char *tohex(char const *const buf, size_t const size) {
+static char *tohex(uint8_t const *const buf, size_t const size) {
 	char const *const map = "0123456789abcdef";
 	char *const hex = calloc(size*2+1, 1);
 	for(off_t i = 0; i < size; ++i) {
@@ -84,7 +84,7 @@ static inline void chkkey(uint8_t const buf[KEY_SIZE]) {
 	if(x > last) {
 		last = x;
 	} else {
-		fprintf(stderr, "Key mismatch: %llu (%s) <= %llu\n", x, tohex(buf, KEY_SIZE), last);
+		fprintf(stderr, "Key mismatch: %llu (%s) <= %llu\n", (unsigned long long)x, tohex(buf, KEY_SIZE), (unsigned long long)last);
 		abort();
 	}
 }

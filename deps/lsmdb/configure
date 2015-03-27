@@ -1,0 +1,2 @@
+#!/bin/sh
+(cd deps/snappy && ./autogen.sh && ./configure)
