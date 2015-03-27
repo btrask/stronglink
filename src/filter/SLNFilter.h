@@ -2,7 +2,7 @@
 #include <ctype.h>
 #include <objc/runtime.h>
 #include "../StrongLink.h"
-#include "../EFSDB.h"
+#include "../SLNDB.h"
 
 @interface EFSObject
 {

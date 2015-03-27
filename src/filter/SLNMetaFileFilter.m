@@ -1,4 +1,4 @@
-#include "EFSFilter.h"
+#include "SLNFilter.h"
 
 @interface EFSMetaFileFilterInternal : EFSFilter
 {

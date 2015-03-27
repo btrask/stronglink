@@ -30,26 +30,26 @@ endif
 
 # TODO: Use compiler -M to track header dependencies automatically
 HEADERS := \
-	$(SRC_DIR)/util/aasprintf.h \
-	$(SRC_DIR)/util/bcrypt.h \
-	$(SRC_DIR)/util/fts.h \
-	$(SRC_DIR)/util/hash.h \
-	$(SRC_DIR)/util/raiserlimit.h \
-	$(SRC_DIR)/common.h \
 	$(SRC_DIR)/async/async.h \
 	$(SRC_DIR)/db/db_base.h \
 	$(SRC_DIR)/db/db_ext.h \
 	$(SRC_DIR)/db/db_schema.h \
-	$(SRC_DIR)/filter/EFSFilter.h \
-	$(SRC_DIR)/StrongLink.h \
-	$(SRC_DIR)/EFSDB.h \
-	$(SRC_DIR)/EFSRepoPrivate.h \
 	$(SRC_DIR)/http/status.h \
 	$(SRC_DIR)/http/HTTPConnection.h \
 	$(SRC_DIR)/http/HTTPServer.h \
 	$(SRC_DIR)/http/HTTPHeaders.h \
 	$(SRC_DIR)/http/MultipartForm.h \
 	$(SRC_DIR)/http/QueryString.h \
+	$(SRC_DIR)/util/aasprintf.h \
+	$(SRC_DIR)/util/bcrypt.h \
+	$(SRC_DIR)/util/fts.h \
+	$(SRC_DIR)/util/hash.h \
+	$(SRC_DIR)/util/raiserlimit.h \
+	$(SRC_DIR)/common.h \
+	$(SRC_DIR)/StrongLink.h \
+	$(SRC_DIR)/SLNDB.h \
+	$(SRC_DIR)/SLNRepoPrivate.h \
+	$(SRC_DIR)/filter/SLNFilter.h \
 	$(DEPS_DIR)/cmark/src/cmark.h \
 	$(DEPS_DIR)/cmark/build/src/*.h \
 	$(DEPS_DIR)/crypt_blowfish/ow-crypt.h \
@@ -63,25 +63,20 @@ HEADERS := \
 
 # Generic library code
 OBJECTS := \
-	$(BUILD_DIR)/EFSRepo.o \
-	$(BUILD_DIR)/EFSRepoAuth.o \
-	$(BUILD_DIR)/EFSSession.o \
-	$(BUILD_DIR)/EFSSubmission.o \
-	$(BUILD_DIR)/EFSSubmissionMeta.o \
-	$(BUILD_DIR)/EFSHasher.o \
-	$(BUILD_DIR)/db/db_ext.o \
-	$(BUILD_DIR)/db/db_schema.o \
-	$(BUILD_DIR)/filter/EFSFilter.o \
-	$(BUILD_DIR)/filter/EFSIndividualFilter.o \
-	$(BUILD_DIR)/filter/EFSCollectionFilter.o \
-	$(BUILD_DIR)/filter/EFSMetaFileFilter.o \
-	$(BUILD_DIR)/filter/EFSJSONFilterParser.o \
-	$(BUILD_DIR)/filter/EFSUserFilterParser.o \
-	$(BUILD_DIR)/EFSPull.o \
-	$(BUILD_DIR)/EFSServer.o \
-	$(BUILD_DIR)/util/bcrypt.o \
-	$(BUILD_DIR)/util/fts.o \
-	$(BUILD_DIR)/util/hash.o \
+	$(BUILD_DIR)/SLNRepo.o \
+	$(BUILD_DIR)/SLNRepoAuth.o \
+	$(BUILD_DIR)/SLNSession.o \
+	$(BUILD_DIR)/SLNSubmission.o \
+	$(BUILD_DIR)/SLNSubmissionMeta.o \
+	$(BUILD_DIR)/SLNHasher.o \
+	$(BUILD_DIR)/SLNPull.o \
+	$(BUILD_DIR)/SLNServer.o \
+	$(BUILD_DIR)/filter/SLNFilter.o \
+	$(BUILD_DIR)/filter/SLNIndividualFilter.o \
+	$(BUILD_DIR)/filter/SLNCollectionFilter.o \
+	$(BUILD_DIR)/filter/SLNMetaFileFilter.o \
+	$(BUILD_DIR)/filter/SLNJSONFilterParser.o \
+	$(BUILD_DIR)/filter/SLNUserFilterParser.o \
 	$(BUILD_DIR)/async/async.o \
 	$(BUILD_DIR)/async/async_cond.o \
 	$(BUILD_DIR)/async/async_fs.o \
@@ -91,11 +86,16 @@ OBJECTS := \
 	$(BUILD_DIR)/async/async_sem.o \
 	$(BUILD_DIR)/async/async_stream.o \
 	$(BUILD_DIR)/async/async_worker.o \
+	$(BUILD_DIR)/db/db_ext.o \
+	$(BUILD_DIR)/db/db_schema.o \
 	$(BUILD_DIR)/http/HTTPConnection.o \
 	$(BUILD_DIR)/http/HTTPServer.o \
 	$(BUILD_DIR)/http/HTTPHeaders.o \
 	$(BUILD_DIR)/http/MultipartForm.o \
 	$(BUILD_DIR)/http/QueryString.o \
+	$(BUILD_DIR)/util/bcrypt.o \
+	$(BUILD_DIR)/util/fts.o \
+	$(BUILD_DIR)/util/hash.o \
 	$(BUILD_DIR)/deps/crypt/crypt_blowfish.o \
 	$(BUILD_DIR)/deps/crypt/crypt_gensalt.o \
 	$(BUILD_DIR)/deps/crypt/wrapper.o \

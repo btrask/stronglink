@@ -2,7 +2,7 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include "StrongLink.h"
-#include "EFSDB.h"
+#include "SLNDB.h"
 
 struct EFSSubmission {
 	EFSSessionRef session;

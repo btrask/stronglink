@@ -1,7 +1,7 @@
 #include <yajl/yajl_parse.h>
 #include "util/fts.h"
 #include "StrongLink.h"
-#include "EFSDB.h"
+#include "SLNDB.h"
 
 #define BUF_LEN (1024 * 8)
 #define PARSE_MAX (1024 * 1024 * 1)

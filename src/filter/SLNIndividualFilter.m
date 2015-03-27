@@ -1,4 +1,4 @@
-#include "EFSFilter.h"
+#include "SLNFilter.h"
 #include "../util/fts.h"
 
 @implementation EFSIndividualFilter

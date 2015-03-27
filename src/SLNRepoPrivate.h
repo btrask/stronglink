@@ -1,6 +1,6 @@
 #include <assert.h>
 #include "StrongLink.h"
-#include "EFSDB.h"
+#include "SLNDB.h"
 #include "util/hash.h"
 
 typedef struct cookie_t cookie_t;

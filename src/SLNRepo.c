@@ -1,4 +1,4 @@
-#include "EFSRepoPrivate.h"
+#include "SLNRepoPrivate.h"
 
 static int createDBConnection(EFSRepoRef const repo);
 static void loadPulls(EFSRepoRef const repo);

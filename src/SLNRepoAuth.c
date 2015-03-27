@@ -1,4 +1,4 @@
-#include "EFSRepoPrivate.h"
+#include "SLNRepoPrivate.h"
 #include "util/bcrypt.h"
 
 // TODO: better handling of database errors

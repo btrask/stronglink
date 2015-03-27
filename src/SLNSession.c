@@ -1,6 +1,6 @@
 #include "util/bcrypt.h"
 #include "StrongLink.h"
-#include "EFSDB.h"
+#include "SLNDB.h"
 
 struct EFSSession {
 	EFSRepoRef repo;
