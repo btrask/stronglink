@@ -1,11 +1,11 @@
 #include <limits.h>
 #include <signal.h>
-#include "util/fts.h"
-#include "util/hash.h"
-#include "util/raiserlimit.h"
-#include "StrongLink.h"
-#include "http/HTTPServer.h"
-#include "http/HTTPHeaders.h"
+#include "../util/fts.h"
+#include "../util/hash.h"
+#include "../util/raiserlimit.h"
+#include "../http/HTTPServer.h"
+#include "../http/HTTPHeaders.h"
+#include "../StrongLink.h"
 
 int SLNServerDispatch(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
 

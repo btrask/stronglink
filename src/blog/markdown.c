@@ -10,8 +10,8 @@
 
 #include <regex.h>
 
-#include "../deps/cmark/src/cmark.h"
-#include "../deps/cmark/src/buffer.h"
+#include "../../deps/cmark/src/cmark.h"
+#include "../../deps/cmark/src/buffer.h"
 
 //#include "http/QueryString.h"
 

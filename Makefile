@@ -115,12 +115,12 @@ endif
 
 # Server executable-specific code
 HEADERS += \
-	$(SRC_DIR)/Template.h
+	$(SRC_DIR)/blog/Template.h
 OBJECTS += \
-	$(BUILD_DIR)/Blog.o \
-	$(BUILD_DIR)/Template.o \
-	$(BUILD_DIR)/main.o \
-	$(BUILD_DIR)/markdown.o
+	$(BUILD_DIR)/blog/main.o \
+	$(BUILD_DIR)/blog/Blog.o \
+	$(BUILD_DIR)/blog/Template.o \
+	$(BUILD_DIR)/blog/markdown.o
 
 STATIC_LIBS += $(YAJL_BUILD_DIR)/lib/libyajl_s.a
 CFLAGS += -I$(YAJL_BUILD_DIR)/include
@@ -260,7 +260,7 @@ $(BUILD_DIR)/sln-markdown: $(BUILD_DIR)/markdown_standalone.o $(BUILD_DIR)/http/
 	@- mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(WARNINGS) $^ $(DEPS_DIR)/cmark/build/src/libcmark.a -o $@
 
-$(BUILD_DIR)/markdown_standalone.o: $(SRC_DIR)/markdown.c
+$(BUILD_DIR)/markdown_standalone.o: $(SRC_DIR)/blog/markdown.c cmark
 	@- mkdir -p $(dir $@)
 	$(CC) -c $(CFLAGS) $(WARNINGS) -DMARKDOWN_STANDALONE $< -o $@
 

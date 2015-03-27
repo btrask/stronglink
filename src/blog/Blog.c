@@ -1,12 +1,11 @@
 #include <yajl/yajl_tree.h>
 #include <limits.h>
-#include "common.h"
-#include "StrongLink.h"
+#include "../http/HTTPServer.h"
+#include "../http/HTTPHeaders.h"
+#include "../http/MultipartForm.h"
+#include "../http/QueryString.h"
+#include "../StrongLink.h"
 #include "Template.h"
-#include "http/HTTPServer.h"
-#include "http/HTTPHeaders.h"
-#include "http/MultipartForm.h"
-#include "http/QueryString.h"
 
 #define RESULTS_MAX 50
 #define PENDING_MAX 4
