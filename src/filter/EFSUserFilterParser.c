@@ -97,8 +97,13 @@ static EFSFilterRef parse_term(strarg_t *const query) {
 	if(0 == len) return NULL;
 	if(substr("or", *query, len)) return NULL;
 	if(substr("and", *query, len)) return NULL;
-	EFSFilterRef const filter = EFSFilterCreate(EFSFulltextFilterType);
-	EFSFilterAddStringArg(filter, *query, len);
+	EFSFilterRef filter = EFSFilterCreate(EFSFulltextFilterType);
+	int rc = EFSFilterAddStringArg(filter, *query, len);
+	if(rc < 0) {
+		EFSFilterFree(&filter);
+		filter = NULL;
+		// Fall through, swallowing token anyway
+	}
 	*query = q;
 	return filter;
 }

@@ -215,23 +215,8 @@
 	if(!str) return -1;
 	if(0 == len) return -1;
 	if(term) return -1;
+	if(count) return -1;
 	term = strndup(str, len);
-	return 0;
-}
-- (void)print:(count_t const)depth {
-	indent(depth);
-	fprintf(stderr, "(fulltext %s)\n", term);
-}
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth {
-	return wr_quoted(data, size, term);
-}
-
-- (int)prepare:(DB_txn *const)txn {
-	if([super prepare:txn] < 0) return -1;
-	db_cursor_renew(txn, &metafiles);
-	db_cursor_renew(txn, &match);
-
-	count = 0;
 
 	// TODO: libstemmer?
 	sqlite3_tokenizer_module const *fts = NULL;
@@ -257,11 +242,27 @@
 	}
 
 	fts->xClose(tcur);
+
+	if(!count) return -1;
+	return 0;
+}
+- (void)print:(count_t const)depth {
+	indent(depth);
+	fprintf(stderr, "(fulltext %s)\n", term);
+}
+- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth {
+	return wr_quoted(data, size, term);
+}
+
+- (int)prepare:(DB_txn *const)txn {
+	if([super prepare:txn] < 0) return -1;
+	db_cursor_renew(txn, &metafiles);
+	db_cursor_renew(txn, &match);
 	return 0;
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
-	if(!count) return invalid(dir);
+	assert(count);
 	DB_range range[1];
 	EFSTermMetaFileIDAndPositionRange1(range, curtxn, tokens[0].str);
 	DB_val sortID_key[1];
@@ -276,7 +277,7 @@
 	return actualSortID;
 }
 - (uint64_t)currentMeta:(int const)dir {
-	if(!count) return invalid(dir);
+	assert(count);
 	DB_val sortID_key[1];
 	int rc = db_cursor_current(metafiles, sortID_key, NULL);
 	if(DB_SUCCESS != rc) return invalid(dir);
@@ -287,7 +288,7 @@
 	return sortID;
 }
 - (uint64_t)stepMeta:(int const)dir {
-	if(!count) return invalid(dir);
+	assert(count);
 	DB_range range[1];
 	EFSTermMetaFileIDAndPositionRange1(range, curtxn, tokens[0].str);
 	DB_val sortID_key[1];
@@ -300,7 +301,7 @@
 	return sortID;
 }
 - (bool)match:(uint64_t const)metaFileID {
-	if(!count) return false;
+	assert(count);
 	DB_range range[1];
 	EFSTermMetaFileIDAndPositionRange2(range, curtxn, tokens[0].str, metaFileID);
 	DB_val sortID_key[1];
