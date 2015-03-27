@@ -261,6 +261,7 @@
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
+	if(!count) return invalid(dir);
 	DB_range range[1];
 	EFSTermMetaFileIDAndPositionRange1(range, curtxn, tokens[0].str);
 	DB_val sortID_key[1];
@@ -275,6 +276,7 @@
 	return actualSortID;
 }
 - (uint64_t)currentMeta:(int const)dir {
+	if(!count) return invalid(dir);
 	DB_val sortID_key[1];
 	int rc = db_cursor_current(metafiles, sortID_key, NULL);
 	if(DB_SUCCESS != rc) return invalid(dir);
@@ -285,6 +287,7 @@
 	return sortID;
 }
 - (uint64_t)stepMeta:(int const)dir {
+	if(!count) return invalid(dir);
 	DB_range range[1];
 	EFSTermMetaFileIDAndPositionRange1(range, curtxn, tokens[0].str);
 	DB_val sortID_key[1];
@@ -297,6 +300,7 @@
 	return sortID;
 }
 - (bool)match:(uint64_t const)metaFileID {
+	if(!count) return false;
 	DB_range range[1];
 	EFSTermMetaFileIDAndPositionRange2(range, curtxn, tokens[0].str, metaFileID);
 	DB_val sortID_key[1];
