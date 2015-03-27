@@ -1,6 +1,6 @@
 #include <yajl/yajl_parse.h>
 #include "util/fts.h"
-#include "EarthFS.h"
+#include "StrongLink.h"
 #include "EFSDB.h"
 
 #define BUF_LEN (1024 * 8)

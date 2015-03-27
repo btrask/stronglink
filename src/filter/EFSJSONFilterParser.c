@@ -1,5 +1,5 @@
 #include <yajl/yajl_parse.h>
-#include "../EarthFS.h"
+#include "../StrongLink.h"
 
 #define DEPTH_MAX 5
 

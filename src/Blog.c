@@ -1,7 +1,7 @@
 #include <yajl/yajl_tree.h>
 #include <limits.h>
 #include "common.h"
-#include "EarthFS.h"
+#include "StrongLink.h"
 #include "Template.h"
 #include "http/HTTPServer.h"
 #include "http/HTTPHeaders.h"

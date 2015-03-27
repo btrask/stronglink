@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <objc/runtime.h>
-#include "../EarthFS.h"
+#include "../StrongLink.h"
 #include "../EFSDB.h"
 
 @interface EFSObject

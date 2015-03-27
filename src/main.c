@@ -3,7 +3,7 @@
 #include "util/fts.h"
 #include "util/hash.h"
 #include "util/raiserlimit.h"
-#include "EarthFS.h"
+#include "StrongLink.h"
 #include "http/HTTPServer.h"
 #include "http/HTTPHeaders.h"
 

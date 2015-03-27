@@ -41,7 +41,7 @@ HEADERS := \
 	$(SRC_DIR)/db/db_ext.h \
 	$(SRC_DIR)/db/db_schema.h \
 	$(SRC_DIR)/filter/EFSFilter.h \
-	$(SRC_DIR)/EarthFS.h \
+	$(SRC_DIR)/StrongLink.h \
 	$(SRC_DIR)/EFSDB.h \
 	$(SRC_DIR)/EFSRepoPrivate.h \
 	$(SRC_DIR)/http/status.h \

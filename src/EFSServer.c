@@ -1,6 +1,6 @@
 #include <assert.h>
 #include "common.h"
-#include "EarthFS.h"
+#include "StrongLink.h"
 #include "http/HTTPServer.h"
 #include "http/HTTPHeaders.h"
 #include "http/MultipartForm.h"

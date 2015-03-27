@@ -1,5 +1,5 @@
 #include <openssl/sha.h> // TODO: Switch to LibreSSL.
-#include "EarthFS.h"
+#include "StrongLink.h"
 
 struct EFSHasher {
 	str_t *type;

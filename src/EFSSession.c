@@ -1,5 +1,5 @@
 #include "util/bcrypt.h"
-#include "EarthFS.h"
+#include "StrongLink.h"
 #include "EFSDB.h"
 
 struct EFSSession {
