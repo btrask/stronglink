@@ -14,7 +14,7 @@
 .block { display: block; }
 .wrapper > input { width: 100%; height: 100%; }
 .border { border-color: #999; border-style: solid; }
-h1 { font-weight: initial; }
+h1, h2 { font-weight: initial; }
 .floatl { float: left; }
 .floatr { float: right; }
 [hidden] { display: none; }
