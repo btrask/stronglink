@@ -27,7 +27,7 @@ strarg_t SLNRepoGetName(SLNRepoRef const repo);
 void SLNRepoDBOpen(SLNRepoRef const repo, DB_env **const dbptr);
 void SLNRepoDBClose(SLNRepoRef const repo, DB_env **const dbptr);
 void SLNRepoSubmissionEmit(SLNRepoRef const repo, uint64_t const sortID);
-bool SLNRepoSubmissionWait(SLNRepoRef const repo, uint64_t const sortID, uint64_t const future);
+int SLNRepoSubmissionWait(SLNRepoRef const repo, uint64_t const sortID, uint64_t const future);
 void SLNRepoPullsStart(SLNRepoRef const repo);
 void SLNRepoPullsStop(SLNRepoRef const repo);
 

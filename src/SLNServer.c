@@ -236,12 +236,13 @@ static int POST_query(SLNSessionRef const session, HTTPConnectionRef const conn,
 	SLNRepoRef const repo = SLNSessionGetRepo(session);
 	for(;;) {
 		uint64_t const timeout = uv_now(loop)+(1000 * 30);
-		bool const ready = SLNRepoSubmissionWait(repo, sortID, timeout);
-		if(!ready) {
+		int rc = SLNRepoSubmissionWait(repo, sortID, timeout);
+		if(UV_ETIMEDOUT == rc) {
 			uv_buf_t const parts[] = { uv_buf_init("\r\n", 2) };
 			if(HTTPConnectionWriteChunkv(conn, parts, numberof(parts)) < 0) break;
 			continue;
 		}
+		assert(rc >= 0); // TODO: Handle cancellation?
 
 		for(;;) {
 			count_t const count = getURIs(session, filter, +1, &sortID, &fileID, URIs, QUERY_BATCH_SIZE);
