@@ -87,7 +87,7 @@ static EFSFilterRef parse_quoted(strarg_t *const query) {
 	strarg_t q = *query;
 	char const op = *q++;
 	strarg_t const start = q;
-	if('\'' != op && '"' != op) return NULL;
+	if('"' != op && '\'' != op) return NULL;
 	for(;;) {
 		if('\0' == *q) break;
 		if(op == *q) break;
@@ -115,6 +115,7 @@ static EFSFilterRef parse_term(strarg_t *const query) {
 		if('\0' == *q) break;
 		if(isspace(*q)) break;
 		if('(' == *q || ')' == *q) break;
+		if('"' == *q || '\'' == *q) break;
 		q++;
 	}
 	size_t const len = q - *query;
