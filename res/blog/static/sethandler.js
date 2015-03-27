@@ -2,7 +2,6 @@
 // How can we tell?
 if(navigator.registerProtocolHandler) {
 	var sethandler = document.getElementById("sethandler");
-	sethandler.removeAttribute("hidden");
 	sethandler.onclick = function(e) {
 		e.preventDefault();
 		var resolver = window.location.origin+"/?q=%s";
