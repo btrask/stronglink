@@ -4,34 +4,34 @@
 #include "StrongLink.h"
 #include "SLNDB.h"
 
-struct EFSSubmission {
-	EFSSessionRef session;
+struct SLNSubmission {
+	SLNSessionRef session;
 	str_t *type;
 
 	str_t *tmppath;
 	uv_file tmpfile;
 	uint64_t size;
 
-	EFSHasherRef hasher;
+	SLNHasherRef hasher;
 	uint64_t metaFileID;
 
 	str_t **URIs;
 	str_t *internalHash;
 };
 
-int EFSSubmissionParseMetaFile(EFSSubmissionRef const sub, uint64_t const fileID, DB_txn *const txn, uint64_t *const out);
+int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID, DB_txn *const txn, uint64_t *const out);
 
-EFSSubmissionRef EFSSubmissionCreate(EFSSessionRef const session, strarg_t const type) {
+SLNSubmissionRef SLNSubmissionCreate(SLNSessionRef const session, strarg_t const type) {
 	if(!session) return NULL;
 	assertf(type, "Submission requires type");
 	// TODO: Check session permissions?
 
-	EFSSubmissionRef sub = calloc(1, sizeof(struct EFSSubmission));
+	SLNSubmissionRef sub = calloc(1, sizeof(struct SLNSubmission));
 	if(!sub) return NULL;
 	sub->session = session;
 	sub->type = strdup(type);
 
-	sub->tmppath = EFSRepoCopyTempPath(EFSSessionGetRepo(session));
+	sub->tmppath = SLNRepoCopyTempPath(SLNSessionGetRepo(session));
 	sub->tmpfile = async_fs_open(sub->tmppath, O_CREAT | O_EXCL | O_TRUNC | O_RDWR, 0400);
 	if(sub->tmpfile < 0) {
 		if(UV_ENOENT == sub->tmpfile) {
@@ -40,18 +40,18 @@ EFSSubmissionRef EFSSubmissionCreate(EFSSessionRef const session, strarg_t const
 		}
 		if(sub->tmpfile < 0) {
 			fprintf(stderr, "Error: couldn't create temp file %s (%s)\n", sub->tmppath, uv_err_name(sub->tmpfile));
-			EFSSubmissionFree(&sub);
+			SLNSubmissionFree(&sub);
 			return NULL;
 		}
 	}
 
-	sub->hasher = EFSHasherCreate(sub->type);
+	sub->hasher = SLNHasherCreate(sub->type);
 	sub->metaFileID = 0;
 
 	return sub;
 }
-void EFSSubmissionFree(EFSSubmissionRef *const subptr) {
-	EFSSubmissionRef sub = *subptr;
+void SLNSubmissionFree(SLNSubmissionRef *const subptr) {
+	SLNSubmissionRef sub = *subptr;
 	if(!sub) return;
 
 	sub->session = NULL;
@@ -63,7 +63,7 @@ void EFSSubmissionFree(EFSSubmissionRef *const subptr) {
 	sub->tmpfile = 0;
 	sub->size = 0;
 
-	EFSHasherFree(&sub->hasher);
+	SLNHasherFree(&sub->hasher);
 	sub->metaFileID = 0;
 
 	if(sub->URIs) for(index_t i = 0; sub->URIs[i]; ++i) FREE(&sub->URIs[i]);
@@ -74,40 +74,40 @@ void EFSSubmissionFree(EFSSubmissionRef *const subptr) {
 	FREE(subptr); sub = NULL;
 }
 
-EFSRepoRef EFSSubmissionGetRepo(EFSSubmissionRef const sub) {
+SLNRepoRef SLNSubmissionGetRepo(SLNSubmissionRef const sub) {
 	if(!sub) return NULL;
-	return EFSSessionGetRepo(sub->session);
+	return SLNSessionGetRepo(sub->session);
 }
-strarg_t EFSSubmissionGetType(EFSSubmissionRef const sub) {
+strarg_t SLNSubmissionGetType(SLNSubmissionRef const sub) {
 	if(!sub) return NULL;
 	return sub->type;
 }
-uv_file EFSSubmissionGetFile(EFSSubmissionRef const sub) {
+uv_file SLNSubmissionGetFile(SLNSubmissionRef const sub) {
 	if(!sub) return -1;
 	return sub->tmpfile;
 }
 
-int EFSSubmissionWrite(EFSSubmissionRef const sub, byte_t const *const buf, size_t const len) {
+int SLNSubmissionWrite(SLNSubmissionRef const sub, byte_t const *const buf, size_t const len) {
 	if(!sub) return 0;
 	if(sub->tmpfile < 0) return -1;
 
 	uv_buf_t info = uv_buf_init((char *)buf, len);
 	ssize_t const result = async_fs_write(sub->tmpfile, &info, 1, sub->size);
 	if(result < 0) {
-		fprintf(stderr, "EFSSubmission write error %ld\n", (long)result);
+		fprintf(stderr, "SLNSubmission write error %ld\n", (long)result);
 		return -1;
 	}
 
 	sub->size += len;
-	EFSHasherWrite(sub->hasher, buf, len);
+	SLNHasherWrite(sub->hasher, buf, len);
 	return 0;
 }
-static int add(EFSSubmissionRef const sub) {
+static int add(SLNSubmissionRef const sub) {
 	if(!sub) return -1;
 	if(!sub->tmppath) return -1;
 	if(!sub->size) return -1;
-	EFSRepoRef const repo = EFSSubmissionGetRepo(sub);
-	str_t *internalPath = EFSRepoCopyInternalPath(repo, sub->internalHash);
+	SLNRepoRef const repo = SLNSubmissionGetRepo(sub);
+	str_t *internalPath = SLNRepoCopyInternalPath(repo, sub->internalHash);
 	int result = 0;
 	result = async_fs_link(sub->tmppath, internalPath);
 	if(result < 0 && UV_EEXIST != result) {
@@ -126,17 +126,17 @@ static int add(EFSSubmissionRef const sub) {
 	FREE(&sub->tmppath);
 	return 0;
 }
-int EFSSubmissionEnd(EFSSubmissionRef const sub) {
+int SLNSubmissionEnd(SLNSubmissionRef const sub) {
 	if(!sub) return 0;
 	if(sub->tmpfile < 0) return -1;
-	sub->URIs = EFSHasherEnd(sub->hasher);
-	sub->internalHash = strdup(EFSHasherGetInternalHash(sub->hasher));
-	EFSHasherFree(&sub->hasher);
+	sub->URIs = SLNHasherEnd(sub->hasher);
+	sub->internalHash = strdup(SLNHasherGetInternalHash(sub->hasher));
+	SLNHasherFree(&sub->hasher);
 
 	if(async_fs_fsync(sub->tmpfile) < 0) return -1;
 	return add(sub);
 }
-int EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context) {
+int SLNSubmissionWriteFrom(SLNSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context) {
 	if(!sub) return 0;
 	assertf(read, "Read function required");
 	for(;;) {
@@ -144,40 +144,40 @@ int EFSSubmissionWriteFrom(EFSSubmissionRef const sub, ssize_t (*read)(void *, b
 		ssize_t const len = read(context, &buf);
 		if(0 == len) break;
 		if(len < 0) return -1;
-		if(EFSSubmissionWrite(sub, buf, len) < 0) return -1;
+		if(SLNSubmissionWrite(sub, buf, len) < 0) return -1;
 	}
-	if(EFSSubmissionEnd(sub) < 0) return -1;
+	if(SLNSubmissionEnd(sub) < 0) return -1;
 	return 0;
 }
 
-strarg_t EFSSubmissionGetPrimaryURI(EFSSubmissionRef const sub) {
+strarg_t SLNSubmissionGetPrimaryURI(SLNSubmissionRef const sub) {
 	if(!sub) return NULL;
 	if(!sub->URIs) return NULL;
 	return sub->URIs[0];
 }
 
-int EFSSubmissionStore(EFSSubmissionRef const sub, DB_txn *const txn) {
+int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn) {
 	if(!sub) return -1;
 	assert(txn);
 	if(sub->tmppath) return -1;
-	EFSSessionRef const session = sub->session;
-	EFSRepoRef const repo = EFSSubmissionGetRepo(sub);
-	int64_t const userID = EFSSessionGetUserID(session);
+	SLNSessionRef const session = sub->session;
+	SLNRepoRef const repo = SLNSubmissionGetRepo(sub);
+	int64_t const userID = SLNSessionGetUserID(session);
 
-	int64_t fileID = db_next_id(EFSFileByID, txn);
+	int64_t fileID = db_next_id(SLNFileByID, txn);
 	int rc;
 
 	DB_val dupFileID_val[1];
-	EFSFileIDByInfoValPack(dupFileID_val, txn, fileID);
+	SLNFileIDByInfoValPack(dupFileID_val, txn, fileID);
 
 	DB_val fileInfo_key[1];
-	EFSFileIDByInfoKeyPack(fileInfo_key, txn, sub->internalHash, sub->type);
+	SLNFileIDByInfoKeyPack(fileInfo_key, txn, sub->internalHash, sub->type);
 	rc = db_put(txn, fileInfo_key, dupFileID_val, DB_NOOVERWRITE);
 	if(DB_SUCCESS == rc) {
 		DB_val fileID_key[1];
-		EFSFileByIDKeyPack(fileID_key, txn, fileID);
+		SLNFileByIDKeyPack(fileID_key, txn, fileID);
 		DB_val file_val[1];
-		EFSFileByIDValPack(file_val, txn, sub->internalHash, sub->type, sub->size);
+		SLNFileByIDValPack(file_val, txn, sub->internalHash, sub->type, sub->size);
 		rc = db_put(txn, fileID_key, file_val, DB_NOOVERWRITE_FAST);
 		if(DB_SUCCESS != rc) return -1;
 	} else if(DB_KEYEXIST == rc) {
@@ -189,12 +189,12 @@ int EFSSubmissionStore(EFSSubmissionRef const sub, DB_txn *const txn) {
 		DB_val null = { 0, NULL };
 
 		DB_val fwd[1];
-		EFSFileIDAndURIKeyPack(fwd, txn, fileID, URI);
+		SLNFileIDAndURIKeyPack(fwd, txn, fileID, URI);
 		rc = db_put(txn, fwd, &null, DB_NOOVERWRITE_FAST);
 		assert(DB_SUCCESS == rc || DB_KEYEXIST == rc);
 
 		DB_val rev[1];
-		EFSURIAndFileIDKeyPack(rev, txn, URI, fileID);
+		SLNURIAndFileIDKeyPack(rev, txn, URI, fileID);
 		rc = db_put(txn, rev, &null, DB_NOOVERWRITE_FAST);
 		assert(DB_SUCCESS == rc || DB_KEYEXIST == rc);
 	}
@@ -213,7 +213,7 @@ int EFSSubmissionStore(EFSSubmissionRef const sub, DB_txn *const txn) {
 	EXEC(insertFilePermission); insertFilePermission = NULL;*/
 
 
-	rc = EFSSubmissionParseMetaFile(sub, fileID, txn, &sub->metaFileID);
+	rc = SLNSubmissionParseMetaFile(sub, fileID, txn, &sub->metaFileID);
 	if(rc < 0) {
 		fprintf(stderr, "Submission meta-file error %s\n", db_strerror(rc));
 		return rc;
@@ -222,30 +222,30 @@ int EFSSubmissionStore(EFSSubmissionRef const sub, DB_txn *const txn) {
 	return 0;
 }
 
-EFSSubmissionRef EFSSubmissionCreateQuick(EFSSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context) {
-	EFSSubmissionRef sub = EFSSubmissionCreate(session, type);
+SLNSubmissionRef SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context) {
+	SLNSubmissionRef sub = SLNSubmissionCreate(session, type);
 	if(!sub) return NULL;
-	int rc = EFSSubmissionWriteFrom(sub, read, context);
-	if(rc < 0) EFSSubmissionFree(&sub);
+	int rc = SLNSubmissionWriteFrom(sub, read, context);
+	if(rc < 0) SLNSubmissionFree(&sub);
 	return sub;
 }
-int EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const count) {
+int SLNSubmissionBatchStore(SLNSubmissionRef const *const list, count_t const count) {
 	if(!count) return 0;
-	EFSRepoRef const repo = EFSSessionGetRepo(list[0]->session);
+	SLNRepoRef const repo = SLNSessionGetRepo(list[0]->session);
 	DB_env *db = NULL;
-	EFSRepoDBOpen(repo, &db);
+	SLNRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
 	int rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
 	if(DB_SUCCESS != rc) {
-		EFSRepoDBClose(repo, &db);
+		SLNRepoDBClose(repo, &db);
 		return -1;
 	}
 	int err = 0;
 	uint64_t sortID = 0;
 	for(index_t i = 0; i < count; ++i) {
 		assert(list[i]);
-		assert(repo == EFSSessionGetRepo(list[i]->session));
-		err = EFSSubmissionStore(list[i], txn);
+		assert(repo == SLNSessionGetRepo(list[i]->session));
+		err = SLNSubmissionStore(list[i], txn);
 		if(err < 0) break;
 		uint64_t const metaFileID = list[i]->metaFileID;
 		if(metaFileID > sortID) sortID = metaFileID;
@@ -256,8 +256,8 @@ int EFSSubmissionBatchStore(EFSSubmissionRef const *const list, count_t const co
 		rc = db_txn_commit(txn); txn = NULL;
 		if(DB_SUCCESS != rc) err = -1;
 	}
-	EFSRepoDBClose(repo, &db);
-	if(err >= 0) EFSRepoSubmissionEmit(repo, sortID);
+	SLNRepoDBClose(repo, &db);
+	if(err >= 0) SLNRepoSubmissionEmit(repo, sortID);
 	return err;
 }
 

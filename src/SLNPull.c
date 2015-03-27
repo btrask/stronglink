@@ -6,9 +6,9 @@
 #define READER_COUNT 64
 #define QUEUE_SIZE 64 // TODO: Find a way to lower these without sacrificing performance, and perhaps automatically adjust them somehow.
 
-struct EFSPull {
+struct SLNPull {
 	uint64_t pullID;
-	EFSSessionRef session;
+	SLNSessionRef session;
 	str_t *host;
 	str_t *username;
 	str_t *password;
@@ -22,20 +22,20 @@ struct EFSPull {
 	async_cond_t cond[1];
 	bool stop;
 	count_t tasks;
-	EFSSubmissionRef queue[QUEUE_SIZE];
+	SLNSubmissionRef queue[QUEUE_SIZE];
 	bool filled[QUEUE_SIZE];
 	index_t cur;
 	count_t count;
 };
 
-static int reconnect(EFSPullRef const pull);
-static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn);
+static int reconnect(SLNPullRef const pull);
+static int import(SLNPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn);
 
-EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, uint64_t const pullID, uint64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query) {
-	EFSPullRef pull = calloc(1, sizeof(struct EFSPull));
+SLNPullRef SLNRepoCreatePull(SLNRepoRef const repo, uint64_t const pullID, uint64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query) {
+	SLNPullRef pull = calloc(1, sizeof(struct SLNPull));
 	if(!pull) return NULL;
 	pull->pullID = pullID;
-	pull->session = EFSRepoCreateSessionInternal(repo, userID);
+	pull->session = SLNRepoCreateSessionInternal(repo, userID);
 	pull->username = strdup(username);
 	pull->password = strdup(password);
 	pull->cookie = cookie ? strdup(cookie) : NULL;
@@ -43,14 +43,14 @@ EFSPullRef EFSRepoCreatePull(EFSRepoRef const repo, uint64_t const pullID, uint6
 	pull->query = strdup(query);
 	return pull;
 }
-void EFSPullFree(EFSPullRef *const pullptr) {
-	EFSPullRef pull = *pullptr;
+void SLNPullFree(SLNPullRef *const pullptr) {
+	SLNPullRef pull = *pullptr;
 	if(!pull) return;
 
-	EFSPullStop(pull);
+	SLNPullStop(pull);
 
 	pull->pullID = 0;
-	EFSSessionFree(&pull->session);
+	SLNSessionFree(&pull->session);
 	FREE(&pull->host);
 	FREE(&pull->username);
 	FREE(&pull->password);
@@ -61,7 +61,7 @@ void EFSPullFree(EFSPullRef *const pullptr) {
 	FREE(pullptr); pull = NULL;
 }
 
-static void reader(EFSPullRef const pull) {
+static void reader(SLNPullRef const pull) {
 	HTTPConnectionRef conn = NULL;
 	int rc;
 
@@ -115,8 +115,8 @@ stop:
 	async_cond_broadcast(pull->cond);
 	async_mutex_unlock(pull->mutex);
 }
-static void writer(EFSPullRef const pull) {
-	EFSSubmissionRef queue[QUEUE_SIZE];
+static void writer(SLNPullRef const pull) {
+	SLNSubmissionRef queue[QUEUE_SIZE];
 	count_t count = 0;
 	count_t skipped = 0;
 	double time = uv_now(loop) / 1000.0;
@@ -148,13 +148,13 @@ static void writer(EFSPullRef const pull) {
 		assert(count <= QUEUE_SIZE);
 
 		for(;;) {
-			int rc = EFSSubmissionBatchStore(queue, count);
+			int rc = SLNSubmissionBatchStore(queue, count);
 			if(rc >= 0) break;
 			fprintf(stderr, "Submission error %s / %s (%d)\n", uv_strerror(rc), db_strerror(rc), rc);
 			async_sleep(1000 * 5);
 		}
 		for(index_t i = 0; i < count; ++i) {
-			EFSSubmissionFree(&queue[i]);
+			SLNSubmissionFree(&queue[i]);
 		}
 
 		double const now = uv_now(loop) / 1000.0;
@@ -167,7 +167,7 @@ static void writer(EFSPullRef const pull) {
 
 stop:
 	for(index_t i = 0; i < count; ++i) {
-		EFSSubmissionFree(&queue[i]);
+		SLNSubmissionFree(&queue[i]);
 	}
 	assert_zeroed(queue, QUEUE_SIZE);
 
@@ -178,7 +178,7 @@ stop:
 	async_cond_broadcast(pull->cond);
 	async_mutex_unlock(pull->mutex);
 }
-int EFSPullStart(EFSPullRef const pull) {
+int SLNPullStart(SLNPullRef const pull) {
 	if(!pull) return 0;
 	assert(0 == pull->tasks);
 	async_mutex_init(pull->connlock, 0);
@@ -194,7 +194,7 @@ int EFSPullStart(EFSPullRef const pull) {
 
 	return 0;
 }
-void EFSPullStop(EFSPullRef const pull) {
+void SLNPullStop(SLNPullRef const pull) {
 	if(!pull) return;
 	if(!pull->connlock) return;
 
@@ -214,16 +214,16 @@ void EFSPullStop(EFSPullRef const pull) {
 	pull->stop = false;
 
 	for(index_t i = 0; i < QUEUE_SIZE; ++i) {
-		EFSSubmissionFree(&pull->queue[i]);
+		SLNSubmissionFree(&pull->queue[i]);
 		pull->filled[i] = false;
 	}
 	pull->cur = 0;
 	pull->count = 0;
 }
 
-static int auth(EFSPullRef const pull);
+static int auth(SLNPullRef const pull);
 
-static int reconnect(EFSPullRef const pull) {
+static int reconnect(SLNPullRef const pull) {
 	int rc;
 	HTTPConnectionFree(&pull->conn);
 
@@ -275,7 +275,7 @@ static int reconnect(EFSPullRef const pull) {
 	return 0;
 }
 
-static int auth(EFSPullRef const pull) {
+static int auth(SLNPullRef const pull) {
 	if(!pull) return 0;
 	FREE(&pull->cookie);
 
@@ -329,21 +329,21 @@ static int auth(EFSPullRef const pull) {
 }
 
 
-static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn) {
+static int import(SLNPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn) {
 	if(!pull) return 0;
 	if(!pull->cookie) goto fail;
 
 	// TODO: Even if there's nothing to do, we have to enqueue something to fill up our reserved slots. I guess it's better than doing a lot of work inside the connection lock, but there's got to be a better way.
-	EFSSubmissionRef sub = NULL;
+	SLNSubmissionRef sub = NULL;
 	HTTPHeadersRef headers = NULL;
 
 	if(!URI) goto enqueue;
 
-	str_t algo[EFS_ALGO_SIZE];
-	str_t hash[EFS_HASH_SIZE];
-	if(EFSParseURI(URI, algo, hash) < 0) goto enqueue;
+	str_t algo[SLN_ALGO_SIZE];
+	str_t hash[SLN_HASH_SIZE];
+	if(SLNParseURI(URI, algo, hash) < 0) goto enqueue;
 
-	if(EFSSessionGetFileInfo(pull->session, URI, NULL) >= 0) goto enqueue;
+	if(SLNSessionGetFileInfo(pull->session, URI, NULL) >= 0) goto enqueue;
 
 	// TODO: We're logging out of order when we do it like this...
 //	fprintf(stderr, "Pulling %s\n", URI);
@@ -392,7 +392,7 @@ static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, 
 	}*/
 	strarg_t const type = HTTPHeadersGet(headers, "content-type");
 
-	sub = EFSSubmissionCreate(pull->session, type);
+	sub = SLNSubmissionCreate(pull->session, type);
 	if(!sub) {
 		fprintf(stderr, "Pull submission error\n");
 		goto fail;
@@ -406,13 +406,13 @@ static int import(EFSPullRef const pull, strarg_t const URI, index_t const pos, 
 			goto fail;
 		}
 		if(0 == buf->len) break;
-		rc = EFSSubmissionWrite(sub, (byte_t *)buf->base, buf->len);
+		rc = SLNSubmissionWrite(sub, (byte_t *)buf->base, buf->len);
 		if(rc < 0) {
 			fprintf(stderr, "Pull write error\n");
 			goto fail;
 		}
 	}
-	rc = EFSSubmissionEnd(sub);
+	rc = SLNSubmissionEnd(sub);
 	if(rc < 0) {
 		fprintf(stderr, "Pull submission error %s\n", uv_strerror(rc));
 		goto fail;
@@ -429,7 +429,7 @@ enqueue:
 
 fail:
 	HTTPHeadersFree(&headers);
-	EFSSubmissionFree(&sub);
+	SLNSubmissionFree(&sub);
 	HTTPConnectionFree(conn);
 	return -1;
 }

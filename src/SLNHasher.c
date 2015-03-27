@@ -1,29 +1,29 @@
 #include <openssl/sha.h> // TODO: Switch to LibreSSL.
 #include "StrongLink.h"
 
-struct EFSHasher {
+struct SLNHasher {
 	str_t *type;
 	SHA_CTX sha1;
 	SHA256_CTX sha256;
 	str_t *internalHash;
 };
 
-EFSHasherRef EFSHasherCreate(strarg_t const type) {
-	assertf(type, "EFSHasher type required");
-	EFSHasherRef hasher = calloc(1, sizeof(struct EFSHasher));
+SLNHasherRef SLNHasherCreate(strarg_t const type) {
+	assertf(type, "SLNHasher type required");
+	SLNHasherRef hasher = calloc(1, sizeof(struct SLNHasher));
 	if(!hasher) return NULL;
 	hasher->type = strdup(type);
 	if(
 		SHA1_Init(&hasher->sha1) < 0 ||
 		SHA256_Init(&hasher->sha256) < 0
 	) {
-		EFSHasherFree(&hasher);
+		SLNHasherFree(&hasher);
 		return NULL;
 	};
 	return hasher;
 }
-void EFSHasherFree(EFSHasherRef *const hasherptr) {
-	EFSHasherRef hasher = *hasherptr;
+void SLNHasherFree(SLNHasherRef *const hasherptr) {
+	SLNHasherRef hasher = *hasherptr;
 	if(!hasher) return;
 	FREE(&hasher->type);
 	memset(&hasher->sha1, 0, sizeof(hasher->sha1));
@@ -32,7 +32,7 @@ void EFSHasherFree(EFSHasherRef *const hasherptr) {
 	assert_zeroed(hasher, 1);
 	FREE(hasherptr); hasher = NULL;
 }
-int EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, size_t const len) {
+int SLNHasherWrite(SLNHasherRef const hasher, byte_t const *const buf, size_t const len) {
 	if(!hasher) return 0;
 	if(!len) return 0;
 	assertf(buf, "Buffer required");
@@ -41,7 +41,7 @@ int EFSHasherWrite(EFSHasherRef const hasher, byte_t const *const buf, size_t co
 	return 0;
 }
 
-str_t **EFSHasherEnd(EFSHasherRef const hasher) {
+str_t **SLNHasherEnd(SLNHasherRef const hasher) {
 	if(!hasher) return NULL;
 
 	byte_t sha1[SHA_DIGEST_LENGTH];
@@ -64,13 +64,13 @@ str_t **EFSHasherEnd(EFSHasherRef const hasher) {
 	if(!URIs) return NULL;
 
 	// Make sure the preferred URI (e.g. the one used for internalHash) is first.
-	URIs[0] = EFSFormatURI("sha256", sha256hex);
+	URIs[0] = SLNFormatURI("sha256", sha256hex);
 	sha256hex[24] = '\0';
-	URIs[1] = EFSFormatURI("sha256", sha256hex);
+	URIs[1] = SLNFormatURI("sha256", sha256hex);
 
-	URIs[2] = EFSFormatURI("sha1", sha1hex);
+	URIs[2] = SLNFormatURI("sha1", sha1hex);
 	sha1hex[24] = '\0';
-	URIs[3] = EFSFormatURI("sha1", sha1hex);
+	URIs[3] = SLNFormatURI("sha1", sha1hex);
 
 	URIs[4] = NULL;
 
@@ -79,7 +79,7 @@ str_t **EFSHasherEnd(EFSHasherRef const hasher) {
 
 	return URIs;
 }
-strarg_t EFSHasherGetInternalHash(EFSHasherRef const hasher) {
+strarg_t SLNHasherGetInternalHash(SLNHasherRef const hasher) {
 	if(!hasher) return NULL;
 	return hasher->internalHash;
 }

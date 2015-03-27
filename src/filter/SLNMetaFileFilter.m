@@ -1,9 +1,9 @@
 #include "SLNFilter.h"
 
-@interface EFSMetaFileFilterInternal : EFSFilter
+@interface SLNMetaFileFilterInternal : SLNFilter
 {
 	DB_txn *curtxn;
-	EFSFilter *subfilter; // weak ref
+	SLNFilter *subfilter; // weak ref
 	DB_cursor *metafiles;
 	DB_cursor *age_metafile;
 	DB_cursor *age_uri;
@@ -11,11 +11,11 @@
 }
 @end
 
-@implementation EFSMetaFileFilter
+@implementation SLNMetaFileFilter
 - (id)init {
 	if(!(self = [super init])) return nil;
-	main = [[EFSUnionFilter alloc] init];
-	internal = [[EFSMetaFileFilterInternal alloc] init];
+	main = [[SLNUnionFilter alloc] init];
+	internal = [[SLNMetaFileFilterInternal alloc] init];
 	if(!main || !internal) {
 		[internal free]; internal = nil;
 		[self free];
@@ -33,13 +33,13 @@
 	[super free];
 }
 
-- (EFSFilterType)type {
-	return EFSMetaFileFilterType;
+- (SLNFilterType)type {
+	return SLNMetaFileFilterType;
 }
-- (EFSFilter *)unwrap {
+- (SLNFilter *)unwrap {
 	return [subfilter unwrap];
 }
-- (int)addFilterArg:(EFSFilter *const)filter {
+- (int)addFilterArg:(SLNFilter *const)filter {
 	if([internal addFilterArg:filter] < 0) return -1;
 	if([main addFilterArg:filter] < 0) return -1;
 	subfilter = filter;
@@ -78,7 +78,7 @@
 }
 @end
 
-@implementation EFSMetaFileFilterInternal
+@implementation SLNMetaFileFilterInternal
 - (void)free {
 	subfilter = nil;
 	db_cursor_close(metafiles); metafiles = NULL;
@@ -88,7 +88,7 @@
 	[super free];
 }
 
-- (int)addFilterArg:(EFSFilter *const)filter {
+- (int)addFilterArg:(SLNFilter *const)filter {
 	if(subfilter) return -1;
 	subfilter = filter;
 	return 0;
@@ -97,9 +97,9 @@
 - (int)prepare:(DB_txn *const)txn {
 	assert(subfilter);
 	if([super prepare:txn] < 0) return -1;
-	db_cursor_renew(txn, &metafiles); // EFSMetaFileByID
-	db_cursor_renew(txn, &age_metafile); // EFSFileIDAndMetaFileID
-	db_cursor_renew(txn, &age_uri); // EFSMetaFileByID
+	db_cursor_renew(txn, &metafiles); // SLNMetaFileByID
+	db_cursor_renew(txn, &age_metafile); // SLNFileIDAndMetaFileID
+	db_cursor_renew(txn, &age_uri); // SLNMetaFileByID
 	db_cursor_renew(txn, &age_files);
 	curtxn = txn;
 	return 0;
@@ -107,9 +107,9 @@
 
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
 	DB_range range[1];
-	EFSMetaFileByIDRange0(range, curtxn);
+	SLNMetaFileByIDRange0(range, curtxn);
 	DB_val metaFileID_key[1];
-	EFSMetaFileByIDKeyPack(metaFileID_key, curtxn, sortID);
+	SLNMetaFileByIDKeyPack(metaFileID_key, curtxn, sortID);
 	DB_val metaFile_val[1];
 	int rc = db_cursor_seekr(metafiles, range, metaFileID_key, metaFile_val, dir);
 	assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
@@ -119,7 +119,7 @@
 	int rc = db_cursor_current(metafiles, metaFileID_key, metaFile_val);
 	if(DB_SUCCESS == rc) {
 		uint64_t const table = db_read_uint64(metaFileID_key);
-		assert(EFSMetaFileByID == table);
+		assert(SLNMetaFileByID == table);
 		if(sortID) *sortID = db_read_uint64(metaFileID_key);
 		if(fileID) *fileID = db_read_uint64(metaFile_val);
 	} else {
@@ -129,7 +129,7 @@
 }
 - (void)step:(int const)dir {
 	DB_range range[1];
-	EFSMetaFileByIDRange0(range, curtxn);
+	SLNMetaFileByIDRange0(range, curtxn);
 	DB_val ignore[1];
 	int rc = db_cursor_nextr(metafiles, range, ignore, NULL, dir);
 	assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
@@ -138,17 +138,17 @@
 	assert(subfilter);
 
 	DB_range metaFileIDs[1];
-	EFSFileIDAndMetaFileIDRange1(metaFileIDs, curtxn, fileID);
+	SLNFileIDAndMetaFileIDRange1(metaFileIDs, curtxn, fileID);
 	DB_val fileIDAndMetaFileID_key[1];
 	int rc = db_cursor_firstr(age_metafile, metaFileIDs, fileIDAndMetaFileID_key, NULL, +1);
 	if(DB_SUCCESS != rc) return UINT64_MAX;
 	uint64_t f;
 	uint64_t metaFileID;
-	EFSFileIDAndMetaFileIDKeyUnpack(fileIDAndMetaFileID_key, curtxn, &f, &metaFileID);
+	SLNFileIDAndMetaFileIDKeyUnpack(fileIDAndMetaFileID_key, curtxn, &f, &metaFileID);
 	assert(fileID == f);
 
 	DB_val metaFileID_key[1];
-	EFSMetaFileByIDKeyPack(metaFileID_key, curtxn, metaFileID);
+	SLNMetaFileByIDKeyPack(metaFileID_key, curtxn, metaFileID);
 	DB_val metaFile_val[1];
 	rc = db_cursor_seek(age_uri, metaFileID_key, metaFile_val, 0);
 	if(DB_SUCCESS != rc) return UINT64_MAX;
@@ -157,14 +157,14 @@
 	strarg_t const targetURI = db_read_string(metaFile_val, curtxn);
 
 	DB_range targetFileIDs[1];
-	EFSURIAndFileIDRange1(targetFileIDs, curtxn, targetURI);
+	SLNURIAndFileIDRange1(targetFileIDs, curtxn, targetURI);
 	DB_val targetFileID_key[1];
 	rc = db_cursor_firstr(age_files, targetFileIDs, targetFileID_key, NULL, +1);
 	assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
 	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(age_files, targetFileIDs, targetFileID_key, NULL, +1)) {
 		strarg_t u;
 		uint64_t targetFileID;
-		EFSURIAndFileIDKeyUnpack(targetFileID_key, curtxn, &u, &targetFileID);
+		SLNURIAndFileIDKeyUnpack(targetFileID_key, curtxn, &u, &targetFileID);
 		assert(0 == strcmp(targetURI, u));
 		if([subfilter age:UINT64_MAX :targetFileID] < UINT64_MAX) return metaFileID;
 	}

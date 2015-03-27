@@ -15,7 +15,7 @@
 typedef struct Blog* BlogRef;
 
 struct Blog {
-	EFSRepoRef repo;
+	SLNRepoRef repo;
 
 	str_t *dir;
 	str_t *cacheDir;
@@ -47,7 +47,7 @@ static str_t *BlogCopyPreviewPath(BlogRef const blog, strarg_t const hash) {
 
 
 int markdown_convert(strarg_t const dst, strarg_t const src);
-static int genMarkdownPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const tmp, EFSFileInfo const *const info) {
+static int genMarkdownPreview(BlogRef const blog, SLNSessionRef const session, strarg_t const URI, strarg_t const tmp, SLNFileInfo const *const info) {
 	if(
 		0 != strcasecmp("text/markdown; charset=utf-8", info->type) &&
 		0 != strcasecmp("text/markdown", info->type) &&
@@ -62,7 +62,7 @@ static int genMarkdownPreview(BlogRef const blog, EFSSessionRef const session, s
 }
 
 
-static int genPlainTextPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const tmp, EFSFileInfo const *const info) {
+static int genPlainTextPreview(BlogRef const blog, SLNSessionRef const session, strarg_t const URI, strarg_t const tmp, SLNFileInfo const *const info) {
 	if(
 		0 != strcasecmp("text/plain; charset=utf-8", info->type) &&
 		0 != strcasecmp("text/plain", info->type)
@@ -75,16 +75,16 @@ static int genPlainTextPreview(BlogRef const blog, EFSSessionRef const session, 
 
 typedef struct {
 	BlogRef blog;
-	EFSSessionRef session;
+	SLNSessionRef session;
 	strarg_t fileURI;
 } preview_state;
 static str_t *preview_metadata(preview_state const *const state, strarg_t const var) {
 	strarg_t unsafe = NULL;
 	str_t buf[URI_MAX];
 	if(0 == strcmp(var, "rawURI")) {
-		str_t algo[EFS_ALGO_SIZE]; // EFS_INTERNAL_ALGO
-		str_t hash[EFS_HASH_SIZE];
-		EFSParseURI(state->fileURI, algo, hash);
+		str_t algo[SLN_ALGO_SIZE]; // SLN_INTERNAL_ALGO
+		str_t hash[SLN_HASH_SIZE];
+		SLNParseURI(state->fileURI, algo, hash);
 		snprintf(buf, sizeof(buf), "/efs/file/%s/%s", algo, hash);
 		unsafe = buf;
 	}
@@ -99,7 +99,7 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 	if(unsafe) return htmlenc(unsafe);
 
 	str_t value[1024 * 4];
-	int rc = EFSSessionGetValueForField(state->session, value, sizeof(value), state->fileURI, var);
+	int rc = SLNSessionGetValueForField(state->session, value, sizeof(value), state->fileURI, var);
 	if(DB_SUCCESS == rc && '\0' != value[0]) unsafe = value;
 
 	if(!unsafe) {
@@ -119,7 +119,7 @@ static TemplateArgCBs const preview_cbs = {
 	.free = (void (*)())preview_free,
 };
 
-static int genGenericPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const tmp, EFSFileInfo const *const info) {
+static int genGenericPreview(BlogRef const blog, SLNSessionRef const session, strarg_t const URI, strarg_t const tmp, SLNFileInfo const *const info) {
 	uv_file file = async_fs_open(tmp, O_CREAT | O_EXCL | O_WRONLY, 0400);
 	if(file < 0) return -1;
 
@@ -138,12 +138,12 @@ static int genGenericPreview(BlogRef const blog, EFSSessionRef const session, st
 	return 0;
 }
 
-static int genPreview(BlogRef const blog, EFSSessionRef const session, strarg_t const URI, strarg_t const path) {
-	EFSFileInfo info[1];
-	if(EFSSessionGetFileInfo(session, URI, info) < 0) return -1;
-	str_t *tmp = EFSRepoCopyTempPath(blog->repo);
+static int genPreview(BlogRef const blog, SLNSessionRef const session, strarg_t const URI, strarg_t const path) {
+	SLNFileInfo info[1];
+	if(SLNSessionGetFileInfo(session, URI, info) < 0) return -1;
+	str_t *tmp = SLNRepoCopyTempPath(blog->repo);
 	if(!tmp) {
-		EFSFileInfoCleanup(info);
+		SLNFileInfoCleanup(info);
 		return -1;
 	}
 
@@ -156,7 +156,7 @@ static int genPreview(BlogRef const blog, EFSSessionRef const session, strarg_t 
 	success = success || genPlainTextPreview(blog, session, URI, tmp, info) >= 0;
 	success = success || genGenericPreview(blog, session, URI, tmp, info) >= 0;
 
-	EFSFileInfoCleanup(info);
+	SLNFileInfoCleanup(info);
 	if(!success) {
 		FREE(&tmp);
 		return -1;
@@ -195,7 +195,7 @@ static void gen_done(BlogRef const blog, strarg_t const path, index_t const x) {
 	async_cond_broadcast(blog->pending_cond);
 	async_mutex_unlock(blog->pending_mutex);
 }
-static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, EFSSessionRef const session, strarg_t const URI, strarg_t const path) {
+static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, SLNSessionRef const session, strarg_t const URI, strarg_t const path) {
 	if(!path) return;
 
 	preview_state const state = {
@@ -244,29 +244,29 @@ static strarg_t const BlogQueryFields[] = {
 	"q",
 	"f",
 };
-static int GET_query(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
 	strarg_t qs = NULL;
 	if(!URIPath(URI, "/", &qs)) return -1;
 
 	BlogQueryValues *params = QSValuesCopy(qs, BlogQueryFields, numberof(BlogQueryFields));
-	EFSFilterRef filter = EFSUserFilterParse(params->query);
-	if(!filter) filter = EFSFilterCreate(EFSAllFilterType);
+	SLNFilterRef filter = SLNUserFilterParse(params->query);
+	if(!filter) filter = SLNFilterCreate(SLNAllFilterType);
 	QSValuesFree((QSValues *)&params, numberof(BlogQueryFields));
 
-//	EFSFilterPrint(filter, 0); // DEBUG
+//	SLNFilterPrint(filter, 0); // DEBUG
 
 	// TODO: str_t *URIs[RESULTS_MAX]; ?
-	str_t **URIs = EFSSessionCopyFilteredURIs(session, filter, RESULTS_MAX);
+	str_t **URIs = SLNSessionCopyFilteredURIs(session, filter, RESULTS_MAX);
 	if(!URIs) {
-		EFSFilterFree(&filter);
+		SLNFilterFree(&filter);
 		return 500;
 	}
 
-	str_t *reponame_HTMLSafe = htmlenc(EFSRepoGetName(EFSSessionGetRepo(session)));
+	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(SLNSessionGetRepo(session)));
 
 	str_t q[200];
-	size_t qlen = EFSFilterToUserFilterString(filter, q, sizeof(q), 0);
+	size_t qlen = SLNFilterToUserFilterString(filter, q, sizeof(q), 0);
 	str_t *q_HTMLSafe = htmlenc(q);
 
 	if(!reponame_HTMLSafe || !q_HTMLSafe) {
@@ -274,7 +274,7 @@ static int GET_query(BlogRef const blog, EFSSessionRef const session, HTTPConnec
 		FREE(&q_HTMLSafe);
 		for(index_t i = 0; URIs[i]; ++i) FREE(&URIs[i]); // TODO
 		FREE(&URIs);
-		EFSFilterFree(&filter);
+		SLNFilterFree(&filter);
 		return 500;
 	}
 
@@ -291,26 +291,26 @@ static int GET_query(BlogRef const blog, EFSSessionRef const session, HTTPConnec
 	TemplateWriteHTTPChunk(blog->header, &TemplateStaticCBs, args, conn);
 
 	// TODO: This is pretty broken. We probably need a whole separate mode.
-	EFSFilterRef const coreFilter = EFSFilterUnwrap(filter);
-	if(coreFilter && EFSMetadataFilterType == EFSFilterGetType(coreFilter)) {
-		strarg_t const field = EFSFilterGetStringArg(coreFilter, 0);
-		strarg_t const URI = EFSFilterGetStringArg(coreFilter, 1);
-		EFSFileInfo info[1];
-		if(0 == strcmp("link", field) && EFSSessionGetFileInfo(session, URI, info) >= 0) {
-			str_t *canonical = EFSFormatURI(EFS_INTERNAL_ALGO, info->hash);
+	SLNFilterRef const coreFilter = SLNFilterUnwrap(filter);
+	if(coreFilter && SLNMetadataFilterType == SLNFilterGetType(coreFilter)) {
+		strarg_t const field = SLNFilterGetStringArg(coreFilter, 0);
+		strarg_t const URI = SLNFilterGetStringArg(coreFilter, 1);
+		SLNFileInfo info[1];
+		if(0 == strcmp("link", field) && SLNSessionGetFileInfo(session, URI, info) >= 0) {
+			str_t *canonical = SLNFormatURI(SLN_INTERNAL_ALGO, info->hash);
 			str_t *previewPath = BlogCopyPreviewPath(blog, info->hash);
 			sendPreview(blog, conn, session, canonical, previewPath);
 			FREE(&previewPath);
 			FREE(&canonical);
-			EFSFileInfoCleanup(info);
+			SLNFileInfoCleanup(info);
 			// TODO: Remember this file and make sure it doesn't show up as a duplicate below.
 		}
 	}
 
 	for(index_t i = 0; URIs[i]; ++i) {
-		str_t algo[EFS_ALGO_SIZE]; // EFS_INTERNAL_ALGO
-		str_t hash[EFS_HASH_SIZE];
-		EFSParseURI(URIs[i], algo, hash);
+		str_t algo[SLN_ALGO_SIZE]; // SLN_INTERNAL_ALGO
+		str_t hash[SLN_HASH_SIZE];
+		SLNParseURI(URIs[i], algo, hash);
 		str_t *previewPath = BlogCopyPreviewPath(blog, hash);
 		sendPreview(blog, conn, session, URIs[i], previewPath);
 		FREE(&previewPath);
@@ -324,16 +324,16 @@ static int GET_query(BlogRef const blog, EFSSessionRef const session, HTTPConnec
 
 	for(index_t i = 0; URIs[i]; ++i) FREE(&URIs[i]);
 	FREE(&URIs);
-	EFSFilterFree(&filter);
+	SLNFilterFree(&filter);
 	return 0;
 }
 
 // TODO: Lots of duplication here
-static int GET_new(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int GET_new(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
 	if(!URIPath(URI, "/new", NULL)) return -1;
 
-	str_t *reponame_HTMLSafe = htmlenc(EFSRepoGetName(EFSSessionGetRepo(session)));
+	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(SLNSessionGetRepo(session)));
 	if(!reponame_HTMLSafe) return 500;
 	TemplateStaticArg const args[] = {
 		{"reponame", reponame_HTMLSafe},
@@ -352,11 +352,11 @@ static int GET_new(BlogRef const blog, EFSSessionRef const session, HTTPConnecti
 	FREE(&reponame_HTMLSafe);
 	return 0;
 }
-static int GET_up(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int GET_up(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
 	if(!URIPath(URI, "/up", NULL)) return -1;
 
-	str_t *reponame_HTMLSafe = htmlenc(EFSRepoGetName(EFSSessionGetRepo(session)));
+	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(SLNSessionGetRepo(session)));
 	if(!reponame_HTMLSafe) return 500;
 	TemplateStaticArg const args[] = {
 		{"reponame", reponame_HTMLSafe},
@@ -386,7 +386,7 @@ static int GET_up(BlogRef const blog, EFSSessionRef const session, HTTPConnectio
 #define FTS_MAX (1024 * 50)
 
 // TODO
-static int quickpair(EFSSessionRef const session, MultipartFormRef const form, strarg_t const title, EFSSubmissionRef *const outSub, EFSSubmissionRef *const outMeta) {
+static int quickpair(SLNSessionRef const session, MultipartFormRef const form, strarg_t const title, SLNSubmissionRef *const outSub, SLNSubmissionRef *const outMeta) {
 assert(form);
 
 // TODO
@@ -418,11 +418,11 @@ assert(form);
 
 
 
-	EFSSubmissionRef sub = EFSSubmissionCreate(session, type);
-	EFSSubmissionRef meta = EFSSubmissionCreate(session, "text/efs-meta+json; charset=utf-8");
+	SLNSubmissionRef sub = SLNSubmissionCreate(session, type);
+	SLNSubmissionRef meta = SLNSubmissionCreate(session, "text/efs-meta+json; charset=utf-8");
 	if(!sub || !meta) {
-		EFSSubmissionFree(&sub);
-		EFSSubmissionFree(&meta);
+		SLNSubmissionFree(&sub);
+		SLNSubmissionFree(&meta);
 		return -1;
 	}
 
@@ -445,16 +445,16 @@ assert(form);
 		rc = MultipartFormReadData(form, buf);
 		if(rc < 0) {
 			FREE(&fulltext);
-			EFSSubmissionFree(&sub);
-			EFSSubmissionFree(&meta);
+			SLNSubmissionFree(&sub);
+			SLNSubmissionFree(&meta);
 			return rc;
 		}
 		if(0 == buf->len) break;
-		rc = EFSSubmissionWrite(sub, (byte_t const *)buf->base, buf->len);
+		rc = SLNSubmissionWrite(sub, (byte_t const *)buf->base, buf->len);
 		if(rc < 0) {
 			FREE(&fulltext);
-			EFSSubmissionFree(&sub);
-			EFSSubmissionFree(&meta);
+			SLNSubmissionFree(&sub);
+			SLNSubmissionFree(&meta);
 			return rc;
 		}
 		if(fulltext) {
@@ -468,19 +468,19 @@ assert(form);
 	}
 
 
-	if(EFSSubmissionEnd(sub) < 0) {
+	if(SLNSubmissionEnd(sub) < 0) {
 		FREE(&fulltext);
-		EFSSubmissionFree(&sub);
-		EFSSubmissionFree(&meta);
+		SLNSubmissionFree(&sub);
+		SLNSubmissionFree(&meta);
 		return -1;
 	}
 
-	strarg_t const targetURI = EFSSubmissionGetPrimaryURI(sub);
-	EFSSubmissionWrite(meta, (byte_t const *)targetURI, strlen(targetURI));
-	EFSSubmissionWrite(meta, (byte_t const *)"\r\n\r\n", 4);
+	strarg_t const targetURI = SLNSubmissionGetPrimaryURI(sub);
+	SLNSubmissionWrite(meta, (byte_t const *)targetURI, strlen(targetURI));
+	SLNSubmissionWrite(meta, (byte_t const *)"\r\n\r\n", 4);
 
 	yajl_gen json = yajl_gen_alloc(NULL);
-	yajl_gen_config(json, yajl_gen_print_callback, (void (*)())EFSSubmissionWrite, meta);
+	yajl_gen_config(json, yajl_gen_print_callback, (void (*)())SLNSubmissionWrite, meta);
 	yajl_gen_config(json, yajl_gen_beautify, (int)true);
 
 	yajl_gen_map_open(json);
@@ -527,9 +527,9 @@ assert(form);
 	yajl_gen_free(json); json = NULL;
 	FREE(&fulltext);
 
-	if(EFSSubmissionEnd(meta) < 0) {
-		EFSSubmissionFree(&sub);
-		EFSSubmissionFree(&meta);
+	if(SLNSubmissionEnd(meta) < 0) {
+		SLNSubmissionFree(&sub);
+		SLNSubmissionFree(&meta);
 		return -1;
 	}
 
@@ -551,7 +551,7 @@ assert(form);
 
 
 
-static int POST_submit(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int POST_submit(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return -1;
 	if(!URIPath(URI, "/submission", NULL)) return -1;
 
@@ -570,8 +570,8 @@ static int POST_submit(BlogRef const blog, EFSSessionRef const session, HTTPConn
 
 	strarg_t title = NULL; // TODO: Get file name from form part.
 
-	EFSSubmissionRef sub = NULL;
-	EFSSubmissionRef meta = NULL;
+	SLNSubmissionRef sub = NULL;
+	SLNSubmissionRef meta = NULL;
 
 
 	rc = quickpair(session, form, title, &sub, &meta);
@@ -580,11 +580,11 @@ static int POST_submit(BlogRef const blog, EFSSessionRef const session, HTTPConn
 		return 500;
 	}
 
-	EFSSubmissionRef subs[] = { sub, meta };
-	int err = EFSSubmissionBatchStore(subs, numberof(subs));
+	SLNSubmissionRef subs[] = { sub, meta };
+	int err = SLNSubmissionBatchStore(subs, numberof(subs));
 
-	EFSSubmissionFree(&sub);
-	EFSSubmissionFree(&meta);
+	SLNSubmissionFree(&sub);
+	SLNSubmissionFree(&meta);
 	MultipartFormFree(&form);
 
 	if(err < 0) return 500;
@@ -597,11 +597,11 @@ static int POST_submit(BlogRef const blog, EFSSessionRef const session, HTTPConn
 	return 0;
 }
 
-static int GET_login(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int GET_login(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
 	if(!URIPath(URI, "/login", NULL)) return -1;
 
-	str_t *reponame_HTMLSafe = htmlenc(EFSRepoGetName(EFSSessionGetRepo(session)));
+	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(SLNSessionGetRepo(session)));
 	if(!reponame_HTMLSafe) return 500;
 	TemplateStaticArg const args[] = {
 		{"reponame", reponame_HTMLSafe},
@@ -622,7 +622,7 @@ static int GET_login(BlogRef const blog, EFSSessionRef const session, HTTPConnec
 	FREE(&reponame_HTMLSafe);
 	return 0;
 }
-static int POST_auth(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int POST_auth(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return -1;
 	if(!URIPath(URI, "/auth", NULL)) return -1;
 
@@ -647,9 +647,9 @@ static int POST_auth(BlogRef const blog, EFSSessionRef const session, HTTPConnec
 	}
 
 
-	EFSRepoRef const repo = EFSSessionGetRepo(session);
+	SLNRepoRef const repo = SLNSessionGetRepo(session);
 	str_t *cookie = NULL;
-	int rc = EFSRepoCookieCreate(repo, "ben", "testing", &cookie); // TODO
+	int rc = SLNRepoCookieCreate(repo, "ben", "testing", &cookie); // TODO
 	if(0 != rc) {
 		FREE(&cookie);
 		return 403;
@@ -682,15 +682,15 @@ static bool load_template(BlogRef const blog, strarg_t const name, TemplateRef *
 	*out = t;
 	return true;
 }
-BlogRef BlogCreate(EFSRepoRef const repo) {
+BlogRef BlogCreate(SLNRepoRef const repo) {
 	assertf(repo, "Blog requires valid repo");
 
 	BlogRef blog = calloc(1, sizeof(struct Blog));
 	if(!blog) return NULL;
 	blog->repo = repo;
 
-	blog->dir = aasprintf("%s/blog", EFSRepoGetDir(repo));
-	blog->cacheDir = aasprintf("%s/blog", EFSRepoGetCacheDir(repo));
+	blog->dir = aasprintf("%s/blog", SLNRepoGetDir(repo));
+	blog->cacheDir = aasprintf("%s/blog", SLNRepoGetCacheDir(repo));
 	if(!blog->dir || !blog->cacheDir) {
 		BlogFree(&blog);
 		return NULL;
@@ -742,7 +742,7 @@ void BlogFree(BlogRef *const blogptr) {
 	assert_zeroed(blog, 1);
 	FREE(blogptr); blog = NULL;
 }
-int BlogDispatch(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	int rc = -1;
 	rc = rc >= 0 ? rc : GET_query(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_new(blog, session, conn, method, URI, headers);

@@ -1,6 +1,6 @@
 #include "SLNFilter.h"
 
-@implementation EFSObject
+@implementation SLNObject
 + (id)alloc {
 	return class_createInstance(self, 0);
 }
@@ -15,11 +15,11 @@
 }
 @end
 
-@implementation EFSFilter
+@implementation SLNFilter
 - (int)addStringArg:(strarg_t const)str :(size_t const)len {
 	return -1;
 }
-- (int)addFilterArg:(EFSFilter *const)filter {
+- (int)addFilterArg:(SLNFilter *const)filter {
 	return -1;
 }
 - (int)prepare:(DB_txn *const)txn {
@@ -27,102 +27,102 @@
 }
 @end
 
-EFSFilterRef EFSFilterCreate(EFSFilterType const type) {
+SLNFilterRef SLNFilterCreate(SLNFilterType const type) {
 	switch(type) {
-		case EFSAllFilterType:
-			return (EFSFilterRef)[[EFSAllFilter alloc] init];
-		case EFSFulltextFilterType:
-			return (EFSFilterRef)[[EFSFulltextFilter alloc] init];
-		case EFSMetadataFilterType:
-			return (EFSFilterRef)[[EFSMetadataFilter alloc] init];
-		case EFSIntersectionFilterType:
-			return (EFSFilterRef)[[EFSIntersectionFilter alloc] init];
-		case EFSUnionFilterType:
-			return (EFSFilterRef)[[EFSUnionFilter alloc] init];
-		case EFSMetaFileFilterType:
-			return (EFSFilterRef)[[EFSMetaFileFilter alloc] init];
+		case SLNAllFilterType:
+			return (SLNFilterRef)[[SLNAllFilter alloc] init];
+		case SLNFulltextFilterType:
+			return (SLNFilterRef)[[SLNFulltextFilter alloc] init];
+		case SLNMetadataFilterType:
+			return (SLNFilterRef)[[SLNMetadataFilter alloc] init];
+		case SLNIntersectionFilterType:
+			return (SLNFilterRef)[[SLNIntersectionFilter alloc] init];
+		case SLNUnionFilterType:
+			return (SLNFilterRef)[[SLNUnionFilter alloc] init];
+		case SLNMetaFileFilterType:
+			return (SLNFilterRef)[[SLNMetaFileFilter alloc] init];
 		default: assert(0); return NULL;
 	}
 }
-EFSFilterRef EFSPermissionFilterCreate(uint64_t const userID) {
-	//return (EFSFilterRef)[[EFSPermissionFilter alloc] initWithUserID:userID];
+SLNFilterRef SLNPermissionFilterCreate(uint64_t const userID) {
+	//return (SLNFilterRef)[[SLNPermissionFilter alloc] initWithUserID:userID];
 	return NULL; // TODO
 }
-void EFSFilterFree(EFSFilterRef *const filterptr) {
-	[(EFSFilter *)*filterptr free]; *filterptr = NULL;
+void SLNFilterFree(SLNFilterRef *const filterptr) {
+	[(SLNFilter *)*filterptr free]; *filterptr = NULL;
 }
-EFSFilterType EFSFilterGetType(EFSFilterRef const filter) {
+SLNFilterType SLNFilterGetType(SLNFilterRef const filter) {
 	assert(filter);
-	return [(EFSFilter *)filter type];
+	return [(SLNFilter *)filter type];
 }
-EFSFilterRef EFSFilterUnwrap(EFSFilterRef const filter) {
+SLNFilterRef SLNFilterUnwrap(SLNFilterRef const filter) {
 	assert(filter);
-	return (EFSFilterRef)[(EFSFilter *)filter unwrap];
+	return (SLNFilterRef)[(SLNFilter *)filter unwrap];
 }
-strarg_t EFSFilterGetStringArg(EFSFilterRef const filter, index_t const i) {
+strarg_t SLNFilterGetStringArg(SLNFilterRef const filter, index_t const i) {
 	assert(filter);
-	return [(EFSFilter *)filter stringArg:i];
+	return [(SLNFilter *)filter stringArg:i];
 }
-int EFSFilterAddStringArg(EFSFilterRef const filter, strarg_t const str, ssize_t const len) {
+int SLNFilterAddStringArg(SLNFilterRef const filter, strarg_t const str, ssize_t const len) {
 	assert(filter);
-	return [(EFSFilter *)filter addStringArg:str :len];
+	return [(SLNFilter *)filter addStringArg:str :len];
 }
-int EFSFilterAddFilterArg(EFSFilterRef const filter, EFSFilterRef const subfilter) {
+int SLNFilterAddFilterArg(SLNFilterRef const filter, SLNFilterRef const subfilter) {
 	assert(filter);
-	return [(EFSFilter *)filter addFilterArg:(EFSFilter *)subfilter];
+	return [(SLNFilter *)filter addFilterArg:(SLNFilter *)subfilter];
 }
-void EFSFilterPrint(EFSFilterRef const filter, count_t const depth) {
+void SLNFilterPrint(SLNFilterRef const filter, count_t const depth) {
 	assert(filter);
-	return [(EFSFilter *)filter print:depth];
+	return [(SLNFilter *)filter print:depth];
 }
-size_t EFSFilterToUserFilterString(EFSFilterRef const filter, str_t *const data, size_t const size, count_t const depth) {
+size_t SLNFilterToUserFilterString(SLNFilterRef const filter, str_t *const data, size_t const size, count_t const depth) {
 	assert(filter);
-	return [(EFSFilter *)filter getUserFilter:data :size :depth];
+	return [(SLNFilter *)filter getUserFilter:data :size :depth];
 }
-int EFSFilterPrepare(EFSFilterRef const filter, DB_txn *const txn) {
+int SLNFilterPrepare(SLNFilterRef const filter, DB_txn *const txn) {
 	assert(filter);
-	return [(EFSFilter *)filter prepare:txn];
+	return [(SLNFilter *)filter prepare:txn];
 }
-void EFSFilterSeek(EFSFilterRef const filter, int const dir, uint64_t const sortID, uint64_t const fileID) {
-	[(EFSFilter *)filter seek:dir :sortID :fileID];
+void SLNFilterSeek(SLNFilterRef const filter, int const dir, uint64_t const sortID, uint64_t const fileID) {
+	[(SLNFilter *)filter seek:dir :sortID :fileID];
 }
-void EFSFilterCurrent(EFSFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID) {
-	assert(filter);
-	assert(dir);
-	[(EFSFilter *)filter current:dir :sortID :fileID];
-}
-void EFSFilterStep(EFSFilterRef const filter, int const dir) {
+void SLNFilterCurrent(SLNFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID) {
 	assert(filter);
 	assert(dir);
-	[(EFSFilter *)filter step:dir];
+	[(SLNFilter *)filter current:dir :sortID :fileID];
 }
-uint64_t EFSFilterAge(EFSFilterRef const filter, uint64_t const sortID, uint64_t const fileID) {
+void SLNFilterStep(SLNFilterRef const filter, int const dir) {
 	assert(filter);
-	return [(EFSFilter *)filter age:sortID :fileID];
+	assert(dir);
+	[(SLNFilter *)filter step:dir];
 }
-str_t *EFSFilterCopyNextURI(EFSFilterRef const filter, int const dir, DB_txn *const txn) {
-	for(;; EFSFilterStep(filter, dir)) {
+uint64_t SLNFilterAge(SLNFilterRef const filter, uint64_t const sortID, uint64_t const fileID) {
+	assert(filter);
+	return [(SLNFilter *)filter age:sortID :fileID];
+}
+str_t *SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, DB_txn *const txn) {
+	for(;; SLNFilterStep(filter, dir)) {
 		uint64_t sortID, fileID;
-		EFSFilterCurrent(filter, dir, &sortID, &fileID);
+		SLNFilterCurrent(filter, dir, &sortID, &fileID);
 		if(!valid(fileID)) return NULL;
 
 //		fprintf(stderr, "step: %llu, %llu\n", (unsigned long long)sortID, (unsigned long long)fileID);
 
-		uint64_t const age = EFSFilterAge(filter, sortID, fileID);
+		uint64_t const age = SLNFilterAge(filter, sortID, fileID);
 //		fprintf(stderr, "{%llu, %llu} -> %llu\n", (unsigned long long)sortID, (unsigned long long)fileID, (unsigned long long)age);
 		if(age != sortID) continue;
 
 		DB_val fileID_key[1];
-		EFSFileByIDKeyPack(fileID_key, txn, fileID);
+		SLNFileByIDKeyPack(fileID_key, txn, fileID);
 		DB_val file_val[1];
 		int rc = db_get(txn, fileID_key, file_val);
 		assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
 
 		strarg_t const hash = db_read_string(file_val, txn);
 		assert(hash);
-		str_t *const URI = EFSFormatURI(EFS_INTERNAL_ALGO, hash);
+		str_t *const URI = SLNFormatURI(SLN_INTERNAL_ALGO, hash);
 		assert(URI);
-		EFSFilterStep(filter, dir);
+		SLNFilterStep(filter, dir);
 		return URI;
 	}
 }

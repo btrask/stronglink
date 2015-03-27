@@ -30,17 +30,17 @@ static void add_metadata(DB_txn *const txn, uint64_t const metaFileID, strarg_t 
 static void add_fulltext(DB_txn *const txn, uint64_t const metaFileID, strarg_t const str, size_t const len);
 
 
-int EFSSubmissionParseMetaFile(EFSSubmissionRef const sub, uint64_t const fileID, DB_txn *const txn, uint64_t *const out) {
+int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID, DB_txn *const txn, uint64_t *const out) {
 	assert(out);
 	if(!sub) return DB_EINVAL;
 	if(!fileID) return DB_EINVAL;
 	if(!txn) return DB_EINVAL;
 
-	strarg_t const type = EFSSubmissionGetType(sub);
+	strarg_t const type = SLNSubmissionGetType(sub);
 	if(!type) return DB_SUCCESS;
 	if(0 != strcasecmp("text/efs-meta+json; charset=utf-8", type)) return DB_SUCCESS;
 
-	uv_file const fd = EFSSubmissionGetFile(sub);
+	uv_file const fd = SLNSubmissionGetFile(sub);
 	if(fd < 0) return DB_EINVAL;
 
 	int rc = DB_SUCCESS;
@@ -234,25 +234,25 @@ static yajl_callbacks const callbacks = {
 };
 
 static uint64_t add_metafile(DB_txn *const txn, uint64_t const fileID, strarg_t const targetURI) {
-	uint64_t const metaFileID = db_next_id(EFSMetaFileByID, txn);
+	uint64_t const metaFileID = db_next_id(SLNMetaFileByID, txn);
 	assert(metaFileID);
 	int rc;
 	DB_val null = { 0, NULL };
 
 	DB_val metaFileID_key[1];
-	EFSMetaFileByIDKeyPack(metaFileID_key, txn, metaFileID);
+	SLNMetaFileByIDKeyPack(metaFileID_key, txn, metaFileID);
 	DB_val metaFile_val[1];
-	EFSMetaFileByIDValPack(metaFile_val, txn, fileID, targetURI);
+	SLNMetaFileByIDValPack(metaFile_val, txn, fileID, targetURI);
 	rc = db_put(txn, metaFileID_key, metaFile_val, DB_NOOVERWRITE_FAST);
 	assert(!rc);
 
 	DB_val fileID_key[1];
-	EFSFileIDAndMetaFileIDKeyPack(fileID_key, txn, fileID, metaFileID);
+	SLNFileIDAndMetaFileIDKeyPack(fileID_key, txn, fileID, metaFileID);
 	rc = db_put(txn, fileID_key, &null, DB_NOOVERWRITE_FAST);
 	assert(!rc);
 
 	DB_val targetURI_key[1];
-	EFSTargetURIAndMetaFileIDKeyPack(targetURI_key, txn, targetURI, metaFileID);
+	SLNTargetURIAndMetaFileIDKeyPack(targetURI_key, txn, targetURI, metaFileID);
 	rc = db_put(txn, targetURI_key, &null, DB_NOOVERWRITE_FAST);
 	assert(!rc);
 
@@ -263,12 +263,12 @@ static void add_metadata(DB_txn *const txn, uint64_t const metaFileID, strarg_t 
 	int rc;
 
 	DB_val fwd[1];
-	EFSMetaFileIDFieldAndValueKeyPack(fwd, txn, metaFileID, field, value);
+	SLNMetaFileIDFieldAndValueKeyPack(fwd, txn, metaFileID, field, value);
 	rc = db_put(txn, fwd, &null, DB_NOOVERWRITE_FAST);
 	assertf(DB_SUCCESS == rc || DB_KEYEXIST == rc, "Database error %s", db_strerror(rc));
 
 	DB_val rev[1];
-	EFSFieldValueAndMetaFileIDKeyPack(rev, txn, field, value, metaFileID);
+	SLNFieldValueAndMetaFileIDKeyPack(rev, txn, field, value, metaFileID);
 	rc = db_put(txn, rev, &null, DB_NOOVERWRITE_FAST);
 	assertf(DB_SUCCESS == rc || DB_KEYEXIST == rc, "Database error %s", db_strerror(rc));
 }
@@ -297,8 +297,8 @@ static void add_fulltext(DB_txn *const txn, uint64_t const metaFileID, strarg_t 
 
 		assert('\0' == token[tlen]); // Assumption
 		DB_val token_val[1];
-		EFSTermMetaFileIDAndPositionKeyPack(token_val, txn, token, metaFileID, 0);
-		// TODO: Record tpos. Requires changes to EFSFulltextFilter so that each document only gets returned once, no matter how many times the token appears within it.
+		SLNTermMetaFileIDAndPositionKeyPack(token_val, txn, token, metaFileID, 0);
+		// TODO: Record tpos. Requires changes to SLNFulltextFilter so that each document only gets returned once, no matter how many times the token appears within it.
 		DB_val null = { 0, NULL };
 		rc = db_cursor_put(cursor, token_val, &null, DB_NOOVERWRITE_FAST);
 		assert(DB_SUCCESS == rc || DB_KEYEXIST == rc);

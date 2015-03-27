@@ -18,44 +18,44 @@ struct cookie_t {
 	uint64_t userID;
 };
 
-static int user_auth(EFSRepoRef const repo, strarg_t const username, strarg_t const password, uint64_t *const outUserID) {
+static int user_auth(SLNRepoRef const repo, strarg_t const username, strarg_t const password, uint64_t *const outUserID) {
 	assert(repo);
 	assert(username);
 	assert(password);
 	assert(outUserID);
 
 	DB_env *db = NULL;
-	EFSRepoDBOpen(repo, &db);
+	SLNRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
 	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	if(DB_SUCCESS != rc) {
-		EFSRepoDBClose(repo, &db);
+		SLNRepoDBClose(repo, &db);
 		return rc;
 	}
 
 	DB_val username_key[1];
-	EFSUserIDByNameKeyPack(username_key, txn, username);
+	SLNUserIDByNameKeyPack(username_key, txn, username);
 	DB_val userID_val[1];
 	rc = db_get(txn, username_key, userID_val);
 	if(DB_SUCCESS != rc) {
 		db_txn_abort(txn); txn = NULL;
-		EFSRepoDBClose(repo, &db);
+		SLNRepoDBClose(repo, &db);
 		return rc;
 	}
 	uint64_t const userID = db_read_uint64(userID_val);
 	if(!userID) {
 		db_txn_abort(txn); txn = NULL;
-		EFSRepoDBClose(repo, &db);
+		SLNRepoDBClose(repo, &db);
 		return UV_EACCES;
 	}
 
 	DB_val userID_key[1];
-	EFSUserByIDKeyPack(userID_key, txn, userID);
+	SLNUserByIDKeyPack(userID_key, txn, userID);
 	DB_val user_val[1];
 	rc = db_get(txn, userID_key, user_val);
 	if(DB_SUCCESS != rc) {
 		db_txn_abort(txn); txn = NULL;
-		EFSRepoDBClose(repo, &db);
+		SLNRepoDBClose(repo, &db);
 		return rc;
 	}
 	strarg_t const u = db_read_string(user_val, txn);
@@ -63,7 +63,7 @@ static int user_auth(EFSRepoRef const repo, strarg_t const username, strarg_t co
 	str_t *passhash = strdup(db_read_string(user_val, txn));
 
 	db_txn_abort(txn); txn = NULL;
-	EFSRepoDBClose(repo, &db);
+	SLNRepoDBClose(repo, &db);
 
 	if(!checkpass(password, passhash)) {
 		FREE(&passhash);
@@ -74,7 +74,7 @@ static int user_auth(EFSRepoRef const repo, strarg_t const username, strarg_t co
 	*outUserID = userID;
 	return 0;
 }
-static int session_create(EFSRepoRef const repo, uint64_t const userID, strarg_t const sessionKey, uint64_t *const outSessionID) {
+static int session_create(SLNRepoRef const repo, uint64_t const userID, strarg_t const sessionKey, uint64_t *const outSessionID) {
 	assert(repo);
 	assert(userID);
 	assert(sessionKey);
@@ -86,7 +86,7 @@ static int session_create(EFSRepoRef const repo, uint64_t const userID, strarg_t
 	}
 
 	DB_env *db = NULL;
-	EFSRepoDBOpen(repo, &db);
+	SLNRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
 	int rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
 	if(DB_SUCCESS != rc) {
@@ -94,21 +94,21 @@ static int session_create(EFSRepoRef const repo, uint64_t const userID, strarg_t
 		return rc;
 	}
 
-	uint64_t const sessionID = db_next_id(EFSSessionByID, txn);
+	uint64_t const sessionID = db_next_id(SLNSessionByID, txn);
 	DB_val sessionID_key[1];
-	EFSSessionByIDKeyPack(sessionID_key, txn, sessionID);
+	SLNSessionByIDKeyPack(sessionID_key, txn, sessionID);
 	DB_val session_val[1];
-	EFSSessionByIDValPack(session_val, txn, userID, sessionHash);
+	SLNSessionByIDValPack(session_val, txn, userID, sessionHash);
 	FREE(&sessionHash);
 	rc = db_put(txn, sessionID_key, session_val, DB_NOOVERWRITE_FAST);
 	if(DB_SUCCESS != rc) {
 		db_txn_abort(txn); txn = NULL;
-		EFSRepoDBClose(repo, &db);
+		SLNRepoDBClose(repo, &db);
 		return rc;
 	}
 
 	rc = db_txn_commit(txn); txn = NULL;
-	EFSRepoDBClose(repo, &db);
+	SLNRepoDBClose(repo, &db);
 	if(DB_SUCCESS != rc) {
 		return rc;
 	}
@@ -116,7 +116,7 @@ static int session_create(EFSRepoRef const repo, uint64_t const userID, strarg_t
 	*outSessionID = sessionID;
 	return 0;
 }
-static void cookie_cache_store(EFSRepoRef const repo, uint64_t const userID, uint64_t const sessionID, strarg_t const sessionKey) {
+static void cookie_cache_store(SLNRepoRef const repo, uint64_t const userID, uint64_t const sessionID, strarg_t const sessionKey) {
 	assert(repo);
 	assert(userID);
 	assert(sessionID);
@@ -140,7 +140,7 @@ static void cookie_cache_store(EFSRepoRef const repo, uint64_t const userID, uin
 	repo->cookie_data[i].userID = userID;
 	repo->cookie_data[i].time = now;
 }
-static size_t cookie_cache_lookup(EFSRepoRef const repo, uint64_t const sessionID, strarg_t const sessionKey, uint64_t *const outUserID) {
+static size_t cookie_cache_lookup(SLNRepoRef const repo, uint64_t const sessionID, strarg_t const sessionKey, uint64_t *const outUserID) {
 	assert(repo);
 	assert(sessionID);
 	assert(sessionKey);
@@ -166,7 +166,7 @@ static size_t cookie_cache_lookup(EFSRepoRef const repo, uint64_t const sessionI
 	*outUserID = repo->cookie_data[i].userID;
 	return i;
 }
-static int cookie_create(EFSRepoRef const repo, strarg_t const username, strarg_t const password, str_t **const outCookie) {
+static int cookie_create(SLNRepoRef const repo, strarg_t const username, strarg_t const password, str_t **const outCookie) {
 	assert(repo);
 	assert(username);
 	assert(password);
@@ -193,7 +193,7 @@ static int cookie_create(EFSRepoRef const repo, strarg_t const username, strarg_
 	*outCookie = cookie;
 	return 0;
 }
-static int cookie_auth(EFSRepoRef const repo, strarg_t const cookie, uint64_t *const outUserID) {
+static int cookie_auth(SLNRepoRef const repo, strarg_t const cookie, uint64_t *const outUserID) {
 	assert(repo);
 	assert(cookie);
 	assert(outUserID);
@@ -212,30 +212,30 @@ static int cookie_auth(EFSRepoRef const repo, strarg_t const cookie, uint64_t *c
 	}
 
 	DB_env *db = NULL;
-	EFSRepoDBOpen(repo, &db);
+	SLNRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
 	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	if(DB_SUCCESS != rc) return rc;
 
 	DB_val sessionID_key[1];
-	EFSSessionByIDKeyPack(sessionID_key, txn, sessionID);
+	SLNSessionByIDKeyPack(sessionID_key, txn, sessionID);
 	DB_val session_val[1];
 	rc = db_get(txn, sessionID_key, session_val);
 	if(DB_SUCCESS != rc) {
 		db_txn_abort(txn); txn = NULL;
-		EFSRepoDBClose(repo, &db);
+		SLNRepoDBClose(repo, &db);
 		return rc;
 	}
 	userID = db_read_uint64(session_val);
 	if(!userID) {
 		db_txn_abort(txn); txn = NULL;
-		EFSRepoDBClose(repo, &db);
+		SLNRepoDBClose(repo, &db);
 		return UV_EACCES;
 	}
 	str_t *sessionHash = strdup(db_read_string(session_val, txn));
 
 	db_txn_abort(txn); txn = NULL;
-	EFSRepoDBClose(repo, &db);
+	SLNRepoDBClose(repo, &db);
 
 	if(!sessionHash) return UV_ENOMEM;
 
@@ -250,7 +250,7 @@ static int cookie_auth(EFSRepoRef const repo, strarg_t const cookie, uint64_t *c
 	return 0;
 }
 
-int EFSRepoAuthInit(EFSRepoRef const repo) {
+int SLNRepoAuthInit(SLNRepoRef const repo) {
 	assert(repo);
 	int rc = hash_init(repo->cookie_hash, COOKIE_CACHE_COUNT, sizeof(uint64_t));
 	if(rc < 0) return rc;
@@ -258,19 +258,19 @@ int EFSRepoAuthInit(EFSRepoRef const repo) {
 	if(!repo->cookie_data) return UV_ENOMEM;
 	return 0;
 }
-void EFSRepoAuthDestroy(EFSRepoRef const repo) {
+void SLNRepoAuthDestroy(SLNRepoRef const repo) {
 	assert(repo);
 	hash_destroy(repo->cookie_hash);
 	FREE(&repo->cookie_data);
 }
 
-int EFSRepoCookieCreate(EFSRepoRef const repo, strarg_t const username, strarg_t const password, str_t **const outCookie) {
+int SLNRepoCookieCreate(SLNRepoRef const repo, strarg_t const username, strarg_t const password, str_t **const outCookie) {
 	if(!repo) return UV_EINVAL;
 	if(!username) return UV_EINVAL;
 	if(!password) return UV_EINVAL;
 	return cookie_create(repo, username, password, outCookie);
 }
-int EFSRepoCookieAuth(EFSRepoRef const repo, strarg_t const cookie, uint64_t *const outUserID) {
+int SLNRepoCookieAuth(SLNRepoRef const repo, strarg_t const cookie, uint64_t *const outUserID) {
 	if(!repo) return UV_EINVAL;
 	if(!cookie) return UV_EINVAL;
 	return cookie_auth(repo, cookie, outUserID);

@@ -4,7 +4,7 @@
 #include "../StrongLink.h"
 #include "../SLNDB.h"
 
-@interface EFSObject
+@interface SLNObject
 {
 	Class isa;
 }
@@ -13,14 +13,14 @@
 - (void)free;
 @end
 
-@interface EFSFilter : EFSObject
+@interface SLNFilter : SLNObject
 @end
-@interface EFSFilter (Abstract)
-- (EFSFilterType)type;
-- (EFSFilter *)unwrap;
+@interface SLNFilter (Abstract)
+- (SLNFilterType)type;
+- (SLNFilter *)unwrap;
 - (strarg_t)stringArg:(index_t const)i;
 - (int)addStringArg:(strarg_t const)str :(size_t const)len;
-- (int)addFilterArg:(EFSFilter *const)filter;
+- (int)addFilterArg:(SLNFilter *const)filter;
 - (void)print:(count_t const)depth;
 - (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth;
 
@@ -31,7 +31,7 @@
 - (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID;
 @end
 
-@interface EFSIndividualFilter : EFSFilter
+@interface SLNIndividualFilter : SLNFilter
 {
 	DB_txn *curtxn;
 	DB_cursor *step_target;
@@ -39,7 +39,7 @@
 	DB_cursor *age_uris;
 	DB_cursor *age_metafiles;
 }
-- (EFSFilter *)unwrap;
+- (SLNFilter *)unwrap;
 
 - (int)prepare:(DB_txn *const)txn;
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
@@ -47,14 +47,14 @@
 - (void)step:(int const)dir;
 - (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID;
 @end
-@interface EFSIndividualFilter (Abstract)
+@interface SLNIndividualFilter (Abstract)
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID;
 - (uint64_t)currentMeta:(int const)dir;
 - (uint64_t)stepMeta:(int const)dir;
 - (bool)match:(uint64_t const)metaFileID;
 @end
 
-@interface EFSAllFilter : EFSIndividualFilter
+@interface SLNAllFilter : SLNIndividualFilter
 {
 	DB_cursor *metafiles;
 }
@@ -63,7 +63,7 @@
 struct token {
 	str_t *str;
 };
-@interface EFSFulltextFilter : EFSIndividualFilter
+@interface SLNFulltextFilter : SLNIndividualFilter
 {
 	str_t *term;
 	struct token *tokens;
@@ -75,7 +75,7 @@ struct token {
 }
 @end
 
-@interface EFSMetadataFilter : EFSIndividualFilter
+@interface SLNMetadataFilter : SLNIndividualFilter
 {
 	str_t *field;
 	str_t *value;
@@ -84,16 +84,16 @@ struct token {
 }
 @end
 
-// EFSCollectionFilter.m
-@interface EFSCollectionFilter : EFSFilter
+// SLNCollectionFilter.m
+@interface SLNCollectionFilter : SLNFilter
 {
-	EFSFilter **filters;
+	SLNFilter **filters;
 	count_t count;
 	count_t asize;
 	int sort;
 }
-- (EFSFilter *)unwrap;
-- (int)addFilterArg:(EFSFilter *const)filter;
+- (SLNFilter *)unwrap;
+- (int)addFilterArg:(SLNFilter *const)filter;
 
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
 - (void)step:(int const)dir;
@@ -101,17 +101,17 @@ struct token {
 
 - (void)sort:(int const)dir;
 @end
-@interface EFSIntersectionFilter : EFSCollectionFilter
+@interface SLNIntersectionFilter : SLNCollectionFilter
 @end
-@interface EFSUnionFilter : EFSCollectionFilter
+@interface SLNUnionFilter : SLNCollectionFilter
 @end
 
-// EFSMetaFileFilter.m
-@interface EFSMetaFileFilter : EFSFilter
+// SLNMetaFileFilter.m
+@interface SLNMetaFileFilter : SLNFilter
 {
-	EFSUnionFilter *main;
-	EFSFilter *internal; // weak ref
-	EFSFilter *subfilter; // weak ref
+	SLNUnionFilter *main;
+	SLNFilter *internal; // weak ref
+	SLNFilter *subfilter; // weak ref
 }
 @end
 

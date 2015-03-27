@@ -5,7 +5,7 @@
 
 typedef struct cookie_t cookie_t;
 
-struct EFSRepo {
+struct SLNRepo {
 	str_t *dir;
 	str_t *name;
 
@@ -23,11 +23,11 @@ struct EFSRepo {
 	async_cond_t sub_cond[1];
 	uint64_t sub_latest;
 
-	EFSPullRef *pulls;
+	SLNPullRef *pulls;
 	count_t pull_count;
 	count_t pull_size;
 };
 
-int EFSRepoAuthInit(EFSRepoRef const repo);
-void EFSRepoAuthDestroy(EFSRepoRef const repo);
+int SLNRepoAuthInit(SLNRepoRef const repo);
+void SLNRepoAuthDestroy(SLNRepoRef const repo);
 

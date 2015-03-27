@@ -1,7 +1,7 @@
 #include "SLNFilter.h"
 #include "../util/fts.h"
 
-@implementation EFSIndividualFilter
+@implementation SLNIndividualFilter
 - (void)free {
 	curtxn = NULL;
 	db_cursor_close(step_target); step_target = NULL;
@@ -11,16 +11,16 @@
 	[super free];
 }
 
-- (EFSFilter *)unwrap {
+- (SLNFilter *)unwrap {
 	return self;
 }
 
 - (int)prepare:(DB_txn *const)txn {
 	if([super prepare:txn] < 0) return -1;
-	db_cursor_renew(txn, &step_target); // EFSMetaFileByID
-	db_cursor_renew(txn, &step_files); // EFSURIAndFileID
-	db_cursor_renew(txn, &age_uris); // EFSFileIDAndURI
-	db_cursor_renew(txn, &age_metafiles); // EFSTargetURIAndMetaFileID
+	db_cursor_renew(txn, &step_target); // SLNMetaFileByID
+	db_cursor_renew(txn, &step_files); // SLNURIAndFileID
+	db_cursor_renew(txn, &age_uris); // SLNFileIDAndURI
+	db_cursor_renew(txn, &age_metafiles); // SLNTargetURIAndMetaFileID
 	curtxn = txn;
 	return 0;
 }
@@ -29,19 +29,19 @@
 	uint64_t const actualSortID = [self seekMeta:dir :sortID];
 	if(!valid(actualSortID)) return;
 	DB_val metaFileID_key[1];
-	EFSMetaFileByIDKeyPack(metaFileID_key, curtxn, actualSortID);
+	SLNMetaFileByIDKeyPack(metaFileID_key, curtxn, actualSortID);
 	DB_val metaFile_val[1];
 	rc = db_cursor_seek(step_target, metaFileID_key, metaFile_val, 0);
 	assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
 	uint64_t metaFileFileID;
 	strarg_t targetURI;
-	EFSMetaFileByIDValUnpack(metaFile_val, curtxn, &metaFileFileID, &targetURI);
+	SLNMetaFileByIDValUnpack(metaFile_val, curtxn, &metaFileFileID, &targetURI);
 
 	DB_range fileIDs[1];
-	EFSURIAndFileIDRange1(fileIDs, curtxn, targetURI);
+	SLNURIAndFileIDRange1(fileIDs, curtxn, targetURI);
 	if(sortID == actualSortID) {
 		DB_val fileID_key[1];
-		EFSURIAndFileIDKeyPack(fileID_key, curtxn, targetURI, fileID);
+		SLNURIAndFileIDKeyPack(fileID_key, curtxn, targetURI, fileID);
 		rc = db_cursor_seekr(step_files, fileIDs, fileID_key, NULL, dir);
 	} else {
 		DB_val fileID_key[1];
@@ -55,7 +55,7 @@
 	if(DB_SUCCESS == rc) {
 		strarg_t targetURI;
 		uint64_t _fileID;
-		EFSURIAndFileIDKeyUnpack(fileID_key, curtxn, &targetURI, &_fileID);
+		SLNURIAndFileIDKeyUnpack(fileID_key, curtxn, &targetURI, &_fileID);
 		if(sortID) *sortID = [self currentMeta:dir];
 		if(fileID) *fileID = _fileID;
 	} else {
@@ -70,25 +70,25 @@
 	if(DB_SUCCESS == rc) {
 		strarg_t targetURI;
 		uint64_t fileID;
-		EFSURIAndFileIDKeyUnpack(fileID_key, curtxn, &targetURI, &fileID);
+		SLNURIAndFileIDKeyUnpack(fileID_key, curtxn, &targetURI, &fileID);
 		DB_range fileIDs[1];
-		EFSURIAndFileIDRange1(fileIDs, curtxn, targetURI);
+		SLNURIAndFileIDRange1(fileIDs, curtxn, targetURI);
 		rc = db_cursor_nextr(step_files, fileIDs, fileID_key, NULL, dir);
 		if(DB_SUCCESS == rc) return;
 	}
 
 	for(uint64_t sortID = [self stepMeta:dir]; valid(sortID); sortID = [self stepMeta:dir]) {
 		DB_val metaFileID_key[1];
-		EFSMetaFileByIDKeyPack(metaFileID_key, curtxn, sortID);
+		SLNMetaFileByIDKeyPack(metaFileID_key, curtxn, sortID);
 		DB_val metaFile_val[1];
 		rc = db_cursor_seek(step_target, metaFileID_key, metaFile_val, 0);
 		assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
 		uint64_t f;
 		strarg_t targetURI;
-		EFSMetaFileByIDValUnpack(metaFile_val, curtxn, &f, &targetURI);
+		SLNMetaFileByIDValUnpack(metaFile_val, curtxn, &f, &targetURI);
 
 		DB_range fileIDs[1];
-		EFSURIAndFileIDRange1(fileIDs, curtxn, targetURI);
+		SLNURIAndFileIDRange1(fileIDs, curtxn, targetURI);
 		DB_val fileID_key[1];
 		rc = db_cursor_firstr(step_files, fileIDs, fileID_key, NULL, +1);
 		if(DB_SUCCESS != rc) continue;
@@ -100,7 +100,7 @@
 	int rc;
 
 	DB_range URIs[1];
-	EFSFileIDAndURIRange1(URIs, txn, fileID);
+	SLNFileIDAndURIRange1(URIs, txn, fileID);
 	DB_val URI_val[1];
 	rc = db_cursor_firstr(age_uris, URIs, URI_val, NULL, +1);
 	assert(DB_SUCCESS == rc || DB_NOTFOUND == rc);
@@ -108,18 +108,18 @@
 	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(age_uris, URIs, URI_val, NULL, +1)) {
 		uint64_t f;
 		strarg_t targetURI;
-		EFSFileIDAndURIKeyUnpack(URI_val, curtxn, &f, &targetURI);
+		SLNFileIDAndURIKeyUnpack(URI_val, curtxn, &f, &targetURI);
 		assert(fileID == f);
 
 		DB_range metafiles[1];
-		EFSTargetURIAndMetaFileIDRange1(metafiles, curtxn, targetURI);
+		SLNTargetURIAndMetaFileIDRange1(metafiles, curtxn, targetURI);
 		DB_val metaFileID_key[1];
 		rc = db_cursor_firstr(age_metafiles, metafiles, metaFileID_key, NULL, +1);
 		assert(DB_SUCCESS == rc || DB_NOTFOUND == rc);
 		for(; DB_SUCCESS == rc; rc = db_cursor_nextr(age_metafiles, metafiles, metaFileID_key, NULL, +1)) {
 			strarg_t u;
 			uint64_t metaFileID;
-			EFSTargetURIAndMetaFileIDKeyUnpack(metaFileID_key, curtxn, &u, &metaFileID);
+			SLNTargetURIAndMetaFileIDKeyUnpack(metaFileID_key, curtxn, &u, &metaFileID);
 			assert(0 == strcmp(targetURI, u));
 			if(metaFileID > sortID) break;
 			if(![self match:metaFileID]) continue;
@@ -131,14 +131,14 @@
 }
 @end
 
-@implementation EFSAllFilter
+@implementation SLNAllFilter
 - (void)free {
 	db_cursor_close(metafiles); metafiles = NULL;
 	[super free];
 }
 
-- (EFSFilterType)type {
-	return EFSAllFilterType;
+- (SLNFilterType)type {
+	return SLNAllFilterType;
 }
 - (void)print:(count_t const)depth {
 	indent(depth);
@@ -151,19 +151,19 @@
 
 - (int)prepare:(DB_txn *const)txn {
 	if([super prepare:txn] < 0) return -1;
-	db_cursor_renew(txn, &metafiles); // EFSMetaFileByID
+	db_cursor_renew(txn, &metafiles); // SLNMetaFileByID
 	return 0;
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
 	DB_range range[1];
-	EFSMetaFileByIDRange0(range, curtxn);
+	SLNMetaFileByIDRange0(range, curtxn);
 	DB_val sortID_key[1];
-	EFSMetaFileByIDKeyPack(sortID_key, curtxn, sortID);
+	SLNMetaFileByIDKeyPack(sortID_key, curtxn, sortID);
 	int rc = db_cursor_seekr(metafiles, range, sortID_key, NULL, dir);
 	if(DB_SUCCESS != rc) return invalid(dir);
 	uint64_t actualSortID;
-	EFSMetaFileByIDKeyUnpack(sortID_key, curtxn, &actualSortID);
+	SLNMetaFileByIDKeyUnpack(sortID_key, curtxn, &actualSortID);
 	return actualSortID;
 }
 - (uint64_t)currentMeta:(int const)dir {
@@ -171,17 +171,17 @@
 	int rc = db_cursor_current(metafiles, sortID_key, NULL);
 	if(DB_SUCCESS != rc) return invalid(dir);
 	uint64_t sortID;
-	EFSMetaFileByIDKeyUnpack(sortID_key, curtxn, &sortID);
+	SLNMetaFileByIDKeyUnpack(sortID_key, curtxn, &sortID);
 	return sortID;
 }
 - (uint64_t)stepMeta:(int const)dir {
 	DB_range range[1];
-	EFSMetaFileByIDRange0(range, curtxn);
+	SLNMetaFileByIDRange0(range, curtxn);
 	DB_val sortID_key[1];
 	int rc = db_cursor_nextr(metafiles, range, sortID_key, NULL, dir);
 	if(DB_SUCCESS != rc) return invalid(dir);
 	uint64_t sortID;
-	EFSMetaFileByIDKeyUnpack(sortID_key, curtxn, &sortID);
+	SLNMetaFileByIDKeyUnpack(sortID_key, curtxn, &sortID);
 	return sortID;
 }
 - (bool)match:(uint64_t const)metaFileID {
@@ -189,7 +189,7 @@
 }
 @end
 
-@implementation EFSFulltextFilter
+@implementation SLNFulltextFilter
 - (void)free {
 	FREE(&term);
 	for(index_t i = 0; i < count; ++i) {
@@ -204,8 +204,8 @@
 	[super free];
 }
 
-- (EFSFilterType)type {
-	return EFSFulltextFilterType;
+- (SLNFilterType)type {
+	return SLNFulltextFilterType;
 }
 - (strarg_t)stringArg:(index_t const)i {
 	if(0 != i) return NULL;
@@ -264,15 +264,15 @@
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
 	assert(count);
 	DB_range range[1];
-	EFSTermMetaFileIDAndPositionRange1(range, curtxn, tokens[0].str);
+	SLNTermMetaFileIDAndPositionRange1(range, curtxn, tokens[0].str);
 	DB_val sortID_key[1];
-	EFSTermMetaFileIDAndPositionKeyPack(sortID_key, curtxn, tokens[0].str, sortID, 0);
+	SLNTermMetaFileIDAndPositionKeyPack(sortID_key, curtxn, tokens[0].str, sortID, 0);
 	// TODO: In order to handle seeking backwards over document with several matching positions, we need to use sortID+1... But sortID might be UINT64_MAX, so be careful.
 	int rc = db_cursor_seekr(metafiles, range, sortID_key, NULL, dir);
 	if(DB_SUCCESS != rc) return invalid(dir);
 	strarg_t token;
 	uint64_t actualSortID, position;
-	EFSTermMetaFileIDAndPositionKeyUnpack(sortID_key, curtxn, &token, &actualSortID, &position);
+	SLNTermMetaFileIDAndPositionKeyUnpack(sortID_key, curtxn, &token, &actualSortID, &position);
 	assert(0 == strcmp(tokens[0].str, token));
 	return actualSortID;
 }
@@ -283,27 +283,27 @@
 	if(DB_SUCCESS != rc) return invalid(dir);
 	strarg_t token;
 	uint64_t sortID, position;
-	EFSTermMetaFileIDAndPositionKeyUnpack(sortID_key, curtxn, &token, &sortID, &position);
+	SLNTermMetaFileIDAndPositionKeyUnpack(sortID_key, curtxn, &token, &sortID, &position);
 	assert(0 == strcmp(tokens[0].str, token));
 	return sortID;
 }
 - (uint64_t)stepMeta:(int const)dir {
 	assert(count);
 	DB_range range[1];
-	EFSTermMetaFileIDAndPositionRange1(range, curtxn, tokens[0].str);
+	SLNTermMetaFileIDAndPositionRange1(range, curtxn, tokens[0].str);
 	DB_val sortID_key[1];
 	int rc = db_cursor_nextr(metafiles, range, sortID_key, NULL, dir);
 	if(DB_SUCCESS != rc) return invalid(dir);
 	strarg_t token;
 	uint64_t sortID, position;
-	EFSTermMetaFileIDAndPositionKeyUnpack(sortID_key, curtxn, &token, &sortID, &position);
+	SLNTermMetaFileIDAndPositionKeyUnpack(sortID_key, curtxn, &token, &sortID, &position);
 	assert(0 == strcmp(tokens[0].str, token));
 	return sortID;
 }
 - (bool)match:(uint64_t const)metaFileID {
 	assert(count);
 	DB_range range[1];
-	EFSTermMetaFileIDAndPositionRange2(range, curtxn, tokens[0].str, metaFileID);
+	SLNTermMetaFileIDAndPositionRange2(range, curtxn, tokens[0].str, metaFileID);
 	DB_val sortID_key[1];
 	int rc = db_cursor_firstr(match, range, sortID_key, NULL, +1);
 	if(DB_SUCCESS == rc) return true;
@@ -312,7 +312,7 @@
 }
 @end
 
-@implementation EFSMetadataFilter
+@implementation SLNMetadataFilter
 - (void)free {
 	FREE(&field);
 	FREE(&value);
@@ -321,8 +321,8 @@
 	[super free];
 }
 
-- (EFSFilterType)type {
-	return EFSMetadataFilterType;
+- (SLNFilterType)type {
+	return SLNMetadataFilterType;
 }
 - (strarg_t)stringArg:(index_t const)i {
 	switch(i) {
@@ -359,22 +359,22 @@
 - (int)prepare:(DB_txn *const)txn {
 	if([super prepare:txn] < 0) return -1;
 	if(!field || !value) return -1;
-	db_cursor_renew(txn, &metafiles); // EFSFieldValueAndMetaFileID
-	db_cursor_renew(txn, &match); // EFSFieldValueAndMetaFileID
+	db_cursor_renew(txn, &metafiles); // SLNFieldValueAndMetaFileID
+	db_cursor_renew(txn, &match); // SLNFieldValueAndMetaFileID
 	curtxn = txn;
 	return 0;
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
 	DB_range range[1];
-	EFSFieldValueAndMetaFileIDRange2(range, curtxn, field, value);
+	SLNFieldValueAndMetaFileIDRange2(range, curtxn, field, value);
 	DB_val metadata_key[1];
-	EFSFieldValueAndMetaFileIDKeyPack(metadata_key, curtxn, field, value, sortID);
+	SLNFieldValueAndMetaFileIDKeyPack(metadata_key, curtxn, field, value, sortID);
 	int rc = db_cursor_seekr(metafiles, range, metadata_key, NULL, dir);
 	if(DB_SUCCESS != rc) return invalid(dir);
 	strarg_t f, v;
 	uint64_t actualSortID;
-	EFSFieldValueAndMetaFileIDKeyUnpack(metadata_key, curtxn, &f, &v, &actualSortID);
+	SLNFieldValueAndMetaFileIDKeyUnpack(metadata_key, curtxn, &f, &v, &actualSortID);
 	return actualSortID;
 }
 - (uint64_t)currentMeta:(int const)dir {
@@ -383,23 +383,23 @@
 	if(DB_SUCCESS != rc) return invalid(dir);
 	strarg_t f, v;
 	uint64_t sortID;
-	EFSFieldValueAndMetaFileIDKeyUnpack(metadata_key, curtxn, &f, &v, &sortID);
+	SLNFieldValueAndMetaFileIDKeyUnpack(metadata_key, curtxn, &f, &v, &sortID);
 	return sortID;
 }
 - (uint64_t)stepMeta:(int const)dir {
 	DB_range range[1];
-	EFSFieldValueAndMetaFileIDRange2(range, curtxn, field, value);
+	SLNFieldValueAndMetaFileIDRange2(range, curtxn, field, value);
 	DB_val metadata_key[1];
 	int rc = db_cursor_nextr(metafiles, range, metadata_key, NULL, dir);
 	if(DB_SUCCESS != rc) return invalid(dir);
 	strarg_t f, v;
 	uint64_t sortID;
-	EFSFieldValueAndMetaFileIDKeyUnpack(metadata_key, curtxn, &f, &v, &sortID);
+	SLNFieldValueAndMetaFileIDKeyUnpack(metadata_key, curtxn, &f, &v, &sortID);
 	return sortID;
 }
 - (bool)match:(uint64_t const)metaFileID {
 	DB_val metadata_key[1];
-	EFSFieldValueAndMetaFileIDKeyPack(metadata_key, curtxn, field, value, metaFileID);
+	SLNFieldValueAndMetaFileIDKeyPack(metadata_key, curtxn, field, value, metaFileID);
 	int rc = db_cursor_seek(match, metadata_key, NULL, 0);
 	if(DB_SUCCESS == rc) return true;
 	if(DB_NOTFOUND == rc) return false;

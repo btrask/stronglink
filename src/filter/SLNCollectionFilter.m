@@ -1,6 +1,6 @@
 #include "SLNFilter.h"
 
-static int filtercmp(EFSFilter *const a, EFSFilter *const b, int const dir) {
+static int filtercmp(SLNFilter *const a, SLNFilter *const b, int const dir) {
 	uint64_t asort, afile, bsort, bfile;
 	[a current:dir*+1 :&asort :&afile];
 	[b current:dir*+1 :&bsort :&bfile];
@@ -10,14 +10,14 @@ static int filtercmp(EFSFilter *const a, EFSFilter *const b, int const dir) {
 	if(afile < bfile) return dir*-1;
 	return 0;
 }
-static int filtercmp_fwd(EFSFilter *const *const a, EFSFilter *const *const b) {
+static int filtercmp_fwd(SLNFilter *const *const a, SLNFilter *const *const b) {
 	return filtercmp(*a, *b, +1);
 }
-static int filtercmp_rev(EFSFilter *const *const a, EFSFilter *const *const b) {
+static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 	return filtercmp(*a, *b, -1);
 }
 
-@implementation EFSCollectionFilter
+@implementation SLNCollectionFilter
 - (void)free {
 	for(size_t i = 0; i < count; i++) {
 		[filters[i] free]; filters[i] = nil;
@@ -30,11 +30,11 @@ static int filtercmp_rev(EFSFilter *const *const a, EFSFilter *const *const b) {
 	[super free];
 }
 
-- (EFSFilter *)unwrap {
+- (SLNFilter *)unwrap {
 	if(1 == count) return [filters[0] unwrap];
 	return nil;
 }
-- (int)addFilterArg:(EFSFilter *const)filter {
+- (int)addFilterArg:(SLNFilter *const)filter {
 	assert(filter);
 	if(count+1 > asize) {
 		asize = MAX(8, asize * 2);
@@ -89,7 +89,7 @@ static int filtercmp_rev(EFSFilter *const *const a, EFSFilter *const *const b) {
 	[self sort:dir];
 }
 - (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID {
-	EFSFilterType const type = [self type]; // TODO: Polymorphism
+	SLNFilterType const type = [self type]; // TODO: Polymorphism
 	bool hit = false;
 	// TODO: Maybe better to check in reverse order?
 	// May have to sort first
@@ -97,17 +97,17 @@ static int filtercmp_rev(EFSFilter *const *const a, EFSFilter *const *const b) {
 		uint64_t const age = [filters[i] age:sortID :fileID];
 		if(age == sortID) {
 			hit = true;
-		} else if(EFSIntersectionFilterType == type) {
+		} else if(SLNIntersectionFilterType == type) {
 			if(age > sortID) return UINT64_MAX;
-		} else if(EFSUnionFilterType == type) {
+		} else if(SLNUnionFilterType == type) {
 			if(age < sortID) return 0;
 		}
 	}
 	if(hit) {
 		return sortID;
-	} else if(EFSIntersectionFilterType == type) {
+	} else if(SLNIntersectionFilterType == type) {
 		return 0;
-	} else if(EFSUnionFilterType == type) {
+	} else if(SLNUnionFilterType == type) {
 		return UINT64_MAX;
 	}
 	assert(0);
@@ -124,9 +124,9 @@ static int filtercmp_rev(EFSFilter *const *const a, EFSFilter *const *const b) {
 }
 @end
 
-@implementation EFSIntersectionFilter
-- (EFSFilterType)type {
-	return EFSIntersectionFilterType;
+@implementation SLNIntersectionFilter
+- (SLNFilterType)type {
+	return SLNIntersectionFilterType;
 }
 - (void)print:(count_t const)depth {
 	indent(depth);
@@ -148,9 +148,9 @@ static int filtercmp_rev(EFSFilter *const *const a, EFSFilter *const *const b) {
 }
 @end
 
-@implementation EFSUnionFilter
-- (EFSFilterType)type {
-	return EFSUnionFilterType;
+@implementation SLNUnionFilter
+- (SLNFilterType)type {
+	return SLNUnionFilterType;
 }
 - (void)print:(count_t const)depth {
 	indent(depth);

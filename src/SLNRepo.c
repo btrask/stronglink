@@ -1,19 +1,19 @@
 #include "SLNRepoPrivate.h"
 
-static int createDBConnection(EFSRepoRef const repo);
-static void loadPulls(EFSRepoRef const repo);
+static int createDBConnection(SLNRepoRef const repo);
+static void loadPulls(SLNRepoRef const repo);
 
 static void debug_data(DB_env *const db);
 
-EFSRepoRef EFSRepoCreate(strarg_t const dir, strarg_t const name) {
+SLNRepoRef SLNRepoCreate(strarg_t const dir, strarg_t const name) {
 	assert(dir);
 	assert(name);
-	EFSRepoRef repo = calloc(1, sizeof(struct EFSRepo));
+	SLNRepoRef repo = calloc(1, sizeof(struct SLNRepo));
 	if(!repo) return NULL;
 	repo->dir = strdup(dir);
 	repo->name = strdup(name);
 	if(!repo->dir || !repo->name) {
-		EFSRepoFree(&repo);
+		SLNRepoFree(&repo);
 		return NULL;
 	}
 
@@ -22,20 +22,20 @@ EFSRepoRef EFSRepoCreate(strarg_t const dir, strarg_t const name) {
 	repo->cacheDir = aasprintf("%s/cache", dir);
 	repo->DBPath = aasprintf("%s/efs.db", dir);
 	if(!repo->dataDir || !repo->tempDir || !repo->cacheDir || !repo->DBPath) {
-		EFSRepoFree(&repo);
+		SLNRepoFree(&repo);
 		return NULL;
 	}
 
 	int rc = createDBConnection(repo);
 	if(DB_SUCCESS != rc) {
-		EFSRepoFree(&repo);
+		SLNRepoFree(&repo);
 		return NULL;
 	}
 	debug_data(repo->db); // TODO
 	loadPulls(repo);
 
-	if(EFSRepoAuthInit(repo) < 0) {
-		EFSRepoFree(&repo);
+	if(SLNRepoAuthInit(repo) < 0) {
+		SLNRepoFree(&repo);
 		return NULL;
 	}
 
@@ -43,11 +43,11 @@ EFSRepoRef EFSRepoCreate(strarg_t const dir, strarg_t const name) {
 	async_cond_init(repo->sub_cond, 0);
 	return repo;
 }
-void EFSRepoFree(EFSRepoRef *const repoptr) {
-	EFSRepoRef repo = *repoptr;
+void SLNRepoFree(SLNRepoRef *const repoptr) {
+	SLNRepoRef repo = *repoptr;
 	if(!repo) return;
 
-	EFSRepoPullsStop(repo);
+	SLNRepoPullsStop(repo);
 
 	FREE(&repo->dir);
 	FREE(&repo->name);
@@ -59,14 +59,14 @@ void EFSRepoFree(EFSRepoRef *const repoptr) {
 
 	db_env_close(repo->db); repo->db = NULL;
 
-	EFSRepoAuthDestroy(repo);
+	SLNRepoAuthDestroy(repo);
 
 	async_mutex_destroy(repo->sub_mutex);
 	async_cond_destroy(repo->sub_cond);
 	repo->sub_latest = 0;
 
 	for(index_t i = 0; i < repo->pull_count; ++i) {
-		EFSPullFree(&repo->pulls[i]);
+		SLNPullFree(&repo->pulls[i]);
 	}
 	assert_zeroed(repo->pulls, repo->pull_count);
 	FREE(&repo->pulls);
@@ -77,51 +77,51 @@ void EFSRepoFree(EFSRepoRef *const repoptr) {
 	FREE(repoptr); repo = NULL;
 }
 
-strarg_t EFSRepoGetDir(EFSRepoRef const repo) {
+strarg_t SLNRepoGetDir(SLNRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->dir;
 }
-strarg_t EFSRepoGetName(EFSRepoRef const repo) {
+strarg_t SLNRepoGetName(SLNRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->name;
 }
 
-strarg_t EFSRepoGetDataDir(EFSRepoRef const repo) {
+strarg_t SLNRepoGetDataDir(SLNRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->dataDir;
 }
-str_t *EFSRepoCopyInternalPath(EFSRepoRef const repo, strarg_t const internalHash) {
+str_t *SLNRepoCopyInternalPath(SLNRepoRef const repo, strarg_t const internalHash) {
 	if(!repo) return NULL;
 	assert(repo->dataDir);
 	assert(internalHash);
 	return aasprintf("%s/%.2s/%s", repo->dataDir, internalHash, internalHash);
 }
-strarg_t EFSRepoGetTempDir(EFSRepoRef const repo) {
+strarg_t SLNRepoGetTempDir(SLNRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->tempDir;
 }
-str_t *EFSRepoCopyTempPath(EFSRepoRef const repo) {
+str_t *SLNRepoCopyTempPath(SLNRepoRef const repo) {
 	if(!repo) return NULL;
 	return async_fs_tempnam(repo->tempDir, "efs");
 }
-strarg_t EFSRepoGetCacheDir(EFSRepoRef const repo) {
+strarg_t SLNRepoGetCacheDir(SLNRepoRef const repo) {
 	if(!repo) return NULL;
 	return repo->cacheDir;
 }
 
-void EFSRepoDBOpen(EFSRepoRef const repo, DB_env **const dbptr) {
+void SLNRepoDBOpen(SLNRepoRef const repo, DB_env **const dbptr) {
 	assert(repo);
 	assert(dbptr);
 	async_pool_enter(NULL);
 	*dbptr = repo->db;
 }
-void EFSRepoDBClose(EFSRepoRef const repo, DB_env **const dbptr) {
+void SLNRepoDBClose(SLNRepoRef const repo, DB_env **const dbptr) {
 	assert(repo);
 	async_pool_leave(NULL);
 	*dbptr = NULL;
 }
 
-void EFSRepoSubmissionEmit(EFSRepoRef const repo, uint64_t const sortID) {
+void SLNRepoSubmissionEmit(SLNRepoRef const repo, uint64_t const sortID) {
 	assert(repo);
 	async_mutex_lock(repo->sub_mutex);
 	if(sortID > repo->sub_latest) {
@@ -130,7 +130,7 @@ void EFSRepoSubmissionEmit(EFSRepoRef const repo, uint64_t const sortID) {
 	}
 	async_mutex_unlock(repo->sub_mutex);
 }
-bool EFSRepoSubmissionWait(EFSRepoRef const repo, uint64_t const sortID, uint64_t const future) {
+bool SLNRepoSubmissionWait(SLNRepoRef const repo, uint64_t const sortID, uint64_t const future) {
 	assert(repo);
 	async_mutex_lock(repo->sub_mutex);
 	while(repo->sub_latest <= sortID && async_cond_timedwait(repo->sub_cond, repo->sub_mutex, future) >= 0);
@@ -139,21 +139,21 @@ bool EFSRepoSubmissionWait(EFSRepoRef const repo, uint64_t const sortID, uint64_
 	return res;
 }
 
-void EFSRepoPullsStart(EFSRepoRef const repo) {
+void SLNRepoPullsStart(SLNRepoRef const repo) {
 	if(!repo) return;
 	for(index_t i = 0; i < repo->pull_count; ++i) {
-		EFSPullStart(repo->pulls[i]);
+		SLNPullStart(repo->pulls[i]);
 	}
 }
-void EFSRepoPullsStop(EFSRepoRef const repo) {
+void SLNRepoPullsStop(SLNRepoRef const repo) {
 	if(!repo) return;
 	for(index_t i = 0; i < repo->pull_count; ++i) {
-		EFSPullStop(repo->pulls[i]);
+		SLNPullStop(repo->pulls[i]);
 	}
 }
 
 
-static int createDBConnection(EFSRepoRef const repo) {
+static int createDBConnection(SLNRepoRef const repo) {
 	assert(repo);
 	int rc = db_env_create(&repo->db);
 	rc = db_env_set_mapsize(repo->db, 1024 * 1024 * 256);
@@ -168,11 +168,11 @@ static int createDBConnection(EFSRepoRef const repo) {
 	}
 
 	DB_env *db = NULL;
-	EFSRepoDBOpen(repo, &db);
+	SLNRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
 	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
 	if(DB_SUCCESS != rc) {
-		EFSRepoDBClose(repo, &db);
+		SLNRepoDBClose(repo, &db);
 		fprintf(stderr, "Database transaction error (%s)\n", db_strerror(rc));
 		return rc;
 	}
@@ -180,13 +180,13 @@ static int createDBConnection(EFSRepoRef const repo) {
 	rc = db_schema_verify(txn);
 	if(DB_VERSION_MISMATCH == rc) {
 		db_txn_abort(txn); txn = NULL;
-		EFSRepoDBClose(repo, &db);
+		SLNRepoDBClose(repo, &db);
 		fprintf(stderr, "Database incompatible with this software version\n");
 		return rc;
 	}
 	if(DB_SUCCESS != rc) {
 		db_txn_abort(txn); txn = NULL;
-		EFSRepoDBClose(repo, &db);
+		SLNRepoDBClose(repo, &db);
 		fprintf(stderr, "Database schema layer error (%s)\n", db_strerror(rc));
 		return rc;
 	}
@@ -194,17 +194,17 @@ static int createDBConnection(EFSRepoRef const repo) {
 	// TODO: Application-level schema verification
 
 	rc = db_txn_commit(txn); txn = NULL;
-	EFSRepoDBClose(repo, &db);
+	SLNRepoDBClose(repo, &db);
 	if(DB_SUCCESS != rc) {
 		fprintf(stderr, "Database commit error (%s)\n", db_strerror(rc));
 		return rc;
 	}
 	return DB_SUCCESS;
 }
-static void loadPulls(EFSRepoRef const repo) {
+static void loadPulls(SLNRepoRef const repo) {
 	assert(repo);
 	DB_env *db = NULL;
-	EFSRepoDBOpen(repo, &db);
+	SLNRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
 	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	assert(DB_SUCCESS == rc);
@@ -214,25 +214,25 @@ static void loadPulls(EFSRepoRef const repo) {
 	assertf(DB_SUCCESS == rc, "Database error %s\n", db_strerror(rc));
 
 	DB_range pulls[1];
-	EFSPullByIDRange0(pulls, txn);
+	SLNPullByIDRange0(pulls, txn);
 	DB_val pullID_key[1];
 	DB_val pull_val[1];
 	rc = db_cursor_firstr(cur, pulls, pullID_key, pull_val, +1);
 	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(cur, pulls, pullID_key, pull_val, +1)) {
 		uint64_t pullID;
-		EFSPullByIDKeyUnpack(pullID_key, txn, &pullID);
+		SLNPullByIDKeyUnpack(pullID_key, txn, &pullID);
 		uint64_t userID;
 		strarg_t host;
 		strarg_t username;
 		strarg_t password;
 		strarg_t cookie;
 		strarg_t query;
-		EFSPullByIDValUnpack(pull_val, txn, &userID, &host, &username, &password, &cookie, &query);
+		SLNPullByIDValUnpack(pull_val, txn, &userID, &host, &username, &password, &cookie, &query);
 
-		EFSPullRef const pull = EFSRepoCreatePull(repo, pullID, userID, host, username, password, cookie, query);
+		SLNPullRef const pull = SLNRepoCreatePull(repo, pullID, userID, host, username, password, cookie, query);
 		if(repo->pull_count+1 > repo->pull_size) {
 			repo->pull_size = (repo->pull_count+1) * 2;
-			repo->pulls = realloc(repo->pulls, sizeof(EFSPullRef) * repo->pull_size);
+			repo->pulls = realloc(repo->pulls, sizeof(SLNPullRef) * repo->pull_size);
 			assert(repo->pulls); // TODO: Handle error
 		}
 		repo->pulls[repo->pull_count++] = pull;
@@ -240,7 +240,7 @@ static void loadPulls(EFSRepoRef const repo) {
 
 	db_cursor_close(cur); cur = NULL;
 	db_txn_abort(txn); txn = NULL;
-	EFSRepoDBClose(repo, &db);
+	SLNRepoDBClose(repo, &db);
 }
 static void debug_data(DB_env *const db) {
 	int rc;
@@ -255,28 +255,28 @@ static void debug_data(DB_env *const db) {
 	char const *const token = passhash;
 
 	DB_val userID_key[1];
-	EFSUserByIDKeyPack(userID_key, txn, userID);
+	SLNUserByIDKeyPack(userID_key, txn, userID);
 	DB_val user_val[1];
-	EFSUserByIDValPack(user_val, txn, username, passhash, token);
+	SLNUserByIDValPack(user_val, txn, username, passhash, token);
 	rc = db_put(txn, userID_key, user_val, 0);
 	assert(!rc);
 
 	DB_val username_key[1];
-	EFSUserIDByNameKeyPack(username_key, txn, username);
+	SLNUserIDByNameKeyPack(username_key, txn, username);
 	DB_val userID_val[1];
-	EFSUserIDByNameValPack(userID_val, txn, userID);
+	SLNUserIDByNameValPack(userID_val, txn, userID);
 	rc = db_put(txn, username_key, userID_val, 0);
 	assert(!rc);
 
 	DB_val pullID_key[1];
-	EFSPullByIDKeyPack(pullID_key, txn, 1);
+	SLNPullByIDKeyPack(pullID_key, txn, 1);
 	char const *const host = "localhost:8009";
 	char const *const remote_username = "ben";
 	char const *const remote_password = "testing";
 	char const *const cookie = NULL;
 	char const *const query = "";
 	DB_val pull_val[1];
-	EFSPullByIDValPack(pull_val, txn, userID, host, remote_username, remote_password, cookie, query);
+	SLNPullByIDValPack(pull_val, txn, userID, host, remote_username, remote_password, cookie, query);
 
 	rc = db_put(txn, pullID_key, pull_val, 0);
 	assert(!rc);

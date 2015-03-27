@@ -7,16 +7,16 @@
 #include "http/HTTPServer.h"
 #include "http/HTTPHeaders.h"
 
-int EFSServerDispatch(EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
+int SLNServerDispatch(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
 
 typedef struct Blog* BlogRef;
 
-BlogRef BlogCreate(EFSRepoRef const repo);
+BlogRef BlogCreate(SLNRepoRef const repo);
 void BlogFree(BlogRef *const blogptr);
-int BlogDispatch(BlogRef const blog, EFSSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
+int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
 
 static strarg_t path = NULL;
-static EFSRepoRef repo = NULL;
+static SLNRepoRef repo = NULL;
 static BlogRef blog = NULL;
 static HTTPServerRef server = NULL;
 static uv_signal_t sigint[1] = {};
@@ -32,7 +32,7 @@ static void listener(void *ctx, HTTPConnectionRef const conn) {
 	if(!headers) return;
 
 	strarg_t const cookie = HTTPHeadersGet(headers, "cookie");
-	EFSSessionRef session = EFSRepoCreateSession(repo, cookie);
+	SLNSessionRef session = SLNRepoCreateSession(repo, cookie);
 	if(!session) {
 		HTTPHeadersFree(&headers);
 		HTTPConnectionSendStatus(conn, 403); // TODO
@@ -40,10 +40,10 @@ static void listener(void *ctx, HTTPConnectionRef const conn) {
 	}
 
 	rc = -1;
-	rc = rc >= 0 ? rc : EFSServerDispatch(session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : SLNServerDispatch(session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : BlogDispatch(blog, session, conn, method, URI, headers);
 
-	EFSSessionFree(&session);
+	SLNSessionFree(&session);
 	HTTPHeadersFree(&headers);
 	if(rc < 0) rc = 404;
 	if(rc > 0) HTTPConnectionSendStatus(conn, rc);
@@ -60,7 +60,7 @@ static void stop(uv_signal_t *const signal, int const signum) {
 static void init(void *const unused) {
 	async_random((byte_t *)&hash_salt, sizeof(hash_salt));
 
-	repo = EFSRepoCreate(path, "unnamed repo"); // TODO
+	repo = SLNRepoCreate(path, "unnamed repo"); // TODO
 	if(!repo) {
 		fprintf(stderr, "Repository could not be opened\n");
 		return;
@@ -84,7 +84,7 @@ static void init(void *const unused) {
 		return;
 	}
 	fprintf(stderr, "StrongLink server running at http://localhost:8000/\n");
-	EFSRepoPullsStart(repo);
+	SLNRepoPullsStart(repo);
 
 	uv_signal_init(loop, sigint);
 	uv_signal_start(sigint, stop, SIGINT);
@@ -96,7 +96,7 @@ static void term(void *const unused) {
 	uv_signal_stop(sigint);
 	async_close((uv_handle_t *)sigint);
 
-	EFSRepoPullsStop(repo);
+	SLNRepoPullsStop(repo);
 	HTTPServerClose(server);
 }
 int main(int const argc, char const *const *const argv) {
@@ -128,7 +128,7 @@ int main(int const argc, char const *const *const argv) {
 	uv_run(loop, UV_RUN_DEFAULT); // Allows term() to execute.
 	HTTPServerFree(&server);
 	BlogFree(&blog);
-	EFSRepoFree(&repo);
+	SLNRepoFree(&repo);
 
 	uv_ref((uv_handle_t *)sigpipe);
 	uv_signal_stop(sigpipe);
