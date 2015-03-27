@@ -1,0 +1,133 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>{{reponame}} login</title>
+<link rel="stylesheet" type="text/css" href="/index.css">
+<style>
+.absolute { position: absolute; }
+.center { text-align: center; }
+.right { text-align: right; }
+body { position: absolute; top: 0; bottom: 0; left: 0; right: 0; }
+
+.authenticate, .authenticate * {
+	-webkit-box-sizing: initial;
+	-moz-box-sizing: initial;
+	-ms-box-sizing: initial;
+	-o-box-sizing: initial;
+	box-sizing: initial;
+}
+.authenticate {
+	width: 320px;
+	height: 214px;
+	top: 50%;
+	left: 50%;
+	margin-left: -160px;
+	margin-top: -107px;
+}
+.authenticate > .step {
+	height: 96px;
+	position: relative;
+}
+.authenticate > .step > .label {
+	top: 24px;
+	left: 8px;
+	background: #aaa;
+	color: #fff;
+	font-size: 24px;
+	height: 24px;
+	width: 24px;
+	padding: 12px;
+	-webkit-border-radius: 24px;
+	-moz-border-radius: 24px;
+	border-radius: 24px;
+}
+.authenticate > .step > .contentx {
+	margin-left: 64px;
+	width: 256px;
+}
+.authenticate > .step + .step {
+	border: solid #aaa;
+	border-width: 2px 0 0 0;
+}
+
+.authenticate > .step > .contentx > .field {
+	position: relative;
+	height: 33px;
+}
+.authenticate > .step > .contentx > .field > label {
+	display: block;
+	width: 80px;
+	top: 8px;
+	height: 16px;
+}
+.authenticate > .step > .contentx > .field > .text {
+	top: 4px;
+	width: 134px;
+	left: 90px;
+}
+.authenticate > .step > .contentx > .button {
+	width: 80px;
+	height: 32px;
+	margin: 0 8px;
+}
+
+.authenticate > .step .userNameAndPassword {
+	top: 19px;
+}
+.authenticate > .step > .signinOrSignup {
+	top: 32px;
+	width: 256px;
+	height: 32px;
+}
+
+.authenticate > .error {
+	color: #555;
+	height: 20px;
+}
+</style>
+
+<!--<form method="post" action="/auth">
+
+Username: <input type="text" name="user" maxlength="{{userlen}}"><br>
+Password: <input type="password" name="pass" maxlength="{{passlen}}"><br>
+<input type="hidden" name="token" value="{{token}}">
+<input type="submit" value="log in">
+
+</form>
+
+<br>
+
+<form method="post" action="/register">
+
+Username: <input type="text" name="user" maxlength="{{userlen}}"><br>
+Password: <input type="password" name="pass" maxlength="{{passlen}}"><br>
+<input type="hidden" name="token" value="{{token}}">
+<input type="submit" value="register">
+
+</form>-->
+
+
+<div class="authenticate absolute">
+	<div class="step">
+		<div class="label center absolute">1</div>
+		<div class="contentx userNameAndPassword absolute">
+			<div class="name field">
+				<label class="absolute right">Name:</label>
+				<input class="text padding absolute" type="text" data-id="userNameField">
+			</div>
+			<div class="pass field">
+				<label class="absolute right">Password:</label>
+				<input class="text padding absolute" type="password" data-id="passwordField">
+			</div>
+		</div>
+	</div>
+	<div class="step">
+		<div class="label center absolute">2</div>
+		<div class="contentx signinOrSignup center absolute">
+			<input type="button" class="button signin" value="Sign In" data-id="signinButton">
+			or
+			<input type="button" class="button signup" value="Sign Up" data-id="signupButton">
+		</div>
+	</div>
+	<div class="error center" data-id="error"></div>
+</div>
+
