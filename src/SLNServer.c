@@ -93,6 +93,9 @@ static int GET_file(SLNSessionRef const session, HTTPConnectionRef const conn, H
 	//   still only covers a limited range of use cases.
 	// - We would really like suborigins, if they're ever widely supported.
 	//   <http://www.chromium.org/developers/design-documents/per-page-suborigins>
+	// - We could report untrusted types as "text/plain" or
+	//   "application/binary", which would be inconvenient but
+	//   very reliable.
 
 	// TODO: Use Content-Disposition to suggest a filename, for file types
 	// that aren't useful to view inline.
