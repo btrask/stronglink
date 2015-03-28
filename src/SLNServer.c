@@ -65,33 +65,55 @@ static int GET_file(SLNSessionRef const session, HTTPConnectionRef const conn, H
 	if('/' == URI[len]) len++;
 	if('\0' != URI[len] && '?' != URI[len]) return -1;
 
+	// TODO: Check for conditional get headers and return 304 Not Modified.
+
 	str_t fileURI[SLN_URI_MAX];
 	int rc = snprintf(fileURI, SLN_URI_MAX, "hash://%s/%s", algo, hash);
 	if(rc < 0 || rc >= SLN_URI_MAX) return 500;
 
 	SLNFileInfo info[1];
 	rc = SLNSessionGetFileInfo(session, fileURI, info);
-	if(rc < 0) switch(rc) { // TODO
-		case UV_ECANCELED: return 0;
-		case DB_NOTFOUND: return 404;
-		default: return 500;
+	if(DB_NOTFOUND == rc) return 404;
+	if(DB_SUCCESS != rc) return 500;
+
+	uv_file file = async_fs_open(info->path, O_RDONLY, 0000);
+	if(UV_ENOENT == file) {
+		SLNFileInfoCleanup(info);
+		return 410; // Gone
+	}
+	if(file < 0) {
+		SLNFileInfoCleanup(info);
+		return 500;
 	}
 
-	// TODO: Send other headers
-	// Content-Disposition?
-	// http://www.ibuildings.com/blog/2013/03/4-http-security-headers-you-should-always-be-using
-	// X-Content-Type-Options: nosniff
-	// Content-Security-Policy (disable all js and embedded resources?)
-	// This requires some real thought because not all browsers support
-	// these headers, and because we'd like to let users view "regular"
-	// files in-line.
-	// Maybe the only truly secure option is to host this stuff from a
-	// different domain, but for regular users running home servers, that
-	// isn't really an option. Perhaps the best option is to host raw files
-	// on an alternate port. That still shares cookies (which is brain-dead)
-	// but there are things we can do to minimize that impact.
-	HTTPConnectionSendFile(conn, info->path, info->type, info->size);
+	// TODO: Hosting untrusted data is really hard.
+	// The same origin policy isn't doing us any favors, because most
+	// simple installations won't have a second domain to use.
+	// - For loopback, we can use an alternate loopback IP, but that
+	//   still only covers a limited range of use cases.
+	// - We would really like suborigins, if they're ever widely supported.
+	//   <http://www.chromium.org/developers/design-documents/per-page-suborigins>
+
+	// TODO: Use Content-Disposition to suggest a filename, for file types
+	// that aren't useful to view inline.
+
+	rc=0;
+	rc=rc<0?rc: HTTPConnectionWriteResponse(conn, 200, "OK");
+	rc=rc<0?rc: HTTPConnectionWriteContentLength(conn, info->size);
+	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Content-Type", info->type);
+	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Expires", "Tue, 1 Jan 2030 00:00:00 GMT");
+	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "ETag", "1");
+//	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Accept-Ranges", "bytes"); // TODO
+	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Content-Security-Policy", "'none'");
+	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "X-Content-Type-Options", "nosniff");
+	rc=rc<0?rc: HTTPConnectionBeginBody(conn);
+	if(HTTP_HEAD != method) {
+		rc=rc<0?rc: HTTPConnectionWriteFile(conn, file);
+	}
+	rc=rc<0?rc: HTTPConnectionEnd(conn);
+
 	SLNFileInfoCleanup(info);
+	async_fs_close(file);
 	return 0;
 }
 static int POST_file(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
