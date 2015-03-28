@@ -219,13 +219,14 @@ static int POST_query(SLNSessionRef const session, HTTPConnectionRef const conn,
 
 	SLNJSONFilterParserRef parser = NULL;
 	SLNFilterRef filter = SLNFilterCreate(SLNMetaFileFilterType);
+	int rc;
 
 	if(HTTP_POST == method) {
 		// TODO: Check Content-Type header for JSON.
 		parser = SLNJSONFilterParserCreate();
 		for(;;) {
 			uv_buf_t buf[1];
-			int rc = HTTPConnectionReadBody(conn, buf);
+			rc = HTTPConnectionReadBody(conn, buf);
 			if(rc < 0) return 400;
 			if(!buf->len) break;
 
@@ -243,10 +244,24 @@ static int POST_query(SLNSessionRef const session, HTTPConnectionRef const conn,
 		return 500;
 	}
 
-	HTTPConnectionWriteResponse(conn, 200, "OK");
-	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
-	HTTPConnectionWriteHeader(conn, "Content-Type", "text/uri-list; charset=utf-8");
-	HTTPConnectionBeginBody(conn);
+	// I'm aware that we're abusing HTTP for sending real-time push data.
+	// I'd also like to support WebSocket at some point, but this is simpler
+	// and frankly probably more widely supported.
+	// Note that the protocol doesn't really break even if this data is
+	// cached. It DOES break if a proxy tries to buffer the whole response
+	// before passing it back to the client. I'd be curious to know whether
+	// such proxies still exist in 2015.
+
+	rc=0;
+	rc=rc<0?rc: HTTPConnectionWriteResponse(conn, 200, "OK");
+	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
+	rc=rc<0?rc: HTTPConnectionWriteHeader(conn,
+		"Content-Type", "text/uri-list; charset=utf-8");
+	rc=rc<0?rc: HTTPConnectionWriteHeader(conn,
+		"Cache-Control", "no-cache, no-store, must-revalidate");
+	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Pragma", "no-cache");
+	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Expires", "0");
+	rc=rc<0?rc: HTTPConnectionBeginBody(conn);
 
 	uint64_t sortID = 0;
 	uint64_t fileID = 0;
