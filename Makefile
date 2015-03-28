@@ -276,6 +276,17 @@ install: all
 	#install $(ROOT_DIR)/res/blog $(PREFIX)/share/stronglink
 	# TODO: How do we install a directory?
 
+.PHONY: test
+test: $(BUILD_DIR)/tests/util/hash.test.run
+
+.PHONY: $(BUILD_DIR)/tests/*.test.run
+$(BUILD_DIR)/tests/%.test.run: $(BUILD_DIR)/tests/%.test
+	$<
+
+$(BUILD_DIR)/tests/util/hash.test: $(BUILD_DIR)/util/hash.test.o $(BUILD_DIR)/util/hash.o $(BUILD_DIR)/deps/smhasher/MurmurHash3.o
+	@- mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $(WARNINGS) $^ -o $@
+
 .PHONY: clean
 clean:
 	- rm -rf $(BUILD_DIR)
