@@ -261,6 +261,7 @@ static int POST_query(SLNSessionRef const session, HTTPConnectionRef const conn,
 		"Cache-Control", "no-cache, no-store, must-revalidate");
 	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Pragma", "no-cache");
 	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Expires", "0");
+	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Vary", "*");
 	rc=rc<0?rc: HTTPConnectionBeginBody(conn);
 
 	uint64_t sortID = 0;
