@@ -1,10 +1,12 @@
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "../../deps/smhasher/MurmurHash3.h"
 #include "hash.h"
 
-#define HASH_KEY(hash, x) ((hash)->keys + ((hash)->keylen * (x)))
+#define HASH_POS(hash, x) ((x) % (hash)->count)
+#define HASH_KEY(hash, x) ((hash)->keys + ((hash)->keylen * HASH_POS(hash, x)))
 
 uint32_t hash_salt = 0;
 
@@ -32,26 +34,26 @@ void hash_destroy(hash_t *const hash) {
 
 size_t hash_get(hash_t *const hash, char const *const key) {
 	size_t const x = hash_func(hash, key);
-	size_t i = x;
-	for(;;) {
-		if(0 == hash_bucket_match(hash, i, key)) return i;
-		if(0 == hash_bucket_empty(hash, i)) break;
-		i = (i + 1) % hash->count;
-		if(x == i) return HASH_NOTFOUND;
+	for(size_t i = x; i < x+hash->count; i++) {
+		size_t const j = HASH_POS(hash, i);
+		if(0 == hash_bucket_match(hash, j, key)) return j;
+		if(0 == hash_bucket_empty(hash, j)) break;
 	}
 	return HASH_NOTFOUND;
 }
 size_t hash_set(hash_t *const hash, char const *const key) {
 	size_t const x = hash_func(hash, key);
-	size_t i = x;
-	for(;;) {
-		if(0 == hash_bucket_empty(hash, i)) break;
-		if(0 == hash_bucket_match(hash, i, key)) return i;
-		i = (i + 1) % hash->count;
-		if(x == i) return HASH_NOTFOUND;
+	for(size_t i = x; i < x+hash->count; i++) {
+		size_t const j = HASH_POS(hash, i);
+		if(0 == hash_bucket_empty(hash, j)) {
+			hash_set_raw(hash, j, key);
+			return j;
+		}
+		if(0 == hash_bucket_match(hash, j, key)) {
+			return j;
+		}
 	}
-	hash_set_raw(hash, i, key);
-	return i;
+	return HASH_NOTFOUND;
 }
 
 size_t hash_del(hash_t *const hash, char const *const key, void *const values, size_t const len) {
@@ -63,21 +65,18 @@ size_t hash_del(hash_t *const hash, char const *const key, void *const values, s
 void hash_del_offset(hash_t *const hash, size_t const x, void *const values, size_t const len) {
 	assert(x < hash->count);
 	size_t const moved = hash_del_keyonly(hash, x);
-	if(!moved) return;
+	if(HASH_NOTFOUND == moved) return;
 	if(!values) return;
+	assert(len);
 	char *const data = values;
-	size_t const part2 = (x + moved) % hash->count;
-	size_t const part1 = x + moved - part2;
-	memmove(data + (len * x), data + (len * (x+1)), part1 * len);
-	if(!part2) return;
-	memcpy(data + (len * (hash->count-1)), data + 0, len);
-	memmove(data + 0, data + (len * 1), (part2-1) * len);
+	memcpy(data + (len * x), data + (len * moved), len);
+	memset(data + (len * moved), 0, len);
 }
 
 size_t hash_func(hash_t *const hash, char const *const key) {
 	uint32_t x = 0;
 	MurmurHash3_x86_32(key, hash->keylen, hash_salt, &x);
-	return x % hash->count;
+	return HASH_POS(hash, x);
 }
 int hash_bucket_empty(hash_t *const hash, size_t const x) {
 	assert(x < hash->count);
@@ -93,19 +92,28 @@ void hash_set_raw(hash_t *const hash, size_t const x, char const *const key) {
 	assert(key);
 	memcpy(HASH_KEY(hash, x), key, hash->keylen);
 }
+static size_t fill_gap(hash_t *const hash, size_t const x, size_t const y) {
+	assert(x < hash->count);
+	size_t i = y;
+	while(i-- > x+1) {
+		size_t alt = hash_func(hash, HASH_KEY(hash, i));
+		if((alt > x && alt <= i) || (alt < x && alt+hash->count <= i)) {
+//			fprintf(stderr, "%zu in {%zu, %zu}\n", alt, x, i);
+			continue;
+		}
+//		fprintf(stderr, "%zu not in {%zu, %zu}\n", alt, x, i);
+		memcpy(HASH_KEY(hash, x), HASH_KEY(hash, i), hash->keylen);
+		return fill_gap(hash, HASH_POS(hash, i), y);
+	}
+	memset(HASH_KEY(hash, x), 0, hash->keylen);
+	return HASH_NOTFOUND;
+}
 size_t hash_del_keyonly(hash_t *const hash, size_t const x) {
 	assert(x < hash->count);
-	size_t i = x;
-	for(;;) {
-		size_t const next = (i + 1) % hash->count;
-		if(x == next) break;
-		if(0 == hash_bucket_empty(hash, next)) break;
-		size_t const alt = hash_func(hash, HASH_KEY(hash, next));
-		if(next == alt) break;
-		memcpy(HASH_KEY(hash, i), HASH_KEY(hash, next), hash->keylen);
-		i = next;
+	size_t i;
+	for(i = x; i < x+hash->count; i++) {
+		if(0 == hash_bucket_empty(hash, HASH_POS(hash, i))) break;
 	}
-	memset(HASH_KEY(hash, i), 0, hash->keylen);
-	return (hash->count + i - x) % hash->count;
+	return fill_gap(hash, x, i);
 }
 
