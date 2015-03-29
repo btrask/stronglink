@@ -286,6 +286,11 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	HTTPConnectionWriteResponse(conn, 200, "OK");
 	HTTPConnectionWriteHeader(conn, "Content-Type", "text/html; charset=utf-8");
 	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
+	if(SLN_RDONLY & SLNRepoGetPublicMode(blog->repo)) {
+		HTTPConnectionWriteHeader(conn, "Cache-Control", "no-cache, public");
+	} else {
+		HTTPConnectionWriteHeader(conn, "Cache-Control", "no-cache, private");
+	}
 	HTTPConnectionBeginBody(conn);
 	TemplateWriteHTTPChunk(blog->header, &TemplateStaticCBs, args, conn);
 

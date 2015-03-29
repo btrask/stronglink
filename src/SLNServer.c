@@ -104,7 +104,7 @@ static int GET_file(SLNSessionRef const session, HTTPConnectionRef const conn, H
 	rc=rc<0?rc: HTTPConnectionWriteResponse(conn, 200, "OK");
 	rc=rc<0?rc: HTTPConnectionWriteContentLength(conn, info->size);
 	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Content-Type", info->type);
-	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Expires", "Tue, 1 Jan 2030 00:00:00 GMT");
+	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Cache-Control", "max-age=31536000");
 	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "ETag", "1");
 //	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Accept-Ranges", "bytes"); // TODO
 	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Content-Security-Policy", "'none'");
@@ -257,10 +257,7 @@ static int POST_query(SLNSessionRef const session, HTTPConnectionRef const conn,
 	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
 	rc=rc<0?rc: HTTPConnectionWriteHeader(conn,
 		"Content-Type", "text/uri-list; charset=utf-8");
-	rc=rc<0?rc: HTTPConnectionWriteHeader(conn,
-		"Cache-Control", "no-cache, no-store, must-revalidate");
-	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Pragma", "no-cache");
-	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Expires", "0");
+	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Cache-Control", "no-store");
 	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Vary", "*");
 	rc=rc<0?rc: HTTPConnectionBeginBody(conn);
 
