@@ -103,11 +103,11 @@ static void session_cache(SLNSessionCacheRef const cache, SLNSessionRef const se
 	for(uint16_t i = pos; i < pos+SEARCH_DIST; i++) {
 		uint16_t const x = i % cache->size;
 		if(id == cache->ids[x]) return;
-		if(0 != cache->ids[x]) continue;
+//		if(0 != cache->ids[x]) continue; // TODO: Hack to work without session expiration.
 		cache->sessions[x] = SLNSessionRetain(session);
 		cache->active[cache->pos] = x;
 		cache->timeouts[cache->pos] = uv_now(loop) + EXPIRE_TIMEOUT;
-		cache->pos++; // TODO: Is this a ring buffer?
+//		cache->pos++; // TODO: Is this a ring buffer?
 		// TODO: Start timer if necessary.
 		return;
 	}
