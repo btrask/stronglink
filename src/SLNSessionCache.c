@@ -105,6 +105,8 @@ static void session_cache(SLNSessionCacheRef const cache, SLNSessionRef const se
 		uint16_t const x = i % cache->size;
 		if(id == cache->ids[x]) return;
 //		if(0 != cache->ids[x]) continue; // TODO: Hack to work without session expiration.
+		cache->ids[x] = id;
+		SLNSessionRelease(&cache->sessions[x]);
 		cache->sessions[x] = SLNSessionRetain(session);
 		cache->active[cache->pos] = x;
 		cache->timeouts[cache->pos] = uv_now(loop) + EXPIRE_TIMEOUT;
