@@ -92,14 +92,14 @@ SLNRepoRef SLNSessionCacheGetRepo(SLNSessionCacheRef const cache) {
 	return cache->repo;
 }
 
-static uint16_t session_pos(uint64_t const sessionID) {
+static uint16_t session_pos(SLNSessionCacheRef const cache, uint64_t const sessionID) {
 	uint32_t hash;
-	MurmurHash3_x86_32(&id, sizeof(id), SLNSeed, &hash);
+	MurmurHash3_x86_32(&sessionID, sizeof(sessionID), SLNSeed, &hash);
 	return hash % cache->size;
 }
 static void session_cache(SLNSessionCacheRef const cache, SLNSessionRef const session) {
 	uint64_t const id = SLNSessionGetID(session);
-	uint16_t const pos = session_pos(id);
+	uint16_t const pos = session_pos(cache, id);
 	for(uint16_t i = pos; i < pos+SEARCH_DIST; i++) {
 		uint16_t const x = i % cache->size;
 		if(id == cache->ids[x]) return;
@@ -226,7 +226,7 @@ static int cookie_parse(strarg_t const cookie, uint64_t *const sessionID, byte_t
 	return DB_SUCCESS;
 }
 static int session_lookup(SLNSessionCacheRef const cache, uint64_t const id, byte_t const key[SESSION_KEY_LEN], SLNSessionRef *const out) {
-	uint16_t const pos = session_pos(id);
+	uint16_t const pos = session_pos(cache, id);
 	// TODO: Locking (not really necessary but just good practice).
 	for(uint16_t i = pos; i < pos+SEARCH_DIST; i++) {
 		uint16_t const x = i % cache->size;
