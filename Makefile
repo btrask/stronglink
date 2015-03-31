@@ -9,6 +9,7 @@ TOOLS_DIR := $(ROOT_DIR)/tools
 # TODO: Hardcoded version number...
 YAJL_BUILD_DIR := $(DEPS_DIR)/yajl/build/yajl-2.1.1
 
+DESTDIR ?=
 PREFIX ?= /usr/local
 
 # TODO: Switch to c99
@@ -266,12 +267,12 @@ $(BUILD_DIR)/markdown_standalone.o: $(SRC_DIR)/blog/markdown.c cmark
 
 .PHONY: install
 install: all
-	install -d $(PREFIX)/bin
-	install -d $(PREFIX)/share/stronglink
-	install $(BUILD_DIR)/stronglink $(PREFIX)/bin
-	install $(BUILD_DIR)/sln-markdown $(PREFIX)/bin
-	cp -r $(ROOT_DIR)/res/blog $(PREFIX)/share/stronglink
-	chmod -R 755 $(PREFIX)/share/stronglink
+	install -d $(DESTDIR)$(PREFIX)/bin
+	install -d $(DESTDIR)$(PREFIX)/share/stronglink
+	install $(BUILD_DIR)/stronglink $(DESTDIR)$(PREFIX)/bin
+	install $(BUILD_DIR)/sln-markdown $(DESTDIR)$(PREFIX)/bin
+	cp -r $(ROOT_DIR)/res/blog $(DESTDIR)$(PREFIX)/share/stronglink
+	chmod -R 755 $(DESTDIR)$(PREFIX)/share/stronglink
 
 .PHONY: test
 test: #$(BUILD_DIR)/tests/util/hash.test.run
