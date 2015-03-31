@@ -270,8 +270,8 @@ install: all
 	install -d $(PREFIX)/share/stronglink
 	install $(BUILD_DIR)/stronglink $(PREFIX)/bin
 	install $(BUILD_DIR)/sln-markdown $(PREFIX)/bin
-	#install $(ROOT_DIR)/res/blog $(PREFIX)/share/stronglink
-	# TODO: How do we install a directory?
+	cp -r $(ROOT_DIR)/res/blog $(PREFIX)/share/stronglink
+	chmod -R 755 $(PREFIX)/share/stronglink
 
 .PHONY: test
 test: #$(BUILD_DIR)/tests/util/hash.test.run
