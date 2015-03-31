@@ -1,7 +1,6 @@
 #include <limits.h>
 #include <signal.h>
 #include "../util/fts.h"
-#include "../util/hash.h"
 #include "../util/raiserlimit.h"
 #include "../http/HTTPServer.h"
 #include "../http/HTTPHeaders.h"

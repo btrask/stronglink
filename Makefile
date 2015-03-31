@@ -46,7 +46,6 @@ HEADERS := \
 	$(SRC_DIR)/util/aasprintf.h \
 	$(SRC_DIR)/util/bcrypt.h \
 	$(SRC_DIR)/util/fts.h \
-	$(SRC_DIR)/util/hash.h \
 	$(SRC_DIR)/util/raiserlimit.h \
 	$(SRC_DIR)/common.h \
 	$(SRC_DIR)/StrongLink.h \
@@ -97,7 +96,6 @@ OBJECTS := \
 	$(BUILD_DIR)/http/QueryString.o \
 	$(BUILD_DIR)/util/bcrypt.o \
 	$(BUILD_DIR)/util/fts.o \
-	$(BUILD_DIR)/util/hash.o \
 	$(BUILD_DIR)/deps/crypt/crypt_blowfish.o \
 	$(BUILD_DIR)/deps/crypt/crypt_gensalt.o \
 	$(BUILD_DIR)/deps/crypt/wrapper.o \
@@ -276,15 +274,15 @@ install: all
 	# TODO: How do we install a directory?
 
 .PHONY: test
-test: $(BUILD_DIR)/tests/util/hash.test.run
+test: #$(BUILD_DIR)/tests/util/hash.test.run
 
 .PHONY: $(BUILD_DIR)/tests/*.test.run
 $(BUILD_DIR)/tests/%.test.run: $(BUILD_DIR)/tests/%.test
 	$<
 
-$(BUILD_DIR)/tests/util/hash.test: $(BUILD_DIR)/util/hash.test.o $(BUILD_DIR)/util/hash.o $(BUILD_DIR)/deps/smhasher/MurmurHash3.o
-	@- mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) $(WARNINGS) $^ -o $@
+#$(BUILD_DIR)/tests/util/hash.test: $(BUILD_DIR)/util/hash.test.o $(BUILD_DIR)/util/hash.o $(BUILD_DIR)/deps/smhasher/MurmurHash3.o
+#	@- mkdir -p $(dir $@)
+#	$(CC) $(CFLAGS) $(WARNINGS) $^ -o $@
 
 .PHONY: clean
 clean:
