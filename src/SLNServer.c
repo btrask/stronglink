@@ -35,14 +35,14 @@ static int POST_auth(SLNSessionRef const session, HTTPConnectionRef const conn, 
 //	if(HTTP_POST != method) return -1;
 	if(!URIPath(URI, "/efs/auth", NULL)) return -1;
 
-	SLNRepoRef const repo = SLNSessionGetRepo(session);
-	str_t *cookie = NULL;
-	SLNMode mode = 0;
-	int rc = SLNRepoCookieCreate(repo, "ben", "testing", &cookie, &mode); // TODO
-	if(DB_SUCCESS != rc) {
-		FREE(&cookie);
-		return 403;
-	}
+	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(SLNSessionGetRepo(session));
+	SLNSessionRef s;
+	int rc = SLNSessionCacheCreateSession(cache, "ben", "testing", &s); // TODO
+	if(DB_SUCCESS != rc) return 403;
+
+	str_t *cookie = SLNSessionCopyCookie(s);
+	SLNSessionRelease(&s);
+	if(!cookie) return 500;
 
 	HTTPConnectionWriteResponse(conn, 200, "OK");
 	HTTPConnectionWriteSetCookie(conn, "s", cookie, "/", 60 * 60 * 24 * 365);

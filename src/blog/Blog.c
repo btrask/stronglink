@@ -651,14 +651,14 @@ static int POST_auth(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	}
 
 
-	SLNRepoRef const repo = SLNSessionGetRepo(session);
-	str_t *cookie = NULL;
-	SLNMode mode = 0;
-	int rc = SLNRepoCookieCreate(repo, "ben", "testing", &cookie, &mode); // TODO
-	if(DB_SUCCESS != rc) {
-		FREE(&cookie);
-		return 403;
-	}
+	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(SLNSessionGetRepo(session));
+	SLNSessionRef s;
+	int rc = SLNSessionCacheCreateSession(cache, "ben", "testing", &s); // TODO
+	if(DB_SUCCESS != rc) return 403;
+
+	str_t *cookie = SLNSessionCopyCookie(s);
+	SLNSessionRelease(&s);
+	if(!cookie) return 500;
 
 	HTTPConnectionWriteResponse(conn, 303, "See Other");
 	HTTPConnectionWriteHeader(conn, "Location", "/");

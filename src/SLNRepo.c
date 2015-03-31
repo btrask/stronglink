@@ -1,4 +1,31 @@
-#include "SLNRepoPrivate.h"
+#include "StrongLink.h"
+#include "SLNDB.h"
+
+#define CACHE_SIZE 1000
+
+struct SLNRepo {
+	str_t *dir;
+	str_t *name;
+
+	str_t *dataDir;
+	str_t *tempDir;
+	str_t *cacheDir;
+	str_t *DBPath;
+
+	SLNMode pub_mode;
+	SLNMode reg_mode;
+	SLNSessionCacheRef session_cache;
+
+	DB_env *db;
+
+	async_mutex_t sub_mutex[1];
+	async_cond_t sub_cond[1];
+	uint64_t sub_latest;
+
+	SLNPullRef *pulls;
+	count_t pull_count;
+	count_t pull_size;
+};
 
 static int createDBConnection(SLNRepoRef const repo);
 static void loadPulls(SLNRepoRef const repo);
@@ -26,23 +53,23 @@ SLNRepoRef SLNRepoCreate(strarg_t const dir, strarg_t const name) {
 		return NULL;
 	}
 
+	// TODO: Configuration
+	repo->pub_mode = SLN_RDONLY;
+	repo->reg_mode = 0;
+	repo->session_cache = SLNSessionCacheCreate(repo, CACHE_SIZE);
+	if(!repo->session_cache) {
+		SLNRepoFree(&repo);
+		return NULL;
+	}
+
 	int rc = createDBConnection(repo);
 	if(DB_SUCCESS != rc) {
 		SLNRepoFree(&repo);
 		return NULL;
 	}
 
-	// TODO: Configuration
-	repo->pub_mode = SLN_RDONLY;
-	repo->reg_mode = 0;
-
 	debug_data(repo->db); // TODO
 	loadPulls(repo);
-
-	if(SLNRepoAuthInit(repo) < 0) {
-		SLNRepoFree(&repo);
-		return NULL;
-	}
 
 	async_mutex_init(repo->sub_mutex, 0);
 	async_cond_init(repo->sub_cond, 0);
@@ -62,12 +89,11 @@ void SLNRepoFree(SLNRepoRef *const repoptr) {
 	FREE(&repo->cacheDir);
 	FREE(&repo->DBPath);
 
-	db_env_close(repo->db); repo->db = NULL;
-
 	repo->pub_mode = 0;
 	repo->reg_mode = 0;
+	SLNSessionCacheFree(&repo->session_cache);
 
-	SLNRepoAuthDestroy(repo);
+	db_env_close(repo->db); repo->db = NULL;
 
 	async_mutex_destroy(repo->sub_mutex);
 	async_cond_destroy(repo->sub_cond);
@@ -117,6 +143,19 @@ strarg_t SLNRepoGetCacheDir(SLNRepoRef const repo) {
 	return repo->cacheDir;
 }
 
+SLNMode SLNRepoGetPublicMode(SLNRepoRef const repo) {
+	if(!repo) return 0;
+	return repo->pub_mode;
+}
+SLNMode SLNRepoGetRegistrationMode(SLNRepoRef const repo) {
+	if(!repo) return 0;
+	return repo->reg_mode;
+}
+SLNSessionCacheRef SLNRepoGetSessionCache(SLNRepoRef const repo) {
+	if(!repo) return NULL;
+	return repo->session_cache;
+}
+
 void SLNRepoDBOpen(SLNRepoRef const repo, DB_env **const dbptr) {
 	assert(repo);
 	assert(dbptr);
@@ -127,15 +166,6 @@ void SLNRepoDBClose(SLNRepoRef const repo, DB_env **const dbptr) {
 	assert(repo);
 	async_pool_leave(NULL);
 	*dbptr = NULL;
-}
-
-SLNMode SLNRepoGetPublicMode(SLNRepoRef const repo) {
-	if(!repo) return 0;
-	return repo->pub_mode;
-}
-SLNMode SLNRepoGetRegistrationMode(SLNRepoRef const repo) {
-	if(!repo) return 0;
-	return repo->reg_mode;
 }
 
 void SLNRepoSubmissionEmit(SLNRepoRef const repo, uint64_t const sortID) {

@@ -32,7 +32,8 @@ static void listener(void *ctx, HTTPConnectionRef const conn) {
 	if(!headers) return;
 
 	strarg_t const cookie = HTTPHeadersGet(headers, "cookie");
-	SLNSessionRef session = SLNRepoCreateSession(repo, cookie);
+	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);
+	SLNSessionRef session = SLNSessionCacheCopyActiveSession(cache, cookie);
 	if(!session) {
 		HTTPHeadersFree(&headers);
 		HTTPConnectionSendStatus(conn, 403); // TODO
@@ -43,7 +44,7 @@ static void listener(void *ctx, HTTPConnectionRef const conn) {
 	rc = rc >= 0 ? rc : SLNServerDispatch(session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : BlogDispatch(blog, session, conn, method, URI, headers);
 
-	SLNSessionFree(&session);
+	SLNSessionRelease(&session);
 	HTTPHeadersFree(&headers);
 	if(rc < 0) rc = 404;
 	if(rc > 0) HTTPConnectionSendStatus(conn, rc);
@@ -58,7 +59,7 @@ static void stop(uv_signal_t *const signal, int const signum) {
 }
 
 static void init(void *const unused) {
-	async_random((byte_t *)&hash_salt, sizeof(hash_salt));
+	async_random((byte_t *)&SLNSeed, sizeof(SLNSeed));
 
 	repo = SLNRepoCreate(path, "unnamed repo"); // TODO
 	if(!repo) {

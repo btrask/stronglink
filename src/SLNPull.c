@@ -35,7 +35,7 @@ SLNPullRef SLNRepoCreatePull(SLNRepoRef const repo, uint64_t const pullID, uint6
 	SLNPullRef pull = calloc(1, sizeof(struct SLNPull));
 	if(!pull) return NULL;
 	pull->pullID = pullID;
-	pull->session = SLNRepoCreateSessionInternal(repo, userID, SLN_RDWR);
+	pull->session = SLNSessionCreateInternal(NULL, 0, NULL, userID, SLN_RDWR); // TODO: How to create this properly?
 	pull->username = strdup(username);
 	pull->password = strdup(password);
 	pull->cookie = cookie ? strdup(cookie) : NULL;
@@ -50,7 +50,7 @@ void SLNPullFree(SLNPullRef *const pullptr) {
 	SLNPullStop(pull);
 
 	pull->pullID = 0;
-	SLNSessionFree(&pull->session);
+	SLNSessionRelease(&pull->session);
 	FREE(&pull->host);
 	FREE(&pull->username);
 	FREE(&pull->password);

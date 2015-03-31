@@ -7,6 +7,8 @@
 
 #define URI_MAX 1024
 
+extern uint32_t SLNSeed;
+
 typedef enum {
 	SLN_RDONLY = 1 << 0,
 	SLN_WRONLY = 1 << 1,
@@ -14,6 +16,7 @@ typedef enum {
 } SLNMode;
 
 typedef struct SLNRepo* SLNRepoRef;
+typedef struct SLNSessionCache* SLNSessionCacheRef;
 typedef struct SLNSession* SLNSessionRef;
 typedef struct SLNSubmission* SLNSubmissionRef;
 typedef struct SLNHasher* SLNHasherRef;
@@ -30,17 +33,25 @@ strarg_t SLNRepoGetTempDir(SLNRepoRef const repo);
 str_t *SLNRepoCopyTempPath(SLNRepoRef const repo);
 strarg_t SLNRepoGetCacheDir(SLNRepoRef const repo);
 strarg_t SLNRepoGetName(SLNRepoRef const repo);
-void SLNRepoDBOpen(SLNRepoRef const repo, DB_env **const dbptr);
-void SLNRepoDBClose(SLNRepoRef const repo, DB_env **const dbptr);
 SLNMode SLNRepoGetPublicMode(SLNRepoRef const repo);
 SLNMode SLNRepoGetRegistrationMode(SLNRepoRef const repo);
+SLNSessionCacheRef SLNRepoGetSessionCache(SLNRepoRef const repo);
+void SLNRepoDBOpen(SLNRepoRef const repo, DB_env **const dbptr);
+void SLNRepoDBClose(SLNRepoRef const repo, DB_env **const dbptr);
 void SLNRepoSubmissionEmit(SLNRepoRef const repo, uint64_t const sortID);
 int SLNRepoSubmissionWait(SLNRepoRef const repo, uint64_t const sortID, uint64_t const future);
 void SLNRepoPullsStart(SLNRepoRef const repo);
 void SLNRepoPullsStop(SLNRepoRef const repo);
 
-int SLNRepoCookieCreate(SLNRepoRef const repo, strarg_t const username, strarg_t const password, str_t **const outCookie, SLNMode *const outMode);
-int SLNRepoCookieAuth(SLNRepoRef const repo, strarg_t const cookie, uint64_t *const outUserID, SLNMode *const outMode);
+
+#define SESSION_KEY_LEN 16
+#define SESSION_KEY_HEX (SESSION_KEY_LEN*2)
+
+SLNSessionCacheRef SLNSessionCacheCreate(SLNRepoRef const repo, uint16_t const size);
+void SLNSessionCacheFree(SLNSessionCacheRef *const cacheptr);
+SLNRepoRef SLNSessionCacheGetRepo(SLNSessionCacheRef const cache);
+int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const username, strarg_t const password, SLNSessionRef *const out);
+SLNSessionRef SLNSessionCacheCopyActiveSession(SLNSessionCacheRef const cache, strarg_t const cookie);
 
 
 typedef struct {
@@ -50,12 +61,16 @@ typedef struct {
 	uint64_t size;
 } SLNFileInfo;
 
-SLNSessionRef SLNRepoCreateSession(SLNRepoRef const repo, strarg_t const cookie);
-SLNSessionRef SLNRepoCreateSessionInternal(SLNRepoRef const repo, uint64_t const userID, SLNMode const mode); // TODO: Private
-void SLNSessionFree(SLNSessionRef *const sessionptr);
+
+SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t const sessionID, byte_t const sessionKey[SESSION_KEY_LEN], uint64_t const userID, SLNMode const mode);
+SLNSessionRef SLNSessionRetain(SLNSessionRef const session);
+void SLNSessionRelease(SLNSessionRef *const sessionptr);
+SLNSessionCacheRef SLNSessionGetCache(SLNSessionRef const session);
 SLNRepoRef SLNSessionGetRepo(SLNSessionRef const session);
+uint64_t SLNSessionGetID(SLNSessionRef const session);
+byte_t const *SLNSessionGetKey(SLNSessionRef const session);
 uint64_t SLNSessionGetUserID(SLNSessionRef const session);
-int SLNSessionGetAuthError(SLNSessionRef const session);
+str_t *SLNSessionCopyCookie(SLNSessionRef const session);
 int SLNSessionCreateUser(SLNSessionRef const session, strarg_t const username, strarg_t const password);
 str_t **SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const filter, count_t const max); // TODO: Public API?
 int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFileInfo *const info);

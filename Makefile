@@ -51,7 +51,6 @@ HEADERS := \
 	$(SRC_DIR)/common.h \
 	$(SRC_DIR)/StrongLink.h \
 	$(SRC_DIR)/SLNDB.h \
-	$(SRC_DIR)/SLNRepoPrivate.h \
 	$(SRC_DIR)/filter/SLNFilter.h \
 	$(DEPS_DIR)/cmark/src/cmark.h \
 	$(DEPS_DIR)/cmark/build/src/*.h \
@@ -67,7 +66,7 @@ HEADERS := \
 # Generic library code
 OBJECTS := \
 	$(BUILD_DIR)/SLNRepo.o \
-	$(BUILD_DIR)/SLNRepoAuth.o \
+	$(BUILD_DIR)/SLNSessionCache.o \
 	$(BUILD_DIR)/SLNSession.o \
 	$(BUILD_DIR)/SLNSubmission.o \
 	$(BUILD_DIR)/SLNSubmissionMeta.o \

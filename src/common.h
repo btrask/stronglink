@@ -81,13 +81,35 @@ static size_t prefix(strarg_t const a, strarg_t const b) {
 	}
 }
 
-static str_t *tohex(byte_t const *const buf, size_t const len) {
-	str_t const map[] = "0123456789abcdef";
-	str_t *const hex = calloc(len*2+1, 1);
-	for(size_t i = 0; i < len; ++i) {
-		hex[i*2+0] = map[0xf & (buf[i] >> 4)];
-		hex[i*2+1] = map[0xf & (buf[i] >> 0)];
+
+// TODO: Hex should be nul-terminated
+// TODO: Clean these up
+static uint8_t hexchar(char const c) {
+	if(c >= '0' && c <= '9') return c - '0';
+	if(c >= 'a' && c <= 'f') return c - 'a';
+	if(c >= 'A' && c <= 'F') return c - 'A';
+//	assert(!"hex char"); // TODO
+	return 0;
+}
+static void tobin(uint8_t *const bin, char const *const hex, size_t const hexlen) {
+//	assert(0 == hexlen % 2); // TODO
+	for(size_t i = 0; i < hexlen/2; i++) {
+		bin[i] = hexchar(hex[i*2+0]) << 4 | hexchar(hex[i*2+1]) << 0;
 	}
+}
+static void tohex(char *const hex, uint8_t const *const bin, size_t const binlen) {
+	char const *const map = "0123456789abcdef";
+	for(size_t i = 0; i < binlen; i++) {
+		hex[i*2+0] = map[0xf & (bin[i] >> 4)];
+		hex[i*2+1] = map[0xf & (bin[i] >> 0)];
+	}
+}
+
+static str_t *tohexstr(byte_t const *const buf, size_t const len) {
+	str_t *const hex = malloc(len*2+1);
+	if(!hex) return NULL;
+	tohex(hex, buf, len);
+	hex[len] = '\0';
 	return hex;
 }
 

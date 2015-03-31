@@ -48,8 +48,8 @@ str_t **SLNHasherEnd(SLNHasherRef const hasher) {
 	byte_t sha256[SHA256_DIGEST_LENGTH];
 	if(SHA1_Final(sha1, &hasher->sha1) < 0) return NULL;
 	if(SHA256_Final(sha256, &hasher->sha256) < 0) return NULL;
-	str_t *sha1hex = tohex(sha1, SHA_DIGEST_LENGTH);
-	str_t *sha256hex = tohex(sha256, SHA256_DIGEST_LENGTH);
+	str_t *sha1hex = tohexstr(sha1, SHA_DIGEST_LENGTH);
+	str_t *sha256hex = tohexstr(sha256, SHA256_DIGEST_LENGTH);
 	if(!sha1hex || !sha256hex) {
 		FREE(&sha1hex);
 		FREE(&sha256hex);

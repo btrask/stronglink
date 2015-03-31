@@ -8,55 +8,75 @@
 #define PASS_MAX 72
 
 struct SLNSession {
-	SLNRepoRef repo;
+	SLNSessionCacheRef cache;
+	uint64_t sessionID;
+	byte_t sessionKey[SESSION_KEY_LEN];
 	uint64_t userID;
 	SLNMode mode;
-	int autherr;
+	unsigned refcount; // atomic
 };
 
-SLNSessionRef SLNRepoCreateSession(SLNRepoRef const repo, strarg_t const cookie) {
-	uint64_t userID;
-	SLNMode mode;
-	int rc = SLNRepoCookieAuth(repo, cookie, &userID, &mode);
-	if(rc < 0) userID = 0; // Public access
-	if(0 == userID) mode = SLNRepoGetPublicMode(repo);
-	SLNSessionRef session = SLNRepoCreateSessionInternal(repo, userID, mode);
-	if(session) session->autherr = rc;
-	return session;
-}
-SLNSessionRef SLNRepoCreateSessionInternal(SLNRepoRef const repo, uint64_t const userID, SLNMode const mode) {
-	assert(repo);
+SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t const sessionID, byte_t const sessionKey[SESSION_KEY_LEN], uint64_t const userID, SLNMode const mode) {
 	if(!mode) return NULL;
 	SLNSessionRef const session = calloc(1, sizeof(struct SLNSession));
 	if(!session) return NULL;
-	session->repo = repo;
+	session->cache = cache;
+	session->sessionID = sessionID;
+	if(sessionKey) memcpy(session->sessionKey, sessionKey, SESSION_KEY_LEN);
+	else memset(session->sessionKey, 0, SESSION_KEY_LEN);
 	session->userID = userID;
 	session->mode = mode;
-	session->autherr = 0;
+	session->refcount = 1;
 	return session;
 }
-void SLNSessionFree(SLNSessionRef *const sessionptr) {
+SLNSessionRef SLNSessionRetain(SLNSessionRef const session) {
+	if(!session) return NULL;
+	assert(session->refcount);
+	session->refcount++;
+	return session;
+}
+void SLNSessionRelease(SLNSessionRef *const sessionptr) {
 	SLNSessionRef session = *sessionptr;
 	if(!session) return;
-	session->repo = NULL;
+	assert(session->refcount);
+	if(--session->refcount) return;
+	session->cache = NULL;
+	session->sessionID = 0;
+	memset(session->sessionKey, 0, SESSION_KEY_LEN);
 	session->userID = 0;
 	session->mode = 0;
-	session->autherr = 0;
 	assert_zeroed(session, 1);
 	FREE(sessionptr); session = NULL;
 }
+
+SLNSessionCacheRef SLNSessionGetCache(SLNSessionRef const session) {
+	if(!session) return NULL;
+	return session->cache;
+}
 SLNRepoRef SLNSessionGetRepo(SLNSessionRef const session) {
 	if(!session) return NULL;
-	return session->repo;
+	return SLNSessionCacheGetRepo(session->cache);
+}
+uint64_t SLNSessionGetID(SLNSessionRef const session) {
+	if(!session) return 0;
+	return session->sessionID;
+}
+byte_t const *SLNSessionGetKey(SLNSessionRef const session) {
+	if(!session) return NULL;
+	return session->sessionKey;
 }
 uint64_t SLNSessionGetUserID(SLNSessionRef const session) {
 	if(!session) return -1;
 	return session->userID;
 }
-int SLNSessionGetAuthError(SLNSessionRef const session) {
-	if(!session) return DB_EINVAL;
-	return session->autherr;
+str_t *SLNSessionCopyCookie(SLNSessionRef const session) {
+	if(!session) return NULL;
+	str_t hex[SESSION_KEY_HEX+1];
+	tohex(hex, session->sessionKey, SESSION_KEY_LEN);
+	hex[SESSION_KEY_HEX] = '\0';
+	return aasprintf("s=%llu:%s", (unsigned long long)session->sessionID, hex);
 }
+
 
 int SLNSessionCreateUser(SLNSessionRef const session, strarg_t const username, strarg_t const password) {
 	if(!session) return DB_EINVAL;
@@ -67,7 +87,7 @@ int SLNSessionCreateUser(SLNSessionRef const session, strarg_t const username, s
 	if(ulen < USER_MIN || ulen > USER_MAX) return DB_EINVAL;
 	if(plen < PASS_MIN || plen > PASS_MAX) return DB_EINVAL;
 
-	SLNRepoRef const repo = session->repo;
+	SLNRepoRef const repo = SLNSessionGetRepo(session);
 	SLNMode const mode = SLNRepoGetRegistrationMode(repo);
 	if(!mode) return DB_EINVAL;
 	uint64_t const parent = session->userID;
@@ -223,8 +243,9 @@ int SLNSessionGetValueForField(SLNSessionRef const session, str_t value[], size_
 	DB_cursor *metafiles = NULL;
 	DB_cursor *values = NULL;
 
+	SLNRepoRef const repo = SLNSessionGetRepo(session);
 	DB_env *db = NULL;
-	SLNRepoDBOpen(session->repo, &db);
+	SLNRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
 	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	if(DB_SUCCESS != rc) goto done;
@@ -269,7 +290,7 @@ done:
 	db_cursor_close(metafiles); metafiles = NULL;
 
 	db_txn_abort(txn); txn = NULL;
-	SLNRepoDBClose(session->repo, &db);
+	SLNRepoDBClose(repo, &db);
 	return rc;
 }
 
