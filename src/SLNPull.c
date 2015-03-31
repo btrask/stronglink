@@ -34,8 +34,9 @@ static int import(SLNPullRef const pull, strarg_t const URI, index_t const pos, 
 SLNPullRef SLNRepoCreatePull(SLNRepoRef const repo, uint64_t const pullID, uint64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query) {
 	SLNPullRef pull = calloc(1, sizeof(struct SLNPull));
 	if(!pull) return NULL;
+	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);
 	pull->pullID = pullID;
-	pull->session = SLNSessionCreateInternal(NULL, 0, NULL, userID, SLN_RDWR); // TODO: How to create this properly?
+	pull->session = SLNSessionCreateInternal(cache, 0, NULL, userID, SLN_RDWR); // TODO: How to create this properly?
 	pull->username = strdup(username);
 	pull->password = strdup(password);
 	pull->cookie = cookie ? strdup(cookie) : NULL;

@@ -17,6 +17,7 @@ struct SLNSession {
 };
 
 SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t const sessionID, byte_t const sessionKey[SESSION_KEY_LEN], uint64_t const userID, SLNMode const mode) {
+	assert(cache);
 	if(!mode) return NULL;
 	SLNSessionRef const session = calloc(1, sizeof(struct SLNSession));
 	if(!session) return NULL;
