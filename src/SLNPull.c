@@ -88,6 +88,7 @@ static void reader(SLNPullRef const pull) {
 		rc = HTTPConnectionReadBodyLine(pull->conn, URI, sizeof(URI));
 		if(rc < 0) {
 			for(;;) {
+				if(pull->stop) break;
 				if(reconnect(pull) >= 0) break;
 				if(pull->stop) break;
 				async_sleep(1000 * 5);
