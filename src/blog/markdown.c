@@ -204,6 +204,7 @@ int markdown_convert(char const *const dst, char const *const src) {
 	int const options =
 		CMARK_OPT_DEFAULT |
 		CMARK_OPT_HARDBREAKS |
+		CMARK_OPT_NORMALIZE |
 		CMARK_OPT_SMART |
 		0;
 

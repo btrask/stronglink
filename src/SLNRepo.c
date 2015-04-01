@@ -54,7 +54,7 @@ SLNRepoRef SLNRepoCreate(strarg_t const dir, strarg_t const name) {
 	}
 
 	// TODO: Configuration
-	repo->pub_mode = SLN_RDONLY;
+	repo->pub_mode = SLN_RDWR; // TODO: HACK - SLN_RDONLY;
 	repo->reg_mode = 0;
 	repo->session_cache = SLNSessionCacheCreate(repo, CACHE_SIZE);
 	if(!repo->session_cache) {
