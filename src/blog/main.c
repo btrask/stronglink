@@ -1,3 +1,4 @@
+#include <libgen.h> /* basename(3) */
 #include <limits.h>
 #include <signal.h>
 #include "../util/fts.h"
@@ -60,7 +61,10 @@ static void stop(uv_signal_t *const signal, int const signum) {
 static void init(void *const unused) {
 	async_random((byte_t *)&SLNSeed, sizeof(SLNSeed));
 
-	repo = SLNRepoCreate(path, "unnamed repo"); // TODO
+	str_t *tmp = strdup(path);
+	strarg_t const reponame = basename(tmp); // TODO
+	repo = SLNRepoCreate(path, reponame);
+	FREE(&tmp);
 	if(!repo) {
 		fprintf(stderr, "Repository could not be opened\n");
 		return;
