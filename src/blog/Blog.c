@@ -21,6 +21,7 @@ struct Blog {
 
 	TemplateRef header;
 	TemplateRef footer;
+	TemplateRef backlinks;
 	TemplateRef entry_start;
 	TemplateRef entry_end;
 	TemplateRef preview;
@@ -318,6 +319,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 			FREE(&canonical);
 			SLNFileInfoCleanup(info);
 			// TODO: Remember this file and make sure it doesn't show up as a duplicate below.
+			if(URIs[0]) TemplateWriteHTTPChunk(blog->backlinks, &TemplateStaticCBs, args, conn);
 		}
 	}
 
@@ -722,6 +724,7 @@ BlogRef BlogCreate(SLNRepoRef const repo) {
 	if(
 		!load_template(blog, "header.html", &blog->header) ||
 		!load_template(blog, "footer.html", &blog->footer) ||
+		!load_template(blog, "backlinks.html", &blog->backlinks) ||
 		!load_template(blog, "entry-start.html", &blog->entry_start) ||
 		!load_template(blog, "entry-end.html", &blog->entry_end) ||
 		!load_template(blog, "preview.html", &blog->preview) ||
@@ -751,6 +754,7 @@ void BlogFree(BlogRef *const blogptr) {
 
 	TemplateFree(&blog->header);
 	TemplateFree(&blog->footer);
+	TemplateFree(&blog->backlinks);
 	TemplateFree(&blog->entry_start);
 	TemplateFree(&blog->entry_end);
 	TemplateFree(&blog->preview);
