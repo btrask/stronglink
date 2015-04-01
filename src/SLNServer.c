@@ -55,6 +55,7 @@ static int POST_auth(SLNSessionRef const session, HTTPConnectionRef const conn, 
 }
 static int GET_file(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
+
 	int len = 0;
 	str_t algo[SLN_ALGO_SIZE];
 	str_t hash[SLN_HASH_SIZE];
@@ -64,6 +65,8 @@ static int GET_file(SLNSessionRef const session, HTTPConnectionRef const conn, H
 	if(!algo[0] || !hash[0]) return -1;
 	if('/' == URI[len]) len++;
 	if('\0' != URI[len] && '?' != URI[len]) return -1;
+
+	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return 403;
 
 	// TODO: Check for conditional get headers and return 304 Not Modified.
 
@@ -121,11 +124,14 @@ static int GET_file(SLNSessionRef const session, HTTPConnectionRef const conn, H
 }
 static int POST_file(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return -1;
+
 	int len = 0;
 	sscanf(URI, "/efs/file%n", &len);
 	if(!len) return -1;
 	if('/' == URI[len]) len++;
 	if('\0' != URI[len] && '?' != URI[len]) return -1;
+
+	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return 403;
 
 	strarg_t const type = HTTPHeadersGet(headers, "Content-Type");
 	if(!type) return 400;
@@ -216,6 +222,8 @@ static void cleanupURIs(str_t **const URIs, count_t const count) {
 static int POST_query(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method && HTTP_GET != method) return -1; // TODO: GET is just for testing
 	if(!URIPath(URI, "/efs/query", NULL)) return -1;
+
+	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return 403;
 
 	SLNJSONFilterParserRef parser = NULL;
 	SLNFilterRef filter = SLNFilterCreate(SLNMetaFileFilterType);

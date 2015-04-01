@@ -23,8 +23,9 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 
 SLNSubmissionRef SLNSubmissionCreate(SLNSessionRef const session, strarg_t const type) {
 	if(!session) return NULL;
-	assertf(type, "Submission requires type");
-	// TODO: Check session permissions?
+	assert(type);
+
+	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return NULL;
 
 	SLNSubmissionRef sub = calloc(1, sizeof(struct SLNSubmission));
 	if(!sub) return NULL;

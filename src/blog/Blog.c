@@ -248,6 +248,8 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	strarg_t qs = NULL;
 	if(!URIPath(URI, "/", &qs)) return -1;
 
+	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return 403;
+
 	BlogQueryValues *params = QSValuesCopy(qs, BlogQueryFields, numberof(BlogQueryFields));
 	SLNFilterRef filter = SLNUserFilterParse(params->query);
 	if(!filter) filter = SLNFilterCreate(SLNAllFilterType);
@@ -337,6 +339,8 @@ static int GET_new(BlogRef const blog, SLNSessionRef const session, HTTPConnecti
 	if(HTTP_GET != method) return -1;
 	if(!URIPath(URI, "/new", NULL)) return -1;
 
+	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return 403;
+
 	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(SLNSessionGetRepo(session)));
 	if(!reponame_HTMLSafe) return 500;
 	TemplateStaticArg const args[] = {
@@ -359,6 +363,8 @@ static int GET_new(BlogRef const blog, SLNSessionRef const session, HTTPConnecti
 static int GET_up(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
 	if(!URIPath(URI, "/up", NULL)) return -1;
+
+	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return 403;
 
 	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(SLNSessionGetRepo(session)));
 	if(!reponame_HTMLSafe) return 500;
@@ -559,6 +565,8 @@ static int POST_submit(BlogRef const blog, SLNSessionRef const session, HTTPConn
 	if(HTTP_POST != method) return -1;
 	if(!URIPath(URI, "/submission", NULL)) return -1;
 
+	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return 403;
+
 	// TODO: CSRF token
 	strarg_t const formtype = HTTPHeadersGet(headers, "content-type"); 
 	uv_buf_t boundary[1];
@@ -755,7 +763,16 @@ int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnection
 	rc = rc >= 0 ? rc : POST_submit(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_login(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_auth(blog, session, conn, method, URI, headers);
-	if(rc >= 0) return rc;
+
+	if(403 == rc) {
+		HTTPConnectionWriteResponse(conn, 303, "See Other");
+		HTTPConnectionWriteContentLength(conn, 0);
+		HTTPConnectionWriteHeader(conn, "Location", "/login");
+		HTTPConnectionBeginBody(conn);
+		HTTPConnectionEnd(conn);
+		return 0;
+	}
+	if(rc >= 0) return rc; // TODO: Pretty 404 pages, etc.
 
 	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
 

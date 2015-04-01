@@ -219,7 +219,7 @@ static int create_admin(SLNRepoRef const repo, DB_txn *const txn) {
 	tohex(password, buf, sizeof(buf));
 	password[PASS_LEN] = '\0';
 
-	rc = SLNSessionCreateUser(root, txn, username, password, SLN_ROOT);
+	rc = SLNSessionCreateUserInternal(root, txn, username, password, SLN_ROOT);
 	if(DB_SUCCESS != rc) return rc;
 
 	fprintf(stdout, "ACCOUNT CREATED\n");

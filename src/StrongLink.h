@@ -71,8 +71,10 @@ SLNRepoRef SLNSessionGetRepo(SLNSessionRef const session);
 uint64_t SLNSessionGetID(SLNSessionRef const session);
 byte_t const *SLNSessionGetKey(SLNSessionRef const session);
 uint64_t SLNSessionGetUserID(SLNSessionRef const session);
+bool SLNSessionHasPermission(SLNSessionRef const session, SLNMode const mask);
 str_t *SLNSessionCopyCookie(SLNSessionRef const session);
-int SLNSessionCreateUser(SLNSessionRef const session, DB_txn *const txn, strarg_t const username, strarg_t const password, SLNMode const mode_unsafe);
+int SLNSessionCreateUser(SLNSessionRef const session, DB_txn *const txn, strarg_t const username, strarg_t const password);
+int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn, strarg_t const username, strarg_t const password, SLNMode const mode_unsafe);
 str_t **SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const filter, count_t const max); // TODO: Public API?
 int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFileInfo *const info);
 void SLNFileInfoCleanup(SLNFileInfo *const info);

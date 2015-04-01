@@ -35,7 +35,7 @@ static void listener(void *ctx, HTTPConnectionRef const conn) {
 	SLNSessionRef session = SLNSessionCacheCopyActiveSession(cache, cookie);
 	if(!session) {
 		HTTPHeadersFree(&headers);
-		HTTPConnectionSendStatus(conn, 403); // TODO
+		HTTPConnectionSendStatus(conn, 500); // Out of memory or something else bad.
 		return;
 	}
 

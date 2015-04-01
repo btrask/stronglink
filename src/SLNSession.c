@@ -70,6 +70,10 @@ uint64_t SLNSessionGetUserID(SLNSessionRef const session) {
 	if(!session) return -1;
 	return session->userID;
 }
+bool SLNSessionHasPermission(SLNSessionRef const session, SLNMode const mask) {
+	if(!session) return false;
+	return (mask & session->mode) == mask;
+}
 str_t *SLNSessionCopyCookie(SLNSessionRef const session) {
 	if(!session) return NULL;
 	str_t hex[SESSION_KEY_HEX+1];
@@ -79,7 +83,12 @@ str_t *SLNSessionCopyCookie(SLNSessionRef const session) {
 }
 
 
-int SLNSessionCreateUser(SLNSessionRef const session, DB_txn *const txn, strarg_t const username, strarg_t const password, SLNMode const mode_unsafe) {
+int SLNSessionCreateUser(SLNSessionRef const session, DB_txn *const txn, strarg_t const username, strarg_t const password) {
+	SLNRepoRef const repo = SLNSessionGetRepo(session);
+	SLNMode const mode = SLNRepoGetRegistrationMode(repo);
+	return SLNSessionCreateUserInternal(session, txn, username, password, mode);
+}
+int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn, strarg_t const username, strarg_t const password, SLNMode const mode_unsafe) {
 	if(!session) return DB_EINVAL;
 	if(!txn) return DB_EINVAL;
 	if(!username) return DB_EINVAL;
@@ -117,7 +126,7 @@ int SLNSessionCreateUser(SLNSessionRef const session, DB_txn *const txn, strarg_
 
 str_t **SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const filter, count_t const max) { // TODO: Sort order, pagination.
 	if(!session) return NULL;
-	// TODO: Check session mode.
+	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return NULL;
 
 	str_t **URIs = malloc(sizeof(str_t *) * (max+1));
 	if(!URIs) return NULL;
@@ -149,7 +158,8 @@ str_t **SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef con
 int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFileInfo *const info) {
 	if(!session) return DB_EINVAL;
 	if(!URI) return DB_EINVAL;
-	// TODO: Check session mode.
+	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
+
 	SLNRepoRef const repo = SLNSessionGetRepo(session);
 	DB_env *db = NULL;
 	SLNRepoDBOpen(repo, &db);
@@ -214,8 +224,10 @@ void SLNFileInfoCleanup(SLNFileInfo *const info) {
 
 
 int SLNSessionGetValueForField(SLNSessionRef const session, str_t value[], size_t const max, strarg_t const fileURI, strarg_t const field) {
-	if(!session) return UV_EINVAL;
-	if(!field) return UV_EINVAL;
+	if(!session) return DB_EINVAL;
+	if(!field) return DB_EINVAL;
+	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
+
 	if(max) value[0] = '\0';
 	int rc = DB_SUCCESS;
 	DB_cursor *metafiles = NULL;
