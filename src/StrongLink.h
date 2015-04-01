@@ -13,6 +13,7 @@ typedef enum {
 	SLN_RDONLY = 1 << 0,
 	SLN_WRONLY = 1 << 1,
 	SLN_RDWR = SLN_RDONLY | SLN_WRONLY,
+	SLN_ROOT = 0xFF,
 } SLNMode;
 
 typedef struct SLNRepo* SLNRepoRef;
@@ -71,7 +72,7 @@ uint64_t SLNSessionGetID(SLNSessionRef const session);
 byte_t const *SLNSessionGetKey(SLNSessionRef const session);
 uint64_t SLNSessionGetUserID(SLNSessionRef const session);
 str_t *SLNSessionCopyCookie(SLNSessionRef const session);
-int SLNSessionCreateUser(SLNSessionRef const session, strarg_t const username, strarg_t const password);
+int SLNSessionCreateUser(SLNSessionRef const session, DB_txn *const txn, strarg_t const username, strarg_t const password, SLNMode const mode_unsafe);
 str_t **SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const filter, count_t const max); // TODO: Public API?
 int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFileInfo *const info);
 void SLNFileInfoCleanup(SLNFileInfo *const info);

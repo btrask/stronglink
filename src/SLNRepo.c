@@ -203,6 +203,32 @@ void SLNRepoPullsStop(SLNRepoRef const repo) {
 }
 
 
+#define PASS_LEN 16
+static int create_admin(SLNRepoRef const repo, DB_txn *const txn) {
+	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);
+	SLNSessionRef root = SLNSessionCreateInternal(cache, 0, NULL, 0, SLN_ROOT);
+	if(!root) return DB_ENOMEM;
+
+	strarg_t username = getenv("USER"); // TODO: Portability?
+	if(!username) username = "admin";
+
+	byte_t buf[PASS_LEN/2];
+	int rc = async_random(buf, sizeof(buf));
+	if(rc < 0) return DB_ENOMEM; // ???
+	char password[PASS_LEN+1];
+	tohex(password, buf, sizeof(buf));
+	password[PASS_LEN] = '\0';
+
+	rc = SLNSessionCreateUser(root, txn, username, password, SLN_ROOT);
+	if(DB_SUCCESS != rc) return rc;
+
+	fprintf(stdout, "ACCOUNT CREATED\n");
+	fprintf(stdout, "  Username: %s\n", username);
+	fprintf(stdout, "  Password: %s\n", password);
+	fprintf(stdout, "  Please change your password after logging in\n");
+
+	return DB_SUCCESS;
+}
 static int createDBConnection(SLNRepoRef const repo) {
 	assert(repo);
 	int rc = db_env_create(&repo->db);
@@ -242,6 +268,28 @@ static int createDBConnection(SLNRepoRef const repo) {
 	}
 
 	// TODO: Application-level schema verification
+
+	DB_cursor *cursor = NULL;
+	rc = db_txn_cursor(txn, &cursor);
+	if(DB_SUCCESS != rc) {
+		db_txn_abort(txn); txn = NULL;
+		SLNRepoDBClose(repo, &db);
+		fprintf(stderr, "Database cursor error (%s)\n", db_strerror(rc));
+		return rc;
+	}
+
+	DB_range users[1];
+	SLNUserByIDKeyRange0(users, txn);
+	rc = db_cursor_firstr(cursor, users, NULL, NULL, +1);
+	if(DB_NOTFOUND == rc) {
+		rc = create_admin(repo, txn);
+	}
+	if(DB_SUCCESS != rc) {
+		db_txn_abort(txn); txn = NULL;
+		SLNRepoDBClose(repo, &db);
+		fprintf(stderr, "Database user error (%s)\n", db_strerror(rc));
+		return rc;
+	}
 
 	rc = db_txn_commit(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);

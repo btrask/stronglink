@@ -36,6 +36,10 @@ enum {
 	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_VARINT_MAX); \
 	db_bind_uint64((val), SLNUserByID); \
 	db_bind_uint64((val), (userID));
+#define SLNUserByIDKeyRange0(range, txn) \
+	DB_RANGE_STORAGE(range, DB_VARINT_MAX); \
+	db_bind_uint64((range)->min, SLNUserByID); \
+	db_range_genmax((range));
 #define SLNUserByIDValPack(val, txn, username, passhash, token, mode, parent, time) \
 	DB_VAL_STORAGE(val, DB_INLINE_MAX * 3 + DB_VARINT_MAX * 3); \
 	db_bind_string((val), (username), (txn)); \

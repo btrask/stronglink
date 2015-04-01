@@ -79,8 +79,9 @@ str_t *SLNSessionCopyCookie(SLNSessionRef const session) {
 }
 
 
-int SLNSessionCreateUser(SLNSessionRef const session, strarg_t const username, strarg_t const password) {
+int SLNSessionCreateUser(SLNSessionRef const session, DB_txn *const txn, strarg_t const username, strarg_t const password, SLNMode const mode_unsafe) {
 	if(!session) return DB_EINVAL;
+	if(!txn) return DB_EINVAL;
 	if(!username) return DB_EINVAL;
 	if(!password) return DB_EINVAL;
 	size_t const ulen = strlen(username);
@@ -89,53 +90,29 @@ int SLNSessionCreateUser(SLNSessionRef const session, strarg_t const username, s
 	if(plen < PASS_MIN || plen > PASS_MAX) return DB_EINVAL;
 
 	SLNRepoRef const repo = SLNSessionGetRepo(session);
-	SLNMode const mode = SLNRepoGetRegistrationMode(repo);
+	SLNMode const mode = mode_unsafe & session->mode;
 	if(!mode) return DB_EINVAL;
 	uint64_t const parent = session->userID;
 	uint64_t const time = uv_now(loop); // TODO: Appropriate timestamp?
 
-	DB_env *db;
-	SLNRepoDBOpen(repo, &db);
-	DB_txn *txn;
-	int rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
-	if(DB_SUCCESS != rc) return rc;
-
 	uint64_t const userID = db_next_id(SLNUserByID, txn);
-	if(!userID) {
-		db_txn_abort(txn);
-		SLNRepoDBClose(repo, &db);
-		return DB_EACCES;
-	}
+	if(!userID) return DB_EACCES;
 	str_t *passhash = hashpass(password);
-	if(!passhash) {
-		db_txn_abort(txn);
-		SLNRepoDBClose(repo, &db);
-		return DB_ENOMEM;
-	}
+	if(!passhash) return DB_ENOMEM;
 
 	DB_val username_key[1], userID_val[1];
 	SLNUserIDByNameKeyPack(username_key, txn, username);
 	SLNUserIDByNameValPack(userID_val, txn, userID);
-	rc = db_put(txn, username_key, userID_val, DB_NOOVERWRITE);
-	if(DB_SUCCESS != rc) {
-		db_txn_abort(txn);
-		SLNRepoDBClose(repo, &db);
-		return rc;
-	}
+	int rc = db_put(txn, username_key, userID_val, DB_NOOVERWRITE);
+	if(DB_SUCCESS != rc) return rc;
 
 	DB_val userID_key[1], user_val[1];
 	SLNUserByIDKeyPack(userID_key, txn, userID);
 	SLNUserByIDValPack(user_val, txn, username, passhash, NULL, mode, parent, time);
 	rc = db_put(txn, userID_key, user_val, DB_NOOVERWRITE);
-	if(DB_SUCCESS != rc) {
-		db_txn_abort(txn);
-		SLNRepoDBClose(repo, &db);
-		return rc;
-	}
+	if(DB_SUCCESS != rc) return rc;
 
-	rc = db_txn_commit(txn); txn = NULL;
-	SLNRepoDBClose(repo, &db);
-	return rc;
+	return DB_SUCCESS;
 }
 
 str_t **SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const filter, count_t const max) { // TODO: Sort order, pagination.
