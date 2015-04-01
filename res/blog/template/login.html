@@ -4,25 +4,51 @@
 <link rel="stylesheet" type="text/css" href="../index.css">
 <style>
 /* form { background: red; } */
+.login {
+	position: absolute;
+	width: 280px;
+	margin-left: -140px;
+	left: 50%;
+	padding: 16px;
+}
+.login > .field {
+	position: relative;
+	height: 2em;
+}
+.login > .field > label {
+	position: absolute;
+	left: 0;
+	width: 120px;
+	text-align: right;
+}
+.login > .field > input {
+	position: absolute;
+	top: 0;
+	width: 120px;
+	right: 0;
+	text-align: left;
+}
+.login > .actions {
+	text-align: center;
+}
+.login > .actions > input {
+	width: 90px;
+	margin: 2px 2px 0 2px;
+}
 </style>
 
-<form method="post" action="../auth">
-
-Username: <input type="text" name="user" maxlength="{{userlen}}"><br>
-Password: <input type="password" name="pass" maxlength="{{passlen}}"><br>
-<input type="hidden" name="token" value="{{token}}">
-<input type="submit" value="log in">
-
-</form>
-
-<br>
-
-<form method="post" action="../register">
-
-Username: <input type="text" name="user" maxlength="{{userlen}}"><br>
-Password: <input type="password" name="pass" maxlength="{{passlen}}"><br>
-<input type="hidden" name="token" value="{{token}}">
-<input type="submit" value="register">
-
-</form>
+<form method="post" action="../auth"><div class="login entry margin">
+	<div class="field">
+		<label>Username:</label>
+		<input type="text" name="user" maxlength="{{userlen}}"></div>
+	<div class="field">
+		<label>Password:</label>
+		<input type="password" name="pass" maxlength="{{passlen}}"></div>
+	<div class="actions">
+		<input type="submit" name="action-login" value="log in"><!--
+		--><input type="submit" name="action-register" value="register">
+	</div>
+	<input type="hidden" name="token" value="{{token}}">
+</div></form>
+<div><a href="..">Back</a></div>
 
