@@ -71,8 +71,6 @@ function md_escape_inline(iter) {
 function md_autolink(iter) {
 	// <http://daringfireball.net/2010/07/improved_regex_for_matching_urls>
 	// Painstakingly ported to POSIX and then back
-	// TODO: Get original
-	// Pretty sure this is broken because it's capturing trailing punctuation...
 	var linkify = /([a-z][a-z0-9_-]+:(\/{1,3}|[a-z0-9%])|www[0-9]{0,3}[.]|[a-z0-9.-]+[.][a-z]{2,4}\/)([^\s()<>]+|(([^\s()<>]+|(([^\s()<>]+)))*))+((([^\s()<>]+|(([^\s()<>]+)))*)|[^\[\]\s`!(){};:'".,<>?«»“”‘’])/;
 	var event, node, match, str, text, link, face;
 	for(;;) {
