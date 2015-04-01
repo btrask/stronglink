@@ -5,6 +5,35 @@ var parser = new commonmark.Parser();
 var renderer = new commonmark.HtmlRenderer({sourcepos: true});
 renderer.softbreak = "<br>";
 
+// commonmark.js should do this for us...
+function normalize(node) {
+	var text;
+	var run = [];
+	var child = node.firstChild;
+	for(;;) {
+		if(!child || "Text" != child.type) {
+			if(run.length > 1) {
+				text = new commonmark.Node("Text");
+				text.literal = run.map(function(x) {
+					x.unlink();
+					return x.literal;
+				}).join("");
+				if(child) child.insertBefore(text);
+				else node.appendChild(text);
+			}
+			run = [];
+		}
+		if(!child) break;
+		if("Text" == child.type) {
+			run.push(child);
+		} else if(child.isContainer) {
+			normalize(child);
+		}
+		child = child.next;
+	}
+	return node;
+}
+
 // Ported from C version in markdown.c
 // The output should be identical between each version
 function md_escape(iter) {
@@ -148,7 +177,7 @@ var coalesce = null;
 input.oninput = input.onpropertychange = function() {
 	clearTimeout(coalesce); coalesce = null;
 	coalesce = setTimeout(function() {
-		var node = parser.parse(input.value);
+		var node = normalize(parser.parse(input.value));
 		md_escape(node.walker());
 		md_escape_inline(node.walker());
 		md_autolink(node.walker());
