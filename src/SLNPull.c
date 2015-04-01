@@ -36,7 +36,7 @@ SLNPullRef SLNRepoCreatePull(SLNRepoRef const repo, uint64_t const pullID, uint6
 	if(!pull) return NULL;
 	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);
 	pull->pullID = pullID;
-	pull->session = SLNSessionCreateInternal(cache, 0, NULL, userID, SLN_RDWR); // TODO: How to create this properly?
+	pull->session = SLNSessionCreateInternal(cache, 0, NULL, userID, SLN_RDWR, NULL); // TODO: How to create this properly?
 	pull->username = strdup(username);
 	pull->password = strdup(password);
 	pull->cookie = cookie ? strdup(cookie) : NULL;

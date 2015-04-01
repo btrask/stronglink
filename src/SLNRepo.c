@@ -206,7 +206,7 @@ void SLNRepoPullsStop(SLNRepoRef const repo) {
 #define PASS_LEN 16
 static int create_admin(SLNRepoRef const repo, DB_txn *const txn) {
 	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);
-	SLNSessionRef root = SLNSessionCreateInternal(cache, 0, NULL, 0, SLN_ROOT);
+	SLNSessionRef root = SLNSessionCreateInternal(cache, 0, NULL, 0, SLN_ROOT, NULL);
 	if(!root) return DB_ENOMEM;
 
 	strarg_t username = getenv("USER"); // TODO: Portability?

@@ -266,12 +266,19 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(SLNSessionGetRepo(session)));
 
+	strarg_t user = NULL;
+	if(0 == SLNSessionGetUserID(session)) user = "Log In";
+	else user = SLNSessionGetUsername(session);
+	if(!user) user = "(unknown)";
+	str_t *user_HTMLSafe = htmlenc(user);
+
 	str_t q[200];
 	size_t qlen = SLNFilterToUserFilterString(filter, q, sizeof(q), 0);
 	str_t *q_HTMLSafe = htmlenc(q);
 
 	if(!reponame_HTMLSafe || !q_HTMLSafe) {
 		FREE(&reponame_HTMLSafe);
+		FREE(&user_HTMLSafe);
 		FREE(&q_HTMLSafe);
 		for(index_t i = 0; URIs[i]; ++i) FREE(&URIs[i]); // TODO
 		FREE(&URIs);
@@ -281,6 +288,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	TemplateStaticArg const args[] = {
 		{"reponame", reponame_HTMLSafe},
+		{"user", user_HTMLSafe},
 		{"q", q_HTMLSafe},
 		{NULL, NULL},
 	};
@@ -323,6 +331,8 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	}
 
 	TemplateWriteHTTPChunk(blog->footer, &TemplateStaticCBs, args, conn);
+	FREE(&reponame_HTMLSafe);
+	FREE(&user_HTMLSafe);
 	FREE(&q_HTMLSafe);
 
 	HTTPConnectionWriteChunkv(conn, NULL, 0);
@@ -609,9 +619,9 @@ static int POST_submit(BlogRef const blog, SLNSessionRef const session, HTTPConn
 	return 0;
 }
 
-static int GET_login(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int GET_user(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
-	if(!URIPath(URI, "/login", NULL)) return -1;
+	if(!URIPath(URI, "/user", NULL)) return -1;
 
 	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(SLNSessionGetRepo(session)));
 	if(!reponame_HTMLSafe) return 500;
@@ -761,13 +771,13 @@ int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnection
 	rc = rc >= 0 ? rc : GET_new(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_up(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_submit(blog, session, conn, method, URI, headers);
-	rc = rc >= 0 ? rc : GET_login(blog, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : GET_user(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_auth(blog, session, conn, method, URI, headers);
 
 	if(403 == rc) {
 		HTTPConnectionWriteResponse(conn, 303, "See Other");
 		HTTPConnectionWriteContentLength(conn, 0);
-		HTTPConnectionWriteHeader(conn, "Location", "/login");
+		HTTPConnectionWriteHeader(conn, "Location", "/user");
 		HTTPConnectionBeginBody(conn);
 		HTTPConnectionEnd(conn);
 		return 0;

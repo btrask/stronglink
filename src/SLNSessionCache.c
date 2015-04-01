@@ -36,7 +36,7 @@ SLNSessionCacheRef SLNSessionCacheCreate(SLNRepoRef const repo, uint16_t const s
 	if(!cache) return NULL;
 
 	cache->repo = repo;
-	cache->public = SLNSessionCreateInternal(cache, 0, NULL, 0, SLNRepoGetPublicMode(repo));
+	cache->public = SLNSessionCreateInternal(cache, 0, NULL, 0, SLNRepoGetPublicMode(repo), NULL);
 	if(!cache->public) {
 		SLNSessionCacheFree(&cache);
 		return NULL;
@@ -208,7 +208,7 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 	if(DB_SUCCESS != rc) return rc;
 
 
-	SLNSessionRef session = SLNSessionCreateInternal(cache, sessionID, bin, userID, mode);
+	SLNSessionRef session = SLNSessionCreateInternal(cache, sessionID, bin, userID, mode, username);
 	if(!session) return DB_ENOMEM;
 	session_cache(cache, session);
 	*out = session;
@@ -278,10 +278,10 @@ static int session_load(SLNSessionCacheRef const cache, uint64_t const id, byte_
 		SLNRepoDBClose(repo, &db);
 		return rc;
 	}
-	strarg_t ignore1, ignore2, ignore3;
+	strarg_t name, ignore2, ignore3;
 	uint64_t ignore4, ignore5;
 	SLNMode mode;
-	SLNUserByIDValUnpack(user_val, txn, &ignore1, &ignore2,
+	SLNUserByIDValUnpack(user_val, txn, &name, &ignore2,
 		&ignore3, &mode, &ignore4, &ignore5);
 	// TODO: Replace *Unpack with static functions and handle NULL outputs.
 	if(!mode) {
@@ -290,23 +290,30 @@ static int session_load(SLNSessionCacheRef const cache, uint64_t const id, byte_
 		return DB_EACCES;
 	}
 
+	str_t *username = strdup(name);
 	str_t *sessionHash = strdup(hash);
 
 	db_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
 
-	if(!sessionHash) return DB_ENOMEM;
+	if(!username || !sessionHash) {
+		FREE(&username);
+		FREE(&sessionHash);
+		return DB_ENOMEM;
+	}
 
 	char hex[SESSION_KEY_HEX+1];
 	tohex(hex, key, SESSION_KEY_LEN);
 	hex[SESSION_KEY_HEX] = '\0';
 	if(!checkpass(hex, sessionHash)) {
+		FREE(&username);
 		FREE(&sessionHash);
 		return DB_EACCES;
 	}
 	FREE(&sessionHash);
 
-	SLNSessionRef session = SLNSessionCreateInternal(cache, id, key, userID, mode);
+	SLNSessionRef session = SLNSessionCreateInternal(cache, id, key, userID, mode, username);
+	FREE(&username);
 	if(!session) return DB_ENOMEM;
 	session_cache(cache, session);
 

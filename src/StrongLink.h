@@ -63,7 +63,7 @@ typedef struct {
 } SLNFileInfo;
 
 
-SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t const sessionID, byte_t const sessionKey[SESSION_KEY_LEN], uint64_t const userID, SLNMode const mode);
+SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t const sessionID, byte_t const sessionKey[SESSION_KEY_LEN], uint64_t const userID, SLNMode const mode, strarg_t const username);
 SLNSessionRef SLNSessionRetain(SLNSessionRef const session);
 void SLNSessionRelease(SLNSessionRef *const sessionptr);
 SLNSessionCacheRef SLNSessionGetCache(SLNSessionRef const session);
@@ -72,6 +72,7 @@ uint64_t SLNSessionGetID(SLNSessionRef const session);
 byte_t const *SLNSessionGetKey(SLNSessionRef const session);
 uint64_t SLNSessionGetUserID(SLNSessionRef const session);
 bool SLNSessionHasPermission(SLNSessionRef const session, SLNMode const mask);
+strarg_t SLNSessionGetUsername(SLNSessionRef const session);
 str_t *SLNSessionCopyCookie(SLNSessionRef const session);
 int SLNSessionCreateUser(SLNSessionRef const session, DB_txn *const txn, strarg_t const username, strarg_t const password);
 int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn, strarg_t const username, strarg_t const password, SLNMode const mode_unsafe);

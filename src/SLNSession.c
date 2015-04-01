@@ -13,10 +13,11 @@ struct SLNSession {
 	byte_t sessionKey[SESSION_KEY_LEN];
 	uint64_t userID;
 	SLNMode mode;
+	str_t *username;
 	unsigned refcount; // atomic
 };
 
-SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t const sessionID, byte_t const sessionKey[SESSION_KEY_LEN], uint64_t const userID, SLNMode const mode) {
+SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t const sessionID, byte_t const sessionKey[SESSION_KEY_LEN], uint64_t const userID, SLNMode const mode, strarg_t const username) {
 	assert(cache);
 	if(!mode) return NULL;
 	SLNSessionRef const session = calloc(1, sizeof(struct SLNSession));
@@ -27,6 +28,7 @@ SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t 
 	else memset(session->sessionKey, 0, SESSION_KEY_LEN);
 	session->userID = userID;
 	session->mode = mode;
+	session->username = username ? strdup(username) : NULL;
 	session->refcount = 1;
 	return session;
 }
@@ -46,6 +48,7 @@ void SLNSessionRelease(SLNSessionRef *const sessionptr) {
 	memset(session->sessionKey, 0, SESSION_KEY_LEN);
 	session->userID = 0;
 	session->mode = 0;
+	FREE(&session->username);
 	assert_zeroed(session, 1);
 	FREE(sessionptr); session = NULL;
 }
@@ -73,6 +76,10 @@ uint64_t SLNSessionGetUserID(SLNSessionRef const session) {
 bool SLNSessionHasPermission(SLNSessionRef const session, SLNMode const mask) {
 	if(!session) return false;
 	return (mask & session->mode) == mask;
+}
+strarg_t SLNSessionGetUsername(SLNSessionRef const session) {
+	if(!session) return NULL;
+	return session->username;
 }
 str_t *SLNSessionCopyCookie(SLNSessionRef const session) {
 	if(!session) return NULL;
