@@ -34,6 +34,7 @@ static int import(SLNPullRef const pull, strarg_t const URI, index_t const pos, 
 SLNPullRef SLNRepoCreatePull(SLNRepoRef const repo, uint64_t const pullID, uint64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query) {
 	SLNPullRef pull = calloc(1, sizeof(struct SLNPull));
 	if(!pull) return NULL;
+
 	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);
 	pull->pullID = pullID;
 	pull->session = SLNSessionCreateInternal(cache, 0, NULL, userID, SLN_RDWR, NULL); // TODO: How to create this properly?
@@ -42,6 +43,12 @@ SLNPullRef SLNRepoCreatePull(SLNRepoRef const repo, uint64_t const pullID, uint6
 	pull->cookie = cookie ? strdup(cookie) : NULL;
 	pull->host = strdup(host);
 	pull->query = strdup(query);
+
+	async_mutex_init(pull->connlock, 0);
+	async_mutex_init(pull->mutex, 0);
+	async_cond_init(pull->cond, 0);
+	pull->stop = true;
+
 	return pull;
 }
 void SLNPullFree(SLNPullRef *const pullptr) {
@@ -57,6 +64,11 @@ void SLNPullFree(SLNPullRef *const pullptr) {
 	FREE(&pull->password);
 	FREE(&pull->cookie);
 	FREE(&pull->query);
+
+	async_mutex_destroy(pull->connlock);
+	async_mutex_destroy(pull->mutex);
+	async_cond_destroy(pull->cond);
+	pull->stop = false;
 
 	assert_zeroed(pull, 1);
 	FREE(pullptr); pull = NULL;
@@ -181,10 +193,9 @@ stop:
 }
 int SLNPullStart(SLNPullRef const pull) {
 	if(!pull) return 0;
+	if(!pull->stop) return 0;
 	assert(0 == pull->tasks);
-	async_mutex_init(pull->connlock, 0);
-	async_mutex_init(pull->mutex, 0);
-	async_cond_init(pull->cond, 0);
+	pull->stop = false;
 	for(index_t i = 0; i < READER_COUNT; ++i) {
 		pull->tasks++;
 		async_spawn(STACK_DEFAULT, (void (*)())reader, pull);
@@ -197,7 +208,7 @@ int SLNPullStart(SLNPullRef const pull) {
 }
 void SLNPullStop(SLNPullRef const pull) {
 	if(!pull) return;
-	if(!pull->connlock) return;
+	if(pull->stop) return;
 
 	async_mutex_lock(pull->mutex);
 	pull->stop = true;
@@ -207,12 +218,7 @@ void SLNPullStop(SLNPullRef const pull) {
 	}
 	async_mutex_unlock(pull->mutex);
 
-	async_mutex_destroy(pull->connlock);
 	HTTPConnectionFree(&pull->conn);
-
-	async_mutex_destroy(pull->mutex);
-	async_cond_destroy(pull->cond);
-	pull->stop = false;
 
 	for(index_t i = 0; i < QUEUE_SIZE; ++i) {
 		SLNSubmissionFree(&pull->queue[i]);

@@ -104,7 +104,6 @@ void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
 	if(!conn) return;
 
 	async_close((uv_handle_t *)conn->stream);
-	memset(conn->stream, 0, sizeof(*conn->stream));
 
 	// http_parser does not need to be freed, closed or destroyed.
 	memset(conn->parser, 0, sizeof(*conn->parser));

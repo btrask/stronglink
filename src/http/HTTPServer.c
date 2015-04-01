@@ -72,7 +72,6 @@ void HTTPServerClose(HTTPServerRef const server) {
 	if(!server) return;
 	if(!server->socket->data) return;
 	async_close((uv_handle_t *)server->socket);
-	memset(server->socket, 0, sizeof(*server->socket));
 }
 
 static void connection(uv_stream_t *const socket) {

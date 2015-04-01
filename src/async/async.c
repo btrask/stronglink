@@ -183,6 +183,7 @@ void async_close(uv_handle_t *const handle) {
 	handle->data = async_active();
 	uv_close(handle, async_close_cb);
 	async_yield();
-	handle->type = UV_UNKNOWN_HANDLE;
+	memset(handle, 0, uv_handle_size(handle->type));
+	// Luckily UV_UNKNOWN_HANDLE is 0
 }
 
