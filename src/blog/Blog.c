@@ -674,7 +674,14 @@ static int POST_auth(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(SLNSessionGetRepo(session));
 	SLNSessionRef s;
 	int rc = SLNSessionCacheCreateSession(cache, "ben", "testing", &s); // TODO
-	if(DB_SUCCESS != rc) return 403;
+	if(DB_SUCCESS != rc) {
+		HTTPConnectionWriteResponse(conn, 303, "See Other");
+		HTTPConnectionWriteHeader(conn, "Location", "/user?err=1");
+		HTTPConnectionWriteContentLength(conn, 0);
+		HTTPConnectionBeginBody(conn);
+		HTTPConnectionEnd(conn);
+		return 0;
+	}
 
 	str_t *cookie = SLNSessionCopyCookie(s);
 	SLNSessionRelease(&s);
