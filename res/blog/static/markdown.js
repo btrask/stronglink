@@ -171,6 +171,16 @@ function md_convert_hashes(iter) {
 	}
 }
 
+function rescroll() {
+	// TODO: Use cmark's sourcepos tracking.
+	// Unfortunately it seems pretty hard to figure out
+	// where the text is in a textarea.
+	var ih = input.scrollHeight-input.clientHeight || 1;
+	var oh = output.scrollHeight-output.clientHeight || 1;
+	output.scrollTop = (input.scrollTop / ih) * oh;
+}
+input.onscroll = rescroll;
+
 var coalesce = null;
 input.oninput = input.onpropertychange = function() {
 	clearTimeout(coalesce); coalesce = null;
@@ -183,6 +193,7 @@ input.oninput = input.onpropertychange = function() {
 		md_convert_hashes(node.walker());
 		// TODO: Use target=_blank for links.
 		output.innerHTML = renderer.render(node);
+		rescroll();
 	}, 1000 * 0.5);
 };
 
