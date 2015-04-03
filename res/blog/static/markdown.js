@@ -167,7 +167,7 @@ function md_convert_hashes(iter) {
 
 		iter.resumeAt(sup_close, false);
 
-		node.destination = "../?q="+URI;
+		node.destination = "../?q="+encodeURIComponent(URI);
 	}
 }
 

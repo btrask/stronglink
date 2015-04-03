@@ -89,8 +89,9 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 		unsafe = buf;
 	}
 	if(0 == strcmp(var, "queryURI")) {
-		// TODO: Query string escaping
-		snprintf(buf, sizeof(buf), "/?q=%s", state->fileURI);
+		str_t *escaped = QSEscape(state->fileURI, strlen(state->fileURI), true);
+		snprintf(buf, sizeof(buf), "/?q=%s", escaped);
+		FREE(&escaped);
 		unsafe = buf;
 	}
 	if(0 == strcmp(var, "hashURI")) {

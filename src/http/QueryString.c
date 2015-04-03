@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include "QueryString.h"
 
 void *QSValuesCopy(strarg_t const qs, strarg_t const fields[], count_t const count) {
@@ -105,6 +106,43 @@ str_t *QSUnescape(strarg_t const s, size_t const slen, bool const decodeSpaces) 
 		}
 	}
 	out[outIndex++] = '\0';
+	return out;
+}
+
+// Ripped from V8
+static bool unescape(char const cc) {
+      if (isalnum(cc)) return true;
+      // !
+      if (cc == 33) return true;
+      // '()*
+      if (39 <= cc && cc <= 42) return true;
+      // -.
+      if (45 <= cc && cc <= 46) return true;
+      // _
+      if (cc == 95) return true;
+      // ~
+      if (cc == 126) return true;
+
+      return false;
+}
+str_t *QSEscape(strarg_t const s, size_t const slen, bool const encodeSpaces) {
+	str_t *const out = malloc(slen*3+1); // Worst case
+	if(!out) return NULL;
+	char const *const map = "0123456789ABCDEF";
+	size_t j = 0;
+	for(size_t i = 0; i < slen; i++) {
+		char const cc = s[i];
+		if(encodeSpaces && isspace(cc)) {
+			out[j++] = '+';
+		} else if(unescape(cc)) {
+			out[j++] = cc;
+		} else {
+			out[j++] = '%';
+			out[j++] = map[0xf & (cc >> 4)];
+			out[j++] = map[0xf & (cc >> 0)];
+		}
+	}
+	out[j++] = '\0';
 	return out;
 }
 

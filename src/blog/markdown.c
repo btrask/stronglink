@@ -13,7 +13,7 @@
 #include "../../deps/cmark/src/cmark.h"
 #include "../../deps/cmark/src/buffer.h"
 
-//#include "http/QueryString.h"
+#include "../http/QueryString.h" /* TODO: Try to avoid this full dependency */
 
 #define CONVERT_MAX (1024 * 1024 * 1) /* TODO */
 
@@ -170,12 +170,14 @@ static void md_convert_hashes(cmark_iter *const iter) {
 
 		cmark_iter_reset(iter, sup_close, CMARK_EVENT_EXIT);
 
-		size_t const URILen = strlen(URI);
+		char *escaped = QSEscape(URI, strlen(URI), true);
+		size_t const elen = strlen(escaped);
 		cmark_strbuf rel[1];
 		char const qpfx[] = "?q=";
-		cmark_strbuf_init(rel, sizeof(qpfx)-1+URILen); // TODO: Escaping?
+		cmark_strbuf_init(rel, sizeof(qpfx)-1+elen);
 		cmark_strbuf_put(rel, (unsigned char const *)qpfx, sizeof(qpfx)-1);
-		cmark_strbuf_put(rel, (unsigned char const *)URI, URILen);
+		cmark_strbuf_put(rel, (unsigned char const *)escaped, elen);
+		free(escaped); escaped = NULL;
 		cmark_node_set_url(node, cmark_strbuf_cstr(rel));
 		cmark_strbuf_free(rel);
 	}
