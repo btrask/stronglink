@@ -109,7 +109,7 @@ static str_t *tohexstr(byte_t const *const buf, size_t const len) {
 	str_t *const hex = malloc(len*2+1);
 	if(!hex) return NULL;
 	tohex(hex, buf, len);
-	hex[len] = '\0';
+	hex[len*2] = '\0';
 	return hex;
 }
 
