@@ -265,19 +265,22 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(blog->repo));
 
-	strarg_t user = NULL;
-	if(0 == SLNSessionGetUserID(session)) user = "Log In";
-	else user = SLNSessionGetUsername(session);
-	if(!user) user = "(unknown)";
-	str_t *user_HTMLSafe = htmlenc(user);
+	str_t account[64];
+	if(0 == SLNSessionGetUserID(session)) {
+		snprintf(account, sizeof(account), "%s", "Log In");
+	} else {
+		strarg_t const user = SLNSessionGetUsername(session);
+		snprintf(account, sizeof(account), "Account: %s", user);
+	}
+	str_t *account_HTMLSafe = htmlenc(account);
 
-	str_t q[200];
+	str_t q[1024];
 	size_t qlen = SLNFilterToUserFilterString(filter, q, sizeof(q), 0);
 	str_t *q_HTMLSafe = htmlenc(q);
 
 	if(!reponame_HTMLSafe || !q_HTMLSafe) {
 		FREE(&reponame_HTMLSafe);
-		FREE(&user_HTMLSafe);
+		FREE(&account_HTMLSafe);
 		FREE(&q_HTMLSafe);
 		for(index_t i = 0; URIs[i]; ++i) FREE(&URIs[i]); // TODO
 		FREE(&URIs);
@@ -287,7 +290,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	TemplateStaticArg const args[] = {
 		{"reponame", reponame_HTMLSafe},
-		{"user", user_HTMLSafe},
+		{"account", account_HTMLSafe},
 		{"q", q_HTMLSafe},
 		{NULL, NULL},
 	};
@@ -332,7 +335,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	TemplateWriteHTTPChunk(blog->footer, &TemplateStaticCBs, args, conn);
 	FREE(&reponame_HTMLSafe);
-	FREE(&user_HTMLSafe);
+	FREE(&account_HTMLSafe);
 	FREE(&q_HTMLSafe);
 
 	HTTPConnectionWriteChunkv(conn, NULL, 0);
@@ -619,9 +622,9 @@ static int POST_submit(BlogRef const blog, SLNSessionRef const session, HTTPConn
 	return 0;
 }
 
-static int GET_user(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int GET_account(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
-	if(!URIPath(URI, "/user", NULL)) return -1;
+	if(!URIPath(URI, "/account", NULL)) return -1;
 
 	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(blog->repo));
 	if(!reponame_HTMLSafe) return 500;
@@ -686,7 +689,7 @@ static int POST_auth(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	if(DB_SUCCESS != rc) {
 		HTTPConnectionWriteResponse(conn, 303, "See Other");
-		HTTPConnectionWriteHeader(conn, "Location", "/user?err=1");
+		HTTPConnectionWriteHeader(conn, "Location", "/account?err=1");
 		HTTPConnectionWriteContentLength(conn, 0);
 		HTTPConnectionBeginBody(conn);
 		HTTPConnectionEnd(conn);
@@ -792,13 +795,13 @@ int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnection
 	rc = rc >= 0 ? rc : GET_new(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_up(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_submit(blog, session, conn, method, URI, headers);
-	rc = rc >= 0 ? rc : GET_user(blog, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : GET_account(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_auth(blog, session, conn, method, URI, headers);
 
 	if(403 == rc) {
 		HTTPConnectionWriteResponse(conn, 303, "See Other");
 		HTTPConnectionWriteContentLength(conn, 0);
-		HTTPConnectionWriteHeader(conn, "Location", "/user");
+		HTTPConnectionWriteHeader(conn, "Location", "/account");
 		HTTPConnectionBeginBody(conn);
 		HTTPConnectionEnd(conn);
 		return 0;
