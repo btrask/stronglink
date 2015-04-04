@@ -574,9 +574,9 @@ assert(form);
 
 
 
-static int POST_submit(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int POST_post(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return -1;
-	if(!URIPath(URI, "/submission", NULL)) return -1;
+	if(!URIPath(URI, "/post", NULL)) return -1;
 
 	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return 403;
 
@@ -794,7 +794,7 @@ int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnection
 	rc = rc >= 0 ? rc : GET_query(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_new(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_up(blog, session, conn, method, URI, headers);
-	rc = rc >= 0 ? rc : POST_submit(blog, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : POST_post(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_account(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_auth(blog, session, conn, method, URI, headers);
 
