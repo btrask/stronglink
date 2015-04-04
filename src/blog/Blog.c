@@ -10,6 +10,7 @@
 #define RESULTS_MAX 50
 #define PENDING_MAX 4
 #define BUFFER_SIZE (1024 * 8)
+#define AUTH_FORM_MAX 1023
 
 typedef struct Blog* BlogRef;
 
@@ -653,18 +654,10 @@ static int POST_auth(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(blog->repo);
 
-#define AUTH_FORM_MAX 1023
 	str_t formdata[AUTH_FORM_MAX+1];
-	size_t len = 0;
-	for(;;) {
-		uv_buf_t buf[1];
-		int rc = HTTPConnectionReadBody(conn, buf);
-		if(rc < 0) return 500;
-		if(!buf->len) break;
-		if(len+buf->len >= AUTH_FORM_MAX) return 413; // Request Entity Too Large
-		memcpy(formdata, buf->base, buf->len);
-		len += buf->len;
-	}
+	ssize_t len = HTTPConnectionReadBodyCapped(conn, (byte_t *)formdata, AUTH_FORM_MAX);
+	if(UV_EMSGSIZE == len) return 413; // Request Entity Too Large
+	if(len < 0) return 500;
 	formdata[len] = '\0';
 
 	static strarg_t const fields[] = {

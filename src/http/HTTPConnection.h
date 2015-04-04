@@ -32,6 +32,7 @@ int HTTPConnectionReadHeaderField(HTTPConnectionRef const conn, str_t field[], s
 int HTTPConnectionReadHeaderValue(HTTPConnectionRef const conn, str_t value[], size_t const max);
 int HTTPConnectionReadBody(HTTPConnectionRef const conn, uv_buf_t *const buf);
 int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t out[], size_t const max);
+ssize_t HTTPConnectionReadBodyCapped(HTTPConnectionRef const conn, byte_t *const out, size_t const max);
 int HTTPConnectionDrainMessage(HTTPConnectionRef const conn);
 
 

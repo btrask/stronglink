@@ -326,6 +326,20 @@ int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t out[], size_t
 
 	return 0;
 }
+ssize_t HTTPConnectionReadBodyCapped(HTTPConnectionRef const conn, byte_t *const out, size_t const max) {
+	if(!conn) return UV_EINVAL;
+	ssize_t len = 0;
+	for(;;) {
+		uv_buf_t buf[1];
+		int rc = HTTPConnectionReadBody(conn, buf);
+		if(rc < 0) return rc;
+		if(!buf->len) break;
+		if(len+buf->len >= max) return UV_EMSGSIZE;
+		memcpy(out, buf->base, buf->len);
+		len += buf->len;
+	}
+	return len;
+}
 int HTTPConnectionDrainMessage(HTTPConnectionRef const conn) {
 	if(!conn) return 0;
 	if(HTTPStreamEOF & conn->flags) return UV_EOF;
