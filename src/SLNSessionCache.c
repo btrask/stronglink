@@ -245,7 +245,7 @@ static int session_lookup(SLNSessionCacheRef const cache, uint64_t const id, byt
 		SLNSessionRef const s = cache->sessions[x];
 		// TODO: Constant time comparison! Security-critical!
 		if(0 != memcmp(key, SLNSessionGetKey(s), SESSION_KEY_LEN)) return DB_EACCES;
-		*out = s;
+		*out = SLNSessionRetain(s);
 		return DB_SUCCESS;
 	}
 	return DB_NOTFOUND;
