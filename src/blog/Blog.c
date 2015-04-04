@@ -237,14 +237,6 @@ static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, SLNSes
 	TemplateWriteHTTPChunk(blog->entry_end, &preview_cbs, &state, conn);
 }
 
-typedef struct {
-	str_t *query;
-	str_t *file; // It'd be nice if we didn't need a separate parameter for this.
-} BlogQueryValues;
-static strarg_t const BlogQueryFields[] = {
-	"q",
-	"f",
-};
 static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
 	strarg_t qs = NULL;
@@ -252,10 +244,15 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return 403;
 
-	BlogQueryValues *params = QSValuesCopy(qs, BlogQueryFields, numberof(BlogQueryFields));
-	SLNFilterRef filter = SLNUserFilterParse(params->query);
+	static strarg_t const fields[] = {
+		"q",
+		"f", // TODO: ???
+	};
+	str_t *values[numberof(fields)] = {};
+	QSValuesParse(qs, values, fields, numberof(fields));
+	SLNFilterRef filter = SLNUserFilterParse(values[0]);
 	if(!filter) filter = SLNFilterCreate(SLNAllFilterType);
-	QSValuesFree((QSValues *)&params, numberof(BlogQueryFields));
+	QSValuesCleanup(values, numberof(values));
 
 //	SLNFilterPrint(filter, 0); // DEBUG
 
@@ -266,7 +263,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		return 500;
 	}
 
-	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(SLNSessionGetRepo(session)));
+	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(blog->repo));
 
 	strarg_t user = NULL;
 	if(0 == SLNSessionGetUserID(session)) user = "Log In";
@@ -354,7 +351,7 @@ static int GET_new(BlogRef const blog, SLNSessionRef const session, HTTPConnecti
 
 	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return 403;
 
-	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(SLNSessionGetRepo(session)));
+	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(blog->repo));
 	if(!reponame_HTMLSafe) return 500;
 	TemplateStaticArg const args[] = {
 		{"reponame", reponame_HTMLSafe},
@@ -379,7 +376,7 @@ static int GET_up(BlogRef const blog, SLNSessionRef const session, HTTPConnectio
 
 	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return 403;
 
-	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(SLNSessionGetRepo(session)));
+	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(blog->repo));
 	if(!reponame_HTMLSafe) return 500;
 	TemplateStaticArg const args[] = {
 		{"reponame", reponame_HTMLSafe},
@@ -626,7 +623,7 @@ static int GET_user(BlogRef const blog, SLNSessionRef const session, HTTPConnect
 	if(HTTP_GET != method) return -1;
 	if(!URIPath(URI, "/user", NULL)) return -1;
 
-	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(SLNSessionGetRepo(session)));
+	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(blog->repo));
 	if(!reponame_HTMLSafe) return 500;
 	TemplateStaticArg const args[] = {
 		{"reponame", reponame_HTMLSafe},
@@ -651,30 +648,42 @@ static int POST_auth(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	if(HTTP_POST != method) return -1;
 	if(!URIPath(URI, "/auth", NULL)) return -1;
 
+	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(blog->repo);
 
-// TODO: This is pretty ugly...
-// Do we need a streaming form-data parser?
-// Or a parser that uses our old predefined-fields trick?
-// It'd be good to cap the lengths
-
-#define FORMDATA_MAX 1024
-	str_t formdata[FORMDATA_MAX];
+#define AUTH_FORM_MAX 1023
+	str_t formdata[AUTH_FORM_MAX+1];
 	size_t len = 0;
 	for(;;) {
 		uv_buf_t buf[1];
 		int rc = HTTPConnectionReadBody(conn, buf);
 		if(rc < 0) return 500;
 		if(!buf->len) break;
-		if(len+buf->len >= FORMDATA_MAX) return 400; // TODO
+		if(len+buf->len >= AUTH_FORM_MAX) return 413; // Request Entity Too Large
 		memcpy(formdata, buf->base, buf->len);
 		len += buf->len;
-		formdata[len] = '\0';
 	}
+	formdata[len] = '\0';
 
-
-	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(SLNSessionGetRepo(session));
+	static strarg_t const fields[] = {
+		"action-login",
+		"action-register",
+		"user",
+		"pass",
+	};
+	str_t *values[numberof(fields)] = {};
+	QSValuesParse(formdata, values, fields, numberof(fields));
+	if(values[1]) {
+		QSValuesCleanup(values, numberof(values));
+		return 500; // TODO: Registration;
+	}
+	if(!values[0]) {
+		QSValuesCleanup(values, numberof(values));
+		return 500; // Not login?
+	}
 	SLNSessionRef s;
-	int rc = SLNSessionCacheCreateSession(cache, "ben", "testing", &s); // TODO
+	int rc = SLNSessionCacheCreateSession(cache, values[2], values[3], &s); // TODO
+	QSValuesCleanup(values, numberof(values));
+
 	if(DB_SUCCESS != rc) {
 		HTTPConnectionWriteResponse(conn, 303, "See Other");
 		HTTPConnectionWriteHeader(conn, "Location", "/user?err=1");
@@ -690,7 +699,7 @@ static int POST_auth(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	HTTPConnectionWriteResponse(conn, 303, "See Other");
 	HTTPConnectionWriteHeader(conn, "Location", "/");
-	HTTPConnectionWriteSetCookie(conn, "s", cookie, "/", 60 * 60 * 24 * 365);
+	HTTPConnectionWriteSetCookie(conn, cookie, "/", 60 * 60 * 24 * 365);
 	HTTPConnectionWriteContentLength(conn, 0);
 	HTTPConnectionBeginBody(conn);
 	HTTPConnectionEnd(conn);

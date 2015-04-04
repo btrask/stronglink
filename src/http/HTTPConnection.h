@@ -42,7 +42,7 @@ int HTTPConnectionWriteRequest(HTTPConnectionRef const conn, HTTPMethod const me
 int HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, strarg_t const message);
 int HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value);
 int HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, uint64_t const length);
-int HTTPConnectionWriteSetCookie(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value, strarg_t const path, uint64_t const maxage);
+int HTTPConnectionWriteSetCookie(HTTPConnectionRef const conn, strarg_t const cookie, strarg_t const path, uint64_t const maxage);
 int HTTPConnectionBeginBody(HTTPConnectionRef const conn);
 int HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file);
 int HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, uint64_t const length);

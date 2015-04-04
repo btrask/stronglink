@@ -17,9 +17,9 @@ struct SLNSession {
 	unsigned refcount; // atomic
 };
 
-SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t const sessionID, byte_t const sessionKey[SESSION_KEY_LEN], uint64_t const userID, SLNMode const mode, strarg_t const username) {
+SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t const sessionID, byte_t const sessionKey[SESSION_KEY_LEN], uint64_t const userID, SLNMode const mode_trusted, strarg_t const username) {
 	assert(cache);
-	if(!mode) return NULL;
+	if(!mode_trusted) return NULL;
 	SLNSessionRef const session = calloc(1, sizeof(struct SLNSession));
 	if(!session) return NULL;
 	session->cache = cache;
@@ -27,7 +27,7 @@ SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t 
 	if(sessionKey) memcpy(session->sessionKey, sessionKey, SESSION_KEY_LEN);
 	else memset(session->sessionKey, 0, SESSION_KEY_LEN);
 	session->userID = userID;
-	session->mode = mode;
+	session->mode = mode_trusted;
 	session->username = username ? strdup(username) : NULL;
 	session->refcount = 1;
 	return session;

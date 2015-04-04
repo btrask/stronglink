@@ -45,7 +45,7 @@ static int POST_auth(SLNSessionRef const session, HTTPConnectionRef const conn, 
 	if(!cookie) return 500;
 
 	HTTPConnectionWriteResponse(conn, 200, "OK");
-	HTTPConnectionWriteSetCookie(conn, "s", cookie, "/", 60 * 60 * 24 * 365);
+	HTTPConnectionWriteSetCookie(conn, cookie, "/", 60 * 60 * 24 * 365);
 	HTTPConnectionWriteContentLength(conn, 0);
 	HTTPConnectionBeginBody(conn);
 	HTTPConnectionEnd(conn);

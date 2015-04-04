@@ -86,8 +86,8 @@ static size_t prefix(strarg_t const a, strarg_t const b) {
 // TODO: Clean these up
 static uint8_t hexchar(char const c) {
 	if(c >= '0' && c <= '9') return c - '0';
-	if(c >= 'a' && c <= 'f') return c - 'a';
-	if(c >= 'A' && c <= 'F') return c - 'A';
+	if(c >= 'a' && c <= 'f') return c - 'a' + 10;
+	if(c >= 'A' && c <= 'F') return c - 'A' + 10;
 //	assert(!"hex char"); // TODO
 	return 0;
 }

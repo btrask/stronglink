@@ -36,10 +36,16 @@ SLNSessionCacheRef SLNSessionCacheCreate(SLNRepoRef const repo, uint16_t const s
 	if(!cache) return NULL;
 
 	cache->repo = repo;
-	cache->public = SLNSessionCreateInternal(cache, 0, NULL, 0, SLNRepoGetPublicMode(repo), NULL);
-	if(!cache->public) {
-		SLNSessionCacheFree(&cache);
-		return NULL;
+
+	SLNMode const pub_mode = SLNRepoGetPublicMode(repo);
+	if(pub_mode) {
+		cache->public = SLNSessionCreateInternal(cache, 0, NULL, 0, pub_mode, NULL);
+		if(!cache->public) {
+			SLNSessionCacheFree(&cache);
+			return NULL;
+		}
+	} else {
+		cache->public = NULL;
 	}
 
 	async_mutex_init(cache->lock, 0);

@@ -63,7 +63,7 @@ typedef struct {
 } SLNFileInfo;
 
 
-SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t const sessionID, byte_t const sessionKey[SESSION_KEY_LEN], uint64_t const userID, SLNMode const mode, strarg_t const username);
+SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t const sessionID, byte_t const sessionKey[SESSION_KEY_LEN], uint64_t const userID, SLNMode const mode_trusted, strarg_t const username);
 SLNSessionRef SLNSessionRetain(SLNSessionRef const session);
 void SLNSessionRelease(SLNSessionRef *const sessionptr);
 SLNSessionCacheRef SLNSessionGetCache(SLNSessionRef const session);

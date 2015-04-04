@@ -34,11 +34,10 @@ static void listener(void *ctx, HTTPConnectionRef const conn) {
 	strarg_t const cookie = HTTPHeadersGet(headers, "cookie");
 	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);
 	SLNSessionRef session = SLNSessionCacheCopyActiveSession(cache, cookie);
-	if(!session) {
-		HTTPHeadersFree(&headers);
-		HTTPConnectionSendStatus(conn, 500); // Out of memory or something else bad.
-		return;
-	}
+	// TODO: We can't distinguish whether session is NULL
+	// because of permissions or because of out-of-memory.
+	// But I think using NULL to reflect zero permissions
+	// is still a good idea (relatively fail-safe).
 
 	rc = -1;
 	rc = rc >= 0 ? rc : SLNServerDispatch(session, conn, method, URI, headers);

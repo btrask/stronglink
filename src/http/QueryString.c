@@ -1,9 +1,8 @@
 #include <ctype.h>
 #include "QueryString.h"
 
-void *QSValuesCopy(strarg_t const qs, strarg_t const fields[], count_t const count) {
-	str_t **const values = calloc(count, sizeof(str_t *));
-	if(!values) return NULL;
+void QSValuesParse(strarg_t const qs, str_t *values[], strarg_t const fields[], count_t const count) {
+	assert_zeroed(values, count);
 	strarg_t pos = qs;
 	for(;;) {
 		if('\0' == pos[0]) break;
@@ -36,14 +35,11 @@ void *QSValuesCopy(strarg_t const qs, strarg_t const fields[], count_t const cou
 		}
 		pos += flen+sep+vlen;
 	}
-	return values;
 }
-void QSValuesFree(QSValues *const valuesptr, count_t const count) {
-	str_t **values = *valuesptr;
+void QSValuesCleanup(str_t **const values, count_t const count) {
 	for(index_t i = 0; i < count; ++i) {
 		FREE(&values[i]);
 	}
-	FREE((void **)valuesptr); values = NULL;
 }
 
 // Ported from Node.js QueryString.unescapeBuffer

@@ -413,18 +413,15 @@ int HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, uint64_t cons
 	};
 	return HTTPConnectionWritev(conn, parts, numberof(parts));
 }
-int HTTPConnectionWriteSetCookie(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value, strarg_t const path, uint64_t const maxage) {
-	assert(field);
-	assert(value);
+int HTTPConnectionWriteSetCookie(HTTPConnectionRef const conn, strarg_t const cookie, strarg_t const path, uint64_t const maxage) {
+	assert(cookie);
 	assert(path);
 	if(!conn) return 0;
 	str_t maxage_str[16];
 	int const maxage_len = snprintf(maxage_str, sizeof(maxage_str), "%llu", (unsigned long long)maxage);
 	uv_buf_t parts[] = {
 		uv_buf_init(str_len("Set-Cookie: ")),
-		uv_buf_init((char *)field, strlen(field)),
-		uv_buf_init(str_len("=")),
-		uv_buf_init((char *)value, strlen(value)),
+		uv_buf_init((char *)cookie, strlen(cookie)),
 		uv_buf_init(str_len("; Path=")),
 		uv_buf_init((char *)path, strlen(path)),
 		uv_buf_init(str_len("; Max-Age=")),
