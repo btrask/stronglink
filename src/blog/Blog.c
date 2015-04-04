@@ -677,11 +677,11 @@ static int POST_auth(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	QSValuesParse(formdata, values, fields, numberof(fields));
 	if(values[1]) {
 		QSValuesCleanup(values, numberof(values));
-		return 500; // TODO: Registration;
+		return 501; // TODO: Not Implemented
 	}
 	if(!values[0]) {
 		QSValuesCleanup(values, numberof(values));
-		return 500; // Not login?
+		return 400; // Not login?
 	}
 	SLNSessionRef s;
 	int rc = SLNSessionCacheCreateSession(cache, values[2], values[3], &s); // TODO
@@ -810,7 +810,7 @@ int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnection
 
 	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
 
-	if(strchr(URI, '?')) return 500; // TODO: Ignore query parameters
+	if(strchr(URI, '?')) return 501; // TODO: Not Implemented
 	if(strstr(URI, "..")) return 400;
 	str_t path[PATH_MAX];
 	rc = snprintf(path, PATH_MAX, "%s/static/%s", blog->dir, URI);
