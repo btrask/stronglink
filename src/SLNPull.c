@@ -288,13 +288,16 @@ static int auth(SLNPullRef const pull) {
 	FREE(&pull->cookie);
 
 	HTTPConnectionRef conn = NULL;
-	int rc = 0;
-	rc = rc < 0 ? rc : HTTPConnectionCreateOutgoing(pull->host, &conn);
-	rc = rc < 0 ? rc : HTTPConnectionWriteRequest(conn, HTTP_POST, "/efs/auth", pull->host);
-	rc = rc < 0 ? rc : HTTPConnectionWriteContentLength(conn, 0);
-	rc = rc < 0 ? rc : HTTPConnectionBeginBody(conn);
+	int rc = HTTPConnectionCreateOutgoing(pull->host, &conn);
+	if(rc < 0) {
+		fprintf(stderr, "Pull authentication connection error %s\n", uv_strerror(rc));
+		return rc;
+	}
+	HTTPConnectionWriteRequest(conn, HTTP_POST, "/efs/auth", pull->host);
+	HTTPConnectionWriteContentLength(conn, 0);
+	HTTPConnectionBeginBody(conn);
 	// TODO: Send credentials.
-	rc = rc < 0 ? rc : HTTPConnectionEnd(conn);
+	rc = HTTPConnectionEnd(conn);
 	if(rc < 0) {
 		fprintf(stderr, "Pull authentication error %s\n", uv_strerror(rc));
 		HTTPConnectionFree(&conn);
@@ -375,9 +378,9 @@ static int import(SLNPullRef const pull, strarg_t const URI, index_t const pos, 
 	FREE(&path);
 
 	assert(pull->cookie);
-	rc = rc < 0 ? rc : HTTPConnectionWriteHeader(*conn, "Cookie", pull->cookie);
-	rc = rc < 0 ? rc : HTTPConnectionBeginBody(*conn);
-	rc = rc < 0 ? rc : HTTPConnectionEnd(*conn);
+	HTTPConnectionWriteHeader(*conn, "Cookie", pull->cookie);
+	HTTPConnectionBeginBody(*conn);
+	rc = HTTPConnectionEnd(*conn);
 	if(rc < 0) {
 		fprintf(stderr, "Pull import request error %s\n", uv_strerror(rc));
 		goto fail;

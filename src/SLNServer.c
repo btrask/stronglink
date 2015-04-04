@@ -119,20 +119,19 @@ static int GET_file(SLNSessionRef const session, HTTPConnectionRef const conn, H
 	// TODO: Use Content-Disposition to suggest a filename, for file types
 	// that aren't useful to view inline.
 
-	rc=0;
-	rc=rc<0?rc: HTTPConnectionWriteResponse(conn, 200, "OK");
-	rc=rc<0?rc: HTTPConnectionWriteContentLength(conn, info->size);
-	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Content-Type", info->type);
-	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Cache-Control", "max-age=31536000");
-	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "ETag", "1");
-//	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Accept-Ranges", "bytes"); // TODO
-	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Content-Security-Policy", "'none'");
-	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "X-Content-Type-Options", "nosniff");
-	rc=rc<0?rc: HTTPConnectionBeginBody(conn);
+	HTTPConnectionWriteResponse(conn, 200, "OK");
+	HTTPConnectionWriteContentLength(conn, info->size);
+	HTTPConnectionWriteHeader(conn, "Content-Type", info->type);
+	HTTPConnectionWriteHeader(conn, "Cache-Control", "max-age=31536000");
+	HTTPConnectionWriteHeader(conn, "ETag", "1");
+//	HTTPConnectionWriteHeader(conn, "Accept-Ranges", "bytes"); // TODO
+	HTTPConnectionWriteHeader(conn, "Content-Security-Policy", "'none'");
+	HTTPConnectionWriteHeader(conn, "X-Content-Type-Options", "nosniff");
+	HTTPConnectionBeginBody(conn);
 	if(HTTP_HEAD != method) {
-		rc=rc<0?rc: HTTPConnectionWriteFile(conn, file);
+		HTTPConnectionWriteFile(conn, file);
 	}
-	rc=rc<0?rc: HTTPConnectionEnd(conn);
+	HTTPConnectionEnd(conn);
 
 	SLNFileInfoCleanup(info);
 	async_fs_close(file);
@@ -185,13 +184,12 @@ static int POST_file(SLNSessionRef const session, HTTPConnectionRef const conn, 
 		return 500;
 	}
 
-	rc = 0;
-	rc = rc < 0 ? rc : HTTPConnectionWriteResponse(conn, 201, "Created");
-	rc = rc < 0 ? rc : HTTPConnectionWriteHeader(conn, "X-Location", location);
+	HTTPConnectionWriteResponse(conn, 201, "Created");
+	HTTPConnectionWriteHeader(conn, "X-Location", location);
 	// TODO: X-Content-Address or something? Or X-Name?
-	rc = rc < 0 ? rc : HTTPConnectionWriteContentLength(conn, 0);
-	rc = rc < 0 ? rc : HTTPConnectionBeginBody(conn);
-	rc = rc < 0 ? rc : HTTPConnectionEnd(conn);
+	HTTPConnectionWriteContentLength(conn, 0);
+	HTTPConnectionBeginBody(conn);
+	HTTPConnectionEnd(conn);
 	SLNSubmissionFree(&sub);
 	if(rc < 0) return 500;
 	return 0;
@@ -276,14 +274,13 @@ static int POST_query(SLNSessionRef const session, HTTPConnectionRef const conn,
 	// before passing it back to the client. I'd be curious to know whether
 	// such proxies still exist in 2015.
 
-	rc=0;
-	rc=rc<0?rc: HTTPConnectionWriteResponse(conn, 200, "OK");
-	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
-	rc=rc<0?rc: HTTPConnectionWriteHeader(conn,
+	HTTPConnectionWriteResponse(conn, 200, "OK");
+	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
+	HTTPConnectionWriteHeader(conn,
 		"Content-Type", "text/uri-list; charset=utf-8");
-	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Cache-Control", "no-store");
-	rc=rc<0?rc: HTTPConnectionWriteHeader(conn, "Vary", "*");
-	rc=rc<0?rc: HTTPConnectionBeginBody(conn);
+	HTTPConnectionWriteHeader(conn, "Cache-Control", "no-store");
+	HTTPConnectionWriteHeader(conn, "Vary", "*");
+	HTTPConnectionBeginBody(conn);
 
 	uint64_t sortID = 0;
 	uint64_t fileID = 0;
