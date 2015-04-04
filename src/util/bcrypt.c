@@ -26,11 +26,11 @@ char *hashpass(char const *const pass) {
 //	async_pool_enter(NULL);
 	char input[GENSALT_INPUT_SIZE];
 	if(async_random((unsigned char *)input, GENSALT_INPUT_SIZE) < 0) {
-		async_pool_leave(NULL);
+//		async_pool_leave(NULL);
 		return NULL;
 	}
 	async_pool_enter(NULL); // TODO (above)
-	char *salt = crypt_gensalt_ra("$2a$", 8, input, GENSALT_INPUT_SIZE); // TODO: Use `$2y$` now? bcrypt library needs updating.
+	char *salt = crypt_gensalt_ra("$2a$", 13, input, GENSALT_INPUT_SIZE); // TODO: Use `$2y$` now? bcrypt library needs updating.
 	if(!salt) {
 		async_pool_leave(NULL);
 		return NULL;
