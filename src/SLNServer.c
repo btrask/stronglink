@@ -7,6 +7,7 @@
 #include "http/QueryString.h"
 
 #define QUERY_BATCH_SIZE 50
+#define AUTH_FORM_MAX 1023
 
 // TODO: Get rid of this eventually
 typedef struct {
@@ -32,12 +33,27 @@ bool URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs) {
 // TODO: These methods ought to be built on a public C API because the C API needs to support the same features as the HTTP interface.
 
 static int POST_auth(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
-//	if(HTTP_POST != method) return -1;
+	if(HTTP_POST != method) return -1;
 	if(!URIPath(URI, "/efs/auth", NULL)) return -1;
 
+	str_t formdata[AUTH_FORM_MAX+1];
+	ssize_t len = HTTPConnectionReadBodyStatic(conn, (byte_t *)formdata, AUTH_FORM_MAX);
+	if(UV_EMSGSIZE == len) return 413; // Request Entity Too Large
+	if(len < 0) return 500;
+	formdata[len] = '\0';
+
 	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(SLNSessionGetRepo(session));
+	static strarg_t const fields[] = {
+		"user",
+		"pass",
+		"token", // TODO: CSRF protection
+	};
+	str_t *values[numberof(fields)] = {};
+	QSValuesParse(formdata, values, fields, numberof(fields));
 	SLNSessionRef s;
-	int rc = SLNSessionCacheCreateSession(cache, "ben", "testing", &s); // TODO
+	int rc = SLNSessionCacheCreateSession(cache, values[0], values[1], &s);
+	QSValuesCleanup(values, numberof(values));
+
 	if(DB_SUCCESS != rc) return 403;
 
 	str_t *cookie = SLNSessionCopyCookie(s);

@@ -652,19 +652,19 @@ static int POST_auth(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	if(HTTP_POST != method) return -1;
 	if(!URIPath(URI, "/auth", NULL)) return -1;
 
-	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(blog->repo);
-
 	str_t formdata[AUTH_FORM_MAX+1];
-	ssize_t len = HTTPConnectionReadBodyCapped(conn, (byte_t *)formdata, AUTH_FORM_MAX);
+	ssize_t len = HTTPConnectionReadBodyStatic(conn, (byte_t *)formdata, AUTH_FORM_MAX);
 	if(UV_EMSGSIZE == len) return 413; // Request Entity Too Large
 	if(len < 0) return 500;
 	formdata[len] = '\0';
 
+	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(blog->repo);
 	static strarg_t const fields[] = {
 		"action-login",
 		"action-register",
 		"user",
 		"pass",
+		"token", // TODO: CSRF protection
 	};
 	str_t *values[numberof(fields)] = {};
 	QSValuesParse(formdata, values, fields, numberof(fields));

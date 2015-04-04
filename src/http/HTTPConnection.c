@@ -326,7 +326,7 @@ int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t out[], size_t
 
 	return 0;
 }
-ssize_t HTTPConnectionReadBodyCapped(HTTPConnectionRef const conn, byte_t *const out, size_t const max) {
+ssize_t HTTPConnectionReadBodyStatic(HTTPConnectionRef const conn, byte_t *const out, size_t const max) {
 	if(!conn) return UV_EINVAL;
 	ssize_t len = 0;
 	for(;;) {
