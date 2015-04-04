@@ -348,9 +348,9 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 }
 
 // TODO: Lots of duplication here
-static int GET_new(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int GET_compose(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
-	if(!URIPath(URI, "/new", NULL)) return -1;
+	if(!URIPath(URI, "/compose", NULL)) return -1;
 
 	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return 403;
 
@@ -373,9 +373,9 @@ static int GET_new(BlogRef const blog, SLNSessionRef const session, HTTPConnecti
 	FREE(&reponame_HTMLSafe);
 	return 0;
 }
-static int GET_up(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int GET_upload(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
-	if(!URIPath(URI, "/up", NULL)) return -1;
+	if(!URIPath(URI, "/upload", NULL)) return -1;
 
 	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return 403;
 
@@ -792,8 +792,8 @@ void BlogFree(BlogRef *const blogptr) {
 int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	int rc = -1;
 	rc = rc >= 0 ? rc : GET_query(blog, session, conn, method, URI, headers);
-	rc = rc >= 0 ? rc : GET_new(blog, session, conn, method, URI, headers);
-	rc = rc >= 0 ? rc : GET_up(blog, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : GET_compose(blog, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : GET_upload(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_post(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_account(blog, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_auth(blog, session, conn, method, URI, headers);
