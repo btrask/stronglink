@@ -88,31 +88,6 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 	}
 	[self sort:dir];
 }
-- (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {
-	SLNFilterType const type = [self type]; // TODO: Polymorphism
-	bool hit = false;
-	// TODO: Maybe better to check in reverse order?
-	// May have to sort first
-	for(size_t i = 0; i < count; i++) {
-		uint64_t const age = [filters[i] fastAge:fileID :sortID];
-		if(age == sortID) {
-			hit = true;
-		} else if(SLNIntersectionFilterType == type) {
-			if(age > sortID) return UINT64_MAX;
-		} else if(SLNUnionFilterType == type) {
-			if(age < sortID) return 0;
-		}
-	}
-	if(hit) {
-		return sortID;
-	} else if(SLNIntersectionFilterType == type) {
-		return 0;
-	} else if(SLNUnionFilterType == type) {
-		return UINT64_MAX;
-	}
-	assert(!"Collection type");
-	return 0;
-}
 
 - (void)sort:(int const)dir {
 	assert(0 != dir);
@@ -156,6 +131,18 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 	}
 	return age;
 }
+- (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {
+	bool hit = false;
+	// TODO: Maybe better to check in reverse order?
+	// May have to sort first
+	for(size_t i = 0; i < count; i++) {
+		uint64_t const age = [filters[i] fastAge:fileID :sortID];
+		if(age > sortID) return UINT64_MAX;
+		if(age == sortID) hit = true;
+	}
+	if(hit) return sortID;
+	return 0;
+}
 @end
 
 @implementation SLNUnionFilter
@@ -186,6 +173,18 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 		if(x < age) age = x;
 	}
 	return age;
+}
+- (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {
+	bool hit = false;
+	// TODO: Maybe better to check in reverse order?
+	// May have to sort first
+	for(size_t i = 0; i < count; i++) {
+		uint64_t const age = [filters[i] fastAge:fileID :sortID];
+		if(age < sortID) return 0;
+		if(age == sortID) hit = true;
+	}
+	if(hit) return sortID;
+	return UINT64_MAX;
 }
 @end
 

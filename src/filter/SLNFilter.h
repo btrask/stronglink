@@ -99,15 +99,16 @@ struct token {
 
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
 - (void)step:(int const)dir;
-- (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID;
 
 - (void)sort:(int const)dir;
 @end
 @interface SLNIntersectionFilter : SLNCollectionFilter
 - (uint64_t)fullAge:(uint64_t const)fileID;
+- (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID;
 @end
 @interface SLNUnionFilter : SLNCollectionFilter
 - (uint64_t)fullAge:(uint64_t const)fileID;
+- (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID;
 @end
 
 // SLNMetaFileFilter.m
