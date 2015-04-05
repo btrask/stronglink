@@ -68,6 +68,9 @@ input {
 	text-align: center;
 	font-size: small;
 }
+.pages {
+	text-align: center;
+}
 
 .entry {
 	overflow: hidden;

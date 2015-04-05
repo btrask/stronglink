@@ -127,6 +127,7 @@ int SLNFilterSeekURI(SLNFilterRef const filter, int const dir, strarg_t const UR
 	if(!valid(sortID)) return DB_NOTFOUND;
 
 	[(SLNFilter *)filter seek:dir :sortID :fileID];
+	[(SLNFilter *)filter step:dir]; // Start just before/after the URI.
 	return DB_SUCCESS;
 }
 str_t *SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, DB_txn *const txn) {
