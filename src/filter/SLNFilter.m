@@ -86,6 +86,21 @@ int SLNFilterPrepare(SLNFilterRef const filter, DB_txn *const txn) {
 void SLNFilterSeek(SLNFilterRef const filter, int const dir, uint64_t const sortID, uint64_t const fileID) {
 	[(SLNFilter *)filter seek:dir :sortID :fileID];
 }
+void SLNFilterCurrent(SLNFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID) {
+	assert(filter);
+	assert(dir);
+	[(SLNFilter *)filter current:dir :sortID :fileID];
+}
+void SLNFilterStep(SLNFilterRef const filter, int const dir) {
+	assert(filter);
+	assert(dir);
+	[(SLNFilter *)filter step:dir];
+}
+uint64_t SLNFilterAge(SLNFilterRef const filter, uint64_t const fileID, uint64_t const sortID) {
+	assert(filter);
+	return [(SLNFilter *)filter fastAge:fileID :sortID];
+}
+
 int SLNFilterSeekURI(SLNFilterRef const filter, int const dir, strarg_t const URI, DB_txn *const txn) {
 	if(!URI) return DB_NOTFOUND;
 
@@ -114,20 +129,6 @@ int SLNFilterSeekURI(SLNFilterRef const filter, int const dir, strarg_t const UR
 	[(SLNFilter *)filter seek:dir :sortID :fileID];
 	return DB_SUCCESS;
 }
-void SLNFilterCurrent(SLNFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID) {
-	assert(filter);
-	assert(dir);
-	[(SLNFilter *)filter current:dir :sortID :fileID];
-}
-void SLNFilterStep(SLNFilterRef const filter, int const dir) {
-	assert(filter);
-	assert(dir);
-	[(SLNFilter *)filter step:dir];
-}
-uint64_t SLNFilterAge(SLNFilterRef const filter, uint64_t const fileID, uint64_t const sortID) {
-	assert(filter);
-	return [(SLNFilter *)filter fastAge:fileID :sortID];
-}
 str_t *SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, DB_txn *const txn) {
 	for(;; SLNFilterStep(filter, dir)) {
 		uint64_t sortID, fileID;
@@ -154,5 +155,4 @@ str_t *SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, DB_txn *co
 		return URI;
 	}
 }
-
 

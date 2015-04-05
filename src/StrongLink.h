@@ -127,10 +127,11 @@ void SLNFilterPrint(SLNFilterRef const filter, count_t const depth);
 size_t SLNFilterToUserFilterString(SLNFilterRef const filter, str_t *const data, size_t const size, count_t const depth);
 int SLNFilterPrepare(SLNFilterRef const filter, DB_txn *const txn);
 void SLNFilterSeek(SLNFilterRef const filter, int const dir, uint64_t const sortID, uint64_t const fileID);
-int SLNFilterSeekURI(SLNFilterRef const filter, int const dir, strarg_t const URI, DB_txn *const txn);
 void SLNFilterCurrent(SLNFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID);
 void SLNFilterStep(SLNFilterRef const filter, int const dir);
 uint64_t SLNFilterAge(SLNFilterRef const filter, uint64_t const fileID, uint64_t const sortID);
+
+int SLNFilterSeekURI(SLNFilterRef const filter, int const dir, strarg_t const URI, DB_txn *const txn);
 str_t *SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, DB_txn *const txn);
 
 SLNJSONFilterParserRef SLNJSONFilterParserCreate(void);
