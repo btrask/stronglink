@@ -259,9 +259,10 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 //	SLNFilterPrint(filter, 0); // DEBUG
 
-	// TODO: str_t *URIs[RESULTS_MAX]; ?
-	str_t **URIs = SLNSessionCopyFilteredURIs(session, filter, RESULTS_MAX);
-	if(!URIs) {
+	size_t count = RESULTS_MAX;
+	str_t *URIs[RESULTS_MAX];
+	int rc = SLNSessionCopyFilteredURIs(session, filter, URIs, &count);
+	if(DB_SUCCESS != rc) {
 		FREE(&query_HTMLSafe);
 		SLNFilterFree(&filter);
 		return 500;
@@ -279,19 +280,8 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	str_t *account_HTMLSafe = htmlenc(account);
 
 	str_t parsed[1024];
-	size_t plen = SLNFilterToUserFilterString(filter, parsed, sizeof(parsed), 0);
+	SLNFilterToUserFilterString(filter, parsed, sizeof(parsed), 0);
 	str_t *parsed_HTMLSafe = htmlenc(parsed);
-
-	if(!query_HTMLSafe || !reponame_HTMLSafe || !parsed_HTMLSafe) {
-		FREE(&reponame_HTMLSafe);
-		FREE(&account_HTMLSafe);
-		FREE(&query_HTMLSafe);
-		FREE(&parsed_HTMLSafe);
-		for(index_t i = 0; URIs[i]; ++i) FREE(&URIs[i]); // TODO
-		FREE(&URIs);
-		SLNFilterFree(&filter);
-		return 500;
-	}
 
 	TemplateStaticArg const args[] = {
 		{"reponame", reponame_HTMLSafe},
@@ -326,11 +316,11 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 			FREE(&canonical);
 			SLNFileInfoCleanup(info);
 			// TODO: Remember this file and make sure it doesn't show up as a duplicate below.
-			if(URIs[0]) TemplateWriteHTTPChunk(blog->backlinks, &TemplateStaticCBs, args, conn);
+			if(count > 0) TemplateWriteHTTPChunk(blog->backlinks, &TemplateStaticCBs, args, conn);
 		}
 	}
 
-	for(index_t i = 0; URIs[i]; ++i) {
+	for(size_t i = 0; i < count; i++) {
 		str_t algo[SLN_ALGO_SIZE]; // SLN_INTERNAL_ALGO
 		str_t hash[SLN_HASH_SIZE];
 		SLNParseURI(URIs[i], algo, hash);
@@ -348,8 +338,8 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	HTTPConnectionWriteChunkv(conn, NULL, 0);
 	HTTPConnectionEnd(conn);
 
-	for(index_t i = 0; URIs[i]; ++i) FREE(&URIs[i]);
-	FREE(&URIs);
+	for(size_t i = 0; i < count; i++) FREE(&URIs[i]);
+	assert_zeroed(URIs, count);
 	SLNFilterFree(&filter);
 	return 0;
 }

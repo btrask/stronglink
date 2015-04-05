@@ -131,12 +131,11 @@ int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn,
 	return DB_SUCCESS;
 }
 
-str_t **SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const filter, count_t const max) { // TODO: Sort order, pagination.
-	if(!session) return NULL;
-	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return NULL;
-
-	str_t **URIs = malloc(sizeof(str_t *) * (max+1));
-	if(!URIs) return NULL;
+int SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const filter, str_t *out[], size_t *const count) { // TODO: Sort order, pagination.
+	assert(count);
+	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
+	size_t const c = *count;
+	if(!c) return DB_SUCCESS;
 
 //	uint64_t const then = uv_hrtime();
 	SLNRepoRef const repo = SLNSessionGetRepo(session);
@@ -144,28 +143,27 @@ str_t **SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef con
 	SLNRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
 	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	assert(DB_SUCCESS == rc);
+	if(DB_SUCCESS != rc) return rc;
 
-	count_t count = 0;
 	SLNFilterPrepare(filter, txn);
 	SLNFilterSeek(filter, -1, UINT64_MAX, UINT64_MAX); // TODO: Pagination
-	while(count < max) {
-		str_t *const URI = SLNFilterCopyNextURI(filter, -1, txn);
-		if(!URI) break;
-		URIs[count++] = URI;
+	size_t i = 0;
+	for(; i < c; i++) {
+		out[i] = SLNFilterCopyNextURI(filter, -1, txn);
+		if(!out[i]) break;
 	}
 
 	db_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
 //	uint64_t const now = uv_hrtime();
 //	fprintf(stderr, "Query in %f ms\n", (now-then) / 1000.0 / 1000.0);
-	URIs[count] = NULL;
-	return URIs;
+
+	*count = i;
+	return DB_SUCCESS;
 }
 int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFileInfo *const info) {
-	if(!session) return DB_EINVAL;
-	if(!URI) return DB_EINVAL;
 	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
+	if(!URI) return DB_EINVAL;
 
 	SLNRepoRef const repo = SLNSessionGetRepo(session);
 	DB_env *db = NULL;
@@ -231,9 +229,8 @@ void SLNFileInfoCleanup(SLNFileInfo *const info) {
 
 
 int SLNSessionGetValueForField(SLNSessionRef const session, str_t value[], size_t const max, strarg_t const fileURI, strarg_t const field) {
-	if(!session) return DB_EINVAL;
-	if(!field) return DB_EINVAL;
 	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
+	if(!field) return DB_EINVAL;
 
 	if(max) value[0] = '\0';
 	int rc = DB_SUCCESS;
