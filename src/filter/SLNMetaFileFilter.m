@@ -73,8 +73,11 @@
 - (void)step:(int const)dir {
 	return [main step:dir];
 }
-- (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID {
-	return [main age:sortID :fileID];
+- (uint64_t)fullAge:(uint64_t const)fileID {
+	return [main fullAge:fileID];
+}
+- (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {
+	return [main fastAge:fileID :sortID];
 }
 @end
 
@@ -134,7 +137,7 @@
 	int rc = db_cursor_nextr(metafiles, range, ignore, NULL, dir);
 	assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
 }
-- (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID {
+- (uint64_t)fullAge:(uint64_t const)fileID {
 	assert(subfilter);
 
 	DB_range metaFileIDs[1];
@@ -166,9 +169,12 @@
 		uint64_t targetFileID;
 		SLNURIAndFileIDKeyUnpack(targetFileID_key, curtxn, &u, &targetFileID);
 		assert(0 == strcmp(targetURI, u));
-		if([subfilter age:UINT64_MAX :targetFileID] < UINT64_MAX) return metaFileID;
+		if([subfilter fullAge:targetFileID] < UINT64_MAX) return metaFileID;
 	}
 	return UINT64_MAX;
+}
+- (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {
+	return [self fullAge:fileID];
 }
 @end
 

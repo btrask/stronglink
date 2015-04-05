@@ -88,13 +88,13 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 	}
 	[self sort:dir];
 }
-- (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID {
+- (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {
 	SLNFilterType const type = [self type]; // TODO: Polymorphism
 	bool hit = false;
 	// TODO: Maybe better to check in reverse order?
 	// May have to sort first
-	for(index_t i = 0; i < count; ++i) {
-		uint64_t const age = [filters[i] age:sortID :fileID];
+	for(size_t i = 0; i < count; i++) {
+		uint64_t const age = [filters[i] fastAge:fileID :sortID];
 		if(age == sortID) {
 			hit = true;
 		} else if(SLNIntersectionFilterType == type) {
@@ -110,7 +110,7 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 	} else if(SLNUnionFilterType == type) {
 		return UINT64_MAX;
 	}
-	assert(0);
+	assert(!"Collection type");
 	return 0;
 }
 
@@ -146,6 +146,16 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 	if(depth) len += wr(data+len, size-len, ")");
 	return len;
 }
+
+- (uint64_t)fullAge:(uint64_t const)fileID {
+	uint64_t age = 0;
+	for(size_t i = 0; i < count; i++) {
+		uint64_t const x = [filters[i] fullAge:fileID];
+		if(!valid(x)) return x;
+		if(x > age) age = x;
+	}
+	return age;
+}
 @end
 
 @implementation SLNUnionFilter
@@ -166,6 +176,16 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 		len += [filters[i] getUserFilter:data+len :size-len :depth+1];
 	}
 	return len;
+}
+
+- (uint64_t)fullAge:(uint64_t const)fileID {
+	uint64_t age = UINT64_MAX;
+	for(size_t i = 0; i < count; i++) {
+		uint64_t const x = [filters[i] fullAge:fileID];
+		if(!valid(x)) continue;
+		if(x < age) age = x;
+	}
+	return age;
 }
 @end
 

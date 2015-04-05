@@ -95,25 +95,28 @@
 		return;
 	}
 }
-- (uint64_t)age:(uint64_t const)sortID :(uint64_t const)fileID {
+- (uint64_t)fullAge:(uint64_t const)fileID {
+	return [self fastAge:fileID :UINT64_MAX];
+}
+- (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {
 	uint64_t earliest = UINT64_MAX;
 	int rc;
 
 	DB_range URIs[1];
+	DB_val URI_key[1];
 	SLNFileIDAndURIRange1(URIs, txn, fileID);
-	DB_val URI_val[1];
-	rc = db_cursor_firstr(age_uris, URIs, URI_val, NULL, +1);
+	rc = db_cursor_firstr(age_uris, URIs, URI_key, NULL, +1);
 	assert(DB_SUCCESS == rc || DB_NOTFOUND == rc);
 
-	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(age_uris, URIs, URI_val, NULL, +1)) {
+	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(age_uris, URIs, URI_key, NULL, +1)) {
 		uint64_t f;
 		strarg_t targetURI;
-		SLNFileIDAndURIKeyUnpack(URI_val, curtxn, &f, &targetURI);
+		SLNFileIDAndURIKeyUnpack(URI_key, curtxn, &f, &targetURI);
 		assert(fileID == f);
 
 		DB_range metafiles[1];
-		SLNTargetURIAndMetaFileIDRange1(metafiles, curtxn, targetURI);
 		DB_val metaFileID_key[1];
+		SLNTargetURIAndMetaFileIDRange1(metafiles, curtxn, targetURI);
 		rc = db_cursor_firstr(age_metafiles, metafiles, metaFileID_key, NULL, +1);
 		assert(DB_SUCCESS == rc || DB_NOTFOUND == rc);
 		for(; DB_SUCCESS == rc; rc = db_cursor_nextr(age_metafiles, metafiles, metaFileID_key, NULL, +1)) {
@@ -122,8 +125,9 @@
 			SLNTargetURIAndMetaFileIDKeyUnpack(metaFileID_key, curtxn, &u, &metaFileID);
 			assert(0 == strcmp(targetURI, u));
 			if(metaFileID > sortID) break;
+			if(metaFileID >= earliest) break;
 			if(![self match:metaFileID]) continue;
-			if(metaFileID < earliest) earliest = metaFileID;
+			earliest = metaFileID;
 			break;
 		}
 	}

@@ -86,6 +86,32 @@ int SLNFilterPrepare(SLNFilterRef const filter, DB_txn *const txn) {
 void SLNFilterSeek(SLNFilterRef const filter, int const dir, uint64_t const sortID, uint64_t const fileID) {
 	[(SLNFilter *)filter seek:dir :sortID :fileID];
 }
+int SLNFilterSeekURI(SLNFilterRef const filter, int const dir, strarg_t const URI, DB_txn *const txn) {
+	DB_cursor *cursor = NULL;
+	int rc = db_txn_cursor(txn, &cursor);
+	if(DB_SUCCESS != rc) return rc;
+
+	// URIs passed to this function are assumed to be unique
+	// (i.e. using the repo's internal algo), thus we can just
+	// use the first file found. If you pass a URI with
+	// collisions, we may seek to the wrong place or fail
+	// entirely.
+	DB_range range[1];
+	DB_val key[1];
+	SLNURIAndFileIDRange1(range, txn, URI);
+	rc = db_cursor_firstr(cursor, range, key, NULL, +1);
+	if(DB_SUCCESS != rc) return rc;
+	strarg_t u;
+	uint64_t fileID;
+	SLNURIAndFileIDKeyUnpack(key, txn, &u, &fileID);
+	assert(0 == strcmp(URI, u));
+
+	uint64_t const sortID = [(SLNFilter *)filter fullAge:fileID];
+	if(!valid(sortID)) return DB_NOTFOUND;
+
+	[(SLNFilter *)filter seek:dir :sortID :fileID];
+	return DB_SUCCESS;
+}
 void SLNFilterCurrent(SLNFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID) {
 	assert(filter);
 	assert(dir);
@@ -96,9 +122,9 @@ void SLNFilterStep(SLNFilterRef const filter, int const dir) {
 	assert(dir);
 	[(SLNFilter *)filter step:dir];
 }
-uint64_t SLNFilterAge(SLNFilterRef const filter, uint64_t const sortID, uint64_t const fileID) {
+uint64_t SLNFilterAge(SLNFilterRef const filter, uint64_t const fileID, uint64_t const sortID) {
 	assert(filter);
-	return [(SLNFilter *)filter age:sortID :fileID];
+	return [(SLNFilter *)filter fastAge:fileID :sortID];
 }
 str_t *SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, DB_txn *const txn) {
 	for(;; SLNFilterStep(filter, dir)) {
@@ -108,7 +134,7 @@ str_t *SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, DB_txn *co
 
 //		fprintf(stderr, "step: %llu, %llu\n", (unsigned long long)sortID, (unsigned long long)fileID);
 
-		uint64_t const age = SLNFilterAge(filter, sortID, fileID);
+		uint64_t const age = SLNFilterAge(filter, fileID, sortID);
 //		fprintf(stderr, "{%llu, %llu} -> %llu\n", (unsigned long long)sortID, (unsigned long long)fileID, (unsigned long long)age);
 		if(age != sortID) continue;
 
