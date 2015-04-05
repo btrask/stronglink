@@ -261,7 +261,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	size_t count = RESULTS_MAX;
 	str_t *URIs[RESULTS_MAX];
-	int rc = SLNSessionCopyFilteredURIs(session, filter, URIs, &count);
+	int rc = SLNSessionCopyFilteredURIs(session, filter, NULL, -1, URIs, &count);
 	if(DB_SUCCESS != rc) {
 		FREE(&query_HTMLSafe);
 		SLNFilterFree(&filter);

@@ -87,6 +87,8 @@ void SLNFilterSeek(SLNFilterRef const filter, int const dir, uint64_t const sort
 	[(SLNFilter *)filter seek:dir :sortID :fileID];
 }
 int SLNFilterSeekURI(SLNFilterRef const filter, int const dir, strarg_t const URI, DB_txn *const txn) {
+	if(!URI) return DB_NOTFOUND;
+
 	DB_cursor *cursor = NULL;
 	int rc = db_txn_cursor(txn, &cursor);
 	if(DB_SUCCESS != rc) return rc;

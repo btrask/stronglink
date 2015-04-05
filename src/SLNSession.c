@@ -131,8 +131,9 @@ int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn,
 	return DB_SUCCESS;
 }
 
-int SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const filter, str_t *out[], size_t *const count) { // TODO: Sort order, pagination.
+int SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const filter, strarg_t const startURI, int const dir, str_t *out[], size_t *const count) {
 	assert(count);
+	assert(0 != dir);
 	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
 	size_t const c = *count;
 	if(!c) return DB_SUCCESS;
@@ -146,10 +147,22 @@ int SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const f
 	if(DB_SUCCESS != rc) return rc;
 
 	SLNFilterPrepare(filter, txn);
-	SLNFilterSeek(filter, -1, UINT64_MAX, UINT64_MAX); // TODO: Pagination
+
+	rc = SLNFilterSeekURI(filter, dir, startURI, txn);
+	if(DB_NOTFOUND == rc) {
+		uint64_t const invalid = dir > 0 ? 0 : UINT64_MAX; // TODO: Expose invalid()?
+		SLNFilterSeek(filter, dir, invalid, invalid);
+		rc = DB_SUCCESS;
+	}
+	if(DB_SUCCESS != rc) {
+		db_txn_abort(txn); txn = NULL;
+		SLNRepoDBClose(repo, &db);
+		return rc;
+	}
+
 	size_t i = 0;
 	for(; i < c; i++) {
-		out[i] = SLNFilterCopyNextURI(filter, -1, txn);
+		out[i] = SLNFilterCopyNextURI(filter, dir, txn);
 		if(!out[i]) break;
 	}
 
