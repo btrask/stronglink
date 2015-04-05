@@ -251,6 +251,8 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	};
 	str_t *values[numberof(fields)] = {};
 	QSValuesParse(qs, values, fields, numberof(fields));
+	// TODO: Cap query size
+	str_t *query_HTMLSafe = htmlenc(values[0]);
 	SLNFilterRef filter = SLNUserFilterParse(values[0]);
 	if(!filter) filter = SLNFilterCreate(SLNAllFilterType);
 	QSValuesCleanup(values, numberof(values));
@@ -260,6 +262,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	// TODO: str_t *URIs[RESULTS_MAX]; ?
 	str_t **URIs = SLNSessionCopyFilteredURIs(session, filter, RESULTS_MAX);
 	if(!URIs) {
+		FREE(&query_HTMLSafe);
 		SLNFilterFree(&filter);
 		return 500;
 	}
@@ -275,14 +278,15 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	}
 	str_t *account_HTMLSafe = htmlenc(account);
 
-	str_t q[1024];
-	size_t qlen = SLNFilterToUserFilterString(filter, q, sizeof(q), 0);
-	str_t *q_HTMLSafe = htmlenc(q);
+	str_t parsed[1024];
+	size_t plen = SLNFilterToUserFilterString(filter, parsed, sizeof(parsed), 0);
+	str_t *parsed_HTMLSafe = htmlenc(parsed);
 
-	if(!reponame_HTMLSafe || !q_HTMLSafe) {
+	if(!query_HTMLSafe || !reponame_HTMLSafe || !parsed_HTMLSafe) {
 		FREE(&reponame_HTMLSafe);
 		FREE(&account_HTMLSafe);
-		FREE(&q_HTMLSafe);
+		FREE(&query_HTMLSafe);
+		FREE(&parsed_HTMLSafe);
 		for(index_t i = 0; URIs[i]; ++i) FREE(&URIs[i]); // TODO
 		FREE(&URIs);
 		SLNFilterFree(&filter);
@@ -292,7 +296,8 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	TemplateStaticArg const args[] = {
 		{"reponame", reponame_HTMLSafe},
 		{"account", account_HTMLSafe},
-		{"q", q_HTMLSafe},
+		{"query", query_HTMLSafe},
+		{"parsed", parsed_HTMLSafe},
 		{NULL, NULL},
 	};
 
@@ -337,7 +342,8 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	TemplateWriteHTTPChunk(blog->footer, &TemplateStaticCBs, args, conn);
 	FREE(&reponame_HTMLSafe);
 	FREE(&account_HTMLSafe);
-	FREE(&q_HTMLSafe);
+	FREE(&query_HTMLSafe);
+	FREE(&parsed_HTMLSafe);
 
 	HTTPConnectionWriteChunkv(conn, NULL, 0);
 	HTTPConnectionEnd(conn);

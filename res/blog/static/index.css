@@ -41,23 +41,28 @@ input {
 .margin {
 	margin: 14px;
 }
-.search {
+.search > .query {
 	position: relative;
 	height: 30px;
 }
-.search .field {
+.search > .query > .field {
 	position: absolute;
 	left: 0;
 	right: 84px;
 	top: 0;
 	bottom: 0;
 }
-.search .button {
+.search > .query > .button {
 	position: absolute;
 	right: 0;
 	width: 80px;
 	top: 0;
 	bottom: 0;
+}
+.search > .parsed {
+	color: #777;
+	font-size: small;
+	margin-left: 1em;
 }
 .footer {
 	text-align: center;
