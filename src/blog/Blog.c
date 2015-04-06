@@ -310,6 +310,9 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	str_t *parsed_HTMLSafe = htmlenc(tmp);
 
 
+	// TODO: Write a real function for building query strings
+	// Don't use ?: GNUism
+	// Preserve other query parameters like `dir`
 	str_t *firstpage_HTMLSafe = NULL;
 	str_t *prevpage_HTMLSafe = NULL;
 	str_t *nextpage_HTMLSafe = NULL;
