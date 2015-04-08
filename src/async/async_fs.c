@@ -15,10 +15,11 @@ static void fs_cb(uv_fs_t *const req) {
 #define ASYNC_FS_WRAP(name, args...) \
 	async_pool_enter(NULL); \
 	uv_fs_t req[1]; \
-	int const err = uv_fs_##name(loop, req, ##args, NULL); \
+	int rc = uv_fs_##name(loop, req, ##args, NULL); \
 	uv_fs_req_cleanup(req); \
 	async_pool_leave(NULL); \
-	return err;
+	if(rc < 0) return rc; \
+	return req->result;
 #else
 #define ASYNC_FS_WRAP(name, args...) \
 	uv_fs_t req[1]; \
@@ -73,6 +74,25 @@ int async_fs_ftruncate(uv_file file, int64_t offset) {
 	ASYNC_FS_WRAP(ftruncate, file, offset)
 }
 
+int async_fs_writeall(uv_file const file, uv_buf_t bufs[], unsigned int const nbufs, int64_t const offset) {
+	int64_t pos = offset;
+	unsigned used = 0;
+	for(;;) {
+		ssize_t len = async_fs_write(file, bufs+used, nbufs-used, pos);
+		if(len < 0) return (int)len;
+		if(pos >= 0) pos += len;
+		for(;;) {
+			if(used >= nbufs) return 0;
+			size_t const x = len < bufs[used].len ? len : bufs[used].len;
+			bufs[used].base += x;
+			bufs[used].len -= x;
+			len -= x;
+			if(bufs[used].len) break;
+			used++;
+		}
+	}
+}
+
 int async_fs_fstat(uv_file file, uv_fs_t *const req) {
 	async_pool_enter(NULL);
 	uv_fs_t _req[1];
@@ -89,6 +109,7 @@ int async_fs_stat_mode(const char* path, uv_fs_t *const req) {
 	async_pool_leave(NULL);
 	return err;
 }
+
 
 /* Example paths:
 - /asdf -> /

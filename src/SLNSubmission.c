@@ -93,10 +93,10 @@ int SLNSubmissionWrite(SLNSubmissionRef const sub, byte_t const *const buf, size
 	if(sub->tmpfile < 0) return -1;
 
 	uv_buf_t info = uv_buf_init((char *)buf, len);
-	ssize_t const result = async_fs_write(sub->tmpfile, &info, 1, sub->size);
-	if(result < 0) {
-		fprintf(stderr, "SLNSubmission write error %ld\n", (long)result);
-		return -1;
+	int rc = async_fs_writeall(sub->tmpfile, &info, 1, -1);
+	if(rc < 0) {
+		fprintf(stderr, "SLNSubmission write error %s\n", uv_strerror(rc));
+		return rc;
 	}
 
 	sub->size += len;

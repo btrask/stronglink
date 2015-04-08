@@ -97,7 +97,6 @@ void TemplateFree(TemplateRef *const tptr) {
 }
 int TemplateWrite(TemplateRef const t, TemplateArgCBs const *const cbs, void const *const actx, TemplateWritev const writev, void *wctx) {
 	if(!t) return 0;
-	int64_t pos = 0;
 	for(index_t i = 0; i < t->count; ++i) {
 		TemplateStep const *const s = &t->steps[i];
 		strarg_t const sstr = s->str;
@@ -117,18 +116,17 @@ int TemplateWrite(TemplateRef const t, TemplateArgCBs const *const cbs, void con
 			uv_buf_init((char *)sstr, slen),
 			uv_buf_init((char *)astr, alen),
 		};
-		int const err = writev(wctx, info, numberof(info), pos);
+		int rc = writev(wctx, info, numberof(info));
 		if(s->var && cbs->free) cbs->free(actx, s->var, &astr);
-		if(err < 0) return err;
-		pos += slen + alen;
+		if(rc < 0) return rc;
 	}
 	return 0;
 }
 int TemplateWriteHTTPChunk(TemplateRef const t, TemplateArgCBs const *const cbs, void const *const actx, HTTPConnectionRef const conn) {
 	return TemplateWrite(t, cbs, actx, (TemplateWritev)HTTPConnectionWriteChunkv, conn);
 }
-static int async_fs_write_wrapper(uv_file const *const fdptr, uv_buf_t const parts[], unsigned int const count, int64_t const offset) {
-	return async_fs_write(*fdptr, parts, count, offset);
+static int async_fs_write_wrapper(uv_file const *const fdptr, uv_buf_t parts[], unsigned int const count) {
+	return async_fs_writeall(*fdptr, parts, count, -1);
 }
 int TemplateWriteFile(TemplateRef const t, TemplateArgCBs const *const cbs, void const *const actx, uv_file const file) {
 	assertf(sizeof(void *) >= sizeof(file), "Can't cast uv_file (%ld) to void * (%ld)", (long)sizeof(file), (long)sizeof(void *));

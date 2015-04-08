@@ -8,7 +8,7 @@ typedef struct {
 	void (*free)(void const *const ctx, strarg_t const var, str_t **const val);
 } TemplateArgCBs;
 
-typedef int (*TemplateWritev)(void *, uv_buf_t[], unsigned int, int64_t);
+typedef int (*TemplateWritev)(void *, uv_buf_t[], unsigned int);
 
 TemplateRef TemplateCreate(strarg_t const str);
 TemplateRef TemplateCreateFromPath(strarg_t const path);

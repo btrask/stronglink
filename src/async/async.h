@@ -70,6 +70,8 @@ int async_fs_fdatasync(uv_file file);
 int async_fs_mkdir(const char* path, int mode);
 int async_fs_ftruncate(uv_file file, int64_t offset);
 
+int async_fs_writeall(uv_file const file, uv_buf_t bufs[], unsigned int const nbufs, int64_t const offset);
+
 int async_fs_fstat(uv_file file, uv_fs_t *const req);
 int async_fs_stat(const char* path, uv_fs_t *const req);
 
