@@ -155,6 +155,7 @@ str_t *htmlenc(strarg_t const str) {
 		case '>': total += 4; break;
 		case '&': total += 5; break;
 		case '"': total += 6; break;
+		case '\'': total += 6; break;
 		default: total += 1; break;
 	}
 	str_t *enc = malloc(total+1);
@@ -164,6 +165,7 @@ str_t *htmlenc(strarg_t const str) {
 		case '>': memcpy(enc+j, "&gt;", 4); j += 4; break;
 		case '&': memcpy(enc+j, "&amp;", 5); j += 5; break;
 		case '"': memcpy(enc+j, "&quot;", 6); j += 6; break;
+		case '\'': memcpy(enc+j, "&apos;", 6); j += 6; break;
 		default: enc[j++] = str[i]; break;
 	}
 	enc[total] = '\0';
