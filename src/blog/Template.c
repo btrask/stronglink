@@ -147,25 +147,27 @@ TemplateArgCBs const TemplateStaticCBs = {
 	.free = NULL,
 };
 
+#define ENTITIES(XX) \
+	XX('<', "&lt;") \
+	XX('>', "&gt;") \
+	XX('&', "&amp;") \
+	XX('"', "&quot;") \
+	XX('\'', "&apos;")
+
 str_t *htmlenc(strarg_t const str) {
 	if(!str) return NULL;
 	size_t total = 0;
 	for(size_t i = 0; str[i]; ++i) switch(str[i]) {
-		case '<': total += 4; break;
-		case '>': total += 4; break;
-		case '&': total += 5; break;
-		case '"': total += 6; break;
-		case '\'': total += 6; break;
-		default: total += 1; break;
+#define X(c, s) case c: total += sizeof(s)-1; break;
+		ENTITIES(X)
+#undef X
 	}
 	str_t *enc = malloc(total+1);
 	if(!enc) return NULL;
 	for(size_t i = 0, j = 0; str[i]; ++i) switch(str[i]) {
-		case '<': memcpy(enc+j, "&lt;", 4); j += 4; break;
-		case '>': memcpy(enc+j, "&gt;", 4); j += 4; break;
-		case '&': memcpy(enc+j, "&amp;", 5); j += 5; break;
-		case '"': memcpy(enc+j, "&quot;", 6); j += 6; break;
-		case '\'': memcpy(enc+j, "&apos;", 6); j += 6; break;
+#define X(c, s) case c: memcpy(enc+j, s, sizeof(s)-1); j += sizeof(s)-1; break;
+		ENTITIES(X)
+#undef X
 		default: enc[j++] = str[i]; break;
 	}
 	enc[total] = '\0';
