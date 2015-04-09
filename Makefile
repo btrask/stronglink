@@ -116,10 +116,14 @@ endif
 
 # Server executable-specific code
 HEADERS += \
+	$(SRC_DIR)/blog/Blog.h \
+	$(SRC_DIR)/blog/converter.h \
 	$(SRC_DIR)/blog/Template.h
 OBJECTS += \
 	$(BUILD_DIR)/blog/main.o \
 	$(BUILD_DIR)/blog/Blog.o \
+	$(BUILD_DIR)/blog/BlogConvert.o \
+	$(BUILD_DIR)/blog/plaintext.o \
 	$(BUILD_DIR)/blog/Template.o \
 	$(BUILD_DIR)/blog/markdown.o
 

@@ -1,40 +1,10 @@
 #include <yajl/yajl_tree.h>
 #include <limits.h>
-#include "../http/HTTPServer.h"
-#include "../http/HTTPHeaders.h"
-#include "../http/MultipartForm.h"
-#include "../http/QueryString.h"
-#include "../StrongLink.h"
-#include "Template.h"
+#include "Blog.h"
 
 #define RESULTS_MAX 50
-#define PENDING_MAX 4
 #define BUFFER_SIZE (1024 * 8)
 #define AUTH_FORM_MAX 1023
-
-typedef struct Blog* BlogRef;
-
-struct Blog {
-	SLNRepoRef repo;
-
-	str_t *dir;
-	str_t *cacheDir;
-
-	TemplateRef header;
-	TemplateRef footer;
-	TemplateRef backlinks;
-	TemplateRef entry_start;
-	TemplateRef entry_end;
-	TemplateRef preview;
-	TemplateRef empty;
-	TemplateRef compose;
-	TemplateRef upload;
-	TemplateRef login;
-
-	async_mutex_t pending_mutex[1];
-	async_cond_t pending_cond[1];
-	strarg_t pending[PENDING_MAX];
-};
 
 // TODO: Real public API.
 bool URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs);
@@ -46,133 +16,6 @@ static str_t *BlogCopyPreviewPath(BlogRef const blog, strarg_t const hash) {
 	return aasprintf("%s/%.2s/%s", blog->cacheDir, hash, hash);
 }
 
-
-int markdown_convert(strarg_t const dst, strarg_t const src);
-static int genMarkdownPreview(BlogRef const blog, SLNSessionRef const session, strarg_t const URI, strarg_t const tmp, SLNFileInfo const *const info) {
-	if(
-		0 != strcasecmp("text/markdown; charset=utf-8", info->type) &&
-		0 != strcasecmp("text/markdown", info->type) &&
-		0 != strcasecmp("text/x-markdown; charset=utf-8", info->type) &&
-		0 != strcasecmp("text/x-markdown", info->type)
-	) return -1; // TODO: Other types, plugins, w/e.
-
-	async_pool_enter(NULL);
-	int rc = markdown_convert(tmp, info->path);
-	async_pool_leave(NULL);
-	return rc;
-}
-
-
-static int genPlainTextPreview(BlogRef const blog, SLNSessionRef const session, strarg_t const URI, strarg_t const tmp, SLNFileInfo const *const info) {
-	if(
-		0 != strcasecmp("text/plain; charset=utf-8", info->type) &&
-		0 != strcasecmp("text/plain", info->type)
-	) return -1; // TODO: Other types, plugins, w/e.
-
-	// TODO
-	return -1;
-}
-
-
-typedef struct {
-	BlogRef blog;
-	SLNSessionRef session;
-	strarg_t fileURI;
-} preview_state;
-static str_t *preview_metadata(preview_state const *const state, strarg_t const var) {
-	strarg_t unsafe = NULL;
-	str_t buf[URI_MAX];
-	if(0 == strcmp(var, "rawURI")) {
-		str_t algo[SLN_ALGO_SIZE]; // SLN_INTERNAL_ALGO
-		str_t hash[SLN_HASH_SIZE];
-		SLNParseURI(state->fileURI, algo, hash);
-		snprintf(buf, sizeof(buf), "/efs/file/%s/%s", algo, hash);
-		unsafe = buf;
-	}
-	if(0 == strcmp(var, "queryURI")) {
-		str_t *escaped = QSEscape(state->fileURI, strlen(state->fileURI), true);
-		snprintf(buf, sizeof(buf), "/?q=%s", escaped);
-		FREE(&escaped);
-		unsafe = buf;
-	}
-	if(0 == strcmp(var, "hashURI")) {
-		unsafe = state->fileURI;
-	}
-	if(unsafe) return htmlenc(unsafe);
-
-	str_t value[1024 * 4];
-	int rc = SLNSessionGetValueForField(state->session, value, sizeof(value), state->fileURI, var);
-	if(DB_SUCCESS == rc && '\0' != value[0]) unsafe = value;
-
-	if(!unsafe) {
-		if(0 == strcmp(var, "thumbnailURI")) unsafe = "/file.png";
-		if(0 == strcmp(var, "title")) unsafe = "(no title)";
-		if(0 == strcmp(var, "description")) unsafe = "(no description)";
-	}
-	str_t *result = htmlenc(unsafe);
-
-	return result;
-}
-static void preview_free(preview_state const *const state, strarg_t const var, str_t **const val) {
-	FREE(val);
-}
-static TemplateArgCBs const preview_cbs = {
-	.lookup = (str_t *(*)())preview_metadata,
-	.free = (void (*)())preview_free,
-};
-
-static int genGenericPreview(BlogRef const blog, SLNSessionRef const session, strarg_t const URI, strarg_t const tmp, SLNFileInfo const *const info) {
-	uv_file file = async_fs_open(tmp, O_CREAT | O_EXCL | O_WRONLY, 0400);
-	if(file < 0) return -1;
-
-	preview_state const state = {
-		.blog = blog,
-		.session = session,
-		.fileURI = URI,
-	};
-	int const e1 = TemplateWriteFile(blog->preview, &preview_cbs, &state, file);
-
-	int const e2 = async_fs_close(file); file = -1;
-	if(e1 < 0 || e2 < 0) {
-		async_fs_unlink(tmp);
-		return -1;
-	}
-	return 0;
-}
-
-static int genPreview(BlogRef const blog, SLNSessionRef const session, strarg_t const URI, strarg_t const path) {
-	SLNFileInfo info[1];
-	if(SLNSessionGetFileInfo(session, URI, info) < 0) return -1;
-	str_t *tmp = SLNRepoCopyTempPath(blog->repo);
-	if(!tmp) {
-		SLNFileInfoCleanup(info);
-		return -1;
-	}
-
-	bool success = false;
-	success = success || genMarkdownPreview(blog, session, URI, tmp, info) >= 0;
-	success = success || genPlainTextPreview(blog, session, URI, tmp, info) >= 0;
-	success = success || genGenericPreview(blog, session, URI, tmp, info) >= 0;
-	if(!success) async_fs_mkdirp_dirname(tmp, 0700);
-	success = success || genMarkdownPreview(blog, session, URI, tmp, info) >= 0;
-	success = success || genPlainTextPreview(blog, session, URI, tmp, info) >= 0;
-	success = success || genGenericPreview(blog, session, URI, tmp, info) >= 0;
-
-	SLNFileInfoCleanup(info);
-	if(!success) {
-		FREE(&tmp);
-		return -1;
-	}
-
-	success = false;
-	success = success || async_fs_link(tmp, path) >= 0;
-	if(!success) async_fs_mkdirp_dirname(path, 0700);
-	success = success || async_fs_link(tmp, path) >= 0;
-
-	async_fs_unlink(tmp);
-	FREE(&tmp);
-	return success ? 0 : -1;
-}
 
 static bool gen_pending(BlogRef const blog, strarg_t const path) {
 	for(index_t i = 0; i < PENDING_MAX; ++i) {
@@ -227,7 +70,10 @@ static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, SLNSes
 	async_mutex_unlock(blog->pending_mutex);
 
 	if(x < PENDING_MAX) {
-		(void)genPreview(blog, session, URI, path);
+		SLNSubmissionRef meta = NULL;
+		int rc = BlogConvert(blog, session, URI, path, &meta);
+		assert(rc >= 0); // TODO
+		SLNSubmissionFree(&meta);
 		gen_done(blog, path, x);
 	}
 

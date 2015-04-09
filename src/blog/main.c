@@ -6,14 +6,9 @@
 #include "../http/HTTPServer.h"
 #include "../http/HTTPHeaders.h"
 #include "../StrongLink.h"
+#include "Blog.h"
 
 int SLNServerDispatch(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
-
-typedef struct Blog* BlogRef;
-
-BlogRef BlogCreate(SLNRepoRef const repo);
-void BlogFree(BlogRef *const blogptr);
-int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
 
 static strarg_t path = NULL;
 static SLNRepoRef repo = NULL;
