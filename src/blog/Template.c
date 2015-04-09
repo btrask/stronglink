@@ -160,6 +160,7 @@ str_t *htmlenc(strarg_t const str) {
 	for(size_t i = 0; str[i]; ++i) switch(str[i]) {
 #define X(c, s) case c: total += sizeof(s)-1; break;
 		ENTITIES(X)
+		default: total += 1; break;
 #undef X
 	}
 	str_t *enc = malloc(total+1);
