@@ -78,6 +78,8 @@ int async_fs_stat(const char* path, uv_fs_t *const req);
 int async_fs_mkdirp_fast(char *const path, size_t const len, int const mode);
 int async_fs_mkdirp(char const *const path, int const mode);
 int async_fs_mkdirp_dirname(char const *const path, int const mode);
+uv_file async_fs_open_mkdirp(const char* path, int flags, int mode);
+int async_fs_link_mkdirp(const char* path, const char* new_path);
 
 char *async_fs_tempnam(char const *dir, char const *prefix);
 

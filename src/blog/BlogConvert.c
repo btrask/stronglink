@@ -53,11 +53,7 @@ static int convert(BlogRef const blog,
 	if(!tmp) rc = UV_ENOMEM;
 	if(rc < 0) goto cleanup;
 
-	rc = async_fs_open(tmp, O_CREAT | O_EXCL | O_WRONLY, 0400);
-	if(UV_ENOENT == rc) {
-		async_fs_mkdirp_dirname(tmp, 0700);
-		rc = async_fs_open(tmp, O_CREAT | O_EXCL | O_WRONLY, 0400);
-	}
+	rc = async_fs_open_mkdirp(tmp, O_CREAT | O_EXCL | O_WRONLY, 0400);
 	if(rc < 0) goto cleanup;
 	html = rc;
 
@@ -104,11 +100,7 @@ static int convert(BlogRef const blog,
 	rc = async_fs_fdatasync(html);
 	if(rc < 0) goto cleanup;
 
-	rc = async_fs_link(tmp, htmlpath);
-	if(UV_ENOENT == rc) {
-		async_fs_mkdirp_dirname(htmlpath, 0700);
-		rc = async_fs_link(tmp, htmlpath);
-	}
+	rc = async_fs_link_mkdirp(tmp, htmlpath);
 	if(rc < 0) goto cleanup;
 
 	rc = SLNSubmissionEnd(meta);
@@ -140,11 +132,7 @@ static int generic(BlogRef const blog,
 	if(!tmp) rc = UV_ENOMEM;
 	if(rc < 0) goto cleanup;
 
-	rc = async_fs_open(tmp, O_CREAT | O_EXCL | O_WRONLY, 0400);
-	if(UV_ENOENT == rc) {
-		async_fs_mkdirp_dirname(tmp, 0700);
-		rc = async_fs_open(tmp, O_CREAT | O_EXCL | O_WRONLY, 0400);
-	}
+	rc = async_fs_open_mkdirp(tmp, O_CREAT | O_EXCL | O_WRONLY, 0400);
 	if(rc < 0) goto cleanup;
 	html = rc;
 
@@ -159,11 +147,7 @@ static int generic(BlogRef const blog,
 	rc = async_fs_fdatasync(html);
 	if(rc < 0) goto cleanup;
 
-	rc = async_fs_link(tmp, htmlpath);
-	if(UV_ENOENT == rc) {
-		async_fs_mkdirp_dirname(htmlpath, 0700);
-		rc = async_fs_link(tmp, htmlpath);
-	}
+	rc = async_fs_link_mkdirp(tmp, htmlpath);
 	if(rc < 0) goto cleanup;
 
 	*outmeta = NULL;

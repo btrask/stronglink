@@ -167,6 +167,18 @@ int async_fs_mkdirp_dirname(char const *const path, int const mode) {
 	free(mutable); mutable = NULL;
 	return err;
 }
+uv_file async_fs_open_mkdirp(const char* path, int flags, int mode) {
+	uv_file file = async_fs_open(path, flags, mode);
+	if(UV_ENOENT != file) return file;
+	async_fs_mkdirp_dirname(path, 0700);
+	return async_fs_open(path, flags, mode);
+}
+int async_fs_link_mkdirp(const char* path, const char* new_path) {
+	int rc = async_fs_link(path, new_path);
+	if(UV_ENOENT != rc) return rc;
+	async_fs_mkdirp_dirname(new_path, 0700);
+	return async_fs_link(path, new_path);
+}
 
 // TODO: Put this somewhere.
 static char *tohex(char const *const buf, size_t const len) {

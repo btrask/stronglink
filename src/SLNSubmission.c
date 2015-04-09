@@ -33,17 +33,11 @@ SLNSubmissionRef SLNSubmissionCreate(SLNSessionRef const session, strarg_t const
 	sub->type = strdup(type);
 
 	sub->tmppath = SLNRepoCopyTempPath(SLNSessionGetRepo(session));
-	sub->tmpfile = async_fs_open(sub->tmppath, O_CREAT | O_EXCL | O_TRUNC | O_RDWR, 0400);
+	sub->tmpfile = async_fs_open_mkdirp(sub->tmppath, O_CREAT | O_EXCL | O_RDWR, 0400);
 	if(sub->tmpfile < 0) {
-		if(UV_ENOENT == sub->tmpfile) {
-			async_fs_mkdirp_dirname(sub->tmppath, 0700);
-			sub->tmpfile = async_fs_open(sub->tmppath, O_CREAT | O_EXCL | O_TRUNC | O_WRONLY, 0400);
-		}
-		if(sub->tmpfile < 0) {
-			fprintf(stderr, "Error: couldn't create temp file %s (%s)\n", sub->tmppath, uv_err_name(sub->tmpfile));
-			SLNSubmissionFree(&sub);
-			return NULL;
-		}
+		fprintf(stderr, "Error: couldn't create temp file %s (%s)\n", sub->tmppath, uv_err_name(sub->tmpfile));
+		SLNSubmissionFree(&sub);
+		return NULL;
 	}
 
 	sub->hasher = SLNHasherCreate(sub->type);
@@ -110,17 +104,11 @@ static int add(SLNSubmissionRef const sub) {
 	SLNRepoRef const repo = SLNSubmissionGetRepo(sub);
 	str_t *internalPath = SLNRepoCopyInternalPath(repo, sub->internalHash);
 	int result = 0;
-	result = async_fs_link(sub->tmppath, internalPath);
+	result = async_fs_link_mkdirp(sub->tmppath, internalPath);
 	if(result < 0 && UV_EEXIST != result) {
-		if(UV_ENOENT == result) {
-			async_fs_mkdirp_dirname(internalPath, 0700);
-			result = async_fs_link(sub->tmppath, internalPath);
-		}
-		if(result < 0 && UV_EEXIST != result) {
-			fprintf(stderr, "Couldn't move %s to %s (%s)\n", sub->tmppath, internalPath, uv_err_name(result));
-			FREE(&internalPath);
-			return -1;
-		}
+		fprintf(stderr, "Couldn't move %s to %s (%s)\n", sub->tmppath, internalPath, uv_err_name(result));
+		FREE(&internalPath);
+		return -1;
 	}
 	FREE(&internalPath);
 	async_fs_unlink(sub->tmppath);
