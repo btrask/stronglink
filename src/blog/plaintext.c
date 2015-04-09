@@ -1,13 +1,6 @@
 #include "converter.h"
 
 TYPE_LIST(plaintext,
-
-// TODO: HACK
-	"text/markdown; charset=utf-8",
-	"text/markdown",
-	"text/x-markdown; charset=utf-8",
-	"text/x-markdown",
-
 	"text/plain; charset=utf-8",
 	"text/plain")
 CONVERTER(plaintext) {

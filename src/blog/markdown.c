@@ -1,24 +1,8 @@
-// TODO: Portability
-
-#include <assert.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
-#include <regex.h>
-
+#include "converter.h"
 #include "../../deps/cmark/src/cmark.h"
 #include "../../deps/cmark/src/buffer.h"
-
+#undef numberof /* TODO: HACK */
 #include "../http/QueryString.h" /* TODO: Try to avoid this full dependency */
-
-#define CONVERT_MAX (1024 * 1024 * 1) /* TODO */
-
-#define STR_LEN(x) (x), (sizeof(x)-1)
-#define RETRY(x) ({ ssize_t __x; do __x = (x); while(-1 == __x && EINTR == errno); __x; })
 
 // Ported to the JS version in markdown.js
 // The output should be identical between each version
@@ -183,26 +167,12 @@ static void md_convert_hashes(cmark_iter *const iter) {
 	}
 }
 
-int markdown_convert(char const *const dst, char const *const src) {
-	int d = -1;
-	FILE *s = NULL;
-	cmark_node *node = NULL;
-	char *str = NULL;
-	size_t len = 0;
-
-	d = open(dst, O_CREAT | O_EXCL | O_RDWR, 0400);
-	if(d < 0) {
-		fprintf(stderr, "Can't create %s: %s\n", dst, strerror(errno));
-		goto err;
-	}
-
-	s = fopen(src, "r");
-	assert(s); // TODO
-
-#ifdef MARKDOWN_STANDALONE
-// TODO: chroot, drop privileges?
-#endif
-
+TYPE_LIST(markdown,
+	"text/markdown; charset=utf-8",
+	"text/markdown",
+	"text/x-markdown; charset=utf-8",
+	"text/x-markdown")
+CONVERTER(markdown) {
 	int const options =
 		CMARK_OPT_DEFAULT |
 		CMARK_OPT_HARDBREAKS |
@@ -210,8 +180,7 @@ int markdown_convert(char const *const dst, char const *const src) {
 		CMARK_OPT_SMART |
 		0;
 
-	node = cmark_parse_file(s, options);
-	fclose(s); s = NULL;
+	cmark_node *node = cmark_parse_document(buf, size, options);
 	assert(node); // TODO
 
 	// TODO: We should be able to reset the iterator, but resetting to CMARK_EVENT_NONE doesn't work.
@@ -242,47 +211,21 @@ int markdown_convert(char const *const dst, char const *const src) {
 	cmark_iter_free(iter); iter = NULL;
 
 
-	str = cmark_render_html(node, options);
+	str_t *str = cmark_render_html(node, options);
 	cmark_node_free(node); node = NULL;
 	assert(str); // TODO
-	len = strlen(str);
+	size_t const len = strlen(str);
 	assert(len); // TODO
 
-	size_t written = 0;
-	for(;;) {
-		ssize_t const r = RETRY(write(d, str+written, len-written));
-		if(r < 0) {
-			fprintf(stderr, "Can't write %s: %s\n", dst, strerror(errno));
-			goto err;
-		}
-		written += (size_t)r;
-		if(written >= len) break;
-	}
-
+	uv_buf_t out = uv_buf_init(str, len);
+	int rc = async_fs_writeall(html, &out, 1, -1);
 	free(str); str = NULL;
+	if(rc < 0) return rc;
 
-	if(fdatasync(d) < 0) {
-		fprintf(stderr, "Can't sync %s: %s\n", dst, strerror(errno));
-		goto err;
-	}
-
-	// We don't need to check for errors here because we already synced.
-	close(d); d = -1;
 	return 0;
-
-err:
-	unlink(dst);
-	close(d); d = -1;
-
-	fclose(s); s = NULL;
-	cmark_node_free(node); node = NULL;
-	free(str); str = NULL;
-	return -1;
 }
 
-#ifdef MARKDOWN_STANDALONE
-
-int main(int const argc, char const *const argv[]) {
+/*int main(int const argc, char const *const argv[]) {
 	if(argc <= 2) {
 		fprintf(stderr, "Usage: %s [dst] [src]\n", argv[0]);
 		return 1;
@@ -297,7 +240,5 @@ int main(int const argc, char const *const argv[]) {
 	}
 
 	return 0;
-}
-
-#endif
+}*/
 

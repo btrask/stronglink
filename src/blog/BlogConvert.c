@@ -14,8 +14,13 @@ typedef int (*BlogConverter)(
 	char const *const type);
 
 // TODO
-static BlogTypeCheck blog_types_markdown = NULL;
-static BlogConverter blog_convert_markdown = NULL;
+int blog_types_markdown(strarg_t const type);
+int blog_convert_markdown(
+	uv_file const html,
+	yajl_gen const json,
+	char const *const buf,
+	size_t const size,
+	char const *const type);
 
 int blog_types_plaintext(strarg_t const type);
 int blog_convert_plaintext(
@@ -177,7 +182,7 @@ int BlogConvert(BlogRef const blog,
 	if(rc < 0) return rc;
 
 	rc=-1;
-//	rc=rc>=0?rc: convert(blog, session, html, meta, URI, src, CONVERTER(markdown));
+	rc=rc>=0?rc: convert(blog, session, html, meta, URI, src, CONVERTER(markdown));
 	rc=rc>=0?rc: convert(blog, session, html, meta, URI, src, CONVERTER(plaintext));
 	rc=rc>=0?rc: generic(blog, session, html, meta, URI, src);
 

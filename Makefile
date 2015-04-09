@@ -177,7 +177,7 @@ endif
 .DEFAULT_GOAL := all
 
 .PHONY: all
-all: $(BUILD_DIR)/stronglink $(BUILD_DIR)/sln-markdown
+all: $(BUILD_DIR)/stronglink #$(BUILD_DIR)/sln-markdown
 
 $(BUILD_DIR)/stronglink: $(OBJECTS) $(MODULES)
 	@- mkdir -p $(dir $@)
@@ -258,16 +258,16 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c $(HEADERS)
 	@- mkdir -p $(dir $@)
 	$(CC) -c $(CFLAGS) $(WARNINGS) $< -o $@
 
-.PHONY: sln-markdown
-sln-markdown: $(BUILD_DIR)/sln-markdown
+#.PHONY: sln-markdown
+#sln-markdown: $(BUILD_DIR)/sln-markdown
 
-$(BUILD_DIR)/sln-markdown: $(BUILD_DIR)/markdown_standalone.o $(BUILD_DIR)/http/QueryString.o $(SRC_DIR)/http/QueryString.h
-	@- mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) $(WARNINGS) $^ $(DEPS_DIR)/cmark/build/src/libcmark.a -o $@
+#$(BUILD_DIR)/sln-markdown: $(BUILD_DIR)/markdown_standalone.o $(BUILD_DIR)/http/QueryString.o $(SRC_DIR)/http/QueryString.h
+#	@- mkdir -p $(dir $@)
+#	$(CC) $(CFLAGS) $(WARNINGS) $^ $(DEPS_DIR)/cmark/build/src/libcmark.a -o $@
 
-$(BUILD_DIR)/markdown_standalone.o: $(SRC_DIR)/blog/markdown.c cmark
-	@- mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) $(WARNINGS) -DMARKDOWN_STANDALONE $< -o $@
+#$(BUILD_DIR)/markdown_standalone.o: $(SRC_DIR)/blog/markdown.c cmark
+#	@- mkdir -p $(dir $@)
+#	$(CC) -c $(CFLAGS) $(WARNINGS) -DMARKDOWN_STANDALONE $< -o $@
 
 .PHONY: install
 install: all
