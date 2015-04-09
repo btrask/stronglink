@@ -70,10 +70,16 @@ static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, SLNSes
 	async_mutex_unlock(blog->pending_mutex);
 
 	if(x < PENDING_MAX) {
+		SLNFileInfo src[1];
+		int rc = SLNSessionGetFileInfo(session, URI, src);
+		assert(rc >= 0); // TODO;
+		// TODO: We should be able to pass NULL for meta because we
+		// don't need a meta-file synthesized at this point.
 		SLNSubmissionRef meta = NULL;
-		int rc = BlogConvert(blog, session, URI, path, &meta);
+		rc = BlogConvert(blog, session, path, &meta, URI, src);
 		assert(rc >= 0); // TODO
 		SLNSubmissionFree(&meta);
+		SLNFileInfoCleanup(src);
 		gen_done(blog, path, x);
 	}
 
@@ -302,18 +308,21 @@ static int GET_upload(BlogRef const blog, SLNSessionRef const session, HTTPConne
 
 
 
-#include <regex.h>
-#include <yajl/yajl_gen.h>
-
-#define FTS_MAX (1024 * 50)
-
 // TODO
-static int quickpair(SLNSessionRef const session, MultipartFormRef const form, strarg_t const title, SLNSubmissionRef *const outSub, SLNSubmissionRef *const outMeta) {
-assert(form);
-
-// TODO
-#define STR_LEN(x) x, sizeof(x)+1
 #define BUF_LEN(x) x, sizeof(x)
+static int parse_file(BlogRef const blog,
+                      SLNSessionRef const session,
+                      MultipartFormRef const form,
+                      SLNSubmissionRef *const outfile,
+                      SLNSubmissionRef *const outmeta)
+{
+	assert(form);
+
+	SLNSubmissionRef file = NULL;
+	SLNSubmissionRef meta = NULL;
+	SLNFileInfo src[1] = {};
+	str_t *htmlpath = NULL;
+	int rc = 0;
 
 	strarg_t const fields[] = {
 		"content-type",
@@ -326,10 +335,8 @@ assert(form);
 		uv_buf_init(BUF_LEN(content_disposition)),
 	};
 	assert(numberof(fields) == numberof(values));
-	int rc = MultipartFormReadStaticHeaders(form, values, fields, numberof(values));
-	if(rc < 0) {
-		return rc;
-	}
+	rc = MultipartFormReadHeadersStatic(form, values, fields, numberof(values));
+	if(rc < 0) goto cleanup;
 
 	strarg_t type;
 	if(0 == strcmp("form-data; name=\"markdown\"", content_disposition)) {
@@ -338,142 +345,49 @@ assert(form);
 		type = content_type;
 	}
 
-
-
-	SLNSubmissionRef sub = SLNSubmissionCreate(session, type);
-	SLNSubmissionRef meta = SLNSubmissionCreate(session, "text/efs-meta+json; charset=utf-8");
-	if(!sub || !meta) {
-		SLNSubmissionFree(&sub);
-		SLNSubmissionFree(&meta);
-		return -1;
-	}
-
-
-	str_t *fulltext = NULL;
-	size_t fulltextlen = 0;
-	if(
-		0 == strcasecmp(type, "text/markdown; charset=utf-8") ||
-		0 == strcasecmp(type, "text/markdown") ||
-		0 == strcasecmp(type, "text/x-markdown; charset=utf-8") ||
-		0 == strcasecmp(type, "text/x-markdown") ||
-		0 == strcasecmp(type, "text/plain; charset=utf-8") ||
-		0 == strcasecmp(type, "text/plain")
-	) {
-		fulltext = malloc(FTS_MAX + 1);
-		// TODO
-	}
+	file = SLNSubmissionCreate(session, type);
+	if(!file) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
 	for(;;) {
 		uv_buf_t buf[1];
 		rc = MultipartFormReadData(form, buf);
-		if(rc < 0) {
-			FREE(&fulltext);
-			SLNSubmissionFree(&sub);
-			SLNSubmissionFree(&meta);
-			return rc;
-		}
+		if(rc < 0) goto cleanup;
 		if(0 == buf->len) break;
-		rc = SLNSubmissionWrite(sub, (byte_t const *)buf->base, buf->len);
-		if(rc < 0) {
-			FREE(&fulltext);
-			SLNSubmissionFree(&sub);
-			SLNSubmissionFree(&meta);
-			return rc;
-		}
-		if(fulltext) {
-			size_t const use = MIN(FTS_MAX-fulltextlen, buf->len);
-			memcpy(fulltext+fulltextlen, buf->base, use);
-			fulltextlen += use;
-		}
+		rc = SLNSubmissionWrite(file, (byte_t const *)buf->base, buf->len);
+		if(rc < 0) goto cleanup;
 	}
-	if(fulltext) {
-		fulltext[fulltextlen] = '\0';
-	}
+	rc = SLNSubmissionEnd(file);
+	if(rc < 0) goto cleanup;
 
+	rc = SLNSubmissionGetFileInfo(file, src);
+	if(rc < 0) goto cleanup;
 
-	if(SLNSubmissionEnd(sub) < 0) {
-		FREE(&fulltext);
-		SLNSubmissionFree(&sub);
-		SLNSubmissionFree(&meta);
-		return -1;
-	}
+	htmlpath = BlogCopyPreviewPath(blog, src->hash);
+	if(!htmlpath) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
 
-	strarg_t const targetURI = SLNSubmissionGetPrimaryURI(sub);
-	SLNSubmissionWrite(meta, (byte_t const *)targetURI, strlen(targetURI));
-	SLNSubmissionWrite(meta, (byte_t const *)"\r\n\r\n", 4);
+	strarg_t const URI = SLNSubmissionGetPrimaryURI(file);
+	rc = BlogConvert(blog, session, htmlpath, &meta, URI, src);
+	if(rc < 0) goto cleanup;
 
-	yajl_gen json = yajl_gen_alloc(NULL);
-	yajl_gen_config(json, yajl_gen_print_callback, (void (*)())SLNSubmissionWrite, meta);
-	yajl_gen_config(json, yajl_gen_beautify, (int)true);
+	*outfile = file; file = NULL;
+	*outmeta = meta; meta = NULL;
 
-	yajl_gen_map_open(json);
+cleanup:
+	SLNSubmissionFree(&file);
+	SLNSubmissionFree(&meta);
+	SLNFileInfoCleanup(src);
+	FREE(&htmlpath);
 
-	if(title) {
-		yajl_gen_string(json, (byte_t const *)"title", strlen("title"));
-		yajl_gen_array_open(json);
-		yajl_gen_string(json, (byte_t const *)title, strlen(title));
-		if(fulltextlen) {
-			// TODO: Try to determine title from content
-		}
-		yajl_gen_array_close(json);
-	}
-
-	if(fulltextlen) {
-		yajl_gen_string(json, (byte_t const *)"fulltext", strlen("fulltext"));
-		yajl_gen_string(json, (byte_t const *)fulltext, fulltextlen);
-
-
-		yajl_gen_string(json, (byte_t const *)"link", strlen("link"));
-		yajl_gen_array_open(json);
-
-		regex_t linkify[1];
-		// <http://daringfireball.net/2010/07/improved_regex_for_matching_urls>
-		// Painstakingly ported to POSIX
-		int rc = regcomp(linkify, "([a-z][a-z0-9_-]+:(/{1,3}|[a-z0-9%])|www[0-9]{0,3}[.]|[a-z0-9.-]+[.][a-z]{2,4}/)([^[:space:]()<>]+|\\(([^[:space:]()<>]+|(\\([^[:space:]()<>]+\\)))*\\))+(\\(([^[:space:]()<>]+|(\\([^[:space:]()<>]+\\)))*\\)|[^][[:space:]`!(){};:'\".,<>?«»“”‘’])", REG_ICASE | REG_EXTENDED);
-		assert(0 == rc);
-
-		strarg_t pos = fulltext;
-		regmatch_t match;
-		while(0 == regexec(linkify, pos, 1, &match, 0)) {
-			regoff_t const loc = match.rm_so;
-			regoff_t const len = match.rm_eo - match.rm_so;
-			yajl_gen_string(json, (byte_t const *)pos+loc, len);
-			pos += loc+len;
-		}
-
-		regfree(linkify);
-
-		yajl_gen_array_close(json);
-	}
-
-	yajl_gen_map_close(json);
-	yajl_gen_free(json); json = NULL;
-	FREE(&fulltext);
-
-	if(SLNSubmissionEnd(meta) < 0) {
-		SLNSubmissionFree(&sub);
-		SLNSubmissionFree(&meta);
-		return -1;
-	}
-
-	*outSub = sub;
-	*outMeta = meta;
-	return 0;
+	return rc;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-static int POST_post(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int POST_post(BlogRef const blog,
+                     SLNSessionRef const session,
+                     HTTPConnectionRef const conn,
+                     HTTPMethod const method,
+                     strarg_t const URI,
+                     HTTPHeadersRef const headers)
+{
 	if(HTTP_POST != method) return -1;
 	if(!URIPath(URI, "/post", NULL)) return -1;
 
@@ -491,18 +405,23 @@ static int POST_post(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		return 500;
 	}
 
-
-	strarg_t title = NULL; // TODO: Get file name from form part.
-
 	SLNSubmissionRef sub = NULL;
 	SLNSubmissionRef meta = NULL;
-
-
-	rc = quickpair(session, form, title, &sub, &meta);
+	rc = parse_file(blog, session, form, &sub, &meta);
 	if(rc < 0) {
 		MultipartFormFree(&form);
 		return 500;
 	}
+
+	// TODO: Create an additional meta-file with submission-specific
+	// information.
+	// - Submission time
+	// - File name
+	// - Submitter name?
+	// - Comment?
+	// Note that these meta-files will be small, so it would be good to
+	// have more optimizations for small files (like storing files under
+	// 2K in the DB rather than in the file system).
 
 	SLNSubmissionRef subs[] = { sub, meta };
 	int err = SLNSubmissionBatchStore(subs, numberof(subs));

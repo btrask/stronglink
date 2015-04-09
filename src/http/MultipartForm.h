@@ -24,6 +24,6 @@ void MultipartFormPop(MultipartFormRef const form, size_t const len);
 
 int MultipartFormReadHeaderField(MultipartFormRef const form, str_t field[], size_t const max);
 int MultipartFormReadHeaderValue(MultipartFormRef const conn, str_t value[], size_t const max);
-int MultipartFormReadStaticHeaders(MultipartFormRef const form, uv_buf_t values[], strarg_t const fields[], size_t const count);
+int MultipartFormReadHeadersStatic(MultipartFormRef const form, uv_buf_t values[], strarg_t const fields[], size_t const count);
 int MultipartFormReadData(MultipartFormRef const conn, uv_buf_t *const buf);
 

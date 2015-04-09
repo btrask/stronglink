@@ -90,6 +90,7 @@ int SLNSubmissionWrite(SLNSubmissionRef const sub, byte_t const *const buf, size
 int SLNSubmissionEnd(SLNSubmissionRef const sub);
 int SLNSubmissionWriteFrom(SLNSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context);
 strarg_t SLNSubmissionGetPrimaryURI(SLNSubmissionRef const sub);
+int SLNSubmissionGetFileInfo(SLNSubmissionRef const sub, SLNFileInfo *const info);
 int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn);
 // Convenience methods
 SLNSubmissionRef SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context);

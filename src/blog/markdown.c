@@ -222,6 +222,11 @@ CONVERTER(markdown) {
 	free(str); str = NULL;
 	if(rc < 0) return rc;
 
+	yajl_gen_string(json, (unsigned char const *)STR_LEN("fulltext"));
+	yajl_gen_string(json, (unsigned char const *)buf, size);
+
+	// TODO: Links and dependencies.
+
 	return 0;
 }
 

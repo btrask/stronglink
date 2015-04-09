@@ -37,9 +37,10 @@ int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnection
 
 int BlogConvert(BlogRef const blog,
                 SLNSessionRef const session,
-                strarg_t const URI,
                 strarg_t const html,
-                SLNSubmissionRef *const meta);
+                SLNSubmissionRef *const meta,
+                strarg_t const URI,
+                SLNFileInfo const *const src);
 
 // TODO: Get rid of this stuff, or refactor it.
 typedef struct {

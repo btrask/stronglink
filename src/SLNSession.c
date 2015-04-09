@@ -184,7 +184,6 @@ int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFi
 	DB_txn *txn = NULL;
 	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	if(DB_SUCCESS != rc) {
-		fprintf(stderr, "Transaction error %s\n", db_strerror(rc));
 		SLNRepoDBClose(repo, &db);
 		return rc;
 	}
@@ -225,6 +224,8 @@ int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFi
 		info->size = size;
 		if(!info->hash || !info->path || !info->type) {
 			SLNFileInfoCleanup(info);
+			db_txn_abort(txn); txn = NULL;
+			SLNRepoDBClose(repo, &db);
 			return DB_ENOMEM;
 		}
 	}
@@ -238,6 +239,8 @@ void SLNFileInfoCleanup(SLNFileInfo *const info) {
 	FREE(&info->hash);
 	FREE(&info->path);
 	FREE(&info->type);
+	info->size = 0;
+	assert_zeroed(info, 1);
 }
 
 

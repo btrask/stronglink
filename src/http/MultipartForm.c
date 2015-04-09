@@ -146,7 +146,7 @@ int MultipartFormReadHeaderValue(MultipartFormRef const form, str_t value[], siz
 	}
 	return 0;
 }
-int MultipartFormReadStaticHeaders(MultipartFormRef const form, uv_buf_t values[], strarg_t const fields[], size_t const count) {
+int MultipartFormReadHeadersStatic(MultipartFormRef const form, uv_buf_t values[], strarg_t const fields[], size_t const count) {
 	if(!form) return UV_EINVAL;
 	uv_buf_t buf[1];
 	int rc;

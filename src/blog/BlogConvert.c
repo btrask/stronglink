@@ -173,20 +173,15 @@ cleanup:
 }
 int BlogConvert(BlogRef const blog,
                 SLNSessionRef const session,
-                strarg_t const URI,
                 strarg_t const html,
-                SLNSubmissionRef *const meta)
+                SLNSubmissionRef *const meta,
+                strarg_t const URI,
+                SLNFileInfo const *const src)
 {
-	SLNFileInfo src[1];
-	int rc = SLNSessionGetFileInfo(session, URI, src);
-	if(rc < 0) return rc;
-
-	rc=-1;
+	int rc = -1;
 	rc=rc>=0?rc: convert(blog, session, html, meta, URI, src, CONVERTER(markdown));
 	rc=rc>=0?rc: convert(blog, session, html, meta, URI, src, CONVERTER(plaintext));
 	rc=rc>=0?rc: generic(blog, session, html, meta, URI, src);
-
-	SLNFileInfoCleanup(src);
 	return rc;
 }
 

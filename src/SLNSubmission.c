@@ -156,6 +156,20 @@ strarg_t SLNSubmissionGetPrimaryURI(SLNSubmissionRef const sub) {
 	if(!sub->URIs) return NULL;
 	return sub->URIs[0];
 }
+int SLNSubmissionGetFileInfo(SLNSubmissionRef const sub, SLNFileInfo *const info) {
+	if(!sub) return UV_EINVAL;
+	if(!sub->internalHash) return UV_EINVAL;
+	SLNRepoRef const repo = SLNSessionGetRepo(sub->session);
+	info->hash = strdup(sub->internalHash);
+	info->path = SLNRepoCopyInternalPath(repo, sub->internalHash);
+	info->type = strdup(sub->type);
+	info->size = sub->size;
+	if(!info->hash || !info->path || !info->type) {
+		SLNFileInfoCleanup(info);
+		return UV_ENOMEM;
+	}
+	return 0;
+}
 
 int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn) {
 	if(!sub) return -1;
