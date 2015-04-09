@@ -69,6 +69,8 @@ static int convert(BlogRef const blog,
 	buf = mmap(NULL, src->size+1, PROT_READ, MAP_SHARED, file, 0);
 	if(MAP_FAILED == buf) rc = -errno;
 	if(rc < 0) goto cleanup;
+	if('\0' != buf[src->size]) rc = UV_EIO; // Slightly paranoid.
+	if(rc < 0) goto cleanup;
 
 	async_fs_close(file); file = -1;
 
