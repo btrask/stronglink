@@ -52,10 +52,6 @@ HEADERS := \
 	$(SRC_DIR)/StrongLink.h \
 	$(SRC_DIR)/SLNDB.h \
 	$(SRC_DIR)/filter/SLNFilter.h \
-	$(DEPS_DIR)/cmark/src/cmark.h \
-	$(DEPS_DIR)/cmark/src/buffer.h \
-	$(DEPS_DIR)/cmark/src/houdini.h \
-	$(DEPS_DIR)/cmark/build/src/*.h \
 	$(DEPS_DIR)/crypt_blowfish/ow-crypt.h \
 	$(DEPS_DIR)/fts3/fts3_tokenizer.h \
 	$(DEPS_DIR)/libco/libco.h \
@@ -116,8 +112,12 @@ else
 OBJECTS += $(BUILD_DIR)/deps/libco/libco.o
 endif
 
-# Server executable-specific code
+# Blog server
 HEADERS += \
+	$(DEPS_DIR)/cmark/src/cmark.h \
+	$(DEPS_DIR)/cmark/src/buffer.h \
+	$(DEPS_DIR)/cmark/src/houdini.h \
+	$(DEPS_DIR)/cmark/build/src/*.h \
 	$(SRC_DIR)/blog/Blog.h \
 	$(SRC_DIR)/blog/converter.h \
 	$(SRC_DIR)/blog/Template.h
@@ -125,16 +125,16 @@ OBJECTS += \
 	$(BUILD_DIR)/blog/main.o \
 	$(BUILD_DIR)/blog/Blog.o \
 	$(BUILD_DIR)/blog/BlogConvert.o \
-	$(BUILD_DIR)/blog/plaintext.o \
 	$(BUILD_DIR)/blog/Template.o \
+	$(BUILD_DIR)/blog/plaintext.o \
 	$(BUILD_DIR)/blog/markdown.o
-
-STATIC_LIBS += $(YAJL_BUILD_DIR)/lib/libyajl_s.a
-CFLAGS += -I$(YAJL_BUILD_DIR)/include
 
 MODULES += cmark
 STATIC_LIBS += $(DEPS_DIR)/cmark/build/src/libcmark.a
 CFLAGS += -I$(DEPS_DIR)/cmark/build/src
+
+STATIC_LIBS += $(YAJL_BUILD_DIR)/lib/libyajl_s.a
+CFLAGS += -I$(YAJL_BUILD_DIR)/include
 
 MODULES += mdb
 STATIC_LIBS += $(DEPS_DIR)/lsmdb/liblmdb/liblmdb.a
