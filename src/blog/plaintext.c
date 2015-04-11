@@ -1,5 +1,7 @@
 #include "converter.h"
 
+// TODO: This stuff should be cleaned up and moved into converter.h.
+
 #undef numberof /* TODO: HACK */
 #include "../http/QueryString.h" /* TODO: Try to avoid this full dependency */
 
