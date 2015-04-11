@@ -147,31 +147,14 @@ TemplateArgCBs const TemplateStaticCBs = {
 	.free = NULL,
 };
 
-#define ENTITIES(XX) \
-	XX('<', "&lt;") \
-	XX('>', "&gt;") \
-	XX('&', "&amp;") \
-	XX('"', "&quot;") \
-	XX('\'', "&apos;")
+
+#include "../../deps/cmark/src/houdini.h"
+#include "../../deps/cmark/src/buffer.h"
 
 str_t *htmlenc(strarg_t const str) {
 	if(!str) return NULL;
-	size_t total = 0;
-	for(size_t i = 0; str[i]; ++i) switch(str[i]) {
-#define X(c, s) case c: total += sizeof(s)-1; break;
-		ENTITIES(X)
-		default: total += 1; break;
-#undef X
-	}
-	str_t *enc = malloc(total+1);
-	if(!enc) return NULL;
-	for(size_t i = 0, j = 0; str[i]; ++i) switch(str[i]) {
-#define X(c, s) case c: memcpy(enc+j, s, sizeof(s)-1); j += sizeof(s)-1; break;
-		ENTITIES(X)
-#undef X
-		default: enc[j++] = str[i]; break;
-	}
-	enc[total] = '\0';
-	return enc;
+	cmark_strbuf out = GH_BUF_INIT;
+	houdini_escape_html(&out, (uint8_t const *)str, strlen(str));
+	return (str_t *)cmark_strbuf_detach(&out);
 }
 

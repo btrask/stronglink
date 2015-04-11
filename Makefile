@@ -53,6 +53,8 @@ HEADERS := \
 	$(SRC_DIR)/SLNDB.h \
 	$(SRC_DIR)/filter/SLNFilter.h \
 	$(DEPS_DIR)/cmark/src/cmark.h \
+	$(DEPS_DIR)/cmark/src/buffer.h \
+	$(DEPS_DIR)/cmark/src/houdini.h \
 	$(DEPS_DIR)/cmark/build/src/*.h \
 	$(DEPS_DIR)/crypt_blowfish/ow-crypt.h \
 	$(DEPS_DIR)/fts3/fts3_tokenizer.h \
