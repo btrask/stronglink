@@ -67,19 +67,7 @@ static int write_text(uv_file const file, char const *const buf, size_t const le
 	if(rc < 0) return rc;
 	return 0;
 }
-static int write_link(uv_file const file, char const *const buf, size_t const len) {
-	// TODO: Handle hash links.
-	int rc;
-	rc = write_html(file, STR_LEN("<a href=\""));
-	if(rc < 0) return rc;
-	rc = write_text(file, buf, len);
-	if(rc < 0) return rc;
-	rc = write_html(file, STR_LEN("\">"));
-	if(rc < 0) return rc;
-	rc = write_text(file, buf, len);
-	if(rc < 0) return rc;
-	rc = write_html(file, STR_LEN("</a>"));
-	if(rc < 0) return rc;
-	return 0;
-}
+
+// TODO: Clean up version in plaintext.c and expose it here instead.
+/*static int write_link(uv_file const file, char const *const buf, size_t const len) {}*/
 
