@@ -4,8 +4,6 @@
 #include "StrongLink.h"
 #include "SLNDB.h"
 
-#define SESSION_KEY_FMT "%32[0-9a-fA-F]"
-
 #define SEARCH_DIST 16
 
 #define EXPIRE_TIMEOUT (1000 * 60 * 4)

@@ -47,6 +47,7 @@ void SLNRepoPullsStop(SLNRepoRef const repo);
 
 #define SESSION_KEY_LEN 16
 #define SESSION_KEY_HEX (SESSION_KEY_LEN*2)
+#define SESSION_KEY_FMT "%32[0-9a-fA-F]"
 
 SLNSessionCacheRef SLNSessionCacheCreate(SLNRepoRef const repo, uint16_t const size);
 void SLNSessionCacheFree(SLNSessionCacheRef *const cacheptr);
