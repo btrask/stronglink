@@ -271,10 +271,6 @@ static int session_load(SLNSessionCacheRef const cache, uint64_t const id, byte_
 	db_assertf(userID > 0, "Invalid session user ID %llu", (unsigned long long)userID);
 	db_assertf(hash, "Invalid session hash %s", hash);
 
-	// This is painful... We have to do a whole extra lookup just
-	// to get the mode. We could store it in the session's row, but
-	// that seems like a bad idea.
-	// Maybe in the future we will be able to use the username, etc.
 	DB_val userID_key[1];
 	SLNUserByIDKeyPack(userID_key, txn, userID);
 	DB_val user_val[1];
