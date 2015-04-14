@@ -12,7 +12,7 @@ A hash link that's "resolved" might look like this:
 
 > [link](http://notes.bentrask.com/?q=hash://sha256/641b771e5cf5c6173843bc2eecc9f44f835c68b7a6f6b2fb35c60ed88af17928)<sup>\[[#](hash://sha256/641b771e5cf5c6173843bc2eecc9f44f835c68b7a6f6b2fb35c60ed88af17928)\]</sup> (note: raw hashes are blocked on GitHub, otherwise the `#` would be a link)
 
-Hash links are universal but relative, meaning you need a known location to resolve them in relation to. With StrongLink, this location is your own repository, which you might run on your own device or in the cloud. (You can set a repository as your default by clicking the "#" in the top right corner of the repository's page.)
+The purpose of the two links (the main link and the `#` superscript) is to provide the resolved and unresolved version of the address. Hash links are universal but relative, meaning you need a known location to resolve them in relation to. With StrongLink, this location is your own repository, which you might run on your own device or in the cloud. (You can set a repository as your default by clicking the "#" in the top right corner of the repository's page.)
 
 StrongLink is currently in alpha. Features are missing and some things may be broken.
 
