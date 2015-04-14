@@ -3,7 +3,7 @@ StrongLink - a searchable, syncable, content-addressable notetaking system
 
 StrongLink is a notetaking/blogging system that supports search and sync. You can use content addresses (hash links) to link between entries, regardless of where they were created or where they're being viewed. Entries can't be edited after they've been written, which you can think of like writing in ink.
 
-A raw hash link looks like this:
+A raw hash link in StrongLink looks like this:
 
 >     hash://sha256/641b771e5cf5c6173843bc2eecc9f44f835c68b7a6f6b2fb35c60ed88af17928
 >     hash://sha256/641b771e5cf5c6173843bc2e (short version)
