@@ -15,9 +15,14 @@
 #define DB_NOTFOUND (-30798)
 #define DB_KEYEXIST (-30799)
 #define DB_VERSION_MISMATCH (-30794)
-#define DB_EINVAL EINVAL
-#define DB_EACCES EACCES
+#define DB_ENOENT ENOENT
+#define DB_EIO EIO
 #define DB_ENOMEM ENOMEM
+#define DB_EACCES EACCES
+#define DB_EBUSY EBUSY
+#define DB_EINVAL EINVAL
+#define DB_ENOSPC ENOSPC
+
 
 typedef struct {
 	size_t size;
