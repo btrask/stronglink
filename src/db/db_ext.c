@@ -50,10 +50,12 @@ int db_cursor_firstr(DB_cursor *const cursor, DB_range const *const range, DB_va
 }
 int db_cursor_nextr(DB_cursor *const cursor, DB_range const *const range, DB_val *const key, DB_val *const data, int const dir) {
 	assert(db_cursor_cmp(cursor, range->min, range->max) < 0);
-	int rc = db_cursor_next(cursor, key, data, dir);
+	DB_val tmp;
+	DB_val *k = key ? key : &tmp;
+	int rc = db_cursor_next(cursor, k, data, dir);
 	if(DB_SUCCESS != rc) return rc;
 	DB_val const *const limit = dir < 0 ? range->min : range->max;
-	int x = db_cursor_cmp(cursor, key, limit);
+	int x = db_cursor_cmp(cursor, k, limit);
 	if(x * dir < 0) return DB_SUCCESS;
 	db_cursor_clear(cursor);
 	return DB_NOTFOUND;

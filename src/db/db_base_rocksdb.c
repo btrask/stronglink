@@ -469,7 +469,7 @@ int db_cursor_cmp(DB_cursor *const cursor, DB_val const *const a, DB_val const *
 
 static int db_cursor_update(DB_cursor *const cursor, int const rc1, MDB_val const *const k1, MDB_val const *const d1, int const rc2, MDB_val const *const k2, MDB_val const *const d2, int const dir, DB_val *const key, DB_val *const data) {
 	if(!cursor->pending) {
-		*key = *(DB_val *)k2;
+		if(key) *key = *(DB_val *)k2;
 		if(data) *data = *(DB_val *)d2;
 		return rc2;
 	}
