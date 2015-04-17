@@ -44,10 +44,6 @@ SLNFilterRef SLNFilterCreate(SLNFilterType const type) {
 		default: assert(0); return NULL;
 	}
 }
-SLNFilterRef SLNPermissionFilterCreate(uint64_t const userID) {
-	//return (SLNFilterRef)[[SLNPermissionFilter alloc] initWithUserID:userID];
-	return NULL; // TODO
-}
 void SLNFilterFree(SLNFilterRef *const filterptr) {
 	[(SLNFilter *)*filterptr free]; *filterptr = NULL;
 }

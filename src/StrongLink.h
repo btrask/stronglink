@@ -113,12 +113,10 @@ typedef enum {
 	SLNMetadataFilterType,
 	SLNLinksToFilterType,
 	SLNLinkedFromFilterType,
-	SLNPermissionFilterType,
 	SLNMetaFileFilterType,
 } SLNFilterType;
 
 SLNFilterRef SLNFilterCreate(SLNFilterType const type);
-SLNFilterRef SLNPermissionFilterCreate(uint64_t const userID);
 void SLNFilterFree(SLNFilterRef *const filterptr);
 SLNFilterType SLNFilterGetType(SLNFilterRef const filter);
 SLNFilterRef SLNFilterUnwrap(SLNFilterRef const filter);
