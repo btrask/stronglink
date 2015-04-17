@@ -131,29 +131,27 @@ int SLNFilterSeekURI(SLNFilterRef const filter, int const dir, strarg_t const UR
 	return DB_SUCCESS;
 }
 str_t *SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, DB_txn *const txn) {
-	for(;; SLNFilterStep(filter, dir)) {
-		uint64_t sortID, fileID;
+	uint64_t sortID, fileID;
+	for(;;) {
 		SLNFilterCurrent(filter, dir, &sortID, &fileID);
 		if(!valid(fileID)) return NULL;
 
-//		fprintf(stderr, "step: %llu, %llu\n", (unsigned long long)sortID, (unsigned long long)fileID);
-
 		uint64_t const age = SLNFilterAge(filter, fileID, sortID);
-//		fprintf(stderr, "{%llu, %llu} -> %llu\n", (unsigned long long)sortID, (unsigned long long)fileID, (unsigned long long)age);
-		if(age != sortID) continue;
-
-		DB_val fileID_key[1];
-		SLNFileByIDKeyPack(fileID_key, txn, fileID);
-		DB_val file_val[1];
-		int rc = db_get(txn, fileID_key, file_val);
-		assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
-
-		strarg_t const hash = db_read_string(file_val, txn);
-		assert(hash);
-		str_t *const URI = SLNFormatURI(SLN_INTERNAL_ALGO, hash);
-		assert(URI);
+//		fprintf(stderr, "step: {%llu, %llu} -> %llu\n", (unsigned long long)sortID, (unsigned long long)fileID, (unsigned long long)age);
+		if(age == sortID) break;
 		SLNFilterStep(filter, dir);
-		return URI;
 	}
+
+	DB_val fileID_key[1], file_val[1];
+	SLNFileByIDKeyPack(fileID_key, txn, fileID);
+	int rc = db_get(txn, fileID_key, file_val);
+	db_assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc)); // TODO
+
+	strarg_t const hash = db_read_string(file_val, txn);
+	assert(hash); // TODO
+	str_t *const URI = SLNFormatURI(SLN_INTERNAL_ALGO, hash);
+	assert(URI);
+	SLNFilterStep(filter, dir);
+	return URI;
 }
 
