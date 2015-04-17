@@ -144,7 +144,10 @@ int SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const f
 	SLNRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
 	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	if(DB_SUCCESS != rc) return rc;
+	if(DB_SUCCESS != rc) {
+		SLNRepoDBClose(repo, &db);
+		return rc;
+	}
 
 	SLNFilterPrepare(filter, txn);
 

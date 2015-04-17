@@ -165,6 +165,8 @@ void SLNRepoDBOpen(SLNRepoRef const repo, DB_env **const dbptr) {
 }
 void SLNRepoDBClose(SLNRepoRef const repo, DB_env **const dbptr) {
 	assert(repo);
+	assert(dbptr);
+	if(!*dbptr) return;
 	async_pool_leave(NULL);
 	*dbptr = NULL;
 }

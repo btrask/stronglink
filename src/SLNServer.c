@@ -195,75 +195,77 @@ static int POST_file(SLNSessionRef const session, HTTPConnectionRef const conn, 
 	return 0;
 }
 
-static count_t getURIs(SLNSessionRef const session, SLNFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID, str_t **const URIs, count_t const max) {
+static int getURIs(SLNSessionRef const session, SLNFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID, str_t **const URIs, size_t *const count) {
+	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
 	SLNRepoRef const repo = SLNSessionGetRepo(session);
+	int rc = 0;
 	DB_env *db = NULL;
 	SLNRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
-	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
+	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	if(DB_SUCCESS != rc) goto cleanup;
 
 	SLNFilterPrepare(filter, txn);
 	SLNFilterSeek(filter, dir, *sortID, *fileID);
 
-	count_t count = 0;
-	while(count < max) {
-		str_t *const URI = SLNFilterCopyNextURI(filter, dir, txn);
-		if(!URI) break;
-		URIs[count++] = URI;
+	size_t const max = *count;
+	size_t i =  0;
+	for(; i < max; i++) {
+		URIs[i] = SLNFilterCopyNextURI(filter, dir, txn);
+		if(!URIs[i]) break;
 	}
 
 	SLNFilterCurrent(filter, dir, sortID, fileID);
+	*count = i;
 
+cleanup:
 	db_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
-	return count;
+	return rc;
 }
-static void sendURIs(HTTPConnectionRef const conn, str_t *const *const URIs, count_t const count) {
-	for(index_t i = 0; i < count; ++i) {
-		uv_buf_t const parts[] = {
-			uv_buf_init((char *)URIs[i], strlen(URIs[i])),
-			uv_buf_init("\r\n", 2),
-		};
-		HTTPConnectionWriteChunkv(conn, parts, numberof(parts));
-	}
-}
-static void cleanupURIs(str_t **const URIs, count_t const count) {
-	for(index_t i = 0; i < count; ++i) {
+static int sendURIBatch(SLNSessionRef const session, SLNFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID, HTTPConnectionRef const conn) {
+	str_t *URIs[QUERY_BATCH_SIZE];
+	size_t count = numberof(URIs);
+	int rc = getURIs(session, filter, dir, sortID, fileID, URIs, &count);
+	if(DB_SUCCESS != rc) return rc;
+	if(0 == count) return DB_NOTFOUND;
+	rc = 0;
+	for(size_t i = 0; i < count; i++) {
+		if(rc >= 0) {
+			uv_buf_t const parts[] = {
+				uv_buf_init((char *)URIs[i], strlen(URIs[i])),
+				uv_buf_init("\r\n", 2),
+			};
+			rc = HTTPConnectionWriteChunkv(conn, parts, numberof(parts));
+		}
 		FREE(&URIs[i]);
 	}
+	if(rc < 0) return DB_EIO;
+	return DB_SUCCESS;
 }
 static int POST_query(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method && HTTP_GET != method) return -1; // TODO: GET is just for testing
 	if(!URIPath(URI, "/efs/query", NULL)) return -1;
 
 	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return 403;
-
-	SLNJSONFilterParserRef parser = NULL;
-	SLNFilterRef filter = SLNFilterCreate(SLNMetaFileFilterType);
 	int rc;
 
+	SLNFilterRef filter = SLNFilterCreate(SLNMetaFileFilterType);
 	if(HTTP_POST == method) {
 		// TODO: Check Content-Type header for JSON.
-		parser = SLNJSONFilterParserCreate();
+		SLNJSONFilterParserRef parser = SLNJSONFilterParserCreate();
 		for(;;) {
 			uv_buf_t buf[1];
 			rc = HTTPConnectionReadBody(conn, buf);
 			if(rc < 0) return 400;
-			if(!buf->len) break;
+			if(0 == buf->len) break;
 
 			SLNJSONFilterParserWrite(parser, (str_t const *)buf->base, buf->len);
 		}
 		SLNFilterAddFilterArg(filter, SLNJSONFilterParserEnd(parser));
+		SLNJSONFilterParserFree(&parser);
 	} else {
 		SLNFilterAddFilterArg(filter, SLNFilterCreate(SLNAllFilterType));
-	}
-
-	str_t **URIs = malloc(sizeof(str_t *) * QUERY_BATCH_SIZE);
-	if(!URIs) {
-		SLNFilterFree(&filter);
-		SLNJSONFilterParserFree(&parser);
-		return 500;
 	}
 
 	// I'm aware that we're abusing HTTP for sending real-time push data.
@@ -286,12 +288,13 @@ static int POST_query(SLNSessionRef const session, HTTPConnectionRef const conn,
 	uint64_t fileID = 0;
 
 	for(;;) {
-		count_t const count = getURIs(session, filter, +1, &sortID, &fileID, URIs, QUERY_BATCH_SIZE);
-		sendURIs(conn, URIs, count);
-		cleanupURIs(URIs, count);
-		if(count < QUERY_BATCH_SIZE) break;
+		rc = sendURIBatch(session, filter, +1, &sortID, &fileID, conn);
+		fprintf(stderr, "sent batch %s\n", db_strerror(rc));
+		if(DB_NOTFOUND == rc) break;
+		if(DB_SUCCESS == rc) continue;
+		fprintf(stderr, "Query error: %s\n", db_strerror(rc));
+		goto cleanup;
 	}
-
 
 	SLNRepoRef const repo = SLNSessionGetRepo(session);
 	for(;;) {
@@ -299,26 +302,27 @@ static int POST_query(SLNSessionRef const session, HTTPConnectionRef const conn,
 		int rc = SLNRepoSubmissionWait(repo, sortID, timeout);
 		if(UV_ETIMEDOUT == rc) {
 			uv_buf_t const parts[] = { uv_buf_init("\r\n", 2) };
-			if(HTTPConnectionWriteChunkv(conn, parts, numberof(parts)) < 0) break;
+			rc = HTTPConnectionWriteChunkv(conn, parts, numberof(parts));
+			if(rc < 0) break;
 			continue;
 		}
 		assert(rc >= 0); // TODO: Handle cancellation?
 
 		for(;;) {
-			count_t const count = getURIs(session, filter, +1, &sortID, &fileID, URIs, QUERY_BATCH_SIZE);
-			sendURIs(conn, URIs, count);
-			cleanupURIs(URIs, count);
-			if(count < QUERY_BATCH_SIZE) break;
+			rc = sendURIBatch(session, filter, +1, &sortID, &fileID, conn);
+			if(DB_NOTFOUND == rc) break;
+			if(DB_SUCCESS == rc) continue;
+			fprintf(stderr, "Query error: %s\n", db_strerror(rc));
+			goto cleanup;
 		}
 	}
 
 
+cleanup:
 	HTTPConnectionWriteChunkv(conn, NULL, 0);
 	HTTPConnectionEnd(conn);
 
-	FREE(&URIs);
 	SLNFilterFree(&filter);
-	SLNJSONFilterParserFree(&parser);
 	return 0;
 }
 
