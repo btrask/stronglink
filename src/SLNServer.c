@@ -290,10 +290,8 @@ static int POST_query(SLNSessionRef const session, HTTPConnectionRef const conn,
 
 	for(;;) {
 		rc = sendURIBatch(session, filter, +1, &sortID, &fileID, conn);
-		fprintf(stderr, "sent batch %s\n", db_strerror(rc));
 		if(DB_NOTFOUND == rc) break;
 		if(DB_SUCCESS == rc) continue;
-		fprintf(stderr, "Query error: %s\n", db_strerror(rc));
 		goto cleanup;
 	}
 
