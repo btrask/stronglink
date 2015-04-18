@@ -153,7 +153,11 @@ static bool parse_token(strarg_t *const query, strarg_t const token) {
 	strarg_t q = *query;
 	strarg_t t = token;
 	for(;;) {
-		if('\0' == *t) break;
+		if('\0' == *t) {
+			if('\0' == *q) break;
+			if(isspace(*q)) break;
+			return false;
+		}
 		if(tolower(*q++) != *t++) return false;
 	}
 	*query = q;
