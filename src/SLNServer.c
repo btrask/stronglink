@@ -359,7 +359,7 @@ static int POST_query_obsolete(SLNSessionRef const session, HTTPConnectionRef co
 	rc = SLNFilterAddFilterArg(filter, subfilter);
 	if(rc < 0) {
 		SLNFilterFree(&subfilter);
-		SLNFilterFree(&subfilter);
+		SLNFilterFree(&filter);
 		return 500;
 	}
 	sendURIList(session, filter, conn);
