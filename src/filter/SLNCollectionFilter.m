@@ -2,12 +2,12 @@
 
 static int filtercmp(SLNFilter *const a, SLNFilter *const b, int const dir) {
 	uint64_t asort, afile, bsort, bfile;
-	[a current:dir*+1 :&asort :&afile];
-	[b current:dir*+1 :&bsort :&bfile];
-	if(asort > bsort) return dir*+1;
-	if(asort < bsort) return dir*-1;
-	if(afile > bfile) return dir*+1;
-	if(afile < bfile) return dir*-1;
+	[a current:dir :&asort :&afile];
+	[b current:dir :&bsort :&bfile];
+	if(asort > bsort) return +dir;
+	if(asort < bsort) return -dir;
+	if(afile > bfile) return +dir;
+	if(afile < bfile) return -dir;
 	return 0;
 }
 static int filtercmp_fwd(SLNFilter *const *const a, SLNFilter *const *const b) {
