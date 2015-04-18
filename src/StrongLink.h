@@ -82,7 +82,7 @@ int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFi
 void SLNFileInfoCleanup(SLNFileInfo *const info);
 int SLNSessionGetValueForField(SLNSessionRef const session, str_t value[], size_t const max, strarg_t const fileURI, strarg_t const field);
 
-SLNSubmissionRef SLNSubmissionCreate(SLNSessionRef const session, strarg_t const type);
+int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const type, SLNSubmissionRef *const out);
 void SLNSubmissionFree(SLNSubmissionRef *const subptr);
 SLNRepoRef SLNSubmissionGetRepo(SLNSubmissionRef const sub);
 strarg_t SLNSubmissionGetType(SLNSubmissionRef const sub);
@@ -94,7 +94,7 @@ strarg_t SLNSubmissionGetPrimaryURI(SLNSubmissionRef const sub);
 int SLNSubmissionGetFileInfo(SLNSubmissionRef const sub, SLNFileInfo *const info);
 int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn);
 // Convenience methods
-SLNSubmissionRef SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context);
+int SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, SLNSubmissionRef *const out);
 int SLNSubmissionBatchStore(SLNSubmissionRef const *const list, count_t const count);
 
 SLNHasherRef SLNHasherCreate(strarg_t const type);

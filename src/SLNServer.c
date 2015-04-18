@@ -82,8 +82,6 @@ static int GET_file(SLNSessionRef const session, HTTPConnectionRef const conn, H
 	if('/' == URI[len]) len++;
 	if('\0' != URI[len] && '?' != URI[len]) return -1;
 
-	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return 403;
-
 	// TODO: Check for conditional get headers and return 304 Not Modified.
 
 	str_t fileURI[SLN_URI_MAX];
@@ -92,6 +90,7 @@ static int GET_file(SLNSessionRef const session, HTTPConnectionRef const conn, H
 
 	SLNFileInfo info[1];
 	rc = SLNSessionGetFileInfo(session, fileURI, info);
+	if(DB_EACCES == rc) return 403;
 	if(DB_NOTFOUND == rc) return 404;
 	if(DB_SUCCESS != rc) return 500;
 
@@ -146,14 +145,13 @@ static int POST_file(SLNSessionRef const session, HTTPConnectionRef const conn, 
 	if('/' == URI[len]) len++;
 	if('\0' != URI[len] && '?' != URI[len]) return -1;
 
-	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return 403;
-
 	strarg_t const type = HTTPHeadersGet(headers, "Content-Type");
 	if(!type) return 400;
 
-	int rc;
-	SLNSubmissionRef sub = SLNSubmissionCreate(session, type);
-	if(!sub) return 500;
+	SLNSubmissionRef sub;
+	int rc = SLNSubmissionCreate(session, type, &sub);
+	if(UV_EACCES == rc) return 403;
+	if(rc < 0) return 500;
 	for(;;) {
 		uv_buf_t buf[1] = {};
 		rc = HTTPConnectionReadBody(conn, buf);
@@ -195,6 +193,7 @@ static int POST_file(SLNSessionRef const session, HTTPConnectionRef const conn, 
 	return 0;
 }
 
+// TODO: We need a general purpose filter method on SLNSession.
 static int getURIs(SLNSessionRef const session, SLNFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID, str_t **const URIs, size_t *const count) {
 	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
 	SLNRepoRef const repo = SLNSessionGetRepo(session);

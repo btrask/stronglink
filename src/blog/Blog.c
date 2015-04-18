@@ -352,8 +352,7 @@ static int parse_file(BlogRef const blog,
 		type = content_type;
 	}
 
-	file = SLNSubmissionCreate(session, type);
-	if(!file) rc = UV_ENOMEM;
+	rc = SLNSubmissionCreate(session, type, &file);
 	if(rc < 0) goto cleanup;
 	for(;;) {
 		uv_buf_t buf[1];
@@ -398,8 +397,6 @@ static int POST_post(BlogRef const blog,
 	if(HTTP_POST != method) return -1;
 	if(!URIPath(URI, "/post", NULL)) return -1;
 
-	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return 403;
-
 	// TODO: CSRF token
 	strarg_t const formtype = HTTPHeadersGet(headers, "content-type"); 
 	uv_buf_t boundary[1];
@@ -415,6 +412,10 @@ static int POST_post(BlogRef const blog,
 	SLNSubmissionRef sub = NULL;
 	SLNSubmissionRef meta = NULL;
 	rc = parse_file(blog, session, form, &sub, &meta);
+	if(UV_EACCES == rc) {
+		MultipartFormFree(&form);
+		return 403;
+	}
 	if(rc < 0) {
 		MultipartFormFree(&form);
 		return 500;

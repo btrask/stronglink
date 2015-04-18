@@ -21,29 +21,37 @@ struct SLNSubmission {
 
 int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID, DB_txn *const txn, uint64_t *const out);
 
-SLNSubmissionRef SLNSubmissionCreate(SLNSessionRef const session, strarg_t const type) {
-	if(!session) return NULL;
-	assert(type);
-
-	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return NULL;
+int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const type, SLNSubmissionRef *const out) {
+	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return UV_EACCES;
+	if(!type) return UV_EINVAL;
 
 	SLNSubmissionRef sub = calloc(1, sizeof(struct SLNSubmission));
-	if(!sub) return NULL;
+	if(!sub) return UV_ENOMEM;
+	int rc = 0;
+
 	sub->session = session;
 	sub->type = strdup(type);
+	if(!sub->type) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
 
 	sub->tmppath = SLNRepoCopyTempPath(SLNSessionGetRepo(session));
-	sub->tmpfile = async_fs_open_mkdirp(sub->tmppath, O_CREAT | O_EXCL | O_RDWR, 0400);
-	if(sub->tmpfile < 0) {
-		fprintf(stderr, "Error: couldn't create temp file %s (%s)\n", sub->tmppath, uv_err_name(sub->tmpfile));
-		SLNSubmissionFree(&sub);
-		return NULL;
-	}
+	if(!sub->tmppath) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
+	rc = async_fs_open_mkdirp(sub->tmppath, O_CREAT | O_EXCL | O_RDWR, 0400);
+	if(rc < 0) goto cleanup;
+	sub->tmpfile = rc;
 
 	sub->hasher = SLNHasherCreate(sub->type);
+	if(!sub->hasher) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
+
 	sub->metaFileID = 0;
 
-	return sub;
+	*out = sub; sub = NULL;
+
+cleanup:
+	SLNSubmissionFree(&sub);
+	return rc;
 }
 void SLNSubmissionFree(SLNSubmissionRef *const subptr) {
 	SLNSubmissionRef sub = *subptr;
@@ -225,12 +233,12 @@ int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn) {
 	return 0;
 }
 
-SLNSubmissionRef SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context) {
-	SLNSubmissionRef sub = SLNSubmissionCreate(session, type);
-	if(!sub) return NULL;
-	int rc = SLNSubmissionWriteFrom(sub, read, context);
-	if(rc < 0) SLNSubmissionFree(&sub);
-	return sub;
+int SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, SLNSubmissionRef *const out) {
+	int rc = SLNSubmissionCreate(session, type, out);
+	if(rc < 0) return rc;
+	rc = SLNSubmissionWriteFrom(*out, read, context);
+	if(rc < 0) SLNSubmissionFree(out);
+	return rc;
 }
 int SLNSubmissionBatchStore(SLNSubmissionRef const *const list, count_t const count) {
 	if(!count) return 0;

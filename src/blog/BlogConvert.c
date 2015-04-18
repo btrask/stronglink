@@ -71,8 +71,7 @@ static int convert(BlogRef const blog,
 	async_fs_close(file); file = -1;
 
 	char const *const metatype = "text/efs-meta+json; charset=utf-8";
-	meta = SLNSubmissionCreate(session, metatype);
-	if(!meta) rc = UV_ENOMEM;
+	rc = SLNSubmissionCreate(session, metatype, &meta);
 	if(rc < 0) goto cleanup;
 
 	SLNSubmissionWrite(meta, (byte_t const *)URI, strlen(URI));
