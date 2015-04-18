@@ -149,7 +149,12 @@ int SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const f
 		return rc;
 	}
 
-	SLNFilterPrepare(filter, txn);
+	rc = SLNFilterPrepare(filter, txn);
+	if(DB_SUCCESS != rc) {
+		db_txn_abort(txn); txn = NULL;
+		SLNRepoDBClose(repo, &db);
+		return rc;
+	}
 
 	rc = SLNFilterSeekURI(filter, dir, startURI, txn);
 	if(DB_NOTFOUND == rc) {

@@ -205,7 +205,8 @@ static int getURIs(SLNSessionRef const session, SLNFilterRef const filter, int c
 	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	if(DB_SUCCESS != rc) goto cleanup;
 
-	SLNFilterPrepare(filter, txn);
+	rc = SLNFilterPrepare(filter, txn);
+	if(DB_SUCCESS != rc) goto cleanup;
 	SLNFilterSeek(filter, dir, *sortID, *fileID);
 
 	size_t const max = *count;
