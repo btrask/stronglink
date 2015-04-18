@@ -338,7 +338,7 @@ static int GET_metafiles(SLNSessionRef const session, HTTPConnectionRef const co
 	int rc = SLNFilterCreate(session, SLNMetaFileFilterType, &filter);
 	if(DB_EACCES == rc) return 403;
 	if(DB_SUCCESS != rc) return 500;
-	sendURIList(session, filter, conn);
+	sendURIList(session, filter, conn); // TODO: Use "meta -> file" format
 	SLNFilterFree(&filter);
 	return 0;
 }
