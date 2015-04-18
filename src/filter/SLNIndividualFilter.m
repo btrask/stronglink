@@ -26,28 +26,36 @@
 }
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
 	int rc;
-	uint64_t const actualSortID = [self seekMeta:dir :sortID];
-	if(!valid(actualSortID)) return;
-	DB_val metaFileID_key[1];
-	SLNMetaFileByIDKeyPack(metaFileID_key, curtxn, actualSortID);
-	DB_val metaFile_val[1];
-	rc = db_cursor_seek(step_target, metaFileID_key, metaFile_val, 0);
-	assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
-	uint64_t metaFileFileID;
-	strarg_t targetURI;
-	SLNMetaFileByIDValUnpack(metaFile_val, curtxn, &metaFileFileID, &targetURI);
+	// TODO: This is copy and pasted from -step:.
+	// The only difference is the first iteration, when we -seekMeta::
+	// instead of -step: and then seek to the fileID if we got a direct hit.
+	// It'd be nice to merge these functions, but I don't want to implement
+	// stepping in terms of seeking because it isn't guaranteed to be as
+	// fast (depending on the backend, etc).
+	uint64_t actualSortID = [self seekMeta:dir :sortID];
+	for(; valid(actualSortID); actualSortID = [self stepMeta:dir]) {
+		DB_val metaFileID_key[1];
+		SLNMetaFileByIDKeyPack(metaFileID_key, curtxn, actualSortID);
+		DB_val metaFile_val[1];
+		rc = db_cursor_seek(step_target, metaFileID_key, metaFile_val, 0);
+		assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
+		uint64_t f;
+		strarg_t targetURI;
+		SLNMetaFileByIDValUnpack(metaFile_val, curtxn, &f, &targetURI);
 
-	DB_range fileIDs[1];
-	SLNURIAndFileIDRange1(fileIDs, curtxn, targetURI);
-	if(sortID == actualSortID) {
-		DB_val fileID_key[1];
-		SLNURIAndFileIDKeyPack(fileID_key, curtxn, targetURI, fileID);
-		rc = db_cursor_seekr(step_files, fileIDs, fileID_key, NULL, dir);
-	} else {
-		DB_val fileID_key[1];
-		rc = db_cursor_firstr(step_files, fileIDs, fileID_key, NULL, dir);
+		DB_range fileIDs[1];
+		SLNURIAndFileIDRange1(fileIDs, curtxn, targetURI);
+		if(actualSortID == sortID) {
+			DB_val fileID_key[1];
+			SLNURIAndFileIDKeyPack(fileID_key, curtxn, targetURI, fileID);
+			rc = db_cursor_seekr(step_files, fileIDs, fileID_key, NULL, dir);
+		} else {
+			DB_val fileID_key[1];
+			rc = db_cursor_firstr(step_files, fileIDs, fileID_key, NULL, dir);
+		}
+		if(DB_SUCCESS != rc) continue;
+		return;
 	}
-	assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
 }
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
 	DB_val fileID_key[1];
@@ -77,7 +85,8 @@
 		if(DB_SUCCESS == rc) return;
 	}
 
-	for(uint64_t sortID = [self stepMeta:dir]; valid(sortID); sortID = [self stepMeta:dir]) {
+	uint64_t sortID = [self stepMeta:dir];
+	for(; valid(sortID); sortID = [self stepMeta:dir]) {
 		DB_val metaFileID_key[1];
 		SLNMetaFileByIDKeyPack(metaFileID_key, curtxn, sortID);
 		DB_val metaFile_val[1];
