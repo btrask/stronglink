@@ -78,11 +78,12 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 	assert(count);
 	assert(0 != dir);
 	assert(0 != sort); // Means we don't have a valid position.
-	if(dir != sort) {
-		assert(0 && "Filter direction reversal not currently supported"); // TODO: To reverse directions, we have to "flip" any trailing filters. Cf. LSMDB.
-	}
 	uint64_t oldSortID, oldFileID;
 	[filters[0] current:dir :&oldSortID :&oldFileID];
+	if(dir != sort) {
+		// Flip directions. Inexact sub-filters must be repositioned.
+		[self seek:dir :oldSortID :oldFileID];
+	}
 	[filters[0] step:dir];
 	for(index_t i = 1; i < count; ++i) {
 		uint64_t curSortID, curFileID;
