@@ -114,6 +114,7 @@ typedef enum {
 	SLNLinksToFilterType,
 	SLNLinkedFromFilterType,
 	SLNMetaFileFilterType,
+	SLNBadMetaFileFilterType, // TODO: Deprecated
 } SLNFilterType;
 
 SLNFilterRef SLNFilterCreate(SLNFilterType const type);

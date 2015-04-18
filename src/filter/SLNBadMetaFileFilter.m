@@ -1,6 +1,9 @@
 #include "SLNFilter.h"
 
-@interface SLNMetaFileFilterInternal : SLNFilter
+// TODO: This file is deprecated.
+// We want to get rid of it just as soon as we rewrite our sync system.
+
+@interface SLNBadMetaFileFilterInternal : SLNFilter
 {
 	DB_txn *curtxn;
 	SLNFilter *subfilter; // weak ref
@@ -11,11 +14,11 @@
 }
 @end
 
-@implementation SLNMetaFileFilter
+@implementation SLNBadMetaFileFilter
 - (id)init {
 	if(!(self = [super init])) return nil;
 	main = [[SLNUnionFilter alloc] init];
-	internal = [[SLNMetaFileFilterInternal alloc] init];
+	internal = [[SLNBadMetaFileFilterInternal alloc] init];
 	if(!main || !internal) {
 		[internal free]; internal = nil;
 		[self free];
@@ -34,7 +37,7 @@
 }
 
 - (SLNFilterType)type {
-	return SLNMetaFileFilterType;
+	return SLNBadMetaFileFilterType;
 }
 - (SLNFilter *)unwrap {
 	return [subfilter unwrap];
@@ -47,13 +50,13 @@
 }
 - (void)print:(count_t const)depth {
 	indent(depth);
-	fprintf(stderr, "(metafiles\n");
+	fprintf(stderr, "(badmetafiles\n");
 	[subfilter print:depth+1];
 	indent(depth);
 	fprintf(stderr, ")\n");
 }
 - (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth {
-	assert(0 && "Meta-file filter has no user representation");
+	assert(0);
 	return wr(data, size, "");
 }
 
@@ -81,7 +84,7 @@
 }
 @end
 
-@implementation SLNMetaFileFilterInternal
+@implementation SLNBadMetaFileFilterInternal
 - (void)free {
 	subfilter = nil;
 	db_cursor_close(metafiles); metafiles = NULL;

@@ -39,8 +39,8 @@ SLNFilterRef SLNFilterCreate(SLNFilterType const type) {
 			return (SLNFilterRef)[[SLNIntersectionFilter alloc] init];
 		case SLNUnionFilterType:
 			return (SLNFilterRef)[[SLNUnionFilter alloc] init];
-		case SLNMetaFileFilterType:
-			return (SLNFilterRef)[[SLNMetaFileFilter alloc] init];
+		case SLNBadMetaFileFilterType:
+			return (SLNFilterRef)[[SLNBadMetaFileFilter alloc] init];
 		default: assert(0); return NULL;
 	}
 }

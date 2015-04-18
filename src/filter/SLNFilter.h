@@ -111,8 +111,8 @@ struct token {
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID;
 @end
 
-// SLNMetaFileFilter.m
-@interface SLNMetaFileFilter : SLNFilter
+// SLNBadMetaFileFilter.m
+@interface SLNBadMetaFileFilter : SLNFilter
 {
 	SLNUnionFilter *main;
 	SLNFilter *internal; // weak ref
