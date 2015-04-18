@@ -296,33 +296,36 @@ static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, 
 	HTTPConnectionWriteChunkv(conn, NULL, 0);
 	HTTPConnectionEnd(conn);
 }
-static SLNFilterRef parseFilter(HTTPConnectionRef const conn, HTTPMethod const method, HTTPHeadersRef const headers) {
-	if(HTTP_POST != method) return SLNFilterCreate(SLNAllFilterType);
+static int parseFilter(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, HTTPHeadersRef const headers, SLNFilterRef *const out) {
+	if(HTTP_POST != method) return SLNFilterCreate(session, SLNAllFilterType, out);
 	// TODO: Check Content-Type header for JSON.
-	SLNJSONFilterParserRef parser = SLNJSONFilterParserCreate();
+	SLNJSONFilterParserRef parser;
+	int rc = SLNJSONFilterParserCreate(session, &parser);
+	if(DB_SUCCESS != rc) return rc;
 	for(;;) {
 		uv_buf_t buf[1];
-		int rc = HTTPConnectionReadBody(conn, buf);
+		rc = HTTPConnectionReadBody(conn, buf);
 		if(rc < 0) {
 			SLNJSONFilterParserFree(&parser);
-			return NULL;
+			return DB_ENOMEM;
 		}
 		if(0 == buf->len) break;
 
 		SLNJSONFilterParserWrite(parser, (str_t const *)buf->base, buf->len);
 	}
-	SLNFilterRef filter = SLNJSONFilterParserEnd(parser);
+	*out = SLNJSONFilterParserEnd(parser);
 	SLNJSONFilterParserFree(&parser);
-	return filter;
+	if(!*out) return DB_ENOMEM;
+	return DB_SUCCESS;
 }
 static int POST_query(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method && HTTP_GET != method) return -1; // TODO: GET is just for testing
 	if(!URIPath(URI, "/efs/query", NULL)) return -1;
 
-	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return 403;
-
-	// TODO: Error checking
-	SLNFilterRef filter = parseFilter(conn, method, headers);
+	SLNFilterRef filter;
+	int rc = parseFilter(session, conn, method, headers, &filter);
+	if(DB_EACCES == rc) return 403;
+	if(DB_SUCCESS != rc) return 500;
 	sendURIList(session, filter, conn);
 	SLNFilterFree(&filter);
 	return 0;
@@ -331,10 +334,10 @@ static int GET_metafiles(SLNSessionRef const session, HTTPConnectionRef const co
 	if(HTTP_GET != method) return -1;
 	if(!URIPath(URI, "/efs/metafiles", NULL)) return -1;
 
-	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return 403;
-
-	SLNFilterRef filter = SLNFilterCreate(SLNMetaFileFilterType);
-	if(!filter) return 500;
+	SLNFilterRef filter;
+	int rc = SLNFilterCreate(session, SLNMetaFileFilterType, &filter);
+	if(DB_EACCES == rc) return 403;
+	if(DB_SUCCESS != rc) return 500;
 	sendURIList(session, filter, conn);
 	SLNFilterFree(&filter);
 	return 0;
@@ -344,11 +347,21 @@ static int POST_query_obsolete(SLNSessionRef const session, HTTPConnectionRef co
 	if(HTTP_POST != method && HTTP_GET != method) return -1; // TODO: GET is just for testing
 	if(!URIPath(URI, "/efs/query-obsolete", NULL)) return -1;
 
-	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return 403;
-
-	// TODO: Error checking
-	SLNFilterRef filter = SLNFilterCreate(SLNBadMetaFileFilterType);
-	SLNFilterAddFilterArg(filter, parseFilter(conn, method, headers));
+	SLNFilterRef filter, subfilter;
+	int rc = SLNFilterCreate(session, SLNBadMetaFileFilterType, &filter);
+	if(DB_EACCES == rc) return 403;
+	if(DB_SUCCESS != rc) return 500;
+	rc = parseFilter(session, conn, method, headers, &subfilter);
+	if(DB_SUCCESS != rc) {
+		SLNFilterFree(&filter);
+		return 500;
+	}
+	rc = SLNFilterAddFilterArg(filter, subfilter);
+	if(rc < 0) {
+		SLNFilterFree(&subfilter);
+		SLNFilterFree(&subfilter);
+		return 500;
+	}
 	sendURIList(session, filter, conn);
 	SLNFilterFree(&filter);
 	return 0;

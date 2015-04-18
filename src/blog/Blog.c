@@ -113,8 +113,6 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	strarg_t qs = NULL;
 	if(!URIPath(URI, "/", &qs)) return -1;
 
-	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return 403;
-
 	static strarg_t const fields[] = {
 		"q",
 		"start",
@@ -125,8 +123,17 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	QSValuesParse(qs, values, fields, numberof(fields));
 	// TODO: Cap query size
 	str_t *query_HTMLSafe = htmlenc(values[0]);
-	SLNFilterRef filter = SLNUserFilterParse(values[0]);
-	if(!filter) filter = SLNFilterCreate(SLNAllFilterType);
+	SLNFilterRef filter;
+	int rc = SLNUserFilterParse(session, values[0], &filter);
+	if(DB_EACCES == rc) {
+		QSValuesCleanup(values, numberof(values));
+		return 403;
+	}
+	if(DB_EINVAL == rc) rc = SLNFilterCreate(session, SLNAllFilterType, &filter);
+	if(DB_SUCCESS != rc) {
+		QSValuesCleanup(values, numberof(values));
+		return 500;
+	}
 //	SLNFilterPrint(filter, 0); // DEBUG
 
 	strarg_t start;
@@ -136,7 +143,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	size_t count = RESULTS_MAX;
 	str_t *URIs[RESULTS_MAX];
-	int rc = SLNSessionCopyFilteredURIs(session, filter, start, sdir, URIs, &count);
+	rc = SLNSessionCopyFilteredURIs(session, filter, start, sdir, URIs, &count);
 
 	QSValuesCleanup(values, numberof(values));
 

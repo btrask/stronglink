@@ -12,17 +12,27 @@ static SLNFilterRef parse_term(strarg_t *const query);
 static bool parse_space(strarg_t *const query);
 static bool parse_token(strarg_t *const query, strarg_t const token);
 
-SLNFilterRef SLNUserFilterParse(strarg_t const query) {
-	if(!query) return NULL;
+// TODO: HACK
+static SLNFilterRef const createfilter(SLNFilterType const type) {
+	SLNFilterRef filter;
+	int rc = SLNFilterCreate((SLNSessionRef)-1, type, &filter);
+	assert(DB_SUCCESS == rc);
+	return filter;
+}
+
+int SLNUserFilterParse(SLNSessionRef const session, strarg_t const query, SLNFilterRef *const out) {
+	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
+	if(!query) return DB_EINVAL;
 	strarg_t pos = query;
 	SLNFilterRef filter = parse_and(&pos);
-	if(!filter) return NULL;
+	if(!filter) return DB_EINVAL;
 	parse_space(&pos);
 	if('\0' != *pos) {
 		SLNFilterFree(&filter);
-		return NULL;
+		return DB_EINVAL;
 	}
-	return filter;
+	*out = filter;
+	return DB_SUCCESS;
 }
 
 static SLNFilterRef parse_and(strarg_t *const query) {
@@ -30,7 +40,7 @@ static SLNFilterRef parse_and(strarg_t *const query) {
 	for(;;) {
 		SLNFilterRef const or = parse_or(query);
 		if(!or) break;
-		if(!and) and = SLNFilterCreate(SLNIntersectionFilterType);
+		if(!and) and = createfilter(SLNIntersectionFilterType);
 		SLNFilterAddFilterArg(and, or);
 
 		// Optional, ignored
@@ -44,7 +54,7 @@ static SLNFilterRef parse_or(strarg_t *const query) {
 	for(;;) {
 		SLNFilterRef const exp = parse_exp(query);
 		if(!exp) break;
-		if(!or) or = SLNFilterCreate(SLNUnionFilterType);
+		if(!or) or = createfilter(SLNUnionFilterType);
 		SLNFilterAddFilterArg(or, exp);
 		if(!parse_space(query)) break;
 		if(!parse_token(query, "or")) break;
@@ -76,7 +86,7 @@ static SLNFilterRef parse_link(strarg_t *const query) {
 	if('/' != *q++) return NULL;
 	if('/' != *q++) return NULL;
 	for(; '\0' != *q && !isspace(*q); ++q);
-	SLNFilterRef const filter = SLNFilterCreate(SLNMetadataFilterType);
+	SLNFilterRef const filter = createfilter(SLNMetadataFilterType);
 	size_t const len = q - *query;
 	SLNFilterAddStringArg(filter, "link", sizeof("link")-1);
 	SLNFilterAddStringArg(filter, *query, len);
@@ -99,7 +109,7 @@ static SLNFilterRef parse_quoted(strarg_t *const query) {
 		*query = q;
 		return NULL;
 	}
-	SLNFilterRef filter = SLNFilterCreate(SLNFulltextFilterType);
+	SLNFilterRef filter = createfilter(SLNFulltextFilterType);
 	int rc = SLNFilterAddStringArg(filter, start, len);
 	if(rc < 0) {
 		SLNFilterFree(&filter);
@@ -122,7 +132,7 @@ static SLNFilterRef parse_term(strarg_t *const query) {
 	if(0 == len) return NULL;
 	if(substr("or", *query, len)) return NULL;
 	if(substr("and", *query, len)) return NULL;
-	SLNFilterRef filter = SLNFilterCreate(SLNFulltextFilterType);
+	SLNFilterRef filter = createfilter(SLNFulltextFilterType);
 	int rc = SLNFilterAddStringArg(filter, *query, len);
 	if(rc < 0) {
 		SLNFilterFree(&filter);

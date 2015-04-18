@@ -117,7 +117,7 @@ typedef enum {
 	SLNBadMetaFileFilterType, // TODO: Deprecated
 } SLNFilterType;
 
-SLNFilterRef SLNFilterCreate(SLNFilterType const type);
+int SLNFilterCreate(SLNSessionRef const session, SLNFilterType const type, SLNFilterRef *const out);
 void SLNFilterFree(SLNFilterRef *const filterptr);
 SLNFilterType SLNFilterGetType(SLNFilterRef const filter);
 SLNFilterRef SLNFilterUnwrap(SLNFilterRef const filter);
@@ -135,13 +135,13 @@ uint64_t SLNFilterAge(SLNFilterRef const filter, uint64_t const fileID, uint64_t
 int SLNFilterSeekURI(SLNFilterRef const filter, int const dir, strarg_t const URI, DB_txn *const txn);
 str_t *SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, DB_txn *const txn);
 
-SLNJSONFilterParserRef SLNJSONFilterParserCreate(void);
+int SLNJSONFilterParserCreate(SLNSessionRef const session, SLNJSONFilterParserRef *const out);
 void SLNJSONFilterParserFree(SLNJSONFilterParserRef *const parserptr);
 void SLNJSONFilterParserWrite(SLNJSONFilterParserRef const parser, strarg_t const json, size_t const len);
 SLNFilterRef SLNJSONFilterParserEnd(SLNJSONFilterParserRef const parser);
 SLNFilterType SLNFilterTypeFromString(strarg_t const type, size_t const len);
 
-SLNFilterRef SLNUserFilterParse(strarg_t const query);
+int SLNUserFilterParse(SLNSessionRef const session, strarg_t const query, SLNFilterRef *const out);
 
 SLNPullRef SLNRepoCreatePull(SLNRepoRef const repo, uint64_t const pullID, uint64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query);
 void SLNPullFree(SLNPullRef *const pullptr);

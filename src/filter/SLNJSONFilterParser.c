@@ -4,6 +4,7 @@
 #define DEPTH_MAX 5
 
 struct SLNJSONFilterParser {
+	SLNSessionRef session;
 	yajl_handle JSONParser;
 	SLNFilterRef stack[DEPTH_MAX];
 	int depth;
@@ -11,16 +12,20 @@ struct SLNJSONFilterParser {
 
 static yajl_callbacks const callbacks;
 
-SLNJSONFilterParserRef SLNJSONFilterParserCreate(void) {
+int SLNJSONFilterParserCreate(SLNSessionRef const session, SLNJSONFilterParserRef *const out) {
+	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
 	SLNJSONFilterParserRef parser = calloc(1, sizeof(struct SLNJSONFilterParser));
-	if(!parser) return NULL;
+	if(!parser) return DB_ENOMEM;
+	parser->session = session;
 	parser->JSONParser = yajl_alloc(&callbacks, NULL, parser);
 	parser->depth = -1;
-	return parser;
+	*out = parser;
+	return DB_SUCCESS;
 }
 void SLNJSONFilterParserFree(SLNJSONFilterParserRef *const parserptr) {
 	SLNJSONFilterParserRef parser = *parserptr;
 	if(!parser) return;
+	parser->session = NULL;
 	if(parser->JSONParser) {
 		yajl_free(parser->JSONParser); parser->JSONParser = NULL;
 	}
@@ -65,15 +70,15 @@ static int yajl_string(SLNJSONFilterParserRef const parser, strarg_t const  str,
 	if(depth < 0) return false;
 	SLNFilterRef filter = parser->stack[depth];
 	if(filter) {
-		int const err = SLNFilterAddStringArg(filter, str, len);
-		if(err) return false;
+		int rc = SLNFilterAddStringArg(filter, str, len);
+		if(DB_SUCCESS != rc) return false;
 	} else {
-		filter = SLNFilterCreate(SLNFilterTypeFromString(str, len));
-		if(!filter) return false;
+		int rc = SLNFilterCreate(parser->session, SLNFilterTypeFromString(str, len), &filter);
+		if(DB_SUCCESS != rc) return false;
 		parser->stack[depth] = filter;
 		if(depth) {
-			int const err = SLNFilterAddFilterArg(parser->stack[depth-1], filter);
-			if(err) return false;
+			rc = SLNFilterAddFilterArg(parser->stack[depth-1], filter);
+			if(DB_SUCCESS != rc) return false;
 		}
 	}
 	return true;
