@@ -245,10 +245,11 @@ static int reconnect(SLNPullRef const pull) {
 		fprintf(stderr, "Pull couldn't connect to %s (%s)\n", pull->host, uv_strerror(rc));
 		return rc;
 	}
-	HTTPConnectionWriteRequest(pull->conn, HTTP_GET, "/efs/query?count=all", pull->host);
+	HTTPConnectionWriteRequest(pull->conn, HTTP_GET, "/efs/query-obsolete?count=all", pull->host);
 	// TODO: Pagination...
 	// TODO: More careful error handling.
 	// TODO: POST an actual query, GET is just a hack.
+	// TODO: New API
 	assert(pull->cookie);
 	HTTPConnectionWriteHeader(pull->conn, "Cookie", pull->cookie);
 	HTTPConnectionBeginBody(pull->conn);

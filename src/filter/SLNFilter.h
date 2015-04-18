@@ -111,6 +111,12 @@ struct token {
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID;
 @end
 
+@interface SLNMetaFileFilter : SLNFilter
+{
+	DB_cursor *metafiles;
+}
+@end
+
 // SLNBadMetaFileFilter.m
 @interface SLNBadMetaFileFilter : SLNFilter
 {

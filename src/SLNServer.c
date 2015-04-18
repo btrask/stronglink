@@ -244,31 +244,7 @@ static int sendURIBatch(SLNSessionRef const session, SLNFilterRef const filter, 
 	if(rc < 0) return DB_EIO;
 	return DB_SUCCESS;
 }
-static int POST_query(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
-	if(HTTP_POST != method && HTTP_GET != method) return -1; // TODO: GET is just for testing
-	if(!URIPath(URI, "/efs/query", NULL)) return -1;
-
-	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return 403;
-	int rc;
-
-	SLNFilterRef filter = SLNFilterCreate(SLNMetaFileFilterType);
-	if(HTTP_POST == method) {
-		// TODO: Check Content-Type header for JSON.
-		SLNJSONFilterParserRef parser = SLNJSONFilterParserCreate();
-		for(;;) {
-			uv_buf_t buf[1];
-			rc = HTTPConnectionReadBody(conn, buf);
-			if(rc < 0) return 400;
-			if(0 == buf->len) break;
-
-			SLNJSONFilterParserWrite(parser, (str_t const *)buf->base, buf->len);
-		}
-		SLNFilterAddFilterArg(filter, SLNJSONFilterParserEnd(parser));
-		SLNJSONFilterParserFree(&parser);
-	} else {
-		SLNFilterAddFilterArg(filter, SLNFilterCreate(SLNAllFilterType));
-	}
-
+static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, HTTPConnectionRef const conn) {
 	// I'm aware that we're abusing HTTP for sending real-time push data.
 	// I'd also like to support WebSocket at some point, but this is simpler
 	// and frankly probably more widely supported.
@@ -287,18 +263,19 @@ static int POST_query(SLNSessionRef const session, HTTPConnectionRef const conn,
 
 	uint64_t sortID = 0;
 	uint64_t fileID = 0;
+	int rc;
 
 	for(;;) {
 		rc = sendURIBatch(session, filter, +1, &sortID, &fileID, conn);
 		if(DB_NOTFOUND == rc) break;
 		if(DB_SUCCESS == rc) continue;
-		goto cleanup;
+		return;
 	}
 
 	SLNRepoRef const repo = SLNSessionGetRepo(session);
 	for(;;) {
 		uint64_t const timeout = uv_now(loop)+(1000 * 30);
-		int rc = SLNRepoSubmissionWait(repo, sortID, timeout);
+		rc = SLNRepoSubmissionWait(repo, sortID, timeout);
 		if(UV_ETIMEDOUT == rc) {
 			uv_buf_t const parts[] = { uv_buf_init("\r\n", 2) };
 			rc = HTTPConnectionWriteChunkv(conn, parts, numberof(parts));
@@ -312,15 +289,67 @@ static int POST_query(SLNSessionRef const session, HTTPConnectionRef const conn,
 			if(DB_NOTFOUND == rc) break;
 			if(DB_SUCCESS == rc) continue;
 			fprintf(stderr, "Query error: %s\n", db_strerror(rc));
-			goto cleanup;
+			return;
 		}
 	}
 
-
-cleanup:
 	HTTPConnectionWriteChunkv(conn, NULL, 0);
 	HTTPConnectionEnd(conn);
+}
+static SLNFilterRef parseFilter(HTTPConnectionRef const conn, HTTPMethod const method, HTTPHeadersRef const headers) {
+	if(HTTP_POST != method) return SLNFilterCreate(SLNAllFilterType);
+	// TODO: Check Content-Type header for JSON.
+	SLNJSONFilterParserRef parser = SLNJSONFilterParserCreate();
+	for(;;) {
+		uv_buf_t buf[1];
+		int rc = HTTPConnectionReadBody(conn, buf);
+		if(rc < 0) {
+			SLNJSONFilterParserFree(&parser);
+			return NULL;
+		}
+		if(0 == buf->len) break;
 
+		SLNJSONFilterParserWrite(parser, (str_t const *)buf->base, buf->len);
+	}
+	SLNFilterRef filter = SLNJSONFilterParserEnd(parser);
+	SLNJSONFilterParserFree(&parser);
+	return filter;
+}
+static int POST_query(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+	if(HTTP_POST != method && HTTP_GET != method) return -1; // TODO: GET is just for testing
+	if(!URIPath(URI, "/efs/query", NULL)) return -1;
+
+	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return 403;
+
+	// TODO: Error checking
+	SLNFilterRef filter = parseFilter(conn, method, headers);
+	sendURIList(session, filter, conn);
+	SLNFilterFree(&filter);
+	return 0;
+}
+static int GET_metafiles(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+	if(HTTP_GET != method) return -1;
+	if(!URIPath(URI, "/efs/metafiles", NULL)) return -1;
+
+	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return 403;
+
+	SLNFilterRef filter = SLNFilterCreate(SLNMetaFileFilterType);
+	if(!filter) return 500;
+	sendURIList(session, filter, conn);
+	SLNFilterFree(&filter);
+	return 0;
+}
+// TODO: Remove this once we rewrite the sync system not to need it.
+static int POST_query_obsolete(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+	if(HTTP_POST != method && HTTP_GET != method) return -1; // TODO: GET is just for testing
+	if(!URIPath(URI, "/efs/query-obsolete", NULL)) return -1;
+
+	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return 403;
+
+	// TODO: Error checking
+	SLNFilterRef filter = SLNFilterCreate(SLNBadMetaFileFilterType);
+	SLNFilterAddFilterArg(filter, parseFilter(conn, method, headers));
+	sendURIList(session, filter, conn);
 	SLNFilterFree(&filter);
 	return 0;
 }
@@ -332,6 +361,8 @@ int SLNServerDispatch(SLNSessionRef const session, HTTPConnectionRef const conn,
 	rc = rc >= 0 ? rc : GET_file(session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_file(session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_query(session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : GET_metafiles(session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : POST_query_obsolete(session, conn, method, URI, headers);
 	return rc;
 }
 
