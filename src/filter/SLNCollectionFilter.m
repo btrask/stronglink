@@ -62,7 +62,11 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 }
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
 	assert(count);
-	// TODO: The current value shouldn't actually depend on which direction the client wants to go. We shouldn't even accept it as an argument.
+	// TODO: The current value shouldn't actually depend on which direction
+	// the client wants to go. We shouldn't even accept it as an argument.
+	// That would mean getting rid of invalid() and instead returning a
+	// single invalid error regardless of intended direction, like
+	// DB_NOTFOUND. Whether that's a good idea or not is yet to be seen.
 	if(0 == sort) {
 		assert(0); // TODO
 		if(sortID) *sortID = invalid(dir);
