@@ -70,7 +70,7 @@ static int convert(BlogRef const blog,
 
 	async_fs_close(file); file = -1;
 
-	char const *const metatype = "text/efs-meta+json; charset=utf-8";
+	char const *const metatype = "text/x-sln-meta+json; charset=utf-8";
 	rc = SLNSubmissionCreate(session, metatype, &meta);
 	if(rc < 0) goto cleanup;
 
