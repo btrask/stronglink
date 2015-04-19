@@ -5,6 +5,7 @@
 static SLNFilterRef parse_and(strarg_t *const query);
 static SLNFilterRef parse_or(strarg_t *const query);
 static SLNFilterRef parse_exp(strarg_t *const query);
+static SLNFilterRef parse_negation(strarg_t *const query);
 static SLNFilterRef parse_parens(strarg_t *const query);
 static SLNFilterRef parse_link(strarg_t *const query);
 static SLNFilterRef parse_quoted(strarg_t *const query);
@@ -64,11 +65,23 @@ static SLNFilterRef parse_or(strarg_t *const query) {
 static SLNFilterRef parse_exp(strarg_t *const query) {
 	parse_space(query);
 	SLNFilterRef exp = NULL;
+	if(!exp) exp = parse_negation(query);
 	if(!exp) exp = parse_parens(query);
 	if(!exp) exp = parse_link(query);
 	if(!exp) exp = parse_quoted(query);
 	if(!exp) exp = parse_term(query);
 	return exp;
+}
+static SLNFilterRef parse_negation(strarg_t *const query) {
+	strarg_t q = *query;
+	if('-' != *q++) return NULL;
+	SLNFilterRef const subfilter = parse_exp(&q);
+	if(!subfilter) return NULL;
+	SLNFilterRef const negation = createfilter(SLNNegationFilterType);
+	size_t const len = q - *query;
+	SLNFilterAddFilterArg(negation, subfilter);
+	*query = q;
+	return negation;
 }
 static SLNFilterRef parse_parens(strarg_t *const query) {
 	strarg_t q = *query;

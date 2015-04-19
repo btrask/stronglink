@@ -109,6 +109,7 @@ typedef enum {
 	SLNFileTypeFilterType,
 	SLNIntersectionFilterType,
 	SLNUnionFilterType,
+	SLNNegationFilterType,
 	SLNFulltextFilterType,
 	SLNMetadataFilterType,
 	SLNLinksToFilterType,

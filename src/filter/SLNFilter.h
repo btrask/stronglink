@@ -131,6 +131,13 @@ struct token {
 }
 @end
 
+// SLNNegationFilter.m
+@interface SLNNegationFilter : SLNFilter
+{
+	SLNFilter *subfilter;
+}
+@end
+
 static bool valid(uint64_t const x) {
 	return 0 != x && UINT64_MAX != x;
 }

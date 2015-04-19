@@ -49,6 +49,9 @@ int SLNFilterCreate(SLNSessionRef const session, SLNFilterType const type, SLNFi
 		case SLNUnionFilterType:
 			*out = (SLNFilterRef)[[SLNUnionFilter alloc] init];
 			return DB_SUCCESS;
+		case SLNNegationFilterType:
+			*out = (SLNFilterRef)[[SLNNegationFilter alloc] init];
+			return DB_SUCCESS;
 		case SLNMetaFileFilterType:
 			*out = (SLNFilterRef)[[SLNMetaFileFilter alloc] init];
 			return DB_SUCCESS;
