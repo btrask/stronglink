@@ -78,7 +78,6 @@ static SLNFilterRef parse_negation(strarg_t *const query) {
 	SLNFilterRef const subfilter = parse_exp(&q);
 	if(!subfilter) return NULL;
 	SLNFilterRef const negation = createfilter(SLNNegationFilterType);
-	size_t const len = q - *query;
 	SLNFilterAddFilterArg(negation, subfilter);
 	*query = q;
 	return negation;
