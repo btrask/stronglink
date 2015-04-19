@@ -133,8 +133,9 @@ int SLNFilterSeekURI(SLNFilterRef const filter, int const dir, strarg_t const UR
 	SLNURIAndFileIDKeyUnpack(key, txn, &u, &fileID);
 	assert(0 == strcmp(URI, u));
 
-	uint64_t const sortID = [(SLNFilter *)filter fullAge:fileID];
-	if(!valid(sortID)) return DB_NOTFOUND;
+	SLNAgeRange const ages = [(SLNFilter *)filter fullAge:fileID];
+	if(!valid(ages.min) || ages.min > ages.max) return DB_NOTFOUND;
+	uint64_t const sortID = ages.min;
 
 	[(SLNFilter *)filter seek:dir :sortID :fileID];
 	[(SLNFilter *)filter step:dir]; // Start just before/after the URI.

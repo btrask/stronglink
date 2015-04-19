@@ -104,8 +104,8 @@
 		return;
 	}
 }
-- (uint64_t)fullAge:(uint64_t const)fileID {
-	return [self fastAge:fileID :UINT64_MAX];
+- (SLNAgeRange)fullAge:(uint64_t const)fileID {
+	return (SLNAgeRange){ [self fastAge:fileID :UINT64_MAX], UINT64_MAX };
 }
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {
 	uint64_t earliest = UINT64_MAX;

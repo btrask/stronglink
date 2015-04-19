@@ -76,7 +76,7 @@
 - (void)step:(int const)dir {
 	return [main step:dir];
 }
-- (uint64_t)fullAge:(uint64_t const)fileID {
+- (SLNAgeRange)fullAge:(uint64_t const)fileID {
 	return [main fullAge:fileID];
 }
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {
@@ -140,14 +140,14 @@
 	int rc = db_cursor_nextr(metafiles, range, ignore, NULL, dir);
 	assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
 }
-- (uint64_t)fullAge:(uint64_t const)fileID {
+- (SLNAgeRange)fullAge:(uint64_t const)fileID {
 	assert(subfilter);
 
 	DB_range metaFileIDs[1];
 	SLNFileIDAndMetaFileIDRange1(metaFileIDs, curtxn, fileID);
 	DB_val fileIDAndMetaFileID_key[1];
 	int rc = db_cursor_firstr(age_metafile, metaFileIDs, fileIDAndMetaFileID_key, NULL, +1);
-	if(DB_SUCCESS != rc) return UINT64_MAX;
+	if(DB_SUCCESS != rc) return (SLNAgeRange){ UINT64_MAX, UINT64_MAX };
 	uint64_t f;
 	uint64_t metaFileID;
 	SLNFileIDAndMetaFileIDKeyUnpack(fileIDAndMetaFileID_key, curtxn, &f, &metaFileID);
@@ -157,7 +157,7 @@
 	SLNMetaFileByIDKeyPack(metaFileID_key, curtxn, metaFileID);
 	DB_val metaFile_val[1];
 	rc = db_cursor_seek(age_uri, metaFileID_key, metaFile_val, 0);
-	if(DB_SUCCESS != rc) return UINT64_MAX;
+	if(DB_SUCCESS != rc) return (SLNAgeRange){ UINT64_MAX, UINT64_MAX };
 	uint64_t const f2 = db_read_uint64(metaFile_val);
 	assert(fileID == f2);
 	strarg_t const targetURI = db_read_string(metaFile_val, curtxn);
@@ -172,12 +172,14 @@
 		uint64_t targetFileID;
 		SLNURIAndFileIDKeyUnpack(targetFileID_key, curtxn, &u, &targetFileID);
 		assert(0 == strcmp(targetURI, u));
-		if([subfilter fullAge:targetFileID] < UINT64_MAX) return metaFileID;
+		if([subfilter fullAge:targetFileID].min < UINT64_MAX) {
+			return (SLNAgeRange){ metaFileID, UINT64_MAX };
+		}
 	}
-	return UINT64_MAX;
+	return (SLNAgeRange){ UINT64_MAX, UINT64_MAX };
 }
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {
-	return [self fullAge:fileID];
+	return [self fullAge:fileID].min;
 }
 @end
 

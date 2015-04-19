@@ -127,12 +127,12 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 	return len;
 }
 
-- (uint64_t)fullAge:(uint64_t const)fileID {
-	uint64_t age = 0;
+- (SLNAgeRange)fullAge:(uint64_t const)fileID {
+	SLNAgeRange age = { 0, UINT64_MAX };
 	for(size_t i = 0; i < count; i++) {
-		uint64_t const x = [filters[i] fullAge:fileID];
-		if(!valid(x)) return x;
-		if(x > age) age = x;
+		SLNAgeRange const x = [filters[i] fullAge:fileID];
+		if(valid(x.min) && x.min > age.min) age.min = x.min;
+		if(valid(x.max) && x.max < age.max) age.max = x.max;
 	}
 	return age;
 }
@@ -170,12 +170,12 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 	return len;
 }
 
-- (uint64_t)fullAge:(uint64_t const)fileID {
-	uint64_t age = UINT64_MAX;
+- (SLNAgeRange)fullAge:(uint64_t const)fileID {
+	SLNAgeRange age = { UINT64_MAX, 0 };
 	for(size_t i = 0; i < count; i++) {
-		uint64_t const x = [filters[i] fullAge:fileID];
-		if(!valid(x)) continue;
-		if(x < age) age = x;
+		SLNAgeRange const x = [filters[i] fullAge:fileID];
+		if(valid(x.min) && x.min < age.min) age.min = x.min;
+		if(valid(x.max) && x.max > age.max) age.max = x.max;
 	}
 	return age;
 }

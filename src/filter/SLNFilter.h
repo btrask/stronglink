@@ -4,6 +4,11 @@
 #include "../StrongLink.h"
 #include "../SLNDB.h"
 
+typedef struct {
+	uint64_t min;
+	uint64_t max;
+} SLNAgeRange;
+
 @interface SLNObject
 {
 	Class isa;
@@ -28,7 +33,7 @@
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
 - (void)step:(int const)dir;
-- (uint64_t)fullAge:(uint64_t const)fileID;
+- (SLNAgeRange)fullAge:(uint64_t const)fileID;
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID;
 @end
 
@@ -46,7 +51,7 @@
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
 - (void)step:(int const)dir;
-- (uint64_t)fullAge:(uint64_t const)fileID;
+- (SLNAgeRange)fullAge:(uint64_t const)fileID;
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID;
 @end
 @interface SLNIndividualFilter (Abstract)
@@ -103,11 +108,11 @@ struct token {
 - (void)sort:(int const)dir;
 @end
 @interface SLNIntersectionFilter : SLNCollectionFilter
-- (uint64_t)fullAge:(uint64_t const)fileID;
+- (SLNAgeRange)fullAge:(uint64_t const)fileID;
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID;
 @end
 @interface SLNUnionFilter : SLNCollectionFilter
-- (uint64_t)fullAge:(uint64_t const)fileID;
+- (SLNAgeRange)fullAge:(uint64_t const)fileID;
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID;
 @end
 
