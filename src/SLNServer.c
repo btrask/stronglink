@@ -32,7 +32,7 @@ bool URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs) {
 
 // TODO: These methods ought to be built on a public C API because the C API needs to support the same features as the HTTP interface.
 
-static int POST_auth(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int POST_auth(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return -1;
 	if(!URIPath(URI, "/efs/auth", NULL)) return -1;
 
@@ -42,7 +42,7 @@ static int POST_auth(SLNSessionRef const session, HTTPConnectionRef const conn, 
 	if(len < 0) return 500;
 	formdata[len] = '\0';
 
-	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(SLNSessionGetRepo(session));
+	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);
 	static strarg_t const fields[] = {
 		"user",
 		"pass",
@@ -69,7 +69,7 @@ static int POST_auth(SLNSessionRef const session, HTTPConnectionRef const conn, 
 	FREE(&cookie);
 	return 0;
 }
-static int GET_file(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int GET_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
 
 	int len = 0;
@@ -136,7 +136,7 @@ static int GET_file(SLNSessionRef const session, HTTPConnectionRef const conn, H
 	async_fs_close(file);
 	return 0;
 }
-static int POST_file(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int POST_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return -1;
 
 	int len = 0;
@@ -197,6 +197,7 @@ static int POST_file(SLNSessionRef const session, HTTPConnectionRef const conn, 
 static int getURIs(SLNSessionRef const session, SLNFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID, str_t **const URIs, size_t *const count) {
 	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
 	SLNRepoRef const repo = SLNSessionGetRepo(session);
+	if(!repo) return DB_EINVAL;
 	int rc = 0;
 	DB_env *db = NULL;
 	SLNRepoDBOpen(repo, &db);
@@ -317,7 +318,7 @@ static int parseFilter(SLNSessionRef const session, HTTPConnectionRef const conn
 	if(!*out) return DB_ENOMEM;
 	return DB_SUCCESS;
 }
-static int POST_query(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int POST_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method && HTTP_GET != method) return -1; // TODO: GET is just for testing
 	if(!URIPath(URI, "/efs/query", NULL)) return -1;
 
@@ -329,7 +330,7 @@ static int POST_query(SLNSessionRef const session, HTTPConnectionRef const conn,
 	SLNFilterFree(&filter);
 	return 0;
 }
-static int GET_metafiles(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int GET_metafiles(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
 	if(!URIPath(URI, "/efs/metafiles", NULL)) return -1;
 
@@ -342,7 +343,7 @@ static int GET_metafiles(SLNSessionRef const session, HTTPConnectionRef const co
 	return 0;
 }
 // TODO: Remove this once we rewrite the sync system not to need it.
-static int POST_query_obsolete(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int POST_query_obsolete(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method && HTTP_GET != method) return -1; // TODO: GET is just for testing
 	if(!URIPath(URI, "/efs/query-obsolete", NULL)) return -1;
 
@@ -367,14 +368,14 @@ static int POST_query_obsolete(SLNSessionRef const session, HTTPConnectionRef co
 }
 
 
-int SLNServerDispatch(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+int SLNServerDispatch(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	int rc = -1;
-	rc = rc >= 0 ? rc : POST_auth(session, conn, method, URI, headers);
-	rc = rc >= 0 ? rc : GET_file(session, conn, method, URI, headers);
-	rc = rc >= 0 ? rc : POST_file(session, conn, method, URI, headers);
-	rc = rc >= 0 ? rc : POST_query(session, conn, method, URI, headers);
-	rc = rc >= 0 ? rc : GET_metafiles(session, conn, method, URI, headers);
-	rc = rc >= 0 ? rc : POST_query_obsolete(session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : POST_auth(repo, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : GET_file(repo, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : POST_file(repo, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : POST_query(repo, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : GET_metafiles(repo, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : POST_query_obsolete(repo, session, conn, method, URI, headers);
 	return rc;
 }
 

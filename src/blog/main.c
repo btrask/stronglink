@@ -8,7 +8,7 @@
 #include "../StrongLink.h"
 #include "Blog.h"
 
-int SLNServerDispatch(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
+int SLNServerDispatch(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
 
 static strarg_t path = NULL;
 static SLNRepoRef repo = NULL;
@@ -35,7 +35,7 @@ static void listener(void *ctx, HTTPConnectionRef const conn) {
 	// is still a good idea (relatively fail-safe).
 
 	rc = -1;
-	rc = rc >= 0 ? rc : SLNServerDispatch(session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : SLNServerDispatch(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : BlogDispatch(blog, session, conn, method, URI, headers);
 
 	SLNSessionRelease(&session);
