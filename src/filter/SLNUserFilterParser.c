@@ -8,6 +8,7 @@ static SLNFilterRef parse_exp(strarg_t *const query);
 static SLNFilterRef parse_negation(strarg_t *const query);
 static SLNFilterRef parse_parens(strarg_t *const query);
 static SLNFilterRef parse_link(strarg_t *const query);
+static SLNFilterRef parse_attr(strarg_t *const query);
 static SLNFilterRef parse_quoted(strarg_t *const query);
 static SLNFilterRef parse_term(strarg_t *const query);
 static bool parse_space(strarg_t *const query);
@@ -68,6 +69,7 @@ static SLNFilterRef parse_exp(strarg_t *const query) {
 	if(!exp) exp = parse_negation(query);
 	if(!exp) exp = parse_parens(query);
 	if(!exp) exp = parse_link(query);
+	if(!exp) exp = parse_attr(query);
 	if(!exp) exp = parse_quoted(query);
 	if(!exp) exp = parse_term(query);
 	return exp;
@@ -104,6 +106,25 @@ static SLNFilterRef parse_link(strarg_t *const query) {
 	SLNFilterAddStringArg(filter, *query, len);
 	*query = q;
 	return filter;
+}
+static SLNFilterRef parse_attr(strarg_t *const query) {
+	// TODO: Support non alnum characters, quoted fields and values, etc.
+	// In fact we should have a reusable read_term that handles everything.
+	strarg_t q = *query;
+	strarg_t const f = q;
+	for(; isalnum(*q); q++);
+	size_t const flen = q - f;
+	if(0 == flen) return NULL;
+	if('=' != *q++) return NULL;
+	strarg_t const v = q;
+	for(; isalnum(*q); q++);
+	size_t const vlen = q - v;
+	if(0 == vlen) return NULL;
+	SLNFilterRef md = createfilter(SLNMetadataFilterType);
+	SLNFilterAddStringArg(md, f, flen);
+	SLNFilterAddStringArg(md, v, vlen);
+	*query = q;
+	return md;
 }
 static SLNFilterRef parse_quoted(strarg_t *const query) {
 	strarg_t q = *query;
