@@ -86,6 +86,7 @@
 
 @implementation SLNBadMetaFileFilterInternal
 - (void)free {
+	curtxn = NULL;
 	subfilter = nil;
 	db_cursor_close(metafiles); metafiles = NULL;
 	db_cursor_close(age_metafile); age_metafile = NULL;
