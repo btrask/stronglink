@@ -131,56 +131,57 @@ int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn,
 	return DB_SUCCESS;
 }
 
-int SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const filter, strarg_t const startURI, int const dir, str_t *out[], size_t *const count) {
-	assert(count);
-	assert(0 != dir);
+int SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const filter, SLNFilterOpts *const opts, str_t *out[], size_t *const outcount) {
+	assert(out);
+	assert(outcount);
 	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
-	size_t const c = *count;
-	if(!c) return DB_SUCCESS;
+	if(0 == opts->dir) return DB_EINVAL;
+	if(0 == opts->outdir) return DB_EINVAL;
+	if(opts->count <= 0) return DB_SUCCESS;
+
+	DB_env *db = NULL;
+	DB_txn *txn = NULL;
+	int rc = DB_SUCCESS;
 
 //	uint64_t const then = uv_hrtime();
 	SLNRepoRef const repo = SLNSessionGetRepo(session);
-	DB_env *db = NULL;
 	SLNRepoDBOpen(repo, &db);
-	DB_txn *txn = NULL;
-	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	if(DB_SUCCESS != rc) {
-		SLNRepoDBClose(repo, &db);
-		return rc;
-	}
+	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	if(DB_SUCCESS != rc) goto cleanup;
 
 	rc = SLNFilterPrepare(filter, txn);
-	if(DB_SUCCESS != rc) {
-		db_txn_abort(txn); txn = NULL;
-		SLNRepoDBClose(repo, &db);
-		return rc;
-	}
+	if(DB_SUCCESS != rc) goto cleanup;
 
-	rc = SLNFilterSeekURI(filter, dir, startURI, txn);
-	if(DB_NOTFOUND == rc) {
-		uint64_t const invalid = dir > 0 ? 0 : UINT64_MAX; // TODO: Expose invalid()?
-		SLNFilterSeek(filter, dir, invalid, invalid);
+	if(opts->URI) {
+		rc = SLNFilterSeekURI(filter, opts->dir, opts->URI, txn);
+	} else {
+		SLNFilterSeek(filter, opts->dir, opts->sortID, opts->fileID);
 		rc = DB_SUCCESS;
 	}
-	if(DB_SUCCESS != rc) {
-		db_txn_abort(txn); txn = NULL;
-		SLNRepoDBClose(repo, &db);
-		return rc;
-	}
+	if(DB_SUCCESS != rc) goto cleanup;
 
+	int const dir = opts->dir * opts->outdir;
 	size_t i = 0;
-	for(; i < c; i++) {
-		out[i] = SLNFilterCopyNextURI(filter, dir, txn);
-		if(!out[i]) break;
+	for(; i < opts->count; i++) {
+		size_t const pos = dir > 0 ? i : opts->count-1-i;
+		out[pos] = SLNFilterCopyNextURI(filter, opts->dir, txn);
+		if(!out[pos]) break;
+	}
+	*outcount = i;
+
+	// The results should always be in the first `i` slots, even when
+	// filling them in reverse order.
+	if(dir < 0) {
+		memmove(out+0, out+(opts->count-i), sizeof(*out) * i);
 	}
 
+cleanup:
 	db_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
 //	uint64_t const now = uv_hrtime();
 //	fprintf(stderr, "Query in %f ms\n", (now-then) / 1000.0 / 1000.0);
 
-	*count = i;
-	return DB_SUCCESS;
+	return rc;
 }
 int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFileInfo *const info) {
 	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;

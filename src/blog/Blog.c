@@ -90,63 +90,47 @@ static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, SLNSes
 	TemplateWriteHTTPChunk(blog->entry_end, &preview_cbs, &state, conn);
 }
 
-static void parse_start(strarg_t const start, strarg_t *const URI, int *const dir) {
-	if(!start) {
-		*URI = NULL;
-		*dir = -1;
-	} else if('-' == start[0]) { // Unfortunately we can't use + due to encoding...
-		*URI = '\0' == start[1] ? NULL : start+1;
-		*dir = +1;
-	} else {
-		*URI = '\0' == start[0] ? NULL : start;
-		*dir = -1;
-	}
-}
-static int parse_dir(strarg_t const dir) {
-	if(!dir) return -1;
-	if('a' == dir[0]) return +1;
-	if('z' == dir[0]) return -1;
-	return -1;
-}
 static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
 	strarg_t qs = NULL;
 	if(!URIPath(URI, "/", &qs)) return -1;
 
+	str_t *query_HTMLSafe = NULL;
+	SLNFilterRef filter = NULL;
+	int rc;
+
 	static strarg_t const fields[] = {
 		"q",
-		"start",
-		"dir",
-		"f", // TODO: ???
 	};
 	str_t *values[numberof(fields)] = {};
 	QSValuesParse(qs, values, fields, numberof(fields));
-	// TODO: Cap query size
-	str_t *query_HTMLSafe = htmlenc(values[0]);
-	SLNFilterRef filter;
-	int rc = SLNUserFilterParse(session, values[0], &filter);
+	query_HTMLSafe = htmlenc(values[0]);
+	rc = SLNUserFilterParse(session, values[0], &filter);
+	QSValuesCleanup(values, numberof(values));
 	if(DB_EACCES == rc) {
-		QSValuesCleanup(values, numberof(values));
+		FREE(&query_HTMLSafe);
 		return 403;
 	}
 	if(DB_EINVAL == rc) rc = SLNFilterCreate(session, SLNAllFilterType, &filter);
 	if(DB_SUCCESS != rc) {
-		QSValuesCleanup(values, numberof(values));
+		FREE(&query_HTMLSafe);
 		return 500;
 	}
 //	SLNFilterPrint(filter, 0); // DEBUG
 
-	strarg_t start;
-	int sdir;
-	parse_start(values[1], &start, &sdir);
-	int const dir = parse_dir(values[2]);
+	SLNFilterOpts opts[1];
+	rc = SLNFilterOptsParse(qs, RESULTS_MAX, opts);
+	if(DB_SUCCESS != rc) {
+		FREE(&query_HTMLSafe);
+		SLNFilterFree(&filter);
+		return 500;
+	}
+	int const outdir = opts->outdir;
 
-	size_t count = RESULTS_MAX;
+	size_t count;
 	str_t *URIs[RESULTS_MAX];
-	rc = SLNSessionCopyFilteredURIs(session, filter, start, sdir, URIs, &count);
-
-	QSValuesCleanup(values, numberof(values));
-
+	rc = SLNSessionCopyFilteredURIs(session, filter, opts, URIs, &count);
+	SLNFilterOptsCleanup(opts);
 	if(DB_SUCCESS != rc) {
 		FREE(&query_HTMLSafe);
 		SLNFilterFree(&filter);
@@ -157,13 +141,14 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	str_t tmp[URI_MAX+1];
 
+	str_t *account_HTMLSafe;
 	if(0 == SLNSessionGetUserID(session)) {
-		snprintf(tmp, sizeof(tmp), "%s", "Log In");
+		account_HTMLSafe = htmlenc("Log In");
 	} else {
 		strarg_t const user = SLNSessionGetUsername(session);
 		snprintf(tmp, sizeof(tmp), "Account: %s", user);
+		account_HTMLSafe = htmlenc(tmp);
 	}
-	str_t *account_HTMLSafe = htmlenc(tmp);
 
 	SLNFilterToUserFilterString(filter, tmp, sizeof(tmp), 0);
 	str_t *parsed_HTMLSafe = htmlenc(tmp);
@@ -178,8 +163,8 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	str_t *lastpage_HTMLSafe = NULL;
 	snprintf(tmp, sizeof(tmp), "?q=%s&start=-", query_HTMLSafe ?: "");
 	firstpage_HTMLSafe = htmlenc(tmp);
-	strarg_t const p = !count ? NULL : URIs[sdir > 0 ? 0 : count-1];
-	strarg_t const n = !count ? NULL : URIs[sdir > 0 ? count-1 : 0];
+	strarg_t const p = !count ? NULL : URIs[outdir > 0 ? 0 : count-1];
+	strarg_t const n = !count ? NULL : URIs[outdir > 0 ? count-1 : 0];
 	snprintf(tmp, sizeof(tmp), "?q=%s&start=%s", query_HTMLSafe ?: "", p ?: "");
 	prevpage_HTMLSafe = htmlenc(tmp);
 	snprintf(tmp, sizeof(tmp), "?q=%s&start=-%s", query_HTMLSafe ?: "", n ?: "");
@@ -229,9 +214,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		}
 	}
 
-	int const step = dir * sdir;
-	ssize_t i = step > 0 ? 0 : (ssize_t)count-1;
-	for(; i >= 0 && i < (ssize_t)count; i += step) {
+	for(size_t i = 0; i < count; i++) {
 		str_t algo[SLN_ALGO_SIZE]; // SLN_INTERNAL_ALGO
 		str_t hash[SLN_HASH_SIZE];
 		SLNParseURI(URIs[i], algo, hash);
