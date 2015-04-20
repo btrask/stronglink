@@ -145,7 +145,7 @@ uint64_t SLNFilterAge(SLNFilterRef const filter, uint64_t const fileID, uint64_t
 int SLNFilterSeekURI(SLNFilterRef const filter, int const dir, strarg_t const URI, DB_txn *const txn);
 str_t *SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, DB_txn *const txn);
 
-int SLNFilterOptsParse(strarg_t const qs, size_t const max, SLNFilterOpts *const opts);
+int SLNFilterOptsParse(strarg_t const qs, int const defaultdir, size_t const max, SLNFilterOpts *const opts);
 void SLNFilterOptsCleanup(SLNFilterOpts *const opts);
 
 int SLNJSONFilterParserCreate(SLNSessionRef const session, SLNJSONFilterParserRef *const out);

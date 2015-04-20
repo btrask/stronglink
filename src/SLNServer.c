@@ -298,7 +298,7 @@ static int GET_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 	if(!URIPath(URI, "/efs/query", &qs)) return -1;
 
 	SLNFilterOpts opts;
-	int rc = SLNFilterOptsParse(qs, 0, &opts);
+	int rc = SLNFilterOptsParse(qs, +1, 0, &opts);
 	if(rc < 0) return 500;
 // TODO
 	return 0;

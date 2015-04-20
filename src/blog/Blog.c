@@ -119,7 +119,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 //	SLNFilterPrint(filter, 0); // DEBUG
 
 	SLNFilterOpts opts[1];
-	rc = SLNFilterOptsParse(qs, RESULTS_MAX, opts);
+	rc = SLNFilterOptsParse(qs, -1, RESULTS_MAX, opts);
 	if(DB_SUCCESS != rc) {
 		FREE(&query_HTMLSafe);
 		SLNFilterFree(&filter);
