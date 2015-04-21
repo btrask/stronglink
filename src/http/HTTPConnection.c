@@ -40,43 +40,41 @@ int HTTPConnectionCreateIncoming(uv_stream_t *const socket, HTTPConnectionRef *c
 	HTTPConnectionRef conn = calloc(1, sizeof(struct HTTPConnection));
 	if(!conn) return UV_ENOMEM;
 	int rc = uv_tcp_init(loop, conn->stream);
-	if(rc < 0) {
-		HTTPConnectionFree(&conn);
-		return rc;
-	}
+	if(rc < 0) goto cleanup;
 	rc = uv_accept(socket, (uv_stream_t *)conn->stream);
-	if(rc < 0) {
-		HTTPConnectionFree(&conn);
-		return rc;
-	}
+	if(rc < 0) goto cleanup;
 	http_parser_init(conn->parser, HTTP_REQUEST);
 	conn->parser->data = conn;
-	*out = conn;
-	return 0;
+	*out = conn; conn = NULL;
+cleanup:
+	HTTPConnectionFree(&conn);
+	return rc;
 }
 int HTTPConnectionCreateOutgoing(strarg_t const domain, HTTPConnectionRef *const out) {
-	int rc;
-	str_t host[1024] = "";
-	str_t service[16] = "";
+	str_t host[1023+1];
+	str_t service[15+1];
+	host[0] = '\0';
+	service[0] = '\0';
 	int matched = sscanf(domain, "%1023[^:]:%15[0-9]", host, service);
 	if(matched < 1) return UV_EINVAL;
 	if('\0' == host[0]) return UV_EINVAL;
 
-	struct addrinfo const hints = {
+	static struct addrinfo const hints = {
 		.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG | AI_NUMERICSERV,
 		.ai_family = AF_UNSPEC,
 		.ai_socktype = SOCK_STREAM,
 		.ai_protocol = 0, // ???
 	};
-	struct addrinfo *info;
-	rc = async_getaddrinfo(host, service[0] ? service : "80", &hints, &info);
-	if(rc < 0) return rc;
+	struct addrinfo *info = NULL;
+	HTTPConnectionRef conn = NULL;
+	int rc;
 
-	HTTPConnectionRef conn = calloc(1, sizeof(struct HTTPConnection));
-	if(!conn) {
-		uv_freeaddrinfo(info);
-		return UV_ENOMEM;
-	}
+	rc = async_getaddrinfo(host, service[0] ? service : "80", &hints, &info);
+	if(rc < 0) goto cleanup;
+
+	conn = calloc(1, sizeof(struct HTTPConnection));
+	if(!conn) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
 
 	rc = UV_EADDRNOTAVAIL;
 	for(struct addrinfo *each = info; each; each = each->ai_next) {
@@ -88,16 +86,16 @@ int HTTPConnectionCreateOutgoing(strarg_t const domain, HTTPConnectionRef *const
 
 		async_close((uv_handle_t *)conn->stream);
 	}
-	uv_freeaddrinfo(info);
-	if(rc < 0) {
-		HTTPConnectionFree(&conn);
-		return rc;
-	}
+	if(rc < 0) goto cleanup;
 
 	http_parser_init(conn->parser, HTTP_RESPONSE);
 	conn->parser->data = conn;
-	*out = conn;
-	return 0;
+	*out = conn; conn = NULL;
+
+cleanup:
+	uv_freeaddrinfo(info); info = NULL;
+	HTTPConnectionFree(&conn);
+	return rc;
 }
 void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
 	HTTPConnectionRef conn = *connptr;
