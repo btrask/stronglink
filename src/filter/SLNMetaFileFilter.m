@@ -70,19 +70,19 @@
 	int rc = db_cursor_nextr(metafiles, range, NULL, NULL, dir);
 	assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
 }
-- (uint64_t)fullAge:(uint64_t const)fileID {
+- (SLNAgeRange)fullAge:(uint64_t const)fileID {
 	DB_range range[1];
 	DB_val key[1];
 	SLNFileIDAndMetaFileIDRange1(range, curtxn, fileID);
 	int rc = db_cursor_firstr(age, range, key, NULL, +1);
-	if(DB_NOTFOUND == rc) return UINT64_MAX;
+	if(DB_NOTFOUND == rc) return (SLNAgeRange){UINT64_MAX, UINT64_MAX};
 	db_assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
 	uint64_t f, sortID;
 	SLNFileIDAndMetaFileIDKeyUnpack(key, curtxn, &f, &sortID);
-	return sortID;
+	return (SLNAgeRange){sortID, UINT64_MAX};
 }
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {
-	return [self fullAge:fileID];
+	return [self fullAge:fileID].min;
 }
 @end
 
