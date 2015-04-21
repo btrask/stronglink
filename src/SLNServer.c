@@ -220,7 +220,7 @@ static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, 
 
 	// We're sending a series of batches, so reversing one batch
 	// doesn't make sense.
-	opts->outdir = +1;
+	opts->outdir = opts->dir;
 
 	// I'm aware that we're abusing HTTP for sending real-time push data.
 	// I'd also like to support WebSocket at some point, but this is simpler

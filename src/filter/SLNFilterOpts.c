@@ -5,12 +5,12 @@ static void parse_start(strarg_t const start, int const defaultdir, str_t **cons
 	if(!start) {
 		*URI = NULL;
 		*dir = defaultdir;
-	} else if('-' == start[0]) { // Unfortunately we can't use + due to encoding...
+	} else if('-' == start[0]) {
 		*URI = '\0' == start[1] ? NULL : strdup(start+1);
-		*dir = +1;
+		*dir = -defaultdir;
 	} else {
 		*URI = '\0' == start[0] ? NULL : strdup(start+0);
-		*dir = -1;
+		*dir = +defaultdir;
 	}
 }
 static int parse_dir(strarg_t const dir, int const defaultdir) {
