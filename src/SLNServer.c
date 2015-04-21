@@ -214,7 +214,14 @@ static int sendURIBatch(SLNSessionRef const session, SLNFilterRef const filter, 
 	if(rc < 0) return DB_EIO;
 	return DB_SUCCESS;
 }
-static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, SLNFilterOpts *const opts, HTTPConnectionRef const conn) {
+static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, strarg_t const qs, HTTPConnectionRef const conn) {
+	SLNFilterOpts opts[1];
+	SLNFilterOptsParse(qs, +1, 0, opts);
+
+	// We're sending a series of batches, so reversing one batch
+	// doesn't make sense.
+	opts->outdir = +1;
+
 	// I'm aware that we're abusing HTTP for sending real-time push data.
 	// I'd also like to support WebSocket at some point, but this is simpler
 	// and frankly probably more widely supported.
@@ -222,7 +229,6 @@ static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, 
 	// cached. It DOES break if a proxy tries to buffer the whole response
 	// before passing it back to the client. I'd be curious to know whether
 	// such proxies still exist in 2015.
-
 	HTTPConnectionWriteResponse(conn, 200, "OK");
 	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
 	HTTPConnectionWriteHeader(conn,
@@ -269,6 +275,7 @@ static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, 
 cleanup:
 	HTTPConnectionWriteChunkv(conn, NULL, 0);
 	HTTPConnectionEnd(conn);
+	SLNFilterOptsCleanup(opts);
 }
 static int parseFilter(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, HTTPHeadersRef const headers, SLNFilterRef *const out) {
 	if(HTTP_POST != method) return SLNFilterCreate(session, SLNAllFilterType, out);
@@ -297,58 +304,40 @@ static int GET_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 	strarg_t qs;
 	if(!URIPath(URI, "/efs/query", &qs)) return -1;
 
-	SLNFilterOpts opts;
-	int rc = SLNFilterOptsParse(qs, +1, 0, &opts);
-	if(rc < 0) return 500;
 // TODO
 	return 0;
 }
 static int POST_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return -1;
-	if(!URIPath(URI, "/efs/query", NULL)) return -1;
-
-	SLNFilterOpts opts[1] = {};
-	opts->sortID = 0;
-	opts->fileID = 0;
-	opts->dir = +1;
-	opts->outdir = +1;
+	strarg_t qs;
+	if(!URIPath(URI, "/efs/query", &qs)) return -1;
 
 	SLNFilterRef filter;
 	int rc = parseFilter(session, conn, method, headers, &filter);
 	if(DB_EACCES == rc) return 403;
 	if(DB_SUCCESS != rc) return 500;
-	sendURIList(session, filter, opts, conn);
+	sendURIList(session, filter, qs, conn);
 	SLNFilterFree(&filter);
 	return 0;
 }
 static int GET_metafiles(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
-	if(!URIPath(URI, "/efs/metafiles", NULL)) return -1;
-
-	SLNFilterOpts opts[1] = {};
-	opts->sortID = 0;
-	opts->fileID = 0;
-	opts->dir = +1;
-	opts->outdir = +1;
+	strarg_t qs;
+	if(!URIPath(URI, "/efs/metafiles", &qs)) return -1;
 
 	SLNFilterRef filter;
 	int rc = SLNFilterCreate(session, SLNMetaFileFilterType, &filter);
 	if(DB_EACCES == rc) return 403;
 	if(DB_SUCCESS != rc) return 500;
-	sendURIList(session, filter, opts, conn); // TODO: Use "meta -> file" format
+	sendURIList(session, filter, qs, conn); // TODO: Use "meta -> file" format
 	SLNFilterFree(&filter);
 	return 0;
 }
 // TODO: Remove this once we rewrite the sync system not to need it.
 static int POST_query_obsolete(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method && HTTP_GET != method) return -1; // TODO: GET is just for testing
-	if(!URIPath(URI, "/efs/query-obsolete", NULL)) return -1;
-
-	SLNFilterOpts opts[1] = {};
-	opts->sortID = 0;
-	opts->fileID = 0;
-	opts->dir = +1;
-	opts->outdir = +1;
+	strarg_t qs;
+	if(!URIPath(URI, "/efs/query-obsolete", &qs)) return -1;
 
 	SLNFilterRef filter, subfilter;
 	int rc = SLNFilterCreate(session, SLNBadMetaFileFilterType, &filter);
@@ -365,7 +354,7 @@ static int POST_query_obsolete(SLNRepoRef const repo, SLNSessionRef const sessio
 		SLNFilterFree(&filter);
 		return 500;
 	}
-	sendURIList(session, filter, opts, conn);
+	sendURIList(session, filter, qs, conn);
 	SLNFilterFree(&filter);
 	return 0;
 }
