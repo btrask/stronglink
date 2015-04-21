@@ -21,6 +21,8 @@ typedef size_t count_t;
 
 #define numberof(x) (sizeof(x) / sizeof(*(x)))
 
+#define STR_LEN(str) (str), (sizeof(str)-1)
+
 #define MIN(a, b) ({ \
 	__typeof__(a) const __a = (a); \
 	__typeof__(b) const __b = (b); \

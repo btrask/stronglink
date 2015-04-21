@@ -3,6 +3,7 @@
 // TODO: This stuff should be cleaned up and moved into converter.h.
 
 #undef numberof /* TODO: HACK */
+#undef STR_LEN
 #include "../http/QueryString.h" /* TODO: Try to avoid this full dependency */
 
 // TODO: This string is duplicated like 4 times throughout the code base

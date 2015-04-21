@@ -2,7 +2,6 @@
 #include <yajl/yajl_gen.h>
 #include "Blog.h"
 
-#define STR_LEN(x) (x), (sizeof(x)-1)
 #define CONVERTER(name) blog_types_##name, blog_convert_##name
 
 typedef int (*BlogTypeCheck)(strarg_t const type);

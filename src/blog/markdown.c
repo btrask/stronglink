@@ -2,6 +2,7 @@
 #include "../../deps/cmark/src/cmark.h"
 #include "../../deps/cmark/src/buffer.h"
 #undef numberof /* TODO: HACK */
+#undef STR_LEN
 #include "../http/QueryString.h" /* TODO: Try to avoid this full dependency */
 
 // Ported to the JS version in markdown.js
