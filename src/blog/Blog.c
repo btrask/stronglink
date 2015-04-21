@@ -95,6 +95,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	strarg_t qs = NULL;
 	if(!URIPath(URI, "/", &qs)) return -1;
 
+	str_t *query = NULL;
 	str_t *query_HTMLSafe = NULL;
 	SLNFilterRef filter = NULL;
 	int rc;
@@ -104,15 +105,18 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	};
 	str_t *values[numberof(fields)] = {};
 	QSValuesParse(qs, values, fields, numberof(fields));
+	query = values[0] ? strdup(values[0]) : NULL;
 	query_HTMLSafe = htmlenc(values[0]);
 	rc = SLNUserFilterParse(session, values[0], &filter);
 	QSValuesCleanup(values, numberof(values));
 	if(DB_EACCES == rc) {
+		FREE(&query);
 		FREE(&query_HTMLSafe);
 		return 403;
 	}
 	if(DB_EINVAL == rc) rc = SLNFilterCreate(session, SLNAllFilterType, &filter);
 	if(DB_SUCCESS != rc) {
+		FREE(&query);
 		FREE(&query_HTMLSafe);
 		return 500;
 	}
@@ -121,6 +125,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	SLNFilterOpts opts[1];
 	rc = SLNFilterOptsParse(qs, -1, RESULTS_MAX, opts);
 	if(DB_SUCCESS != rc) {
+		FREE(&query);
 		FREE(&query_HTMLSafe);
 		SLNFilterFree(&filter);
 		return 500;
@@ -132,6 +137,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	rc = SLNSessionCopyFilteredURIs(session, filter, opts, URIs, &count);
 	SLNFilterOptsCleanup(opts);
 	if(DB_SUCCESS != rc) {
+		FREE(&query);
 		FREE(&query_HTMLSafe);
 		SLNFilterFree(&filter);
 		return 500;
@@ -157,21 +163,29 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	// TODO: Write a real function for building query strings
 	// Don't use ?: GNUism
 	// Preserve other query parameters like `dir`
+	str_t *query_encoded = !query ? NULL : QSEscape(query, strlen(query), true);
+	FREE(&query);
+
 	str_t *firstpage_HTMLSafe = NULL;
 	str_t *prevpage_HTMLSafe = NULL;
 	str_t *nextpage_HTMLSafe = NULL;
 	str_t *lastpage_HTMLSafe = NULL;
-	snprintf(tmp, sizeof(tmp), "?q=%s&start=-", query_HTMLSafe ?: "");
+	snprintf(tmp, sizeof(tmp), "?q=%s&start=-", query_encoded ?: "");
 	firstpage_HTMLSafe = htmlenc(tmp);
-	strarg_t const p = !count ? NULL : URIs[outdir > 0 ? 0 : count-1];
-	strarg_t const n = !count ? NULL : URIs[outdir > 0 ? count-1 : 0];
-	snprintf(tmp, sizeof(tmp), "?q=%s&start=%s", query_HTMLSafe ?: "", p ?: "");
+	str_t *p = !count ? NULL : URIs[outdir > 0 ? 0 : count-1];
+	str_t *n = !count ? NULL : URIs[outdir > 0 ? count-1 : 0];
+	if(p) p = QSEscape(p, strlen(p), 1);
+	if(n) n = QSEscape(n, strlen(n), 1);
+	snprintf(tmp, sizeof(tmp), "?q=%s&start=%s", query_encoded ?: "", p ?: "");
 	prevpage_HTMLSafe = htmlenc(tmp);
-	snprintf(tmp, sizeof(tmp), "?q=%s&start=-%s", query_HTMLSafe ?: "", n ?: "");
+	snprintf(tmp, sizeof(tmp), "?q=%s&start=-%s", query_encoded ?: "", n ?: "");
 	nextpage_HTMLSafe = htmlenc(tmp);
-	snprintf(tmp, sizeof(tmp), "?q=%s", query_HTMLSafe ?: "");
+	snprintf(tmp, sizeof(tmp), "?q=%s", query_encoded ?: "");
 	lastpage_HTMLSafe = htmlenc(tmp);
 
+	FREE(&query_encoded);
+	FREE(&p);
+	FREE(&n);
 
 	TemplateStaticArg const args[] = {
 		{"reponame", reponame_HTMLSafe},

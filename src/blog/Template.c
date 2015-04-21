@@ -154,10 +154,7 @@ TemplateArgCBs const TemplateStaticCBs = {
 str_t *htmlenc(strarg_t const str) {
 	if(!str) return NULL;
 	cmark_strbuf out = GH_BUF_INIT;
-	// The "secure" flag causes / and \ to be escaped.
-	// It doesn't seem to provide any real security,
-	// and it causes problems in hrefs, so avoid it.
-	houdini_escape_html0(&out, (uint8_t const *)str, strlen(str), 0);
+	houdini_escape_html(&out, (uint8_t const *)str, strlen(str));
 	return (str_t *)cmark_strbuf_detach(&out);
 }
 
