@@ -167,7 +167,10 @@ int SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const f
 		out[pos] = SLNFilterCopyNextURI(filter, opts->dir, txn);
 		if(!out[pos]) break;
 	}
+
 	*outcount = i;
+	FREE(&opts->URI);
+	SLNFilterCurrent(filter, opts->dir, &opts->sortID, &opts->fileID);
 
 	// The results should always be in the first `i` slots, even when
 	// filling them in reverse order.
