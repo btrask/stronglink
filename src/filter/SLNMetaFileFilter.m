@@ -35,17 +35,7 @@
 	SLNMetaFileByIDRange0(range, curtxn);
 	SLNMetaFileByIDKeyPack(key, curtxn, sortID);
 	int rc = db_cursor_seekr(metafiles, range, key, NULL, dir);
-	if(DB_SUCCESS != rc) return;
-	uint64_t actualSortID;
-	SLNMetaFileByIDKeyUnpack(key, curtxn, &actualSortID);
-	if(sortID != actualSortID) return;
-	if(dir > 0 && actualSortID >= fileID) return;
-	if(dir < 0 && actualSortID <= fileID) return;
-	if(dir) {
-		[self step:dir];
-	} else if(actualSortID != fileID) {
-		db_cursor_clear(metafiles);
-	}
+	db_assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
 }
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
 	DB_val key[1], val[1];
@@ -68,7 +58,7 @@
 	DB_range range[1];
 	SLNMetaFileByIDRange0(range, curtxn);
 	int rc = db_cursor_nextr(metafiles, range, NULL, NULL, dir);
-	assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
+	db_assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
 }
 - (SLNAgeRange)fullAge:(uint64_t const)fileID {
 	DB_range range[1];
