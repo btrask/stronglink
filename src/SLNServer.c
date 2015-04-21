@@ -304,7 +304,22 @@ static int GET_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 	strarg_t qs;
 	if(!URIPath(URI, "/efs/query", &qs)) return -1;
 
-// TODO
+	SLNFilterRef filter = NULL;
+	int rc;
+
+	static strarg_t const fields[] = {
+		"q",
+	};
+	str_t *values[numberof(fields)] = {};
+	QSValuesParse(qs, values, fields, numberof(fields));
+	rc = SLNUserFilterParse(session, values[0], &filter);
+	QSValuesCleanup(values, numberof(values));
+	if(DB_EINVAL == rc) rc = SLNFilterCreate(session, SLNAllFilterType, &filter);
+	if(DB_EACCES == rc) return 403;
+	if(DB_SUCCESS != rc) return 500;
+
+	sendURIList(session, filter, qs, conn);
+	SLNFilterFree(&filter);
 	return 0;
 }
 static int POST_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
@@ -365,6 +380,7 @@ int SLNServerDispatch(SLNRepoRef const repo, SLNSessionRef const session, HTTPCo
 	rc = rc >= 0 ? rc : POST_auth(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_file(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_file(repo, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : GET_query(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_query(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_metafiles(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_query_obsolete(repo, session, conn, method, URI, headers);
