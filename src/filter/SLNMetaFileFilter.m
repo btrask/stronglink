@@ -31,11 +31,21 @@
 
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
 	DB_range range[1];
-	DB_val key[1];
+	DB_val key[1], val[1];
 	SLNMetaFileByIDRange0(range, curtxn);
 	SLNMetaFileByIDKeyPack(key, curtxn, sortID);
-	int rc = db_cursor_seekr(metafiles, range, key, NULL, dir);
-	db_assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
+	int rc = db_cursor_seekr(metafiles, range, key, val, dir);
+	if(DB_NOTFOUND == rc) return;
+	db_assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
+
+	uint64_t actualSortID, actualFileID;
+	SLNMetaFileByIDKeyUnpack(key, curtxn, &actualSortID);
+	//SLNMetaFileByIDValUnpack(val, curtxn, &actualFileID, &ignore);
+	actualFileID = db_read_uint64(val);
+	if(sortID != actualSortID) return;
+	if(dir > 0 && actualFileID >= fileID) return;
+	if(dir < 0 && actualFileID <= fileID) return;
+	[self step:dir];
 }
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
 	DB_val key[1], val[1];
