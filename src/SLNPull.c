@@ -7,6 +7,8 @@
 #define READER_COUNT 64
 #define QUEUE_SIZE 64 // TODO: Find a way to lower these without sacrificing performance, and perhaps automatically adjust them somehow.
 
+#define AUTH_FORM_MAX 1023
+
 struct SLNPull {
 	uint64_t pullID;
 	SLNSessionRef session;
@@ -302,9 +304,21 @@ static int auth(SLNPullRef const pull) {
 		return rc;
 	}
 	HTTPConnectionWriteRequest(conn, HTTP_POST, "/sln/auth", pull->host);
-	HTTPConnectionWriteContentLength(conn, 0);
+
+	int len;
+	str_t body[AUTH_FORM_MAX+1];
+	str_t *user_encoded = QSEscape(pull->username, strlen(pull->username), true);
+	str_t *pass_encoded = QSEscape(pull->password, strlen(pull->password), true);
+	len = snprintf(body, sizeof(body), "user=%s&pass=%s&token=asdf", user_encoded, pass_encoded);
+	FREE(&user_encoded);
+	FREE(&pass_encoded);
+	// TODO
+	// - Query string formatter
+	// - CSRF token? (requires an extra round-trip)
+	assert(len > 0);
+	HTTPConnectionWriteContentLength(conn, (uint64_t)len);
 	HTTPConnectionBeginBody(conn);
-	// TODO: Send credentials.
+	HTTPConnectionWrite(conn, (byte_t const *)body, len);
 	rc = HTTPConnectionEnd(conn);
 	if(rc < 0) {
 		fprintf(stderr, "Pull authentication error %s\n", uv_strerror(rc));
