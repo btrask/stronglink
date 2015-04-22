@@ -179,7 +179,7 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 		str_t algo[SLN_ALGO_SIZE]; // SLN_INTERNAL_ALGO
 		str_t hash[SLN_HASH_SIZE];
 		SLNParseURI(state->fileURI, algo, hash);
-		snprintf(buf, sizeof(buf), "/efs/file/%s/%s", algo, hash);
+		snprintf(buf, sizeof(buf), "/sln/file/%s/%s", algo, hash);
 		unsafe = buf;
 	}
 	if(0 == strcmp(var, "queryURI")) {

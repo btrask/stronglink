@@ -34,7 +34,7 @@ bool URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs) {
 
 static int POST_auth(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return -1;
-	if(!URIPath(URI, "/efs/auth", NULL)) return -1;
+	if(!URIPath(URI, "/sln/auth", NULL)) return -1;
 
 	str_t formdata[AUTH_FORM_MAX+1];
 	ssize_t len = HTTPConnectionReadBodyStatic(conn, (byte_t *)formdata, AUTH_FORM_MAX);
@@ -77,7 +77,7 @@ static int GET_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 	str_t hash[SLN_HASH_SIZE];
 	algo[0] = '\0';
 	hash[0] = '\0';
-	sscanf(URI, "/efs/file/" SLN_ALGO_FMT "/" SLN_HASH_FMT "%n", algo, hash, &len);
+	sscanf(URI, "/sln/file/" SLN_ALGO_FMT "/" SLN_HASH_FMT "%n", algo, hash, &len);
 	if(!algo[0] || !hash[0]) return -1;
 	if('/' == URI[len]) len++;
 	if('\0' != URI[len] && '?' != URI[len]) return -1;
@@ -140,7 +140,7 @@ static int POST_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 	if(HTTP_POST != method) return -1;
 
 	int len = 0;
-	sscanf(URI, "/efs/file%n", &len);
+	sscanf(URI, "/sln/file%n", &len);
 	if(!len) return -1;
 	if('/' == URI[len]) len++;
 	if('\0' != URI[len] && '?' != URI[len]) return -1;
@@ -302,7 +302,7 @@ static int parseFilter(SLNSessionRef const session, HTTPConnectionRef const conn
 static int GET_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
 	strarg_t qs;
-	if(!URIPath(URI, "/efs/query", &qs)) return -1;
+	if(!URIPath(URI, "/sln/query", &qs)) return -1;
 
 	SLNFilterRef filter = NULL;
 	int rc;
@@ -325,7 +325,7 @@ static int GET_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 static int POST_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return -1;
 	strarg_t qs;
-	if(!URIPath(URI, "/efs/query", &qs)) return -1;
+	if(!URIPath(URI, "/sln/query", &qs)) return -1;
 
 	SLNFilterRef filter;
 	int rc = parseFilter(session, conn, method, headers, &filter);
@@ -338,7 +338,7 @@ static int POST_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPCo
 static int GET_metafiles(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
 	strarg_t qs;
-	if(!URIPath(URI, "/efs/metafiles", &qs)) return -1;
+	if(!URIPath(URI, "/sln/metafiles", &qs)) return -1;
 
 	SLNFilterRef filter;
 	int rc = SLNFilterCreate(session, SLNMetaFileFilterType, &filter);
@@ -349,26 +349,36 @@ static int GET_metafiles(SLNRepoRef const repo, SLNSessionRef const session, HTT
 	return 0;
 }
 // TODO: Remove this once we rewrite the sync system not to need it.
-static int POST_query_obsolete(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
-	if(HTTP_POST != method && HTTP_GET != method) return -1; // TODO: GET is just for testing
+static int GET_query_obsolete(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+	if(HTTP_GET != method) return -1;
 	strarg_t qs;
-	if(!URIPath(URI, "/efs/query-obsolete", &qs)) return -1;
+	if(!URIPath(URI, "/sln/query-obsolete", &qs)) return -1;
 
 	SLNFilterRef filter, subfilter;
 	int rc = SLNFilterCreate(session, SLNBadMetaFileFilterType, &filter);
 	if(DB_EACCES == rc) return 403;
 	if(DB_SUCCESS != rc) return 500;
-	rc = parseFilter(session, conn, method, headers, &subfilter);
+
+	static strarg_t const fields[] = {
+		"q",
+	};
+	str_t *values[numberof(fields)] = {};
+	QSValuesParse(qs, values, fields, numberof(fields));
+	rc = SLNUserFilterParse(session, values[0], &subfilter);
+	QSValuesCleanup(values, numberof(values));
+	if(DB_EINVAL == rc) rc = SLNFilterCreate(session, SLNAllFilterType, &subfilter);
 	if(DB_SUCCESS != rc) {
 		SLNFilterFree(&filter);
 		return 500;
 	}
+
 	rc = SLNFilterAddFilterArg(filter, subfilter);
 	if(rc < 0) {
 		SLNFilterFree(&subfilter);
 		SLNFilterFree(&filter);
 		return 500;
 	}
+
 	sendURIList(session, filter, qs, conn);
 	SLNFilterFree(&filter);
 	return 0;
@@ -383,7 +393,7 @@ int SLNServerDispatch(SLNRepoRef const repo, SLNSessionRef const session, HTTPCo
 	rc = rc >= 0 ? rc : GET_query(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_query(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_metafiles(repo, session, conn, method, URI, headers);
-	rc = rc >= 0 ? rc : POST_query_obsolete(repo, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : GET_query_obsolete(repo, session, conn, method, URI, headers);
 	return rc;
 }
 

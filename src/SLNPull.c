@@ -2,6 +2,7 @@
 #include "StrongLink.h"
 #include "http/HTTPConnection.h"
 #include "http/HTTPHeaders.h"
+#include "http/QueryString.h"
 
 #define READER_COUNT 64
 #define QUEUE_SIZE 64 // TODO: Find a way to lower these without sacrificing performance, and perhaps automatically adjust them somehow.
@@ -245,12 +246,18 @@ static int reconnect(SLNPullRef const pull) {
 		fprintf(stderr, "Pull couldn't connect to %s (%s)\n", pull->host, uv_strerror(rc));
 		return rc;
 	}
-	HTTPConnectionWriteRequest(pull->conn, HTTP_GET, "/efs/query-obsolete?count=all", pull->host);
-	// TODO: Pagination...
-	// TODO: More careful error handling.
-	// TODO: POST an actual query, GET is just a hack.
-	// TODO: New API
-	assert(pull->cookie);
+
+	str_t path[URI_MAX+1];
+	str_t *query_encoded = NULL;
+	if(pull->query) query_encoded = QSEscape(pull->query, strlen(pull->query), true);
+	snprintf(path, sizeof(path), "/sln/query-obsolete?q=%s", query_encoded ?: "");
+	FREE(&query_encoded);
+	HTTPConnectionWriteRequest(pull->conn, HTTP_GET, path, pull->host);
+	// TODO
+	// - New API /sln/query and /sln/metafiles
+	// - Pagination ?start=[last URI seen]
+	// - Error handling
+	// - Query string formatter
 	HTTPConnectionWriteHeader(pull->conn, "Cookie", pull->cookie);
 	HTTPConnectionBeginBody(pull->conn);
 	rc = HTTPConnectionEnd(pull->conn);
@@ -294,7 +301,7 @@ static int auth(SLNPullRef const pull) {
 		fprintf(stderr, "Pull authentication connection error %s\n", uv_strerror(rc));
 		return rc;
 	}
-	HTTPConnectionWriteRequest(conn, HTTP_POST, "/efs/auth", pull->host);
+	HTTPConnectionWriteRequest(conn, HTTP_POST, "/sln/auth", pull->host);
 	HTTPConnectionWriteContentLength(conn, 0);
 	HTTPConnectionBeginBody(conn);
 	// TODO: Send credentials.
@@ -369,7 +376,7 @@ static int import(SLNPullRef const pull, strarg_t const URI, index_t const pos, 
 		}
 	}
 
-	str_t *path = aasprintf("/efs/file/%s/%s", algo, hash);
+	str_t *path = aasprintf("/sln/file/%s/%s", algo, hash);
 	if(!path) {
 		fprintf(stderr, "Pull aasprintf error\n");
 		goto fail;
