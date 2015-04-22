@@ -47,7 +47,7 @@ SLNRepoRef SLNRepoCreate(strarg_t const dir, strarg_t const name) {
 	repo->dataDir = aasprintf("%s/data", dir);
 	repo->tempDir = aasprintf("%s/tmp", dir);
 	repo->cacheDir = aasprintf("%s/cache", dir);
-	repo->DBPath = aasprintf("%s/efs.db", dir);
+	repo->DBPath = aasprintf("%s/sln.db", dir);
 	if(!repo->dataDir || !repo->tempDir || !repo->cacheDir || !repo->DBPath) {
 		SLNRepoFree(&repo);
 		return NULL;
