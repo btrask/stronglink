@@ -24,8 +24,9 @@ static void listener(void *ctx, HTTPConnectionRef const conn) {
 	if(UV_EMSGSIZE == rc) return (void)HTTPConnectionSendStatus(conn, 414);
 	if(rc < 0) return (void)HTTPConnectionSendStatus(conn, 500);
 
-	HTTPHeadersRef headers = HTTPHeadersCreateFromConnection(conn);
-	if(!headers) return;
+	HTTPHeadersRef headers;
+	rc = HTTPHeadersCreateFromConnection(conn, &headers);
+	if(rc < 0) return (void)HTTPConnectionSendStatus(conn, 500);
 
 	strarg_t const cookie = HTTPHeadersGet(headers, "cookie");
 	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);

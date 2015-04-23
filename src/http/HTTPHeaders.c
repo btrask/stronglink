@@ -16,9 +16,9 @@ struct HTTPHeaders {
 	size_t values_size;
 };
 
-HTTPHeadersRef HTTPHeadersCreate(void) {
+int HTTPHeadersCreate(HTTPHeadersRef *const out) {
 	HTTPHeadersRef h = calloc(1, sizeof(struct HTTPHeaders));
-	if(!h) return NULL;
+	if(!h) return UV_ENOMEM;
 	h->offset = 0;
 	h->count = 0;
 	h->fields = calloc(FIELDS_SIZE, 1);
@@ -27,20 +27,21 @@ HTTPHeadersRef HTTPHeadersCreate(void) {
 	h->values_size = 0;
 	if(!h->fields || !h->offsets) {
 		HTTPHeadersFree(&h);
-		return NULL;
+		return UV_ENOMEM;
 	}
-	return h;
+	*out = h; h = NULL;
+	return 0;
 }
-HTTPHeadersRef HTTPHeadersCreateFromConnection(HTTPConnectionRef const conn) {
+int HTTPHeadersCreateFromConnection(HTTPConnectionRef const conn, HTTPHeadersRef *const out) {
 	assert(conn);
-	HTTPHeadersRef h = HTTPHeadersCreate();
-	if(!h) return NULL;
-	int rc = HTTPHeadersLoad(h, conn);
+	int rc = HTTPHeadersCreate(out);
+	if(rc < 0) return rc;
+	rc = HTTPHeadersLoad(*out, conn);
 	if(rc < 0) {
-		HTTPHeadersFree(&h);
-		return NULL;
+		HTTPHeadersFree(out);
+		return rc;
 	}
-	return h;
+	return 0;
 }
 void HTTPHeadersFree(HTTPHeadersRef *const hptr) {
 	HTTPHeadersRef h = *hptr;

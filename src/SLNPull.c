@@ -282,8 +282,12 @@ static int reconnect(SLNPullRef const pull) {
 		return UV_EPROTO;
 	}
 
-	HTTPHeadersRef headers = HTTPHeadersCreateFromConnection(pull->conn);
-	HTTPHeadersFree(&headers); // TODO
+	// TODO: All this does is scan past the headers.
+	// We don't actually use them...
+	HTTPHeadersRef headers;
+	rc = HTTPHeadersCreateFromConnection(pull->conn, &headers);
+	assert(rc >= 0); // TODO
+	HTTPHeadersFree(&headers);
 /*	rc = HTTPConnectionReadHeaders(pull->conn, NULL, NULL, 0);
 	if(rc < 0) {
 		fprintf(stderr, "Pull connection error %s\n", uv_strerror(rc));
@@ -333,8 +337,9 @@ static int auth(SLNPullRef const pull) {
 		return status;
 	}
 
-	HTTPHeadersRef headers = HTTPHeadersCreateFromConnection(conn);
-	assert(headers); // TODO
+	HTTPHeadersRef headers;
+	rc = HTTPHeadersCreateFromConnection(conn, &headers);
+	assert(rc >= 0); // TODO
 	strarg_t const cookie = HTTPHeadersGet(headers, "set-cookie");
 	assert(cookie);
 
@@ -417,8 +422,8 @@ static int import(SLNPullRef const pull, strarg_t const URI, index_t const pos, 
 		goto fail;
 	}
 
-	headers = HTTPHeadersCreateFromConnection(*conn);
-	assert(headers); // TODO
+	rc = HTTPHeadersCreateFromConnection(*conn, &headers);
+	assert(rc >= 0); // TODO
 /*	if(rc < 0) {
 		fprintf(stderr, "Pull import headers error %s\n", uv_strerror(rc));
 		goto fail;
