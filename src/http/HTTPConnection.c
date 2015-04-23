@@ -183,7 +183,7 @@ int HTTPConnectionReadRequest(HTTPConnectionRef const conn, HTTPMethod *const me
 	uv_buf_t buf[1];
 	int rc;
 	HTTPEvent type;
-	out[0] = '\0';
+	size_t len = 0;
 	for(;;) {
 		// Use unref because we shouldn't block the server
 		// on a request that may never arrive.
@@ -198,7 +198,10 @@ int HTTPConnectionReadRequest(HTTPConnectionRef const conn, HTTPMethod *const me
 			assertf(0, "Unexpected HTTP event %d", type);
 			return UV_UNKNOWN;
 		}
-		append(out, max, buf->base, buf->len);
+		if(len+buf->len+1 > max) return UV_EMSGSIZE;
+		memcpy(out+len, buf->base, buf->len);
+		len += buf->len;
+		out[len] = '\0';
 	}
 	*method = conn->parser->method;
 	return 0;

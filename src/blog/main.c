@@ -21,7 +21,8 @@ static void listener(void *ctx, HTTPConnectionRef const conn) {
 	HTTPMethod method;
 	str_t URI[URI_MAX];
 	int rc = HTTPConnectionReadRequest(conn, &method, URI, URI_MAX);
-	if(rc < 0) return;
+	if(UV_EMSGSIZE == rc) return (void)HTTPConnectionSendStatus(conn, 414);
+	if(rc < 0) return (void)HTTPConnectionSendStatus(conn, 500);
 
 	HTTPHeadersRef headers = HTTPHeadersCreateFromConnection(conn);
 	if(!headers) return;
