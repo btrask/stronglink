@@ -300,7 +300,7 @@ install: all
 	install $(BUILD_DIR)/stronglink $(DESTDIR)$(PREFIX)/bin
 	install $(BUILD_DIR)/sln-markdown $(DESTDIR)$(PREFIX)/bin
 	cp -r $(ROOT_DIR)/res/blog $(DESTDIR)$(PREFIX)/share/stronglink
-	chmod -R 755 $(DESTDIR)$(PREFIX)/share/stronglink
+	chmod -R 644 $(DESTDIR)$(PREFIX)/share/stronglink
 
 .PHONY: test
 test: #$(BUILD_DIR)/tests/util/hash.test.run
