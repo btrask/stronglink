@@ -15,7 +15,7 @@ static bool parse_space(strarg_t *const query);
 static bool parse_token(strarg_t *const query, strarg_t const token);
 
 // TODO: HACK
-static SLNFilterRef const createfilter(SLNFilterType const type) {
+static SLNFilterRef createfilter(SLNFilterType const type) {
 	SLNFilterRef filter;
 	int rc = SLNFilterCreate((SLNSessionRef)-1, type, &filter);
 	assert(DB_SUCCESS == rc);

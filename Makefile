@@ -18,10 +18,29 @@ CFLAGS += -g -fno-omit-frame-pointer
 CFLAGS += -DLIBCO_MP
 CFLAGS += -DINSTALL_PREFIX=$(PREFIX)
 
-WARNINGS := -Werror -Wall
-WARNINGS += -Wno-unused
+# Also consider -Weverything...
+WARNINGS := -Werror -Wall -Wextra
+
+# Dead code can sometimes indicate bugs, but these are just too noisy and
+# putting an UNUSED() macro everywhere would probably mask any problems
+# we might find.
+WARNINGS += -Wno-unused -Wno-unused-parameter
+
+# For OS X.
 WARNINGS += -Wno-deprecated
+
+# We define our own Objective-C root class (SLNObject) because we don't use
+# Apple's frameworks. Warning only used by Clang. GCC complains about it when
+# it stops on an unrelated error, but otherwise it doesn't cause any problems.
 WARNINGS += -Wno-objc-root-class
+
+# Checking that an unsigned variable is less than a constant which happens
+# to be zero should be okay.
+WARNINGS += -Wno-type-limits
+
+# Usually happens for a ssize_t after already being checked for non-negative,
+# or a constant that I don't want to stick a "u" on.
+WARNINGS += -Wno-sign-compare
 
 ifdef RELEASE
 CFLAGS += -O2
