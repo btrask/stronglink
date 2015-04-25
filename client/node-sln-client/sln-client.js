@@ -143,11 +143,12 @@ Repo.prototype.createSubStream = function(type, opts) {
 	var repo = this;
 	var req = http.request({
 		method: "POST",
-		host: repo.host,
+		hostname: repo.hostname,
 		port: repo.port,
 		path: repo.path+"/sln/file",
 		headers: {
 			"Cookie": "s="+repo.session,
+			"Content-Type": type,
 		},
 	});
 	var stream = new PassThroughStream();
