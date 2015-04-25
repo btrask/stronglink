@@ -1,5 +1,6 @@
 var sln = exports;
 
+var fs = require("fs");
 var http = require("http");
 var qs = require("querystring");
 var PassThroughStream = require("stream").PassThrough;
@@ -25,7 +26,24 @@ sln.formatURI = function(obj) {
 //sln.createHasher = function() {};
 //sln.Hasher = Hasher;
 
-sln.createRepo = function(url, session) { return new sln.Repo(url, session); };
+var mainRepo = (function() {
+	try {
+		// TODO: Suitable config location depending on platform.
+		var config = "~/.config/stronglink/client.json".replace(/^~/, process.env.HOME);
+		var info = JSON.parse(fs.readFileSync(config, "utf8"));
+		if("string" !== typeof info.url) throw new Error("Invalid URL");;
+		if("string" != typeof info.session) throw new Error("Invalid session");
+		return new Repo(info.url, info.session);
+	} catch(e) {
+		return null;
+	}
+})();
+sln.mainRepo = function() {
+	return mainRepo;
+};
+sln.createRepo = function(url, session) {
+	return new sln.Repo(url, session);
+};
 sln.Repo = Repo;
 
 function Repo(url, session) {
