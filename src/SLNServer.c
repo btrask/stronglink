@@ -231,6 +231,7 @@ static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, 
 		rc = sendURIBatch(session, filter, opts, conn);
 		if(DB_NOTFOUND == rc) break;
 		if(DB_SUCCESS == rc) continue;
+		fprintf(stderr, "Query error: %s\n", db_strerror(rc));
 		goto cleanup;
 	}
 
