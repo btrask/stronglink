@@ -76,8 +76,8 @@ static void init(void *const unused) {
 		return;
 	}
 	uint32_t type;
-//	type = INADDR_ANY;
-	type = INADDR_LOOPBACK;
+	type = INADDR_ANY;
+//	type = INADDR_LOOPBACK;
 	int rc = HTTPServerListen(server, "8000", type); // TODO
 	if(rc < 0) {
 		fprintf(stderr, "Unable to start server (%d, %s)", rc, uv_strerror(rc));
