@@ -9,16 +9,6 @@
 #define QUERY_BATCH_SIZE 50
 #define AUTH_FORM_MAX 1023
 
-// TODO: Get rid of this eventually
-typedef struct {
-	strarg_t content_type;
-	strarg_t content_disposition;
-} SLNFormHeaders;
-static strarg_t const SLNFormFields[] = {
-	"content-type",
-	"content-disposition",
-};
-
 // TODO: Put this somewhere.
 bool URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs) {
 	size_t len = prefix(path, URI);
@@ -30,7 +20,6 @@ bool URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs) {
 }
 
 
-// TODO: These methods ought to be built on a public C API because the C API needs to support the same features as the HTTP interface.
 
 static int POST_auth(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return -1;
