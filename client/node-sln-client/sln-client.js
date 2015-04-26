@@ -170,10 +170,12 @@ Repo.prototype.createSubStream = function(type, opts) {
 	return stream;
 };
 Repo.prototype.submitMeta = function(uri, meta, cb) {
+	if("string" !== typeof uri) throw new Error("Invalid URI");
+	if(0 === uri.length) throw new Error("Invalid URI");
+	// TODO: Validate `meta`
 	var repo = this;
 	var type = "text/x-sln-meta+json; charset=utf-8";
 	var stream = repo.createSubStream(type, {});
-	// TODO: Validate `meta`
 	stream.end(uri+"\r\n\r\n"+JSON.stringify(meta), "utf8");
 	stream.on("submission", function(obj) {
 		cb(null, obj);
