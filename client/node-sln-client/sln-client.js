@@ -139,6 +139,36 @@ Repo.prototype.createFileStream = function(uri, opts) {
 	});
 	return stream;
 };
+Repo.prototype.getMeta = function(uri, cb) {
+	var repo = this;
+	var req = http.get({
+		hostname: repo.hostname,
+		port: repo.port,
+		path: repo.path+"/sln/meta/"+obj.algo+"/"+obj.hash,
+		headers: {
+			"Cookie": "s="+repo.session,
+		},
+	});
+	req.on("response", function(res) {
+		var str = "";
+		res.setEncoding("utf8");
+		res.on("readable", function() {
+			str += res.read();
+		});
+		res.on("end", function() {
+			var x = /^([^\r\n]*)[\r\n]/.exec(str);
+			if(!x) return cb(new Error("Invalid meta-file"), null);
+			if(!x[1].length) return cb(new Error("Invalid meta-file"), null);
+			var obj;
+			try { obj = JSON.parse(str.slice(x[0].length)); }
+			catch(err) { cb(err, null); }
+			cb(null, obj);
+		});
+	});
+	req.on("error", function(err) {
+		cb(err, null);
+	});
+};
 
 Repo.prototype.createSubStream = function(type, opts) {
 	var repo = this;
