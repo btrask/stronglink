@@ -137,6 +137,7 @@ static int GET_meta(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 	if('/' == URI[len]) len++;
 	if('\0' != URI[len] && '?' != URI[len]) return -1;
 
+	// TODO
 	return 501; // Not Implemented
 }
 static int POST_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
