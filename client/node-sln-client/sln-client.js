@@ -93,6 +93,7 @@ Repo.prototype.createQueryStream = function(query, opts) {
 		headers: {
 			"Cookie": "s="+repo.session,
 		},
+		agent: false,
 	});
 	return new URIListStream({ meta: false, req: req });
 };
@@ -109,6 +110,7 @@ Repo.prototype.createMetaStream = function(opts) {
 		headers: {
 			"Cookie": "s="+repo.session,
 		},
+		agent: false,
 	});
 	return new URIListStream({ meta: true, req: req });
 };
