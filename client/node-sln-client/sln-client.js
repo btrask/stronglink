@@ -100,7 +100,7 @@ Repo.prototype.createQueryStream = function(query, opts) {
 	});
 	return new URIListStream({ meta: false, req: req });
 };
-Repo.prototype.createMetaStream = function(opts) {
+Repo.prototype.createMetafilesStream = function(opts) {
 	var repo = this;
 	var req = repo.client.get({
 		hostname: repo.hostname,
