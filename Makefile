@@ -271,11 +271,7 @@ $(BUILD_DIR)/deps/smhasher/MurmurHash3.o: $(DEPS_DIR)/smhasher/MurmurHash3.cpp $
 	@- mkdir -p $(dir $@)
 	$(CXX) -c -o $@ $< $(CXXFLAGS) $(WARNINGS)
 
-$(BUILD_DIR)/filter/%.o: $(SRC_DIR)/filter/%.m $(HEADERS)
-	@- mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) $(WARNINGS) $< -o $@
-
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c $(HEADERS)
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.[cm] $(HEADERS)
 	@- mkdir -p $(dir $@)
 	$(CC) -c $(CFLAGS) $(WARNINGS) $< -o $@
 
