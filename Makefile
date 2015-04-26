@@ -164,8 +164,6 @@ STATIC_LIBS += $(DEPS_DIR)/lsmdb/liblmdb/liblmdb.a
 MODULES += libuv
 STATIC_LIBS += $(DEPS_DIR)/uv/.libs/libuv.a
 
-LIBSNAPPY := $(DEPS_DIR)/snappy/.libs/libsnappy.a
-
 LIBS += -lcrypto -lpthread -lobjc -lm
 ifeq ($(platform),linux)
 LIBS += -lrt
@@ -173,13 +171,13 @@ endif
 
 ifeq ($(DB),rocksdb)
   MODULES += snappy
-  STATIC_LIBS += $(LIBSNAPPY)
+  STATIC_LIBS += $(DEPS_DIR)/snappy/.libs/libsnappy.a
   LIBS += -lrocksdb
   LIBS += -lstdc++
   OBJECTS += $(BUILD_DIR)/db/db_base_rocksdb.o
 else ifeq ($(DB),hyper)
   MODULES += snappy
-  STATIC_LIBS += $(LIBSNAPPY)
+  STATIC_LIBS += $(DEPS_DIR)/snappy/.libs/libsnappy.a
   LIBS += -lhyperleveldb
   LIBS += -lstdc++
   OBJECTS += $(BUILD_DIR)/db/db_base_leveldb.o
@@ -192,8 +190,7 @@ else ifeq ($(DB),mdb)
 else
   MODULES += leveldb snappy
   CFLAGS += -I$(DEPS_DIR)/leveldb/include -I$(DEPS_DIR)/snappy/include
-  STATIC_LIBS += $(LIBSNAPPY)
-  LIBS += $(DEPS_DIR)/leveldb/libleveldb.a
+  STATIC_LIBS += $(DEPS_DIR)/leveldb/libleveldb.a $(DEPS_DIR)/snappy/.libs/libsnappy.a
   LIBS += -lstdc++
   OBJECTS += $(BUILD_DIR)/db/db_base_leveldb.o
 endif
@@ -203,36 +200,42 @@ endif
 .PHONY: all
 all: $(BUILD_DIR)/stronglink #$(BUILD_DIR)/sln-markdown
 
-$(BUILD_DIR)/stronglink: $(OBJECTS) $(MODULES)
+$(BUILD_DIR)/stronglink: $(OBJECTS) $(STATIC_LIBS)
 	@- mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(WARNINGS) $(OBJECTS) $(STATIC_LIBS) $(LIBS) -o $@
 
-$(YAJL_BUILD_DIR)/include/yajl/*.h: yajl
+$(YAJL_BUILD_DIR)/include/yajl/*.h: | yajl
+$(YAJL_BUILD_DIR)/lib/libyajl_s.a: | yajl
 .PHONY: yajl
 yajl:
-	cd $(DEPS_DIR)/yajl/build && make yajl_s/fast
+	make yajl_s/fast -C $(DEPS_DIR)/yajl/build
 
+$(DEPS_DIR)/lsmdb/liblmdb/liblmdb.a: | mdb
 .PHONY: mdb
 mdb:
-	cd $(DEPS_DIR)/lsmdb/liblmdb && make
+	make -C $(DEPS_DIR)/lsmdb/liblmdb
 
+$(DEPS_DIR)/leveldb/libleveldb.a: | leveldb
 .PHONY: leveldb
 leveldb:
-	cd $(DEPS_DIR)/leveldb && make
+	make -C $(DEPS_DIR)/leveldb
 
+$(DEPS_DIR)/snappy/.libs/libsnappy.a: | snappy
 .PHONY: snappy
 snappy:
-	cd $(DEPS_DIR)/snappy && make
+	make -C $(DEPS_DIR)/snappy
 
-$(DEPS_DIR)/cmark/build/src/*.h: cmark
+$(DEPS_DIR)/cmark/build/src/*.h: | cmark
+$(DEPS_DIR)/cmark/build/src/libcmark.a: | cmark
 .PHONY: cmark
 cmark:
-	cd $(DEPS_DIR)/cmark && make
+	make -C $(DEPS_DIR)/cmark
 
+$(DEPS_DIR)/uv/.libs/libuv.a: | libuv
 .PHONY: libuv
 libuv:
-	cd $(DEPS_DIR)/uv && make
-#	cd $(DEPS_DIR)/uv && make check
+	make -C $(DEPS_DIR)/uv
+#	make -C $(DEPS_DIR)/uv check
 
 $(BUILD_DIR)/deps/crypt/%.S.o: $(DEPS_DIR)/crypt_blowfish/%.S
 	@- mkdir -p $(dir $@)
@@ -328,10 +331,10 @@ clean:
 
 .PHONY: distclean
 distclean: clean
-	- cd $(DEPS_DIR)/cmark && make distclean
-	- cd $(DEPS_DIR)/leveldb && make clean
-	- cd $(DEPS_DIR)/lsmdb/liblmdb && make clean
-	- cd $(DEPS_DIR)/snappy && make distclean
-	- cd $(DEPS_DIR)/uv && make distclean
-	- cd $(DEPS_DIR)/yajl && make distclean
+	- make distclean -C $(DEPS_DIR)/cmark
+	- make clean -C $(DEPS_DIR)/leveldb
+	- make clean -C $(DEPS_DIR)/lsmdb/liblmdb
+	- make distclean -C $(DEPS_DIR)/snappy
+	- make distclean -C $(DEPS_DIR)/uv
+	- make distclean -C $(DEPS_DIR)/yajl
 
