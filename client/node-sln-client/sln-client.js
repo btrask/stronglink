@@ -17,6 +17,8 @@ sln.parseURI = function(uri) {
 	};
 };
 sln.formatURI = function(obj) {
+	if(!obj.algo) return null;
+	if(!obj.hash) return null;
 	return "hash://"+
 		obj.algo+
 		"/"+obj.hash+
