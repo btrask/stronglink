@@ -9,12 +9,13 @@
 
 extern uint32_t SLNSeed;
 
-typedef enum {
+typedef uint32_t SLNMode;
+enum {
 	SLN_RDONLY = 1 << 0,
 	SLN_WRONLY = 1 << 1,
 	SLN_RDWR = SLN_RDONLY | SLN_WRONLY,
 	SLN_ROOT = 0xFF,
-} SLNMode;
+};
 
 typedef struct {
 	str_t *URI;
