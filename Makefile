@@ -208,34 +208,34 @@ $(YAJL_BUILD_DIR)/include/yajl/*.h: | yajl
 $(YAJL_BUILD_DIR)/lib/libyajl_s.a: | yajl
 .PHONY: yajl
 yajl:
-	make yajl_s/fast -C $(DEPS_DIR)/yajl/build
+	make yajl_s/fast -C $(DEPS_DIR)/yajl/build --no-print-directory
 
 $(DEPS_DIR)/lsmdb/liblmdb/liblmdb.a: | mdb
 .PHONY: mdb
 mdb:
-	make -C $(DEPS_DIR)/lsmdb/liblmdb
+	make -C $(DEPS_DIR)/lsmdb/liblmdb --no-print-directory
 
 $(DEPS_DIR)/leveldb/libleveldb.a: | leveldb
 .PHONY: leveldb
 leveldb:
-	make -C $(DEPS_DIR)/leveldb
+	make -C $(DEPS_DIR)/leveldb --no-print-directory
 
 $(DEPS_DIR)/snappy/.libs/libsnappy.a: | snappy
 .PHONY: snappy
 snappy:
-	make -C $(DEPS_DIR)/snappy
+	make -C $(DEPS_DIR)/snappy --no-print-directory
 
 $(DEPS_DIR)/cmark/build/src/*.h: | cmark
 $(DEPS_DIR)/cmark/build/src/libcmark.a: | cmark
 .PHONY: cmark
 cmark:
-	make -C $(DEPS_DIR)/cmark
+	make -C $(DEPS_DIR)/cmark --no-print-directory
 
 $(DEPS_DIR)/uv/.libs/libuv.a: | libuv
 .PHONY: libuv
 libuv:
-	make -C $(DEPS_DIR)/uv
-#	make -C $(DEPS_DIR)/uv check
+	make -C $(DEPS_DIR)/uv --no-print-directory
+#	make -C $(DEPS_DIR)/uv check --no-print-directory
 
 $(BUILD_DIR)/deps/crypt/%.S.o: $(DEPS_DIR)/crypt_blowfish/%.S
 	@- mkdir -p $(dir $@)
