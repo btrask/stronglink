@@ -298,9 +298,15 @@ install: all
 	install -d $(DESTDIR)$(PREFIX)/bin
 	install -d $(DESTDIR)$(PREFIX)/share/stronglink
 	install $(BUILD_DIR)/stronglink $(DESTDIR)$(PREFIX)/bin
-	install $(BUILD_DIR)/sln-markdown $(DESTDIR)$(PREFIX)/bin
+	#install $(BUILD_DIR)/sln-markdown $(DESTDIR)$(PREFIX)/bin
 	cp -r $(ROOT_DIR)/res/blog $(DESTDIR)$(PREFIX)/share/stronglink
-	chmod -R 644 $(DESTDIR)$(PREFIX)/share/stronglink
+	chmod -R 755 $(DESTDIR)$(PREFIX)/share/stronglink
+
+.PHONY: uninstall
+uninstall:
+	- rm $(DESTDIR)$(PREFIX)/bin/stronglink
+	- rm $(DESTDIR)$(PREFIX)/bin/sln-markdown
+	- rm -r $(DESTDIR)$(PREFIX)/share/stronglink
 
 .PHONY: test
 test: #$(BUILD_DIR)/tests/util/hash.test.run
