@@ -218,13 +218,28 @@ static int sendURIBatch(SLNSessionRef const session, SLNFilterRef const filter, 
 	if(rc < 0) return DB_EIO;
 	return DB_SUCCESS;
 }
+static bool parse_wait(strarg_t const str) {
+	if(!str) return true;
+	if(0 == strcasecmp(str, "")) return false;
+	if(0 == strcasecmp(str, "0")) return false;
+	if(0 == strcasecmp(str, "false")) return false;
+	return true;
+}
 static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, strarg_t const qs, HTTPConnectionRef const conn) {
 	SLNFilterOpts opts[1];
 	SLNFilterOptsParse(qs, +1, 0, opts);
+	// TODO: We should accept `count` and treat it as the total number of
+	// items to be returned (instead of just for one batch).
 
 	// We're sending a series of batches, so reversing one batch
 	// doesn't make sense.
 	opts->outdir = opts->dir;
+
+	static strarg_t const fields[] = { "wait" };
+	str_t *values[numberof(fields)] = {};
+	QSValuesParse(qs, values, fields, numberof(fields));
+	bool const wait = parse_wait(values[0]);
+	QSValuesCleanup(values, numberof(values));
 
 	// I'm aware that we're abusing HTTP for sending real-time push data.
 	// I'd also like to support WebSocket at some point, but this is simpler
@@ -250,11 +265,7 @@ static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, 
 		goto cleanup;
 	}
 
-	// If we're going backwards, we obviously won't reach the end where
-	// new items are appearing.
-	// TODO: There should be a flag to not enter real-time mode even if
-	// we're going forwards.
-	if(opts->dir < 0) goto cleanup;
+	if(!wait || opts->dir < 0) goto cleanup;
 
 	SLNRepoRef const repo = SLNSessionGetRepo(session);
 	for(;;) {
@@ -312,9 +323,7 @@ static int GET_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 	SLNFilterRef filter = NULL;
 	int rc;
 
-	static strarg_t const fields[] = {
-		"q",
-	};
+	static strarg_t const fields[] = { "q" };
 	str_t *values[numberof(fields)] = {};
 	QSValuesParse(qs, values, fields, numberof(fields));
 	rc = SLNUserFilterParse(session, values[0], &filter);
@@ -364,9 +373,7 @@ static int GET_query_obsolete(SLNRepoRef const repo, SLNSessionRef const session
 	if(DB_EACCES == rc) return 403;
 	if(DB_SUCCESS != rc) return 500;
 
-	static strarg_t const fields[] = {
-		"q",
-	};
+	static strarg_t const fields[] = { "q" };
 	str_t *values[numberof(fields)] = {};
 	QSValuesParse(qs, values, fields, numberof(fields));
 	rc = SLNUserFilterParse(session, values[0], &subfilter);

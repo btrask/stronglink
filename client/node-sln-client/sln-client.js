@@ -199,6 +199,7 @@ Repo.prototype.createSubStream = function(type, opts) {
 			err.code = res.statusCode;
 			stream.emit("error", err);
 		}
+		res.resume(); // Drain
 	});
 	req.on("error", function(err) {
 		stream.emit("error", err);
