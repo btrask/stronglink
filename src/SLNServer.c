@@ -60,7 +60,6 @@ static int POST_auth(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 }
 static int GET_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
-
 	int len = 0;
 	str_t algo[SLN_ALGO_SIZE];
 	str_t hash[SLN_HASH_SIZE];
@@ -124,6 +123,21 @@ static int GET_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 	SLNFileInfoCleanup(info);
 	async_fs_close(file);
 	return 0;
+}
+static int GET_meta(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+	// TODO: This is pretty much copy and pasted from above.
+	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
+	int len = 0;
+	str_t algo[SLN_ALGO_SIZE];
+	str_t hash[SLN_HASH_SIZE];
+	algo[0] = '\0';
+	hash[0] = '\0';
+	sscanf(URI, "/sln/meta/" SLN_ALGO_FMT "/" SLN_HASH_FMT "%n", algo, hash, &len);
+	if(!algo[0] || !hash[0]) return -1;
+	if('/' == URI[len]) len++;
+	if('\0' != URI[len] && '?' != URI[len]) return -1;
+
+	return 501; // Not Implemented
 }
 static int POST_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return -1;
@@ -379,6 +393,7 @@ int SLNServerDispatch(SLNRepoRef const repo, SLNSessionRef const session, HTTPCo
 	int rc = -1;
 	rc = rc >= 0 ? rc : POST_auth(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_file(repo, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : GET_meta(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_file(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_query(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_query(repo, session, conn, method, URI, headers);
