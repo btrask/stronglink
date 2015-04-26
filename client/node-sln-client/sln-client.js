@@ -85,9 +85,10 @@ Repo.prototype.createQueryStream = function(query, opts) {
 		port: repo.port,
 		path: repo.path+"/sln/query?"+qs.stringify({
 			"q": query,
-			"count": opts ? opts.count : "",
-			"start": opts ? opts.start : "",
 			"lang": opts ? opts.lang : "",
+			"start": opts ? opts.start : "",
+			"count": opts ? opts.count : "",
+			"wait": opts && false !== opts.wait ? "1" : "0",
 		}),
 		headers: {
 			"Cookie": "s="+repo.session,
@@ -101,9 +102,9 @@ Repo.prototype.createMetaStream = function(opts) {
 		hostname: repo.hostname,
 		port: repo.port,
 		path: repo.path+"/sln/metafiles?"+qs.stringify({
-			"count": opts ? opts.count : "",
 			"start": opts ? opts.start : "",
-			"lang": opts ? opts.lang : "",
+			"count": opts ? opts.count : "",
+			"wait": opts && false !== opts.wait ? "1" : "0",
 		}),
 		headers: {
 			"Cookie": "s="+repo.session,
