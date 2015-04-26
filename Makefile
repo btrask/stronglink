@@ -151,17 +151,14 @@ OBJECTS += \
 	$(BUILD_DIR)/blog/plaintext.o \
 	$(BUILD_DIR)/blog/markdown.o
 
-MODULES += cmark
 STATIC_LIBS += $(DEPS_DIR)/cmark/build/src/libcmark.a
 CFLAGS += -I$(DEPS_DIR)/cmark/build/src
 
 STATIC_LIBS += $(YAJL_BUILD_DIR)/lib/libyajl_s.a
 CFLAGS += -I$(YAJL_BUILD_DIR)/include
 
-MODULES += mdb
 STATIC_LIBS += $(DEPS_DIR)/lsmdb/liblmdb/liblmdb.a
 
-MODULES += libuv
 STATIC_LIBS += $(DEPS_DIR)/uv/.libs/libuv.a
 
 LIBS += -lcrypto -lpthread -lobjc -lm
@@ -170,13 +167,11 @@ LIBS += -lrt
 endif
 
 ifeq ($(DB),rocksdb)
-  MODULES += snappy
   STATIC_LIBS += $(DEPS_DIR)/snappy/.libs/libsnappy.a
   LIBS += -lrocksdb
   LIBS += -lstdc++
   OBJECTS += $(BUILD_DIR)/db/db_base_rocksdb.o
 else ifeq ($(DB),hyper)
-  MODULES += snappy
   STATIC_LIBS += $(DEPS_DIR)/snappy/.libs/libsnappy.a
   LIBS += -lhyperleveldb
   LIBS += -lstdc++
@@ -188,7 +183,6 @@ else ifeq ($(DB),lsmdb)
 else ifeq ($(DB),mdb)
   OBJECTS += $(BUILD_DIR)/db/db_base_mdb.o
 else
-  MODULES += leveldb snappy
   CFLAGS += -I$(DEPS_DIR)/leveldb/include -I$(DEPS_DIR)/snappy/include
   STATIC_LIBS += $(DEPS_DIR)/leveldb/libleveldb.a $(DEPS_DIR)/snappy/.libs/libsnappy.a
   LIBS += -lstdc++
