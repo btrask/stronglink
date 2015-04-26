@@ -52,6 +52,7 @@ function Repo(url, session) {
 	this.port = obj.port;
 	this.path = obj.path;
 	this.session = session;
+	this.client = http; // TODO
 
 	if("/" === this.path.slice(-1)) this.path = this.path.slice(0, -1);
 }
@@ -80,7 +81,7 @@ Repo.prototype.query = function(query, opts, cb) {
 Repo.prototype.createQueryStream = function(query, opts) {
 	var repo = this;
 	// TODO: Use POST, accept non-string queries.
-	var req = http.get({
+	var req = repo.client.get({
 		hostname: repo.hostname,
 		port: repo.port,
 		path: repo.path+"/sln/query?"+qs.stringify({
@@ -99,7 +100,7 @@ Repo.prototype.createQueryStream = function(query, opts) {
 };
 Repo.prototype.createMetaStream = function(opts) {
 	var repo = this;
-	var req = http.get({
+	var req = repo.client.get({
 		hostname: repo.hostname,
 		port: repo.port,
 		path: repo.path+"/sln/metafiles?"+qs.stringify({
@@ -119,7 +120,7 @@ Repo.prototype.createFileStream = function(uri, opts) {
 	var obj = sln.paseURI(uri);
 	if(!obj) throw new Error("Bad URI "+uri);
 	var stream = new PassThroughStream();
-	var req = http.get({
+	var req = repo.client.get({
 		hostname: repo.hostname,
 		port: repo.port,
 		path: repo.path+"/sln/file/"+obj.algo+"/"+obj.hash,
@@ -143,7 +144,7 @@ Repo.prototype.createFileStream = function(uri, opts) {
 };
 Repo.prototype.getMeta = function(uri, cb) {
 	var repo = this;
-	var req = http.get({
+	var req = repo.client.get({
 		hostname: repo.hostname,
 		port: repo.port,
 		path: repo.path+"/sln/meta/"+obj.algo+"/"+obj.hash,
@@ -174,7 +175,7 @@ Repo.prototype.getMeta = function(uri, cb) {
 
 Repo.prototype.createSubStream = function(type, opts) {
 	var repo = this;
-	var req = http.request({
+	var req = repo.client.request({
 		method: "POST",
 		hostname: repo.hostname,
 		port: repo.port,
