@@ -4,7 +4,6 @@
 #include "../util/fts.h"
 #include "../util/raiserlimit.h"
 #include "../http/HTTPServer.h"
-#include "../http/HTTPHeaders.h"
 #include "../StrongLink.h"
 #include "Blog.h"
 

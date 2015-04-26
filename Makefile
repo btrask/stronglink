@@ -34,6 +34,10 @@ WARNINGS += -Wno-deprecated
 # it stops on an unrelated error, but otherwise it doesn't cause any problems.
 WARNINGS += -Wno-objc-root-class
 
+# We use use the isa instance variable when checking that all of the other
+# instance variables are zeroed.
+WARNINGS += -Wno-deprecated-objc-isa-usage
+
 # Checking that an unsigned variable is less than a constant which happens
 # to be zero should be okay.
 WARNINGS += -Wno-type-limits
