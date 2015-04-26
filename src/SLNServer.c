@@ -73,9 +73,9 @@ static int GET_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 
 	// TODO: Check for conditional get headers and return 304 Not Modified.
 
-	str_t fileURI[SLN_URI_MAX];
-	int rc = snprintf(fileURI, SLN_URI_MAX, "hash://%s/%s", algo, hash);
-	if(rc < 0 || rc >= SLN_URI_MAX) return 500;
+	str_t fileURI[SLN_URI_MAX+1];
+	int rc = snprintf(fileURI, sizeof(fileURI), "hash://%s/%s", algo, hash);
+	if(rc < 0 || rc >= sizeof(fileURI)) return 500;
 
 	SLNFileInfo info[1];
 	rc = SLNSessionGetFileInfo(session, fileURI, info);
