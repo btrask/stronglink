@@ -1,5 +1,5 @@
-#ifndef EARTHFS_H
-#define EARTHFS_H
+#ifndef STRONGLINK_H
+#define STRONGLINK_H
 
 #include "db/db_base.h"
 #include "async/async.h"
