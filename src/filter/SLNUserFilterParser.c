@@ -6,6 +6,7 @@ static bool issep(char const c) {
 	assert('\0' != c); // NUL is neither sep nor non-sep, handle it specially.
 	if('(' == c || ')' == c) return true;
 	if('"' == c || '\'' == c) return true;
+	if('=' == c) return true;
 	if(isspace(c)) return true;
 	return false;
 }
@@ -167,11 +168,11 @@ static SLNFilterRef parse_and(strarg_t *const query) {
 int SLNUserFilterParse(SLNSessionRef const session, strarg_t const query, SLNFilterRef *const out) {
 	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
 	if(!query) return DB_EINVAL;
-	strarg_t pos = query;
-	SLNFilterRef filter = parse_and(&pos);
+	strarg_t q = query;
+	SLNFilterRef filter = parse_and(&q);
 	if(!filter) return DB_EINVAL;
-	read_space(&pos);
-	if('\0' != *pos) {
+	read_space(&q);
+	if('\0' != *q) {
 		SLNFilterFree(&filter);
 		return DB_EINVAL;
 	}
