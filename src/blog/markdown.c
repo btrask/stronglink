@@ -168,6 +168,21 @@ static void md_convert_hashes(cmark_iter *const iter) {
 	}
 }
 
+static void write_urls(yajl_gen const json, cmark_iter *const iter, cmark_node_type const type) {
+	for(;;) {
+		cmark_event_type const event = cmark_iter_next(iter);
+		if(CMARK_EVENT_DONE == event) break;
+		if(CMARK_EVENT_ENTER != event) continue;
+		cmark_node *const node = cmark_iter_get_node(iter);
+		if(cmark_node_get_type(node) != type) continue;
+
+		char const *const URL = cmark_node_get_url(node);
+		if(!URL) continue;
+		yajl_gen_string(json, (unsigned char const *)URL, strlen(URL));
+	}
+}
+
+
 TYPE_LIST(markdown,
 	"text/markdown; charset=utf-8",
 	"text/markdown",
@@ -201,6 +216,27 @@ CONVERTER(markdown) {
 	md_autolink(iter);
 	cmark_iter_free(iter); iter = NULL;
 
+
+	// We want to do these after auto-linking
+	// but before resolving our hash URIs.
+	iter = cmark_iter_new(node);
+	assert(iter);
+	yajl_gen_string(json, (unsigned char const *)STR_LEN("link"));
+	yajl_gen_array_open(json);
+	write_urls(json, iter, CMARK_NODE_LINK);
+	yajl_gen_array_close(json);
+	cmark_iter_free(iter); iter = NULL;
+
+	iter = cmark_iter_new(node);
+	assert(iter);
+	yajl_gen_string(json, (unsigned char const *)STR_LEN("embed"));
+	yajl_gen_array_open(json);
+	write_urls(json, iter, CMARK_NODE_IMAGE);
+	yajl_gen_array_close(json);
+	cmark_iter_free(iter); iter = NULL;
+
+
+
 	iter = cmark_iter_new(node);
 	assert(iter);
 	md_block_external_images(iter);
@@ -225,8 +261,6 @@ CONVERTER(markdown) {
 
 	yajl_gen_string(json, (unsigned char const *)STR_LEN("fulltext"));
 	yajl_gen_string(json, (unsigned char const *)buf, size);
-
-	// TODO: Links and dependencies.
 
 	return 0;
 }
