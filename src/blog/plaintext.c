@@ -6,19 +6,15 @@ TYPE_LIST(plaintext,
 CONVERTER(plaintext) {
 	if(size > LIMIT_DEFAULT) return UV_EFBIG;
 
-	yajl_gen_string(json, (unsigned char const *)STR_LEN("fulltext"));
-	yajl_gen_string(json, (unsigned char const *)buf, size);
-
 	yajl_gen_string(json, (unsigned char const *)STR_LEN("link"));
 	yajl_gen_array_open(json);
 
-	// TODO: We aren't cleaning this up when returning early.
 	regex_t linkify[1];
 	int rc = regcomp(linkify, LINKIFY_RE, REG_ICASE | REG_EXTENDED);
-	if(0 != rc) return UV_UNKNOWN;
+	if(0 != rc) return UV_ENOMEM;
 
 	rc = write_html(html, STR_LEN("<pre>"));
-	if(rc < 0) return rc;
+	if(rc < 0) goto cleanup;
 
 	char const *pos = buf;
 	regmatch_t match;
@@ -27,23 +23,26 @@ CONVERTER(plaintext) {
 		regoff_t const len = match.rm_eo - match.rm_so;
 
 		rc = write_text(html, pos, loc);
-		if(rc < 0) return rc;
+		if(rc < 0) goto cleanup;
 		rc = write_link(html, pos+loc, len);
-		if(rc < 0) return rc;
+		if(rc < 0) goto cleanup;
 
 		yajl_gen_string(json, (unsigned char const *)pos+loc, len);
 
 		pos += loc+len;
 	}
 	rc = write_text(html, pos, size-(pos-buf));
-	if(rc < 0) return rc;
+	if(rc < 0) goto cleanup;
 	rc = write_html(html, STR_LEN("</pre>"));
-	if(rc < 0) return rc;
+	if(rc < 0) goto cleanup;
 
-	regfree(linkify);
+	yajl_gen_string(json, (unsigned char const *)STR_LEN("fulltext"));
+	yajl_gen_string(json, (unsigned char const *)buf, size);
 
 	yajl_gen_array_close(json);
 
-	return 0;
+cleanup:
+	regfree(linkify);
+	return rc;
 }
 
