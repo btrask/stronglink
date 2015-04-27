@@ -4,21 +4,13 @@
 #include "../async/async.h"
 #include "bcrypt.h"
 
-int passcmp(volatile char const *const a, volatile char const *const b) {
-	int r = 0;
-	for(size_t i = 0; ; ++i) {
-		if(a[i] != b[i]) r = -1;
-		if(!a[i] || !b[i]) break;
-	}
-	return r;
-}
 bool checkpass(char const *const pass, char const *const hash) {
 	int size = 0;
 	void *data = NULL;
 	char const *attempt = crypt_ra(pass, hash, &data, &size);
-	bool const success = (attempt && 0 == passcmp(attempt, hash));
-	free(data); data = NULL;
+	bool const success = (attempt && 0 == strcmp(attempt, hash));
 	attempt = NULL;
+	free(data); data = NULL;
 	return success;
 }
 char *hashpass(char const *const pass) {
