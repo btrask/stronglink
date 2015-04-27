@@ -85,7 +85,7 @@ static void connection(uv_stream_t *const socket) {
 
 	for(;;) {
 		server->listener(server->context, conn);
-		int rc = HTTPConnectionDrainMessage(conn);
+		rc = HTTPConnectionDrainMessage(conn);
 		if(rc < 0) break;
 	}
 
