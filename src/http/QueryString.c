@@ -1,9 +1,11 @@
+#include <assert.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include "QueryString.h"
 
 void QSValuesParse(char const *const qs, char *values[], char const *const fields[], size_t const count) {
+	for(size_t i = 0; i < count; i++) assert(!values[i]);
 	char const *pos = qs;
 	for(;;) {
 		if('\0' == pos[0]) break;
