@@ -100,9 +100,8 @@ static SLNFilterRef parse_link(strarg_t *const query) {
 	if('/' != *q++) return NULL;
 	if('/' != *q++) return NULL;
 	for(; '\0' != *q && !isspace(*q); ++q);
-	SLNFilterRef const filter = createfilter(SLNMetadataFilterType);
+	SLNFilterRef const filter = createfilter(SLNURIFilterType);
 	size_t const len = q - *query;
-	SLNFilterAddStringArg(filter, "link", sizeof("link")-1);
 	SLNFilterAddStringArg(filter, *query, len);
 	*query = q;
 	return filter;

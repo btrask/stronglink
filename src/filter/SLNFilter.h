@@ -139,6 +139,15 @@ struct token {
 }
 @end
 
+// SLNURIFilter.m
+@interface SLNURIFilter : SLNFilter
+{
+	DB_txn *curtxn;
+	str_t *URI;
+	DB_cursor *files;
+}
+@end
+
 static bool valid(uint64_t const x) {
 	return 0 != x && UINT64_MAX != x;
 }
