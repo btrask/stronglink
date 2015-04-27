@@ -1,9 +1,12 @@
 #include <stdint.h>
 #include "db_ext.h"
 
-/* TODO: These assertions shouldn't be disabled by NDEBUG because they check data integrity at runtime. */
+#ifndef NDEBUG
 #define db_assert(x) assert(x)
 #define db_assertf(x, y, z...) assertf(x, y, ##z)
+#else
+#error "Database assertions not configured for NDEBUG" // TODO
+#endif
 
 #if 0
 #define DB_NOOVERWRITE_FAST DB_NOOVERWRITE
