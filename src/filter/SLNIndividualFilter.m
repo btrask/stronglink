@@ -265,7 +265,7 @@
 	fprintf(stderr, "(fulltext %s)\n", term);
 }
 - (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth {
-	return wr_quoted(data, size, term);
+	return wr(data, size, term);
 }
 
 - (int)prepare:(DB_txn *const)txn {
