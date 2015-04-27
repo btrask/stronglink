@@ -52,7 +52,7 @@
 			rc = db_cursor_seekr(step_files, fileIDs, fileID_key, NULL, dir);
 		} else {
 			DB_val fileID_key[1];
-			rc = db_cursor_firstr(step_files, fileIDs, fileID_key, NULL, dir);
+			rc = db_cursor_firstr(step_files, fileIDs, NULL, NULL, dir);
 		}
 		if(DB_SUCCESS != rc) continue;
 		return;
@@ -99,8 +99,7 @@
 
 		DB_range fileIDs[1];
 		SLNURIAndFileIDRange1(fileIDs, curtxn, targetURI);
-		DB_val fileID_key[1];
-		rc = db_cursor_firstr(step_files, fileIDs, fileID_key, NULL, +1);
+		rc = db_cursor_firstr(step_files, fileIDs, NULL, NULL, +1);
 		if(DB_SUCCESS != rc) continue;
 		return;
 	}
