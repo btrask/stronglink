@@ -235,8 +235,16 @@ static yajl_callbacks const callbacks = {
 };
 
 static uint64_t add_metafile(DB_txn *const txn, uint64_t const fileID, strarg_t const targetURI) {
-	uint64_t const metaFileID = db_next_id(SLNMetaFileByID, txn);
-	assert(metaFileID);
+	uint64_t const metaFileID = fileID;
+	uint64_t const latestMetaFileID = db_next_id(SLNMetaFileByID, txn);
+	db_assert(metaFileID >= latestMetaFileID);
+	// At one point in the past, sort IDs were file IDs. Then we introduced
+	// meta-file IDs and sort IDs became different from file IDs. Now we're
+	// reunifying them.
+	// TODO: This will fail if an existing file gets re-added as a
+	// meta-file. We should get rid of the assertion and report a real
+	// error in that case.
+
 	int rc;
 	DB_val null = { 0, NULL };
 
@@ -247,6 +255,7 @@ static uint64_t add_metafile(DB_txn *const txn, uint64_t const fileID, strarg_t 
 	rc = db_put(txn, metaFileID_key, metaFile_val, DB_NOOVERWRITE_FAST);
 	assert(!rc);
 
+	// TODO: Redundant, file IDs and meta-file IDs are now the same.
 	DB_val fileID_key[1];
 	SLNFileIDAndMetaFileIDKeyPack(fileID_key, txn, fileID, metaFileID);
 	rc = db_put(txn, fileID_key, &null, DB_NOOVERWRITE_FAST);

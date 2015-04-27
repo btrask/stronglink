@@ -18,7 +18,7 @@ enum {
 	SLNURIAndFileID = 44,
 
 	SLNMetaFileByID = 60,
-	SLNFileIDAndMetaFileID = 61,
+	SLNFileIDAndMetaFileID = 61, // TODO: Redundant, they're equivalent.
 	SLNTargetURIAndMetaFileID = 62,
 	SLNMetaFileIDFieldAndValue = 63,
 	SLNFieldValueAndMetaFileID = 64,
