@@ -42,20 +42,22 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 		assert(filters); // TODO
 	}
 	filters[count++] = filter;
-	return 0;
+	return DB_SUCCESS;
 }
 
 - (int)prepare:(DB_txn *const)txn {
-	if([super prepare:txn] < 0) return -1;
-	for(index_t i = 0; i < count; ++i) {
-		if([filters[i] prepare:txn] < 0) return -1;
+	int rc = [super prepare:txn];
+	if(DB_SUCCESS != rc) return rc;
+	for(size_t i = 0; i < count; ++i) {
+		rc = [filters[i] prepare:txn];
+		if(DB_SUCCESS != rc) return rc;
 	}
 	sort = 0;
-	return 0;
+	return DB_SUCCESS;
 }
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
 	assert(count);
-	for(index_t i = 0; i < count; ++i) {
+	for(size_t i = 0; i < count; ++i) {
 		[filters[i] seek:dir :sortID :fileID];
 	}
 	[self sort:dir ? dir : +1];
@@ -85,7 +87,7 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 		[self seek:dir :oldSortID :oldFileID];
 	}
 	[filters[0] step:dir];
-	for(index_t i = 1; i < count; ++i) {
+	for(size_t i = 1; i < count; ++i) {
 		uint64_t curSortID, curFileID;
 		[filters[i] current:dir :&curSortID :&curFileID];
 		if(curSortID != oldSortID || curFileID != oldFileID) break;
@@ -111,7 +113,7 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 - (void)print:(count_t const)depth {
 	indent(depth);
 	fprintf(stderr, "(intersection\n");
-	for(index_t i = 0; i < count; ++i) [filters[i] print:depth+1];
+	for(size_t i = 0; i < count; ++i) [filters[i] print:depth+1];
 	indent(depth);
 	fprintf(stderr, ")\n");
 }
@@ -119,7 +121,7 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 	if(!count) return wr(data, size, "");
 	size_t len = 0;
 	if(depth) len += wr(data+len, size-len, "(");
-	for(index_t i = 0; i < count; ++i) {
+	for(size_t i = 0; i < count; ++i) {
 		if(i) len += wr(data+len, size-len, " ");
 		len += [filters[i] getUserFilter:data+len :size-len :depth+1];
 	}
@@ -157,13 +159,13 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 - (void)print:(count_t const)depth {
 	indent(depth);
 	fprintf(stderr, "(union\n");
-	for(index_t i = 0; i < count; ++i) [filters[i] print:depth+1];
+	for(size_t i = 0; i < count; ++i) [filters[i] print:depth+1];
 	indent(depth);
 	fprintf(stderr, ")\n");
 }
 - (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth {
 	size_t len = 0;
-	for(index_t i = 0; i < count; ++i) {
+	for(size_t i = 0; i < count; ++i) {
 		if(i) len += wr(data+len, size-len, " or ");
 		len += [filters[i] getUserFilter:data+len :size-len :depth+1];
 	}

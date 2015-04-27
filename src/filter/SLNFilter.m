@@ -17,13 +17,13 @@
 
 @implementation SLNFilter
 - (int)addStringArg:(strarg_t const)str :(size_t const)len {
-	return -1;
+	return DB_EINVAL;
 }
 - (int)addFilterArg:(SLNFilter *const)filter {
-	return -1;
+	return DB_EINVAL;
 }
 - (int)prepare:(DB_txn *const)txn {
-	return 0;
+	return DB_SUCCESS;
 }
 @end
 

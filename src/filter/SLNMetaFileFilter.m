@@ -23,10 +23,11 @@
 }
 
 - (int)prepare:(DB_txn *const)txn {
-	if([super prepare:txn] < 0) return -1;
+	int rc = [super prepare:txn];
+	if(DB_SUCCESS != rc) return rc;
 	db_cursor_renew(txn, &metafiles); // SLNMetaFileByID
 	db_cursor_renew(txn, &age); // SLNFileIDAndMetaFileID
-	return 0;
+	return DB_SUCCESS;
 }
 
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {

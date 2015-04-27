@@ -16,13 +16,14 @@
 }
 
 - (int)prepare:(DB_txn *const)txn {
-	if([super prepare:txn] < 0) return -1;
+	int rc = [super prepare:txn];
+	if(DB_SUCCESS != rc) return rc;
 	db_cursor_renew(txn, &step_target); // SLNMetaFileByID
 	db_cursor_renew(txn, &step_files); // SLNURIAndFileID
 	db_cursor_renew(txn, &age_uris); // SLNFileIDAndURI
 	db_cursor_renew(txn, &age_metafiles); // SLNTargetURIAndMetaFileID
 	curtxn = txn;
-	return 0;
+	return DB_SUCCESS;
 }
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
 	int rc;
@@ -163,9 +164,10 @@
 }
 
 - (int)prepare:(DB_txn *const)txn {
-	if([super prepare:txn] < 0) return -1;
+	int rc = [super prepare:txn];
+	if(DB_SUCCESS != rc) return rc;
 	db_cursor_renew(txn, &metafiles); // SLNMetaFileByID
-	return 0;
+	return DB_SUCCESS;
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
@@ -225,10 +227,10 @@
 	return term;
 }
 - (int)addStringArg:(strarg_t const)str :(size_t const)len {
-	if(!str) return -1;
-	if(0 == len) return -1;
-	if(term) return -1;
-	if(count) return -1;
+	if(!str) return DB_EINVAL;
+	if(0 == len) return DB_EINVAL;
+	if(term) return DB_EINVAL;
+	if(count) return DB_EINVAL;
 	term = strndup(str, len);
 
 	// TODO: libstemmer?
@@ -256,8 +258,8 @@
 
 	fts->xClose(tcur);
 
-	if(!count) return -1;
-	return 0;
+	if(!count) return DB_EINVAL;
+	return DB_SUCCESS;
 }
 - (void)print:(count_t const)depth {
 	indent(depth);
@@ -268,10 +270,11 @@
 }
 
 - (int)prepare:(DB_txn *const)txn {
-	if([super prepare:txn] < 0) return -1;
+	int rc = [super prepare:txn];
+	if(DB_SUCCESS != rc) return rc;
 	db_cursor_renew(txn, &metafiles);
 	db_cursor_renew(txn, &match);
-	return 0;
+	return DB_SUCCESS;
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
@@ -347,13 +350,13 @@
 - (int)addStringArg:(strarg_t const)str :(size_t const)len {
 	if(!field) {
 		field = strndup(str, len);
-		return 0;
+		return DB_SUCCESS;
 	}
 	if(!value) {
 		value = strndup(str, len);
-		return 0;
+		return DB_SUCCESS;
 	}
-	return -1;
+	return DB_EINVAL;
 }
 - (void)print:(count_t const)depth {
 	indent(depth);
@@ -370,11 +373,12 @@
 }
 
 - (int)prepare:(DB_txn *const)txn {
-	if([super prepare:txn] < 0) return -1;
-	if(!field || !value) return -1;
+	int rc = [super prepare:txn];
+	if(DB_SUCCESS != rc) return rc;
+	if(!field || !value) return DB_EINVAL;
 	db_cursor_renew(txn, &metafiles); // SLNFieldValueAndMetaFileID
 	db_cursor_renew(txn, &match); // SLNFieldValueAndMetaFileID
-	return 0;
+	return DB_SUCCESS;
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {

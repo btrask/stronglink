@@ -21,7 +21,7 @@
 	// Once we support mutable filters with multiple ranges, this will
 	// no longer be a problem.
 	subfilter = filter;
-	return 0;
+	return DB_SUCCESS;
 }
 - (void)print:(count_t const)depth {
 	indent(depth);
