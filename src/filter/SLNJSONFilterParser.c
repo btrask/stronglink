@@ -57,8 +57,7 @@ SLNFilterType SLNFilterTypeFromString(strarg_t const type, size_t const len) {
 	if(substr("union", type, len)) return SLNUnionFilterType;
 	if(substr("fulltext", type, len)) return SLNFulltextFilterType;
 	if(substr("metadata", type, len)) return SLNMetadataFilterType;
-	if(substr("links-to", type, len)) return SLNLinksToFilterType;
-	if(substr("linked-from", type, len)) return SLNLinkedFromFilterType;
+//	if(substr("linked-from", type, len)) return SLNLinkedFromFilterType;
 	return SLNFilterTypeInvalid;
 }
 
