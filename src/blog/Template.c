@@ -73,6 +73,10 @@ TemplateRef TemplateCreateFromPath(strarg_t const path) {
 		return NULL;
 	}
 	str_t *str = malloc((size_t)size+1);
+	if(!str) {
+		async_fs_close(file);
+		return NULL;
+	}
 	uv_buf_t info = uv_buf_init(str, size);
 	async_fs_read(file, &info, 1, 0); // TODO: Loop
 	async_fs_close(file);
