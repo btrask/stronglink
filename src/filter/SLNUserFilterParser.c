@@ -62,8 +62,9 @@ static SLNFilterRef parse_term(strarg_t *const query) {
 	read_term(&q, NULL);
 	size_t const len = q - *query;
 	if(0 == len) return NULL;
-	if(0 == strncasecmp("or", *query, len)) return NULL;
-	if(0 == strncasecmp("and", *query, len)) return NULL;
+	// TODO: HACK
+	if(sizeof("or")-1 == len && 0 == strncasecmp("or", *query, len)) return NULL;
+	if(sizeof("and")-1 == len && 0 == strncasecmp("and", *query, len)) return NULL;
 	SLNFilterRef filter = createfilter(SLNFulltextFilterType);
 	int rc = SLNFilterAddStringArg(filter, *query, len);
 	if(DB_SUCCESS != rc) {
