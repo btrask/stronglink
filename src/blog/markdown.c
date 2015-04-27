@@ -1,9 +1,6 @@
 #include "converter.h"
 #include "../../deps/cmark/src/cmark.h"
 #include "../../deps/cmark/src/buffer.h"
-#undef numberof /* TODO: HACK */
-#undef STR_LEN
-#include "../http/QueryString.h" /* TODO: Try to avoid this full dependency */
 
 // Ported to the JS version in markdown.js
 // The output should be identical between each version
@@ -139,7 +136,7 @@ static void md_convert_hashes(cmark_iter *const iter) {
 
 		cmark_node *hashlink = cmark_node_new(CMARK_NODE_LINK);
 		cmark_node_set_url(hashlink, URI);
-		cmark_node_set_title(hashlink, "Hash URI (right click and choose copy link)");
+		cmark_node_set_title(hashlink, HASH_INFO_MSG);
 
 		cmark_node *sup_open = cmark_node_new(CMARK_NODE_INLINE_HTML);
 		cmark_node_set_literal(sup_open, "<sup>[");
@@ -248,7 +245,7 @@ CONVERTER(markdown) {
 	cmark_iter_free(iter); iter = NULL;
 
 
-	str_t *str = cmark_render_html(node, options);
+	char *str = cmark_render_html(node, options);
 	cmark_node_free(node); node = NULL;
 	assert(str); // TODO
 	size_t const len = strlen(str);

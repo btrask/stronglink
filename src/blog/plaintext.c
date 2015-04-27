@@ -1,40 +1,5 @@
 #include "converter.h"
 
-// TODO: This stuff should be cleaned up and moved into converter.h.
-
-#undef numberof /* TODO: HACK */
-#undef STR_LEN
-#include "../http/QueryString.h" /* TODO: Try to avoid this full dependency */
-
-// TODO: This string is duplicated like 4 times throughout the code base
-#define HASH_INFO "Hash URI (right click and choose copy link)"
-
-static int write_link(uv_file const file, char const *const buf, size_t const len) {
-	int rc = 0;
-	if(0 == strncasecmp(buf, STR_LEN("hash:"))) {
-		rc=rc<0?rc: write_html(file, STR_LEN("<a href=\"?q="));
-
-		str_t *str = QSEscape(buf, len, true);
-		if(!str) rc = UV_ENOMEM;
-		rc=rc<0?rc: write_text(file, str, strlen(str));
-		FREE(&str);
-
-		rc=rc<0?rc: write_html(file, STR_LEN("\">"));
-		rc=rc<0?rc: write_text(file, buf, len);
-		rc=rc<0?rc: write_html(file, STR_LEN("</a><sup>[<a href=\""));
-		rc=rc<0?rc: write_text(file, buf, len);
-		rc=rc<0?rc: write_html(file, STR_LEN("\" title=\"" HASH_INFO "\">#</a>]</sup>"));
-	} else {
-		rc=rc<0?rc: write_html(file, STR_LEN("<a href=\""));
-		rc=rc<0?rc: write_text(file, buf, len);
-		rc=rc<0?rc: write_html(file, STR_LEN("\">"));
-		rc=rc<0?rc: write_text(file, buf, len);
-		rc=rc<0?rc: write_html(file, STR_LEN("</a>"));
-	}
-	return rc;
-}
-
-
 TYPE_LIST(plaintext,
 	"text/plain; charset=utf-8",
 	"text/plain")

@@ -1,9 +1,10 @@
 #include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
 #include "QueryString.h"
 
-void QSValuesParse(strarg_t const qs, str_t *values[], strarg_t const fields[], count_t const count) {
-	assert_zeroed(values, count);
-	strarg_t pos = qs;
+void QSValuesParse(char const *const qs, char *values[], char const *const fields[], size_t const count) {
+	char const *pos = qs;
 	for(;;) {
 		if('\0' == pos[0]) break;
 		if('?' == pos[0] || '&' == pos[0]) ++pos;
@@ -24,8 +25,8 @@ void QSValuesParse(strarg_t const qs, str_t *values[], strarg_t const fields[], 
 			++vlen;
 		}
 
-		for(index_t i = 0; i < count; ++i) {
-			if(!substr(fields[i], pos, flen)) continue;
+		for(size_t i = 0; i < count; ++i) {
+			if(0 != strncasecmp(fields[i], pos, flen)) continue;
 			if(values[i]) continue;
 			if(sep) {
 				values[i] = QSUnescape(pos+flen+sep, vlen, true);
@@ -36,21 +37,21 @@ void QSValuesParse(strarg_t const qs, str_t *values[], strarg_t const fields[], 
 		pos += flen+sep+vlen;
 	}
 }
-void QSValuesCleanup(str_t **const values, count_t const count) {
-	for(index_t i = 0; i < count; ++i) {
-		FREE(&values[i]);
+void QSValuesCleanup(char **const values, size_t const count) {
+	for(size_t i = 0; i < count; ++i) {
+		free(values[i]); values[i] = NULL;
 	}
 }
 
 // Ported from Node.js QueryString.unescapeBuffer
-str_t *QSUnescape(strarg_t const s, size_t const slen, bool const decodeSpaces) {
-	str_t *const out = malloc(slen+1);
+char *QSUnescape(char const *const s, size_t const slen, bool const decodeSpaces) {
+	char *const out = malloc(slen+1);
 	if(!out) return NULL;
 	enum { CHAR, HEX0, HEX1 } state = CHAR;
 	char n = 0, m = 0, hexchar = 0;
 
-	index_t outIndex = 0;
-	for(index_t inIndex = 0; inIndex < slen; ++inIndex) {
+	size_t outIndex = 0;
+	for(size_t inIndex = 0; inIndex < slen; ++inIndex) {
 		char c = s[inIndex];
 		switch(state) {
 		case CHAR:
@@ -121,8 +122,8 @@ static bool unescape(char const cc) {
 
       return false;
 }
-str_t *QSEscape(strarg_t const s, size_t const slen, bool const encodeSpaces) {
-	str_t *const out = malloc(slen*3+1); // Worst case
+char *QSEscape(char const *const s, size_t const slen, bool const encodeSpaces) {
+	char *const out = malloc(slen*3+1); // Worst case
 	if(!out) return NULL;
 	char const *const map = "0123456789ABCDEF";
 	size_t j = 0;
