@@ -34,8 +34,8 @@ int SLNFilterCreate(SLNSessionRef const session, SLNFilterType const type, SLNFi
 		if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
 	}
 	switch(type) {
-		case SLNAllFilterType:
-			*out = (SLNFilterRef)[[SLNAllFilter alloc] init];
+		case SLNVisibleFilterType:
+			*out = (SLNFilterRef)[[SLNVisibleFilter alloc] init];
 			return DB_SUCCESS;
 		case SLNFulltextFilterType:
 			*out = (SLNFilterRef)[[SLNFulltextFilter alloc] init];

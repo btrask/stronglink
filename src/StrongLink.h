@@ -115,7 +115,7 @@ strarg_t SLNHasherGetInternalHash(SLNHasherRef const hasher);
 
 typedef enum {
 	SLNFilterTypeInvalid = 0,
-	SLNAllFilterType,
+	SLNVisibleFilterType,
 	SLNFileTypeFilterType,
 	SLNIntersectionFilterType,
 	SLNUnionFilterType,

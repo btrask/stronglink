@@ -1,7 +1,7 @@
 #include "SLNFilter.h"
 #include "../util/fts.h"
 
-@implementation SLNIndividualFilter
+@implementation SLNIndirectFilter
 - (void)free {
 	curtxn = NULL;
 	db_cursor_close(step_target); step_target = NULL;
@@ -144,18 +144,18 @@
 }
 @end
 
-@implementation SLNAllFilter
+@implementation SLNVisibleFilter
 - (void)free {
 	db_cursor_close(metafiles); metafiles = NULL;
 	[super free];
 }
 
 - (SLNFilterType)type {
-	return SLNAllFilterType;
+	return SLNVisibleFilterType;
 }
 - (void)print:(count_t const)depth {
 	indent(depth);
-	fprintf(stderr, "(all)\n");
+	fprintf(stderr, "(visible)\n");
 }
 - (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth {
 	if(depth) return wr(data, size, "*");

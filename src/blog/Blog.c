@@ -114,7 +114,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		FREE(&query_HTMLSafe);
 		return 403;
 	}
-	if(DB_EINVAL == rc) rc = SLNFilterCreate(session, SLNAllFilterType, &filter);
+	if(DB_EINVAL == rc) rc = SLNFilterCreate(session, SLNVisibleFilterType, &filter);
 	if(DB_SUCCESS != rc) {
 		FREE(&query);
 		FREE(&query_HTMLSafe);

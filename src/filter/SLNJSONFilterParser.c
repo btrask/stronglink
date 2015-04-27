@@ -52,7 +52,7 @@ SLNFilterRef SLNJSONFilterParserEnd(SLNJSONFilterParserRef const parser) {
 }
 
 SLNFilterType SLNFilterTypeFromString(strarg_t const type, size_t const len) {
-	if(substr("all", type, len)) return SLNAllFilterType;
+	if(substr("visible", type, len)) return SLNVisibleFilterType;
 	if(substr("intersection", type, len)) return SLNIntersectionFilterType;
 	if(substr("union", type, len)) return SLNUnionFilterType;
 	if(substr("fulltext", type, len)) return SLNFulltextFilterType;

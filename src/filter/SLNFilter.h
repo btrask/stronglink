@@ -37,7 +37,7 @@ typedef struct {
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID;
 @end
 
-@interface SLNIndividualFilter : SLNFilter
+@interface SLNIndirectFilter : SLNFilter
 {
 	DB_txn *curtxn;
 	DB_cursor *step_target;
@@ -54,14 +54,14 @@ typedef struct {
 - (SLNAgeRange)fullAge:(uint64_t const)fileID;
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID;
 @end
-@interface SLNIndividualFilter (Abstract)
+@interface SLNIndirectFilter (Abstract)
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID;
 - (uint64_t)currentMeta:(int const)dir;
 - (uint64_t)stepMeta:(int const)dir;
 - (bool)match:(uint64_t const)metaFileID;
 @end
 
-@interface SLNAllFilter : SLNIndividualFilter
+@interface SLNVisibleFilter : SLNIndirectFilter
 {
 	DB_cursor *metafiles;
 }
@@ -70,7 +70,7 @@ typedef struct {
 struct token {
 	str_t *str;
 };
-@interface SLNFulltextFilter : SLNIndividualFilter
+@interface SLNFulltextFilter : SLNIndirectFilter
 {
 	str_t *term;
 	struct token *tokens;
@@ -82,7 +82,7 @@ struct token {
 }
 @end
 
-@interface SLNMetadataFilter : SLNIndividualFilter
+@interface SLNMetadataFilter : SLNIndirectFilter
 {
 	str_t *field;
 	str_t *value;
@@ -139,7 +139,7 @@ struct token {
 }
 @end
 
-// SLNURIFilter.m
+// SLNDirectFilter.m
 @interface SLNURIFilter : SLNFilter
 {
 	DB_txn *curtxn;

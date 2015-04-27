@@ -294,7 +294,7 @@ cleanup:
 	SLNFilterOptsCleanup(opts);
 }
 static int parseFilter(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, HTTPHeadersRef const headers, SLNFilterRef *const out) {
-	if(HTTP_POST != method) return SLNFilterCreate(session, SLNAllFilterType, out);
+	if(HTTP_POST != method) return SLNFilterCreate(session, SLNVisibleFilterType, out);
 	// TODO: Check Content-Type header for JSON.
 	SLNJSONFilterParserRef parser;
 	int rc = SLNJSONFilterParserCreate(session, &parser);
@@ -328,7 +328,7 @@ static int GET_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 	QSValuesParse(qs, values, fields, numberof(fields));
 	rc = SLNUserFilterParse(session, values[0], &filter);
 	QSValuesCleanup(values, numberof(values));
-	if(DB_EINVAL == rc) rc = SLNFilterCreate(session, SLNAllFilterType, &filter);
+	if(DB_EINVAL == rc) rc = SLNFilterCreate(session, SLNVisibleFilterType, &filter);
 	if(DB_EACCES == rc) return 403;
 	if(DB_SUCCESS != rc) return 500;
 
@@ -378,7 +378,7 @@ static int GET_query_obsolete(SLNRepoRef const repo, SLNSessionRef const session
 	QSValuesParse(qs, values, fields, numberof(fields));
 	rc = SLNUserFilterParse(session, values[0], &subfilter);
 	QSValuesCleanup(values, numberof(values));
-	if(DB_EINVAL == rc) rc = SLNFilterCreate(session, SLNAllFilterType, &subfilter);
+	if(DB_EINVAL == rc) rc = SLNFilterCreate(session, SLNVisibleFilterType, &subfilter);
 	if(DB_SUCCESS != rc) {
 		SLNFilterFree(&filter);
 		return 500;

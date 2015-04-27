@@ -95,10 +95,10 @@ OBJECTS := \
 	$(BUILD_DIR)/SLNPull.o \
 	$(BUILD_DIR)/SLNServer.o \
 	$(BUILD_DIR)/filter/SLNFilter.o \
-	$(BUILD_DIR)/filter/SLNIndividualFilter.o \
+	$(BUILD_DIR)/filter/SLNIndirectFilter.o \
+	$(BUILD_DIR)/filter/SLNDirectFilter.o \
 	$(BUILD_DIR)/filter/SLNCollectionFilter.o \
 	$(BUILD_DIR)/filter/SLNNegationFilter.o \
-	$(BUILD_DIR)/filter/SLNURIFilter.o \
 	$(BUILD_DIR)/filter/SLNMetaFileFilter.o \
 	$(BUILD_DIR)/filter/SLNBadMetaFileFilter.o \
 	$(BUILD_DIR)/filter/SLNFilterOpts.o \
