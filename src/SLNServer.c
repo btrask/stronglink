@@ -289,7 +289,7 @@ static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, 
 	}
 
 cleanup:
-	HTTPConnectionWriteChunkv(conn, NULL, 0);
+	HTTPConnectionWriteChunkEnd(conn);
 	HTTPConnectionEnd(conn);
 	SLNFilterOptsCleanup(opts);
 }

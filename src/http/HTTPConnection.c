@@ -376,12 +376,12 @@ int HTTPConnectionWriteRequest(HTTPConnectionRef const conn, HTTPMethod const me
 	strarg_t methodstr = http_method_str(method);
 	uv_buf_t parts[] = {
 		uv_buf_init((char *)methodstr, strlen(methodstr)),
-		uv_buf_init(" ", 1),
+		uv_buf_init(STR_LEN(" ")),
 		uv_buf_init((char *)requestURI, strlen(requestURI)),
-		uv_buf_init(" HTTP/1.1\r\n", 11),
-		uv_buf_init("Host: ", 6),
+		uv_buf_init(STR_LEN(" HTTP/1.1\r\n")),
+		uv_buf_init(STR_LEN("Host: ")),
 		uv_buf_init((char *)host, strlen(host)),
-		uv_buf_init("\r\n", 2),
+		uv_buf_init(STR_LEN("\r\n")),
 	};
 	return HTTPConnectionWritev(conn, parts, numberof(parts));
 }
@@ -482,16 +482,13 @@ int HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, uint64_t const 
 int HTTPConnectionWriteChunkv(HTTPConnectionRef const conn, uv_buf_t const parts[], unsigned int const count) {
 	if(!conn) return 0;
 	uint64_t total = 0;
-	for(index_t i = 0; i < count; ++i) total += parts[i].len;
-	int rc = HTTPConnectionWriteChunkLength(conn, total);
-	if(rc < 0) return rc;
-	if(total > 0) {
-		rc = async_write((uv_stream_t *)conn->stream, parts, count);
-		if(rc < 0) return rc;
-	}
-	rc = HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
-	if(rc < 0) return rc;
-	return 0;
+	for(size_t i = 0; i < count; i++) total += parts[i].len;
+	if(total <= 0) return 0;
+	int rc = 0;
+	rc = rc < 0 ? rc : HTTPConnectionWriteChunkLength(conn, total);
+	rc = rc < 0 ? rc : async_write((uv_stream_t *)conn->stream, parts, count);
+	rc = rc < 0 ? rc : HTTPConnectionWrite(conn, (byte_t const *)STR_LEN("\r\n"));
+	return rc;
 }
 int HTTPConnectionWriteChunkFile(HTTPConnectionRef const conn, strarg_t const path) {
 	uv_file const file = async_fs_open(path, O_RDONLY, 0000);
@@ -505,17 +502,18 @@ int HTTPConnectionWriteChunkFile(HTTPConnectionRef const conn, strarg_t const pa
 	if(req->statbuf.st_size) {
 		rc = rc < 0 ? rc : HTTPConnectionWriteChunkLength(conn, req->statbuf.st_size);
 		rc = rc < 0 ? rc : HTTPConnectionWriteFile(conn, file);
-		rc = rc < 0 ? rc : HTTPConnectionWrite(conn, (byte_t const *)"\r\n", 2);
+		rc = rc < 0 ? rc : HTTPConnectionWrite(conn, (byte_t const *)STR_LEN("\r\n"));
 		if(rc < 0) return rc;
 	}
 	async_fs_close(file);
 	return 0;
 }
-int HTTPConnectionEnd(HTTPConnectionRef const conn) {
+int HTTPConnectionWriteChunkEnd(HTTPConnectionRef const conn) {
 	if(!conn) return 0;
-	int rc = HTTPConnectionWrite(conn, (byte_t *)"", 0);
-	if(rc < 0) return rc;
-	// TODO: Figure out keep-alive.
+	return HTTPConnectionWrite(conn, (byte_t const *)STR_LEN("0\r\n\r\n"));
+}
+int HTTPConnectionEnd(HTTPConnectionRef const conn) {
+	// We assume keep-alive is enabled.
 	return 0;
 }
 
@@ -529,7 +527,7 @@ int HTTPConnectionSendMessage(HTTPConnectionRef const conn, uint16_t const statu
 	// TODO: Check how HEAD responses should look.
 	if(HTTP_HEAD != conn->parser->method) { // TODO: Expose method? What?
 		rc = rc < 0 ? rc : HTTPConnectionWrite(conn, (byte_t const *)str, len);
-		rc = rc < 0 ? rc : HTTPConnectionWrite(conn, (byte_t const *)"\n", 1);
+		rc = rc < 0 ? rc : HTTPConnectionWrite(conn, (byte_t const *)STR_LEN("\n"));
 	}
 	rc = rc < 0 ? rc : HTTPConnectionEnd(conn);
 //	if(status >= 400) fprintf(stderr, "%s: %d %s\n", HTTPConnectionGetRequestURI(conn), (int)status, str);
@@ -551,6 +549,7 @@ int HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path, st
 	}
 	rc = rc < 0 ? rc : HTTPConnectionWriteResponse(conn, 200, "OK");
 	rc = rc < 0 ? rc : HTTPConnectionWriteContentLength(conn, size);
+	// TODO: Caching and other headers.
 	if(type) rc = rc < 0 ? rc : HTTPConnectionWriteHeader(conn, "Content-Type", type);
 	rc = rc < 0 ? rc : HTTPConnectionBeginBody(conn);
 	rc = rc < 0 ? rc : HTTPConnectionWriteFile(conn, file);

@@ -247,7 +247,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	FREE(&nextpage_HTMLSafe);
 	FREE(&lastpage_HTMLSafe);
 
-	HTTPConnectionWriteChunkv(conn, NULL, 0);
+	HTTPConnectionWriteChunkEnd(conn);
 	HTTPConnectionEnd(conn);
 
 	for(size_t i = 0; i < count; i++) FREE(&URIs[i]);
@@ -276,7 +276,7 @@ static int GET_compose(BlogRef const blog, SLNSessionRef const session, HTTPConn
 	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
 	HTTPConnectionBeginBody(conn);
 	TemplateWriteHTTPChunk(blog->compose, &TemplateStaticCBs, args, conn);
-	HTTPConnectionWriteChunkv(conn, NULL, 0);
+	HTTPConnectionWriteChunkEnd(conn);
 	HTTPConnectionEnd(conn);
 
 	FREE(&reponame_HTMLSafe);
@@ -301,7 +301,7 @@ static int GET_upload(BlogRef const blog, SLNSessionRef const session, HTTPConne
 	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
 	HTTPConnectionBeginBody(conn);
 	TemplateWriteHTTPChunk(blog->upload, &TemplateStaticCBs, args, conn);
-	HTTPConnectionWriteChunkv(conn, NULL, 0);
+	HTTPConnectionWriteChunkEnd(conn);
 	HTTPConnectionEnd(conn);
 
 	FREE(&reponame_HTMLSafe);
@@ -464,7 +464,7 @@ static int GET_account(BlogRef const blog, SLNSessionRef const session, HTTPConn
 	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
 	HTTPConnectionBeginBody(conn);
 	TemplateWriteHTTPChunk(blog->login, &TemplateStaticCBs, args, conn);
-	HTTPConnectionWriteChunkv(conn, NULL, 0);
+	HTTPConnectionWriteChunkEnd(conn);
 	HTTPConnectionEnd(conn);
 
 	FREE(&reponame_HTMLSafe);

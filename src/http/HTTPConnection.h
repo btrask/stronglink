@@ -49,6 +49,7 @@ int HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file);
 int HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, uint64_t const length);
 int HTTPConnectionWriteChunkv(HTTPConnectionRef const conn, uv_buf_t const parts[], unsigned int const count);
 int HTTPConnectionWriteChunkFile(HTTPConnectionRef const conn, strarg_t const path);
+int HTTPConnectionWriteChunkEnd(HTTPConnectionRef const conn);
 int HTTPConnectionEnd(HTTPConnectionRef const conn);
 
 // Convenience
