@@ -52,6 +52,9 @@
 	SLNURIAndFileIDKeyPack(key, curtxn, URI, x);
 	int rc = db_cursor_seekr(files, range, key, NULL, dir);
 	db_assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
+
+	// TODO: Skip files without any meta-files. The content of the
+	// meta-file doesn't matter.
 }
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
 	DB_val key[1];
@@ -72,12 +75,17 @@
 	SLNURIAndFileIDRange1(range, curtxn, URI);
 	int rc = db_cursor_nextr(files, range, NULL, NULL, dir);
 	db_assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
+
+	// TODO: Skip files without meta-files.
 }
 - (SLNAgeRange)fullAge:(uint64_t const)fileID {
+	// TODO: We do actually have to check that the file matches our URI.
+	// We shouldn't have to check that it has a meta-file, since that's
+	// already determined.
 	return (SLNAgeRange){fileID, UINT64_MAX};
 }
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {
-	return fileID;
+	return [self fullAge:fileID].min;
 }
 
 @end
