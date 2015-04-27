@@ -210,24 +210,6 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	HTTPConnectionBeginBody(conn);
 	TemplateWriteHTTPChunk(blog->header, &TemplateStaticCBs, args, conn);
 
-	// TODO: This is pretty broken. We probably need a whole separate mode.
-	SLNFilterRef const coreFilter = SLNFilterUnwrap(filter);
-	if(coreFilter && SLNMetadataFilterType == SLNFilterGetType(coreFilter)) {
-		strarg_t const field = SLNFilterGetStringArg(coreFilter, 0);
-		strarg_t const URI = SLNFilterGetStringArg(coreFilter, 1);
-		SLNFileInfo info[1];
-		if(0 == strcmp("link", field) && SLNSessionGetFileInfo(session, URI, info) >= 0) {
-			str_t *canonical = SLNFormatURI(SLN_INTERNAL_ALGO, info->hash);
-			str_t *previewPath = BlogCopyPreviewPath(blog, info->hash);
-			sendPreview(blog, conn, session, canonical, previewPath);
-			FREE(&previewPath);
-			FREE(&canonical);
-			SLNFileInfoCleanup(info);
-			// TODO: Remember this file and make sure it doesn't show up as a duplicate below.
-			if(count > 0) TemplateWriteHTTPChunk(blog->backlinks, &TemplateStaticCBs, args, conn);
-		}
-	}
-
 	for(size_t i = 0; i < count; i++) {
 		str_t algo[SLN_ALGO_SIZE]; // SLN_INTERNAL_ALGO
 		str_t hash[SLN_HASH_SIZE];
