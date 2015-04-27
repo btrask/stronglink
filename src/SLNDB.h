@@ -92,20 +92,16 @@ enum {
 	*(pullID) = db_read_uint64((val)); \
 })
 
-#define SLNPullByIDValPack(val, txn, userID, host, username, password, cookie, query) \
+#define SLNPullByIDValPack(val, txn, userID, host, sessionid, query) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX * 1 + DB_INLINE_MAX * 5); \
 	db_bind_uint64((val), (userID)); \
 	db_bind_string((val), (host), (txn)); \
-	db_bind_string((val), (username), (txn)); \
-	db_bind_string((val), (password), (txn)); \
-	db_bind_string((val), (cookie), (txn)); \
+	db_bind_string((val), (sessionid), (txn)); \
 	db_bind_string((val), (query), (txn));
-#define SLNPullByIDValUnpack(val, txn, userID, host, username, password, cookie, query) ({ \
+#define SLNPullByIDValUnpack(val, txn, userID, host, sessionid, query) ({ \
 	*(userID) = db_read_uint64((val)); \
 	*(host) = db_read_string((val), (txn)); \
-	*(username) = db_read_string((val), (txn)); \
-	*(password) = db_read_string((val), (txn)); \
-	*(cookie) = db_read_string((val), (txn)); \
+	*(sessionid) = db_read_string((val), (txn)); \
 	*(query) = db_read_string((val), (txn)); \
 })
 

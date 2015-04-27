@@ -13,8 +13,6 @@ struct SLNPull {
 	uint64_t pullID;
 	SLNSessionRef session;
 	str_t *host;
-	str_t *username;
-	str_t *password;
 	str_t *cookie;
 	str_t *query;
 
@@ -34,18 +32,20 @@ struct SLNPull {
 static int reconnect(SLNPullRef const pull);
 static int import(SLNPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn);
 
-SLNPullRef SLNRepoCreatePull(SLNRepoRef const repo, uint64_t const pullID, uint64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query) {
+SLNPullRef SLNRepoCreatePull(SLNRepoRef const repo, uint64_t const pullID, uint64_t const userID, strarg_t const host, strarg_t const sessionid, strarg_t const query) {
 	SLNPullRef pull = calloc(1, sizeof(struct SLNPull));
 	if(!pull) return NULL;
 
 	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);
 	pull->pullID = pullID;
 	pull->session = SLNSessionCreateInternal(cache, 0, NULL, userID, SLN_RDWR, NULL); // TODO: How to create this properly?
-	pull->username = strdup(username);
-	pull->password = strdup(password);
-	pull->cookie = cookie ? strdup(cookie) : NULL;
 	pull->host = strdup(host);
+	pull->cookie = aasprintf("s=%s", sessionid ? sessionid : "");
 	pull->query = strdup(query);
+	if(!pull->session || !pull->host || !pull->cookie || !pull->query) {
+		SLNPullFree(&pull);
+		return NULL;
+	}
 
 	async_mutex_init(pull->connlock, 0);
 	async_mutex_init(pull->mutex, 0);
@@ -63,8 +63,6 @@ void SLNPullFree(SLNPullRef *const pullptr) {
 	pull->pullID = 0;
 	SLNSessionRelease(&pull->session);
 	FREE(&pull->host);
-	FREE(&pull->username);
-	FREE(&pull->password);
 	FREE(&pull->cookie);
 	FREE(&pull->query);
 
@@ -232,16 +230,9 @@ void SLNPullStop(SLNPullRef const pull) {
 	pull->count = 0;
 }
 
-static int auth(SLNPullRef const pull);
-
 static int reconnect(SLNPullRef const pull) {
 	int rc;
 	HTTPConnectionFree(&pull->conn);
-
-	if(!pull->cookie) {
-		rc = auth(pull);
-		if(rc < 0) return rc;
-	}
 
 	rc = HTTPConnectionCreateOutgoing(pull->host, &pull->conn);
 	if(rc < 0) {
@@ -274,7 +265,6 @@ static int reconnect(SLNPullRef const pull) {
 	}
 	if(403 == status) {
 		fprintf(stderr, "Pull connection authentication failed\n");
-		FREE(&pull->cookie);
 		return UV_EACCES;
 	}
 	if(status < 200 || status >= 300) {
@@ -297,79 +287,9 @@ static int reconnect(SLNPullRef const pull) {
 	return 0;
 }
 
-static int auth(SLNPullRef const pull) {
-	if(!pull) return 0;
-	FREE(&pull->cookie);
-
-	HTTPConnectionRef conn = NULL;
-	int rc = HTTPConnectionCreateOutgoing(pull->host, &conn);
-	if(rc < 0) {
-		fprintf(stderr, "Pull authentication connection error %s\n", uv_strerror(rc));
-		return rc;
-	}
-	HTTPConnectionWriteRequest(conn, HTTP_POST, "/sln/auth", pull->host);
-
-	int len;
-	str_t body[AUTH_FORM_MAX+1];
-	str_t *user_encoded = QSEscape(pull->username, strlen(pull->username), true);
-	str_t *pass_encoded = QSEscape(pull->password, strlen(pull->password), true);
-	len = snprintf(body, sizeof(body), "user=%s&pass=%s&token=asdf", user_encoded, pass_encoded);
-	FREE(&user_encoded);
-	FREE(&pass_encoded);
-	// TODO
-	// - Query string formatter
-	// - CSRF token? (requires an extra round-trip)
-	assert(len > 0);
-	HTTPConnectionWriteContentLength(conn, (uint64_t)len);
-	HTTPConnectionBeginBody(conn);
-	HTTPConnectionWrite(conn, (byte_t const *)body, len);
-	rc = HTTPConnectionEnd(conn);
-	if(rc < 0) {
-		fprintf(stderr, "Pull authentication error %s\n", uv_strerror(rc));
-		HTTPConnectionFree(&conn);
-		return rc;
-	}
-
-	int const status = HTTPConnectionReadResponseStatus(conn);
-	if(status < 0) {
-		fprintf(stderr, "Pull authentication status %d\n", status);
-		HTTPConnectionFree(&conn);
-		return status;
-	}
-
-	HTTPHeadersRef headers;
-	rc = HTTPHeadersCreateFromConnection(conn, &headers);
-	assert(rc >= 0); // TODO
-	strarg_t const cookie = HTTPHeadersGet(headers, "set-cookie");
-	assert(cookie);
-
-	HTTPConnectionFree(&conn);
-
-	if(!prefix("s=", cookie)) {
-		HTTPHeadersFree(&headers);
-		return -1;
-	}
-
-	strarg_t x = cookie+2;
-	while('\0' != *x && ';' != *x) x++;
-
-	FREE(&pull->cookie);
-	pull->cookie = strndup(cookie, x-cookie);
-	if(!pull->cookie) {
-		HTTPHeadersFree(&headers);
-		return UV_ENOMEM;
-	}
-	fprintf(stderr, "Cookie for %s: %s\n", pull->host, pull->cookie);
-	// TODO: Update database?
-
-	HTTPHeadersFree(&headers);
-	return 0;
-}
-
 
 static int import(SLNPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn) {
 	if(!pull) return 0;
-	if(!pull->cookie) goto fail;
 
 	// TODO: Even if there's nothing to do, we have to enqueue something to fill up our reserved slots. I guess it's better than doing a lot of work inside the connection lock, but there's got to be a better way.
 	SLNSubmissionRef sub = NULL;
@@ -404,7 +324,6 @@ static int import(SLNPullRef const pull, strarg_t const URI, index_t const pos, 
 	rc = rc < 0 ? rc : HTTPConnectionWriteRequest(*conn, HTTP_GET, path, pull->host);
 	FREE(&path);
 
-	assert(pull->cookie);
 	HTTPConnectionWriteHeader(*conn, "Cookie", pull->cookie);
 	HTTPConnectionBeginBody(*conn);
 	rc = HTTPConnectionEnd(*conn);

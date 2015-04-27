@@ -324,13 +324,11 @@ static void loadPulls(SLNRepoRef const repo) {
 		SLNPullByIDKeyUnpack(pullID_key, txn, &pullID);
 		uint64_t userID;
 		strarg_t host;
-		strarg_t username;
-		strarg_t password;
-		strarg_t cookie;
+		strarg_t sessionid;
 		strarg_t query;
-		SLNPullByIDValUnpack(pull_val, txn, &userID, &host, &username, &password, &cookie, &query);
+		SLNPullByIDValUnpack(pull_val, txn, &userID, &host, &sessionid, &query);
 
-		SLNPullRef const pull = SLNRepoCreatePull(repo, pullID, userID, host, username, password, cookie, query);
+		SLNPullRef const pull = SLNRepoCreatePull(repo, pullID, userID, host, sessionid, query);
 		if(repo->pull_count+1 > repo->pull_size) {
 			repo->pull_size = (repo->pull_count+1) * 2;
 			repo->pulls = realloc(repo->pulls, sizeof(SLNPullRef) * repo->pull_size);
@@ -354,12 +352,10 @@ static void debug_data(DB_env *const db) {
 	SLNPullByIDKeyPack(pullID_key, txn, 1);
 	uint64_t const userID = 1;
 	char const *const host = "localhost:8009";
-	char const *const remote_username = "ben";
-	char const *const remote_password = "testing";
-	char const *const cookie = NULL;
+	char const *const sessionid = NULL;
 	char const *const query = "";
 	DB_val pull_val[1];
-	SLNPullByIDValPack(pull_val, txn, userID, host, remote_username, remote_password, cookie, query);
+	SLNPullByIDValPack(pull_val, txn, userID, host, sessionid, query);
 
 	rc = db_put(txn, pullID_key, pull_val, 0);
 	assert(!rc);

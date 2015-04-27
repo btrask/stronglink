@@ -158,7 +158,7 @@ SLNFilterType SLNFilterTypeFromString(strarg_t const type, size_t const len);
 
 int SLNUserFilterParse(SLNSessionRef const session, strarg_t const query, SLNFilterRef *const out);
 
-SLNPullRef SLNRepoCreatePull(SLNRepoRef const repo, uint64_t const pullID, uint64_t const userID, strarg_t const host, strarg_t const username, strarg_t const password, strarg_t const cookie, strarg_t const query);
+SLNPullRef SLNRepoCreatePull(SLNRepoRef const repo, uint64_t const pullID, uint64_t const userID, strarg_t const host, strarg_t const sessionid, strarg_t const query);
 void SLNPullFree(SLNPullRef *const pullptr);
 int SLNPullStart(SLNPullRef const pull);
 void SLNPullStop(SLNPullRef const pull);
