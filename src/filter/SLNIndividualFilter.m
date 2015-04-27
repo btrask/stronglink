@@ -374,7 +374,6 @@
 	if(!field || !value) return -1;
 	db_cursor_renew(txn, &metafiles); // SLNFieldValueAndMetaFileID
 	db_cursor_renew(txn, &match); // SLNFieldValueAndMetaFileID
-	curtxn = txn;
 	return 0;
 }
 
