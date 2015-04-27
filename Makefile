@@ -16,7 +16,7 @@ PREFIX ?= /usr/local
 CFLAGS += -std=gnu99
 CFLAGS += -g -fno-omit-frame-pointer
 CFLAGS += -DLIBCO_MP
-CFLAGS += -DINSTALL_PREFIX="$(PREFIX)"
+CFLAGS += -DINSTALL_PREFIX=\"$(PREFIX)\"
 
 # Also consider -Weverything...
 WARNINGS := -Werror -Wall -Wextra

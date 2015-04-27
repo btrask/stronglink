@@ -556,6 +556,11 @@ BlogRef BlogCreate(SLNRepoRef const repo) {
 		return NULL;
 	}
 
+	// Automatically attempt to create a default blog resource directory.
+	// If it fails, it's probably because it already exists.
+	// If not, we'll find out when we try to load a template.
+	(void)async_fs_symlink(INSTALL_PREFIX "/share/stronglink/blog", blog->dir, 0);
+
 	if(
 		!load_template(blog, "header.html", &blog->header) ||
 		!load_template(blog, "footer.html", &blog->footer) ||

@@ -74,6 +74,10 @@ int async_fs_ftruncate(uv_file file, int64_t offset) {
 	ASYNC_FS_WRAP(ftruncate, file, offset)
 }
 
+int async_fs_symlink(const char* path, const char* new_path, int flags) {
+	ASYNC_FS_WRAP(symlink, path, new_path, flags);
+}
+
 int async_fs_writeall(uv_file const file, uv_buf_t bufs[], unsigned int const nbufs, int64_t const offset) {
 	int64_t pos = offset;
 	unsigned used = 0;
