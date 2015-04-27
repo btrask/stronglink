@@ -451,6 +451,7 @@ int HTTPConnectionBeginBody(HTTPConnectionRef const conn) {
 }
 int HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file) {
 	byte_t *buf = malloc(BUFFER_SIZE);
+	if(!buf) return UV_ENOMEM;
 	uv_buf_t const info = uv_buf_init((char *)buf, BUFFER_SIZE);
 	int64_t pos = 0;
 	for(;;) {
