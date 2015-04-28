@@ -293,7 +293,7 @@ cleanup:
 	SLNFilterOptsCleanup(opts);
 }
 static int parseFilter(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, HTTPHeadersRef const headers, SLNFilterRef *const out) {
-	if(HTTP_POST != method) return SLNFilterCreate(session, SLNVisibleFilterType, out);
+	assert(HTTP_POST == method);
 	// TODO: Check Content-Type header for JSON.
 	SLNJSONFilterParserRef parser;
 	int rc = SLNJSONFilterParserCreate(session, &parser);
