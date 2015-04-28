@@ -106,6 +106,7 @@ static SLNFilterRef parse_and(strarg_t *const query);
 static SLNFilterRef parse_parens(strarg_t *const query) {
 	strarg_t q = *query;
 	if('(' != *q++) return NULL;
+	read_space(query);
 	SLNFilterRef filter = parse_and(&q);
 	if(')' == *q) q++;
 	else if('\0' != *q) {
@@ -128,7 +129,6 @@ static SLNFilterRef parse_negation(strarg_t *const query) {
 	return negation;
 }
 static SLNFilterRef parse_exp(strarg_t *const query) {
-	read_space(query);
 	SLNFilterRef exp = NULL;
 	if(!exp) exp = parse_negation(query);
 	if(!exp) exp = parse_parens(query);
