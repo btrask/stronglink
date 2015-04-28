@@ -147,6 +147,11 @@ struct token {
 	DB_cursor *files;
 }
 @end
+@interface SLNAllFilter : SLNFilter
+{
+	DB_cursor *files;
+}
+@end
 
 static bool valid(uint64_t const x) {
 	return 0 != x && UINT64_MAX != x;

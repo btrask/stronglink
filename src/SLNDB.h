@@ -109,6 +109,10 @@ enum {
 	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_VARINT_MAX); \
 	db_bind_uint64((val), SLNFileByID); \
 	db_bind_uint64((val), (fileID));
+#define SLNFileByIDRange0(range, txn) \
+	DB_RANGE_STORAGE(range, DB_VARINT_MAX); \
+	db_bind_uint64((range)->min, SLNFileByID); \
+	db_range_genmax((range));
 #define SLNFileByIDValPack(val, txn, internalHash, type, size) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX * 1 + DB_INLINE_MAX * 2); \
 	db_bind_string((val), (internalHash), (txn)); \

@@ -115,7 +115,7 @@ strarg_t SLNHasherGetInternalHash(SLNHasherRef const hasher);
 
 typedef enum {
 	SLNFilterTypeInvalid = 0,
-//	SLNAllFilterType, // TODO: Even files without meta-files?
+	SLNAllFilterType,
 	SLNVisibleFilterType,
 	SLNFileTypeFilterType,
 	SLNIntersectionFilterType,

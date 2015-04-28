@@ -169,8 +169,16 @@ static SLNFilterRef parse_and(strarg_t *const query) {
 int SLNUserFilterParse(SLNSessionRef const session, strarg_t const query, SLNFilterRef *const out) {
 	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
 	if(!query) return DB_EINVAL;
+	SLNFilterRef filter;
+	// Special case: show all files, including invisible.
+	if(0 == strcmp("*", query)) {
+		filter = createfilter(SLNAllFilterType);
+		if(!filter) return DB_ENOMEM;
+		*out = filter;
+		return DB_SUCCESS;
+	}
 	strarg_t q = query;
-	SLNFilterRef filter = parse_and(&q);
+	filter = parse_and(&q);
 	if(!filter) return DB_EINVAL;
 	read_space(&q);
 	if('\0' != *q) {
