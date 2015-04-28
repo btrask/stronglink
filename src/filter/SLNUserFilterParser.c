@@ -42,7 +42,7 @@ static bool read_string(strarg_t *const query, strarg_t const str) {
 }
 static bool read_space(strarg_t *const query) {
 	strarg_t q = *query;
-	for(; isspace(*q); ++q);
+	for(; isspace(*q); q++);
 	if(q == *query) return false;
 	*query = q;
 	return true;
@@ -96,7 +96,7 @@ static SLNFilterRef parse_link(strarg_t *const query) {
 	if(':' != *q++) return NULL;
 	if('/' != *q++) return NULL;
 	if('/' != *q++) return NULL;
-	for(; '\0' != *q && !issep(*q); ++q);
+	for(; '\0' != *q && !issep(*q); q++);
 	SLNFilterRef const filter = createfilter(SLNURIFilterType);
 	SLNFilterAddStringArg(filter, *query, q - *query);
 	*query = q;
