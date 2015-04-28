@@ -146,6 +146,7 @@ static SLNFilterRef parse_or(strarg_t *const query) {
 		SLNFilterAddFilterArg(or, exp);
 		if(!read_space(query)) break;
 		if(!read_string(query, "or")) break;
+		if(!read_space(query)) break;
 	}
 	return or;
 }
@@ -160,6 +161,7 @@ static SLNFilterRef parse_and(strarg_t *const query) {
 		// Optional, ignored
 		read_space(query);
 		read_string(query, "and");
+		read_space(query);
 	}
 	return and;
 }
