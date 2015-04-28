@@ -140,6 +140,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		FREE(&query);
 		FREE(&query_HTMLSafe);
 		SLNFilterFree(&filter);
+		if(DB_NOTFOUND == rc) return 404;
 		return 500;
 	}
 
