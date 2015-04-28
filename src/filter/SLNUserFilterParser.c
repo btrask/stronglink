@@ -69,7 +69,6 @@ static SLNFilterRef parse_term(strarg_t *const query) {
 	int rc = SLNFilterAddStringArg(filter, *query, len);
 	if(DB_SUCCESS != rc) {
 		SLNFilterFree(&filter);
-		*query = q; // Skip and resume parsing.
 		return NULL;
 	}
 	*query = q;
