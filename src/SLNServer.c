@@ -206,15 +206,14 @@ static int sendURIBatch(SLNSessionRef const session, SLNFilterRef const filter, 
 	if(0 == count) return DB_NOTFOUND;
 	rc = 0;
 	for(size_t i = 0; i < count; i++) {
-		if(rc >= 0) {
-			uv_buf_t const parts[] = {
-				uv_buf_init((char *)URIs[i], strlen(URIs[i])),
-				uv_buf_init("\r\n", 2),
-			};
-			rc = HTTPConnectionWriteChunkv(conn, parts, numberof(parts));
-		}
-		FREE(&URIs[i]);
+		uv_buf_t const parts[] = {
+			uv_buf_init((char *)URIs[i], strlen(URIs[i])),
+			uv_buf_init("\r\n", 2),
+		};
+		rc = HTTPConnectionWriteChunkv(conn, parts, numberof(parts));
+		if(rc < 0) break;
 	}
+	for(size_t i = 0; i < count; i++) FREE(&URIs[i]);
 	if(rc < 0) return DB_EIO;
 	return DB_SUCCESS;
 }
