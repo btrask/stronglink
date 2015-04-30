@@ -30,7 +30,7 @@ body {
 	background: #eee;
 	font-size: 16px;
 	line-height: 1.5em;
-	word-break: break-all;
+	word-wrap: break-word;
 }
 body, input {
 	font-family: Helvetica, sans-serif;
