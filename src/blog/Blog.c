@@ -73,8 +73,6 @@ static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, SLNSes
 		SLNFileInfo src[1];
 		int rc = SLNSessionGetFileInfo(session, URI, src);
 		assert(rc >= 0); // TODO;
-		// TODO: We should be able to pass NULL for meta because we
-		// don't need a meta-file synthesized at this point.
 		rc = -1;
 		rc = rc >= 0 ? rc : BlogConvert(blog, session, path, NULL, URI, src);
 		rc = rc >= 0 ? rc : BlogGeneric(blog, session, path, URI, src);
