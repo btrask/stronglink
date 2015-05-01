@@ -75,9 +75,9 @@ static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, SLNSes
 		assert(rc >= 0); // TODO;
 		// TODO: We should be able to pass NULL for meta because we
 		// don't need a meta-file synthesized at this point.
-		rc = 0;
-		rc = rc < 0 ? rc : BlogConvert(blog, session, path, NULL, URI, src);
-		rc = rc < 0 ? rc : BlogGeneric(blog, session, path, URI, src);
+		rc = -1;
+		rc = rc >= 0 ? rc : BlogConvert(blog, session, path, NULL, URI, src);
+		rc = rc >= 0 ? rc : BlogGeneric(blog, session, path, URI, src);
 		assert(rc >= 0); // TODO
 		SLNFileInfoCleanup(src);
 		gen_done(blog, path, x);
@@ -353,7 +353,9 @@ static int parse_file(BlogRef const blog,
 	if(rc < 0) goto cleanup;
 
 	strarg_t const URI = SLNSubmissionGetPrimaryURI(file);
-	rc = BlogConvert(blog, session, htmlpath, &meta, URI, src);
+	rc = -1;
+	rc = rc >= 0 ? rc : BlogConvert(blog, session, htmlpath, &meta, URI, src);
+	rc = rc >= 0 ? rc : BlogMeta(blog, session, &meta, URI, src);
 	if(rc < 0) goto cleanup;
 
 	*outfile = file; file = NULL;
@@ -412,13 +414,13 @@ static int POST_post(BlogRef const blog,
 	// 2K in the DB rather than in the file system).
 
 	SLNSubmissionRef subs[] = { sub, meta };
-	int err = SLNSubmissionBatchStore(subs, numberof(subs));
+	rc = SLNSubmissionBatchStore(subs, numberof(subs));
 
 	SLNSubmissionFree(&sub);
 	SLNSubmissionFree(&meta);
 	MultipartFormFree(&form);
 
-	if(err < 0) return 500;
+	if(DB_SUCCESS != rc) return 500;
 
 	HTTPConnectionWriteResponse(conn, 303, "See Other");
 	HTTPConnectionWriteHeader(conn, "Location", "/");

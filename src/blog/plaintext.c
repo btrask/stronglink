@@ -3,7 +3,7 @@
 TYPE_LIST(plaintext,
 	"text/plain; charset=utf-8",
 	"text/plain",
-	"text/x-sln-meta+json; charset=utf-8",
+	SLN_META_TYPE,
 	"text/efs-meta+json; charset=utf-8")
 CONVERTER(plaintext) {
 	if(size > LIMIT_DEFAULT) return UV_EFBIG;

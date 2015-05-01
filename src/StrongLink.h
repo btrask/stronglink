@@ -7,6 +7,9 @@
 
 #define URI_MAX 1024
 
+// TODO: Use vnd.* syntax?
+#define SLN_META_TYPE "text/x-sln-meta+json; charset=utf-8"
+
 extern uint32_t SLNSeed;
 
 typedef uint32_t SLNMode;

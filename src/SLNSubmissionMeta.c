@@ -38,7 +38,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 
 	strarg_t const type = SLNSubmissionGetType(sub);
 	if(!type) return DB_SUCCESS;
-	if(0 != strcasecmp("text/x-sln-meta+json; charset=utf-8", type) &&
+	if(0 != strcasecmp(SLN_META_TYPE, type) &&
 	   0 != strcasecmp("text/efs-meta+json; charset=utf-8", type)) return DB_SUCCESS;
 
 	uv_file const fd = SLNSubmissionGetFile(sub);
@@ -58,7 +58,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	ssize_t len = async_fs_read(fd, buf, 1, pos);
 	if(len < 0) {
 		fprintf(stderr, "Submission meta-file read error (%s)\n", uv_strerror(len));
-		rc = -1;
+		rc = DB_EIO;
 		goto cleanup;
 	}
 
@@ -69,7 +69,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	}
 	if(i >= len) {
 		fprintf(stderr, "Submission meta-file parse error (invalid target URI)\n");
-		rc = -1;
+		rc = DB_EIO;
 		goto cleanup;
 	}
 	str_t targetURI[URI_MAX];
@@ -103,7 +103,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 		len = async_fs_read(fd, buf, 1, pos);
 		if(len < 0) {
 			fprintf(stderr, "Submission meta-file read error (%s)\n", uv_strerror(len));
-			rc = -1;
+			rc = DB_EIO;
 			goto cleanup;
 		}
 		if(0 == len) break;
@@ -116,7 +116,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 		unsigned char *msg = yajl_get_error(parser, true, (byte_t const *)buf->base, len);
 		fprintf(stderr, "%s", msg);
 		yajl_free_error(parser, msg); msg = NULL;
-		rc = -1;
+		rc = DB_EIO;
 		goto cleanup;
 	}
 

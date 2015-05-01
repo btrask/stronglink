@@ -69,8 +69,7 @@ static int convert(BlogRef const blog,
 
 	async_fs_close(file); file = -1;
 
-	char const *const metatype = "text/x-sln-meta+json; charset=utf-8";
-	rc = SLNSubmissionCreate(session, metatype, &meta);
+	rc = SLNSubmissionCreate(session, SLN_META_TYPE, &meta);
 	if(rc < 0) goto cleanup;
 
 	SLNSubmissionWrite(meta, (byte_t const *)URI, strlen(URI));
@@ -111,8 +110,8 @@ cleanup:
 	if(html >= 0) { async_fs_close(html); html = -1; }
 	if(file >= 0) { async_fs_close(file); file = -1; }
 	if(buf) { munmap((void *)buf, src->size+1); buf = NULL; }
-	SLNSubmissionFree(&meta);
 	if(json) { yajl_gen_free(json); json = NULL; }
+	SLNSubmissionFree(&meta);
 	return rc;
 }
 int BlogConvert(BlogRef const blog,
@@ -165,6 +164,45 @@ int BlogGeneric(BlogRef const blog,
 cleanup:
 	async_fs_unlink(tmp); FREE(&tmp);
 	if(html >= 0) { async_fs_close(html); html = -1; }
+	return rc;
+}
+int BlogMeta(BlogRef const blog,
+             SLNSessionRef const session,
+             SLNSubmissionRef *const outmeta,
+             strarg_t const URI,
+             SLNFileInfo const *const src)
+{
+	// TODO: We should probably have a SLNMetaFileWriter or something.
+
+	SLNSubmissionRef meta = NULL;
+	yajl_gen json = NULL;
+
+	int rc = SLNSubmissionCreate(session, SLN_META_TYPE, &meta);
+	if(rc < 0) goto cleanup;
+
+	rc = rc < 0 ? rc : SLNSubmissionWrite(meta, (byte_t const *)URI, strlen(URI));
+	rc = rc < 0 ? rc : SLNSubmissionWrite(meta, (byte_t const *)STR_LEN("\n\n"));
+	if(rc < 0) goto cleanup;
+
+	json = yajl_gen_alloc(NULL);
+	if(!json) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
+	yajl_gen_config(json, yajl_gen_print_callback, (void (*)())SLNSubmissionWrite, meta);
+	yajl_gen_config(json, yajl_gen_beautify, (int)true);
+
+	yajl_gen_map_open(json);
+	yajl_gen_string(json, (unsigned char const *)STR_LEN("type"));
+	yajl_gen_string(json, (unsigned char const *)src->type, strlen(src->type));
+	yajl_gen_map_close(json);
+
+	rc = SLNSubmissionEnd(meta);
+	if(rc < 0) goto cleanup;
+
+	*outmeta = meta; meta = NULL;
+
+cleanup:
+	if(json) { yajl_gen_free(json); json = NULL; }
+	SLNSubmissionFree(&meta);
 	return rc;
 }
 

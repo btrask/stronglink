@@ -9,11 +9,11 @@ enum {
 	SLNUserByID = 20,
 	SLNUserIDByName = 21,
 	SLNSessionByID = 22,
-	SLNPullByID = 23, // by user ID?
+	SLNPullByID = 23, // Also by user ID?
 
 	SLNFileByID = 40,
 	SLNFileIDByInfo = 41,
-	SLNFileIDByType = 42,
+//	SLNFileIDByType = 42, // Unused? Now we're storing types as regular meta-data.
 	SLNFileIDAndURI = 43,
 	SLNURIAndFileID = 44,
 

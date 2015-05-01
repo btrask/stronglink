@@ -5,6 +5,10 @@
 #include "../async/async.h"
 #include "../http/QueryString.h"
 
+// TODO: Redefined from StrongLink.h.
+// TODO: Use vnd.* syntax?
+#define SLN_META_TYPE "text/x-sln-meta+json; charset=utf-8"
+
 #define LIMIT_DEFAULT (1024 * 1024 * 1)
 #define LIMIT_SMALL (1024 * 16)
 #define LIMIT_LARGE (1024 * 1024 * 10)
