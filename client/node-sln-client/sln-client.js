@@ -219,7 +219,7 @@ Repo.prototype.submitMeta = function(uri, meta, cb) {
 	var repo = this;
 	var type = "text/x-sln-meta+json; charset=utf-8";
 	var stream = repo.createSubStream(type, {});
-	stream.end(uri+"\r\n\r\n"+JSON.stringify(meta, null, "\t"), "utf8");
+	stream.end(uri+"\n\n"+JSON.stringify(meta, null, "\t"), "utf8");
 	stream.on("submission", function(obj) {
 		cb(null, obj);
 	});
