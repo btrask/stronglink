@@ -15,20 +15,13 @@ var meta = {
 	"tag": process.argv.slice(2, -1),
 };
 
-var paused = false; // Even Node 0.12 doesn't support stream.pause() properly.
 var stream = repo.createQueryStream(query, { wait: false });
-stream.on("readable", function() {
-	if(paused) return;
-	var URI = stream.read();
-	if(!URI) return;
-	paused = true;
-//	stream.pause();
+stream.on("data", function(URI) {
+	stream.pause();
 	repo.submitMeta(URI, meta, function(err, obj) {
-		paused = false;
-//		stream.resume();
 		if(err) throw err;
+		stream.resume();
 		console.log(URI);
-		stream.emit("readable"); // Hack to resume stream
 	});
 });
 

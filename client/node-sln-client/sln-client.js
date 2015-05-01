@@ -6,6 +6,10 @@ var qs = require("querystring");
 var PassThroughStream = require("stream").PassThrough;
 var urlModule = require("url");
 
+function has(obj, prop) {
+	return Object.prototype.hasOwnProperty.call(obj, prop);
+}
+
 sln.parseURI = function(uri) {
 	var x = /hash:\/\/([\w\d.-]+)\/([\w\d_-]+)(\?[\w\d%=_-]*)?(#[\w\d_-])?/.exec(uri);
 	if(!x) return null;
@@ -66,12 +70,14 @@ Repo.prototype.info = function(cb) {
 };
 
 Repo.prototype.query = function(query, opts, cb) {
-	// TODO: opts must have a count limit or else this will run forever?
+	if(!opts) opts = {};
+	if(!has(opts, "count")) opts.count = 50;
+	if(!has(opts, "wait")) opts.wait = false;
+	if(!has(opts, "agent")) opts.agent = undefined;
 	var stream = this.createQueryStream(query, opts);
 	var URIs = [];
-	stream.on("readable", function() {
-		var URI = stream.read();
-		if(URI) URIs.push(URI);
+	stream.on("data", function(URI) {
+		URIs.push(URI);
 	});
 	stream.on("end", function() {
 		cb(null, URIs);
@@ -91,12 +97,12 @@ Repo.prototype.createQueryStream = function(query, opts) {
 			"lang": opts ? opts.lang : "",
 			"start": opts ? opts.start : "",
 			"count": opts ? opts.count : "",
-			"wait": opts && false !== opts.wait ? "1" : "0",
+			"wait": !opts || false !== opts.wait ? "1" : "0",
 		}),
 		headers: {
 			"Cookie": "s="+repo.session,
 		},
-		agent: false,
+		agent: opts && has(opts, "agent") ? opts.agent : false,
 	});
 	return new URIListStream({ meta: false, req: req });
 };
@@ -108,12 +114,12 @@ Repo.prototype.createMetafilesStream = function(opts) {
 		path: repo.path+"/sln/metafiles?"+qs.stringify({
 			"start": opts ? opts.start : "",
 			"count": opts ? opts.count : "",
-			"wait": opts && false !== opts.wait ? "1" : "0",
+			"wait": !opts || false !== opts.wait ? "1" : "0",
 		}),
 		headers: {
 			"Cookie": "s="+repo.session,
 		},
-		agent: false,
+		agent: opts && has(opts, "agent") ? opts.agent : false,
 	});
 	return new URIListStream({ meta: true, req: req });
 };
