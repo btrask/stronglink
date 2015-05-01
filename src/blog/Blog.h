@@ -41,6 +41,11 @@ int BlogConvert(BlogRef const blog,
                 SLNSubmissionRef *const meta,
                 strarg_t const URI,
                 SLNFileInfo const *const src);
+int BlogGeneric(BlogRef const blog,
+                SLNSessionRef const session,
+                strarg_t const htmlpath,
+                strarg_t const URI,
+                SLNFileInfo const *const src);
 
 // TODO: Get rid of this stuff, or refactor it.
 typedef struct {

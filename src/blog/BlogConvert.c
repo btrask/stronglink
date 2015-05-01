@@ -2,8 +2,6 @@
 #include <yajl/yajl_gen.h>
 #include "Blog.h"
 
-#define CONVERTER(name) blog_types_##name, blog_convert_##name
-
 typedef int (*BlogTypeCheck)(strarg_t const type);
 typedef int (*BlogConverter)(
 	uv_file const html,
@@ -12,7 +10,9 @@ typedef int (*BlogConverter)(
 	size_t const size,
 	char const *const type);
 
-// TODO
+// TODO: We need a real plugin system with dynamic loading, etc.
+#define CONVERTER(name) blog_types_##name, blog_convert_##name
+
 int blog_types_markdown(strarg_t const type);
 int blog_convert_markdown(
 	uv_file const html,
@@ -115,12 +115,26 @@ cleanup:
 	if(json) { yajl_gen_free(json); json = NULL; }
 	return rc;
 }
-static int generic(BlogRef const blog,
-                   SLNSessionRef const session,
-                   strarg_t const htmlpath,
-                   SLNSubmissionRef *const outmeta,
-                   strarg_t const URI,
-                   SLNFileInfo const *const src)
+int BlogConvert(BlogRef const blog,
+                SLNSessionRef const session,
+                strarg_t const html,
+                SLNSubmissionRef *const outmeta,
+                strarg_t const URI,
+                SLNFileInfo const *const src)
+{
+	int rc = -1;
+	SLNSubmissionRef meta = NULL;
+	rc=rc>=0?rc: convert(blog, session, html, &meta, URI, src, CONVERTER(markdown));
+	rc=rc>=0?rc: convert(blog, session, html, &meta, URI, src, CONVERTER(plaintext));
+	if(outmeta) { *outmeta = meta; meta = NULL; }
+	SLNSubmissionFree(&meta);
+	return rc;
+}
+int BlogGeneric(BlogRef const blog,
+                SLNSessionRef const session,
+                strarg_t const htmlpath,
+                strarg_t const URI,
+                SLNFileInfo const *const src)
 {
 	str_t *tmp = NULL;
 	uv_file html = -1;
@@ -148,24 +162,9 @@ static int generic(BlogRef const blog,
 	rc = async_fs_link_mkdirp(tmp, htmlpath);
 	if(rc < 0) goto cleanup;
 
-	*outmeta = NULL;
-
 cleanup:
 	async_fs_unlink(tmp); FREE(&tmp);
 	if(html >= 0) { async_fs_close(html); html = -1; }
-	return rc;
-}
-int BlogConvert(BlogRef const blog,
-                SLNSessionRef const session,
-                strarg_t const html,
-                SLNSubmissionRef *const meta,
-                strarg_t const URI,
-                SLNFileInfo const *const src)
-{
-	int rc = -1;
-	rc=rc>=0?rc: convert(blog, session, html, meta, URI, src, CONVERTER(markdown));
-	rc=rc>=0?rc: convert(blog, session, html, meta, URI, src, CONVERTER(plaintext));
-	rc=rc>=0?rc: generic(blog, session, html, meta, URI, src);
 	return rc;
 }
 
