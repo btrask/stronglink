@@ -23,14 +23,14 @@
 	subfilter = filter;
 	return DB_SUCCESS;
 }
-- (void)print:(count_t const)depth {
+- (void)print:(size_t const)depth {
 	indent(depth);
 	fprintf(stderr, "(negation\n");
 	[subfilter print:depth+1];
 	indent(depth);
 	fprintf(stderr, ")\n");
 }
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth {
+- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth {
 	size_t len = 0;
 	len += wr(data+len, size-len, "-");
 	len += [subfilter getUserFilter:data+len :size-len :depth+1];

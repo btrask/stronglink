@@ -23,11 +23,11 @@ typedef struct {
 @interface SLNFilter (Abstract)
 - (SLNFilterType)type;
 - (SLNFilter *)unwrap;
-- (strarg_t)stringArg:(index_t const)i;
+- (strarg_t)stringArg:(size_t const)i;
 - (int)addStringArg:(strarg_t const)str :(size_t const)len;
 - (int)addFilterArg:(SLNFilter *const)filter;
-- (void)print:(count_t const)depth;
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth;
+- (void)print:(size_t const)depth;
+- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth;
 
 - (int)prepare:(DB_txn *const)txn;
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
@@ -74,8 +74,8 @@ struct token {
 {
 	str_t *term;
 	struct token *tokens;
-	count_t count;
-	count_t asize;
+	size_t count;
+	size_t asize;
 	DB_cursor *metafiles;
 	DB_cursor *phrase; // TODO
 	DB_cursor *match;
@@ -95,8 +95,8 @@ struct token {
 @interface SLNCollectionFilter : SLNFilter
 {
 	SLNFilter **filters;
-	count_t count;
-	count_t asize;
+	size_t count;
+	size_t asize;
 	int sort;
 }
 - (SLNFilter *)unwrap;
@@ -164,11 +164,11 @@ static uint64_t invalid(int const dir) {
 	return 0;
 }
 
-static void indent(count_t const depth) {
-	for(index_t i = 0; i < depth; ++i) fprintf(stderr, "\t");
+static void indent(size_t const depth) {
+	for(size_t i = 0; i < depth; ++i) fprintf(stderr, "\t");
 }
 static bool needs_quotes(strarg_t const str) {
-	for(index_t i = 0; '\0' != str[i]; ++i) {
+	for(size_t i = 0; '\0' != str[i]; ++i) {
 		if(isspace(str[i])) return true;
 	}
 	return false;

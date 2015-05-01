@@ -78,7 +78,7 @@ SLNFilterRef SLNFilterUnwrap(SLNFilterRef const filter) {
 	assert(filter);
 	return (SLNFilterRef)[(SLNFilter *)filter unwrap];
 }
-strarg_t SLNFilterGetStringArg(SLNFilterRef const filter, index_t const i) {
+strarg_t SLNFilterGetStringArg(SLNFilterRef const filter, size_t const i) {
 	assert(filter);
 	return [(SLNFilter *)filter stringArg:i];
 }
@@ -90,11 +90,11 @@ int SLNFilterAddFilterArg(SLNFilterRef const filter, SLNFilterRef const subfilte
 	assert(filter);
 	return [(SLNFilter *)filter addFilterArg:(SLNFilter *)subfilter];
 }
-void SLNFilterPrint(SLNFilterRef const filter, count_t const depth) {
+void SLNFilterPrint(SLNFilterRef const filter, size_t const depth) {
 	assert(filter);
 	return [(SLNFilter *)filter print:depth];
 }
-size_t SLNFilterToUserFilterString(SLNFilterRef const filter, str_t *const data, size_t const size, count_t const depth) {
+size_t SLNFilterToUserFilterString(SLNFilterRef const filter, str_t *const data, size_t const size, size_t const depth) {
 	assert(filter);
 	return [(SLNFilter *)filter getUserFilter:data :size :depth];
 }

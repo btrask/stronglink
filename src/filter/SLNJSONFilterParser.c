@@ -29,7 +29,7 @@ void SLNJSONFilterParserFree(SLNJSONFilterParserRef *const parserptr) {
 	if(parser->JSONParser) {
 		yajl_free(parser->JSONParser); parser->JSONParser = NULL;
 	}
-	for(index_t i = 0; i < DEPTH_MAX; ++i) {
+	for(size_t i = 0; i < DEPTH_MAX; ++i) {
 		SLNFilterFree(&parser->stack[i]);
 	}
 	assert_zeroed(parser, 1);

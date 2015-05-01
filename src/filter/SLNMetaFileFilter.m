@@ -13,11 +13,11 @@
 - (SLNFilter *)unwrap {
 	return self;
 }
-- (void)print:(count_t const)depth {
+- (void)print:(size_t const)depth {
 	indent(depth);
 	fprintf(stderr, "(meta)\n");
 }
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth {
+- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth {
 	assert(0);
 	return wr(data, size, "");
 }

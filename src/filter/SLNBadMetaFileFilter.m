@@ -48,14 +48,14 @@
 	subfilter = filter;
 	return 0;
 }
-- (void)print:(count_t const)depth {
+- (void)print:(size_t const)depth {
 	indent(depth);
 	fprintf(stderr, "(badmetafiles\n");
 	[subfilter print:depth+1];
 	indent(depth);
 	fprintf(stderr, ")\n");
 }
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth {
+- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth {
 	assert(0);
 	return wr(data, size, "");
 }

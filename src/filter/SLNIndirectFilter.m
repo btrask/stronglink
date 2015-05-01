@@ -153,11 +153,11 @@
 - (SLNFilterType)type {
 	return SLNVisibleFilterType;
 }
-- (void)print:(count_t const)depth {
+- (void)print:(size_t const)depth {
 	indent(depth);
 	fprintf(stderr, "(visible)\n");
 }
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth {
+- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth {
 	if(depth) return wr(data, size, "*");
 	return wr(data, size, "");
 }
@@ -206,7 +206,7 @@
 @implementation SLNFulltextFilter
 - (void)free {
 	FREE(&term);
-	for(index_t i = 0; i < count; ++i) {
+	for(size_t i = 0; i < count; ++i) {
 		FREE(&tokens[i].str);
 	}
 	assert_zeroed(tokens, count);
@@ -221,7 +221,7 @@
 - (SLNFilterType)type {
 	return SLNFulltextFilterType;
 }
-- (strarg_t)stringArg:(index_t const)i {
+- (strarg_t)stringArg:(size_t const)i {
 	if(0 != i) return NULL;
 	return term;
 }
@@ -260,11 +260,11 @@
 	if(!count) return DB_EINVAL;
 	return DB_SUCCESS;
 }
-- (void)print:(count_t const)depth {
+- (void)print:(size_t const)depth {
 	indent(depth);
 	fprintf(stderr, "(fulltext %s)\n", term);
 }
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth {
+- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth {
 	return wr(data, size, term);
 }
 
@@ -339,7 +339,7 @@
 - (SLNFilterType)type {
 	return SLNMetadataFilterType;
 }
-- (strarg_t)stringArg:(index_t const)i {
+- (strarg_t)stringArg:(size_t const)i {
 	switch(i) {
 		case 0: return field;
 		case 1: return value;
@@ -357,11 +357,11 @@
 	}
 	return DB_EINVAL;
 }
-- (void)print:(count_t const)depth {
+- (void)print:(size_t const)depth {
 	indent(depth);
 	fprintf(stderr, "(metadata \"%s\" \"%s\")\n", field, value);
 }
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth {
+- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth {
 	size_t len = 0;
 	len += wr_quoted(data+len, size-len, field);
 	len += wr(data+len, size-len, "=");

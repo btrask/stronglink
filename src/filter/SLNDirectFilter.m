@@ -16,7 +16,7 @@
 - (SLNFilterType)type {
 	return SLNURIFilterType;
 }
-- (strarg_t)stringArg:(index_t const)i {
+- (strarg_t)stringArg:(size_t const)i {
 	if(0 == i) return URI;
 	return NULL;
 }
@@ -27,11 +27,11 @@
 	}
 	return DB_EINVAL;
 }
-- (void)print:(count_t const)depth {
+- (void)print:(size_t const)depth {
 	indent(depth);
 	fprintf(stderr, "(uri \"%s\")\n", URI);
 }
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth {
+- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth {
 	return wr(data, size, URI);
 }
 
@@ -106,11 +106,11 @@
 - (SLNFilterType)type {
 	return SLNAllFilterType;
 }
-- (void)print:(count_t const)depth {
+- (void)print:(size_t const)depth {
 	indent(depth);
 	fprintf(stderr, "(all)\n");
 }
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(count_t const)depth {
+- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth {
 	return wr(data, size, "*");
 }
 
