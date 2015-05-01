@@ -5,6 +5,7 @@
 	curtxn = NULL;
 	FREE(&URI);
 	db_cursor_close(files); files = NULL;
+	db_cursor_close(age); age = NULL;
 	[super free];
 }
 
@@ -38,6 +39,7 @@
 	int rc = [super prepare:txn];
 	if(DB_SUCCESS != rc) return rc;
 	db_cursor_renew(txn, &files); // SLNURIAndFileID
+	db_cursor_renew(txn, &age); // SLNURIAndFileID
 	curtxn = txn;
 	return DB_SUCCESS;
 }
@@ -79,9 +81,11 @@
 	// TODO: Skip files without meta-files.
 }
 - (SLNAgeRange)fullAge:(uint64_t const)fileID {
-	// TODO: We do actually have to check that the file matches our URI.
-	// We shouldn't have to check that it has a meta-file, since that's
-	// already determined.
+	DB_val key[1];
+	SLNURIAndFileIDKeyPack(key, curtxn, URI, fileID);
+	int rc = db_cursor_seek(age, key, NULL, 0);
+	if(DB_NOTFOUND == rc) return (SLNAgeRange){UINT64_MAX, UINT64_MAX};
+	db_assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
 	return (SLNAgeRange){fileID, UINT64_MAX};
 }
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {

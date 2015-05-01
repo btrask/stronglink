@@ -145,6 +145,7 @@ struct token {
 	DB_txn *curtxn;
 	str_t *URI;
 	DB_cursor *files;
+	DB_cursor *age;
 }
 @end
 @interface SLNAllFilter : SLNFilter
