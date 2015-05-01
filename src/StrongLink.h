@@ -105,7 +105,7 @@ int SLNSubmissionGetFileInfo(SLNSubmissionRef const sub, SLNFileInfo *const info
 int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn);
 // Convenience methods
 int SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, SLNSubmissionRef *const out);
-int SLNSubmissionBatchStore(SLNSubmissionRef const *const list, count_t const count);
+int SLNSubmissionBatchStore(SLNSubmissionRef const *const list, size_t const count);
 
 SLNHasherRef SLNHasherCreate(strarg_t const type);
 void SLNHasherFree(SLNHasherRef *const hasherptr);
@@ -133,11 +133,11 @@ int SLNFilterCreate(SLNSessionRef const session, SLNFilterType const type, SLNFi
 void SLNFilterFree(SLNFilterRef *const filterptr);
 SLNFilterType SLNFilterGetType(SLNFilterRef const filter);
 SLNFilterRef SLNFilterUnwrap(SLNFilterRef const filter);
-strarg_t SLNFilterGetStringArg(SLNFilterRef const filter, index_t const i);
+strarg_t SLNFilterGetStringArg(SLNFilterRef const filter, size_t const i);
 int SLNFilterAddStringArg(SLNFilterRef const filter, strarg_t const str, ssize_t const len);
 int SLNFilterAddFilterArg(SLNFilterRef const filter, SLNFilterRef const subfilter);
-void SLNFilterPrint(SLNFilterRef const filter, count_t const depth);
-size_t SLNFilterToUserFilterString(SLNFilterRef const filter, str_t *const data, size_t const size, count_t const depth);
+void SLNFilterPrint(SLNFilterRef const filter, size_t const depth);
+size_t SLNFilterToUserFilterString(SLNFilterRef const filter, str_t *const data, size_t const size, size_t const depth);
 int SLNFilterPrepare(SLNFilterRef const filter, DB_txn *const txn);
 void SLNFilterSeek(SLNFilterRef const filter, int const dir, uint64_t const sortID, uint64_t const fileID);
 void SLNFilterCurrent(SLNFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID);
