@@ -53,6 +53,13 @@ cleanup:
 	SLNSubmissionFree(&sub);
 	return rc;
 }
+int SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, SLNSubmissionRef *const out) {
+	int rc = SLNSubmissionCreate(session, type, out);
+	if(rc < 0) return rc;
+	rc = SLNSubmissionWriteFrom(*out, read, context);
+	if(rc < 0) SLNSubmissionFree(out);
+	return rc;
+}
 void SLNSubmissionFree(SLNSubmissionRef *const subptr) {
 	SLNSubmissionRef sub = *subptr;
 	if(!sub) return;
@@ -86,16 +93,16 @@ strarg_t SLNSubmissionGetType(SLNSubmissionRef const sub) {
 	return sub->type;
 }
 uv_file SLNSubmissionGetFile(SLNSubmissionRef const sub) {
-	if(!sub) return -1;
+	if(!sub) return UV_EINVAL;
 	return sub->tmpfile;
 }
 
 int SLNSubmissionWrite(SLNSubmissionRef const sub, byte_t const *const buf, size_t const len) {
 	if(!sub) return 0;
-	if(sub->tmpfile < 0) return -1;
+	assert(sub->tmpfile >= 0);
 
-	uv_buf_t info = uv_buf_init((char *)buf, len);
-	int rc = async_fs_writeall(sub->tmpfile, &info, 1, -1);
+	uv_buf_t parts[] = { uv_buf_init((char *)buf, len) };
+	int rc = async_fs_writeall(sub->tmpfile, parts, numberof(parts), -1);
 	if(rc < 0) {
 		fprintf(stderr, "SLNSubmission write error %s\n", uv_strerror(rc));
 		return rc;
@@ -105,46 +112,50 @@ int SLNSubmissionWrite(SLNSubmissionRef const sub, byte_t const *const buf, size
 	SLNHasherWrite(sub->hasher, buf, len);
 	return 0;
 }
-static int add(SLNSubmissionRef const sub) {
-	if(!sub) return -1;
-	if(!sub->tmppath) return -1;
-	if(!sub->size) return -1;
-	SLNRepoRef const repo = SLNSubmissionGetRepo(sub);
-	str_t *internalPath = SLNRepoCopyInternalPath(repo, sub->internalHash);
-	int result = 0;
-	result = async_fs_link_mkdirp(sub->tmppath, internalPath);
-	if(result < 0 && UV_EEXIST != result) {
-		fprintf(stderr, "Couldn't move %s to %s (%s)\n", sub->tmppath, internalPath, uv_err_name(result));
-		FREE(&internalPath);
-		return -1;
-	}
-	FREE(&internalPath);
-	async_fs_unlink(sub->tmppath);
-	FREE(&sub->tmppath);
-	return 0;
-}
 int SLNSubmissionEnd(SLNSubmissionRef const sub) {
 	if(!sub) return 0;
-	if(sub->tmpfile < 0) return -1;
+	if(sub->size <= 0) return UV_EINVAL;
+	assert(sub->tmppath);
+	assert(sub->tmpfile >= 0);
+
 	sub->URIs = SLNHasherEnd(sub->hasher);
 	sub->internalHash = strdup(SLNHasherGetInternalHash(sub->hasher));
 	SLNHasherFree(&sub->hasher);
+	if(!sub->URIs || !sub->internalHash) return UV_ENOMEM;
 
-	if(async_fs_fsync(sub->tmpfile) < 0) return -1;
-	return add(sub);
+	int rc = async_fs_fsync(sub->tmpfile);
+	if(rc < 0) return rc;
+
+	SLNRepoRef const repo = SLNSubmissionGetRepo(sub);
+	str_t *internalPath = SLNRepoCopyInternalPath(repo, sub->internalHash);
+	if(!internalPath) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
+
+	rc = async_fs_link_mkdirp(sub->tmppath, internalPath);
+	if(UV_EEXIST == rc) rc = 0;
+	if(rc < 0) {
+		fprintf(stderr, "SLNSubmission couldn't move '%s' to '%s' (%s)\n", sub->tmppath, internalPath, uv_strerror(rc));
+		goto cleanup;
+	}
+
+cleanup:
+	FREE(&internalPath);
+	async_fs_unlink(sub->tmppath);
+	FREE(&sub->tmppath);
+	return rc;
 }
 int SLNSubmissionWriteFrom(SLNSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context) {
 	if(!sub) return 0;
-	assertf(read, "Read function required");
+	assert(read);
 	for(;;) {
 		byte_t const *buf = NULL;
 		ssize_t const len = read(context, &buf);
 		if(0 == len) break;
-		if(len < 0) return -1;
-		if(SLNSubmissionWrite(sub, buf, len) < 0) return -1;
+		if(len < 0) return (int)len;
+		int rc = SLNSubmissionWrite(sub, buf, len);
+		if(rc < 0) return rc;
 	}
-	if(SLNSubmissionEnd(sub) < 0) return -1;
-	return 0;
+	return SLNSubmissionEnd(sub);
 }
 
 strarg_t SLNSubmissionGetPrimaryURI(SLNSubmissionRef const sub) {
@@ -203,12 +214,12 @@ int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn) {
 		DB_val fwd[1];
 		SLNFileIDAndURIKeyPack(fwd, txn, fileID, URI);
 		rc = db_put(txn, fwd, &null, DB_NOOVERWRITE_FAST);
-		db_assert(DB_SUCCESS == rc || DB_KEYEXIST == rc);
+		if(DB_SUCCESS != rc && DB_KEYEXIST != rc) return rc;
 
 		DB_val rev[1];
 		SLNURIAndFileIDKeyPack(rev, txn, URI, fileID);
 		rc = db_put(txn, rev, &null, DB_NOOVERWRITE_FAST);
-		db_assert(DB_SUCCESS == rc || DB_KEYEXIST == rc);
+		if(DB_SUCCESS != rc && DB_KEYEXIST != rc) return rc;
 	}
 
 	rc = SLNSubmissionParseMetaFile(sub, fileID, txn, &sub->metaFileID);
@@ -219,15 +230,7 @@ int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn) {
 
 	return 0;
 }
-
-int SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, SLNSubmissionRef *const out) {
-	int rc = SLNSubmissionCreate(session, type, out);
-	if(rc < 0) return rc;
-	rc = SLNSubmissionWriteFrom(*out, read, context);
-	if(rc < 0) SLNSubmissionFree(out);
-	return rc;
-}
-int SLNSubmissionBatchStore(SLNSubmissionRef const *const list, size_t const count) {
+int SLNSubmissionStoreBatch(SLNSubmissionRef const *const list, size_t const count) {
 	if(!count) return DB_SUCCESS;
 	SLNRepoRef const repo = SLNSessionGetRepo(list[0]->session);
 	DB_env *db = NULL;

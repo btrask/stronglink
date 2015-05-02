@@ -175,7 +175,7 @@ static int POST_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 		SLNSubmissionFree(&sub);
 		return 500;
 	}
-	rc = SLNSubmissionBatchStore(&sub, 1);
+	rc = SLNSubmissionStoreBatch(&sub, 1);
 	if(rc < 0) {
 		SLNSubmissionFree(&sub);
 		return 500;

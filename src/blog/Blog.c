@@ -412,7 +412,7 @@ static int POST_post(BlogRef const blog,
 	// 2K in the DB rather than in the file system).
 
 	SLNSubmissionRef subs[] = { sub, meta };
-	rc = SLNSubmissionBatchStore(subs, numberof(subs));
+	rc = SLNSubmissionStoreBatch(subs, numberof(subs));
 
 	SLNSubmissionFree(&sub);
 	SLNSubmissionFree(&meta);

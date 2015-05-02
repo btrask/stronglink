@@ -163,7 +163,7 @@ static void writer(SLNPullRef const pull) {
 		assert(count <= QUEUE_SIZE);
 
 		for(;;) {
-			int rc = SLNSubmissionBatchStore(queue, count);
+			int rc = SLNSubmissionStoreBatch(queue, count);
 			if(rc >= 0) break;
 			fprintf(stderr, "Submission error %s / %s (%d)\n", uv_strerror(rc), db_strerror(rc), rc);
 			async_sleep(1000 * 5);
