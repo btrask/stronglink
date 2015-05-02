@@ -9,12 +9,12 @@ typedef struct {
 	str_t *var;
 } TemplateStep;
 struct Template {
-	count_t count;
+	size_t count;
 	TemplateStep *steps;
 };
 
 TemplateRef TemplateCreate(strarg_t const str) {
-	count_t size = 10;
+	size_t size = 10;
 	TemplateRef t = calloc(1, sizeof(struct Template));
 	if(!t) return NULL;
 	t->count = 0;
@@ -88,7 +88,7 @@ TemplateRef TemplateCreateFromPath(strarg_t const path) {
 void TemplateFree(TemplateRef *const tptr) {
 	TemplateRef t = *tptr;
 	if(!t) return;
-	for(index_t i = 0; i < t->count; ++i) {
+	for(size_t i = 0; i < t->count; ++i) {
 		FREE(&t->steps[i].str);
 		t->steps[i].len = 0;
 		FREE(&t->steps[i].var);
@@ -101,7 +101,7 @@ void TemplateFree(TemplateRef *const tptr) {
 }
 int TemplateWrite(TemplateRef const t, TemplateArgCBs const *const cbs, void const *const actx, TemplateWritev const writev, void *wctx) {
 	if(!t) return 0;
-	for(index_t i = 0; i < t->count; ++i) {
+	for(size_t i = 0; i < t->count; ++i) {
 		TemplateStep const *const s = &t->steps[i];
 		strarg_t const sstr = s->str;
 		str_t *astr = NULL;

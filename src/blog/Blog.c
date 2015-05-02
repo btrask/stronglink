@@ -18,14 +18,14 @@ static str_t *BlogCopyPreviewPath(BlogRef const blog, strarg_t const hash) {
 
 
 static bool gen_pending(BlogRef const blog, strarg_t const path) {
-	for(index_t i = 0; i < PENDING_MAX; ++i) {
+	for(size_t i = 0; i < PENDING_MAX; ++i) {
 		if(!blog->pending[i]) continue;
 		if(0 == strcmp(blog->pending[i], path)) return true;
 	}
 	return false;
 }
-static bool gen_available(BlogRef const blog, strarg_t const path, index_t *const x) {
-	for(index_t i = 0; i < PENDING_MAX; ++i) {
+static bool gen_available(BlogRef const blog, strarg_t const path, size_t *const x) {
+	for(size_t i = 0; i < PENDING_MAX; ++i) {
 		if(blog->pending[i]) continue;
 		blog->pending[i] = path;
 		*x = i;
@@ -33,7 +33,7 @@ static bool gen_available(BlogRef const blog, strarg_t const path, index_t *cons
 	}
 	return false;
 }
-static void gen_done(BlogRef const blog, strarg_t const path, index_t const x) {
+static void gen_done(BlogRef const blog, strarg_t const path, size_t const x) {
 	async_mutex_lock(blog->pending_mutex);
 	assert(path == blog->pending[x]);
 	blog->pending[x] = NULL;
@@ -60,7 +60,7 @@ static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, SLNSes
 	// We want to minimize false positives and false negatives
 	// In particular, if a million connections request a new file at once, we want to avoid starting gen for each connection before any of them have finished
 	// Capping the total number of concurrent gens to PENDING_MAX is not a bad side effect
-	index_t x = 0;
+	size_t x = 0;
 	async_mutex_lock(blog->pending_mutex);
 	for(;; async_cond_wait(blog->pending_cond, blog->pending_mutex)) {
 		if(gen_pending(blog, path)) { x = PENDING_MAX; continue; }

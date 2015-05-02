@@ -23,8 +23,8 @@ struct SLNRepo {
 	uint64_t sub_latest;
 
 	SLNPullRef *pulls;
-	count_t pull_count;
-	count_t pull_size;
+	size_t pull_count;
+	size_t pull_size;
 };
 
 static int createDBConnection(SLNRepoRef const repo);
@@ -100,7 +100,7 @@ void SLNRepoFree(SLNRepoRef *const repoptr) {
 	async_cond_destroy(repo->sub_cond);
 	repo->sub_latest = 0;
 
-	for(index_t i = 0; i < repo->pull_count; ++i) {
+	for(size_t i = 0; i < repo->pull_count; ++i) {
 		SLNPullFree(&repo->pulls[i]);
 	}
 	assert_zeroed(repo->pulls, repo->pull_count);
@@ -194,13 +194,13 @@ int SLNRepoSubmissionWait(SLNRepoRef const repo, uint64_t const sortID, uint64_t
 
 void SLNRepoPullsStart(SLNRepoRef const repo) {
 	if(!repo) return;
-	for(index_t i = 0; i < repo->pull_count; ++i) {
+	for(size_t i = 0; i < repo->pull_count; ++i) {
 		SLNPullStart(repo->pulls[i]);
 	}
 }
 void SLNRepoPullsStop(SLNRepoRef const repo) {
 	if(!repo) return;
-	for(index_t i = 0; i < repo->pull_count; ++i) {
+	for(size_t i = 0; i < repo->pull_count; ++i) {
 		SLNPullStop(repo->pulls[i]);
 	}
 }

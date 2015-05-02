@@ -22,15 +22,15 @@ struct SLNPull {
 	async_mutex_t mutex[1];
 	async_cond_t cond[1];
 	bool stop;
-	count_t tasks;
+	size_t tasks;
 	SLNSubmissionRef queue[QUEUE_SIZE];
 	bool filled[QUEUE_SIZE];
-	index_t cur;
-	count_t count;
+	size_t cur;
+	size_t count;
 };
 
 static int reconnect(SLNPullRef const pull);
-static int import(SLNPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn);
+static int import(SLNPullRef const pull, strarg_t const URI, size_t const pos, HTTPConnectionRef *const conn);
 
 SLNPullRef SLNRepoCreatePull(SLNRepoRef const repo, uint64_t const pullID, uint64_t const userID, strarg_t const host, strarg_t const sessionid, strarg_t const query) {
 	SLNPullRef pull = calloc(1, sizeof(struct SLNPull));
@@ -107,7 +107,7 @@ static void reader(SLNPullRef const pull) {
 				goto stop;
 			}
 		}
-		index_t pos = (pull->cur + pull->count) % QUEUE_SIZE;
+		size_t pos = (pull->cur + pull->count) % QUEUE_SIZE;
 		pull->count += 1;
 		async_mutex_unlock(pull->mutex);
 
@@ -132,15 +132,15 @@ stop:
 }
 static void writer(SLNPullRef const pull) {
 	SLNSubmissionRef queue[QUEUE_SIZE];
-	count_t count = 0;
-	count_t skipped = 0;
+	size_t count = 0;
+	size_t skipped = 0;
 	double time = uv_now(loop) / 1000.0;
 	for(;;) {
 		if(pull->stop) goto stop;
 
 		async_mutex_lock(pull->mutex);
 		while(0 == count || (count < QUEUE_SIZE && pull->count > 0)) {
-			index_t const pos = pull->cur;
+			size_t const pos = pull->cur;
 			while(!pull->filled[pos]) {
 				async_cond_wait(pull->cond, pull->mutex);
 				if(pull->stop) {
@@ -168,7 +168,7 @@ static void writer(SLNPullRef const pull) {
 			fprintf(stderr, "Submission error %s / %s (%d)\n", uv_strerror(rc), db_strerror(rc), rc);
 			async_sleep(1000 * 5);
 		}
-		for(index_t i = 0; i < count; ++i) {
+		for(size_t i = 0; i < count; ++i) {
 			SLNSubmissionFree(&queue[i]);
 		}
 
@@ -181,7 +181,7 @@ static void writer(SLNPullRef const pull) {
 	}
 
 stop:
-	for(index_t i = 0; i < count; ++i) {
+	for(size_t i = 0; i < count; ++i) {
 		SLNSubmissionFree(&queue[i]);
 	}
 	assert_zeroed(queue, QUEUE_SIZE);
@@ -198,7 +198,7 @@ int SLNPullStart(SLNPullRef const pull) {
 	if(!pull->stop) return 0;
 	assert(0 == pull->tasks);
 	pull->stop = false;
-	for(index_t i = 0; i < READER_COUNT; ++i) {
+	for(size_t i = 0; i < READER_COUNT; ++i) {
 		pull->tasks++;
 		async_spawn(STACK_DEFAULT, (void (*)())reader, pull);
 	}
@@ -222,7 +222,7 @@ void SLNPullStop(SLNPullRef const pull) {
 
 	HTTPConnectionFree(&pull->conn);
 
-	for(index_t i = 0; i < QUEUE_SIZE; ++i) {
+	for(size_t i = 0; i < QUEUE_SIZE; ++i) {
 		SLNSubmissionFree(&pull->queue[i]);
 		pull->filled[i] = false;
 	}
@@ -288,7 +288,7 @@ static int reconnect(SLNPullRef const pull) {
 }
 
 
-static int import(SLNPullRef const pull, strarg_t const URI, index_t const pos, HTTPConnectionRef *const conn) {
+static int import(SLNPullRef const pull, strarg_t const URI, size_t const pos, HTTPConnectionRef *const conn) {
 	if(!pull) return 0;
 
 	// TODO: Even if there's nothing to do, we have to enqueue something to fill up our reserved slots. I guess it's better than doing a lot of work inside the connection lock, but there's got to be a better way.

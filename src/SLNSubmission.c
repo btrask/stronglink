@@ -69,7 +69,7 @@ void SLNSubmissionFree(SLNSubmissionRef *const subptr) {
 	SLNHasherFree(&sub->hasher);
 	sub->metaFileID = 0;
 
-	if(sub->URIs) for(index_t i = 0; sub->URIs[i]; ++i) FREE(&sub->URIs[i]);
+	if(sub->URIs) for(size_t i = 0; sub->URIs[i]; ++i) FREE(&sub->URIs[i]);
 	FREE(&sub->URIs);
 	FREE(&sub->internalHash);
 
@@ -227,7 +227,7 @@ int SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const type, s
 	if(rc < 0) SLNSubmissionFree(out);
 	return rc;
 }
-int SLNSubmissionBatchStore(SLNSubmissionRef const *const list, count_t const count) {
+int SLNSubmissionBatchStore(SLNSubmissionRef const *const list, size_t const count) {
 	if(!count) return DB_SUCCESS;
 	SLNRepoRef const repo = SLNSessionGetRepo(list[0]->session);
 	DB_env *db = NULL;

@@ -15,10 +15,6 @@ typedef unsigned char byte_t;
 typedef char str_t;
 typedef str_t const *strarg_t; // A string that belongs to someone else.
 
-// Deprecated
-typedef size_t index_t;
-typedef size_t count_t;
-
 #define numberof(x) (sizeof(x) / sizeof(*(x)))
 
 #define STR_LEN(str) (str), (sizeof(str)-1)
@@ -48,7 +44,7 @@ typedef size_t count_t;
 	} \
 })
 #define assert_zeroed(buf, count) ({ \
-	for(index_t i = 0; i < sizeof(*(buf)) * (count); ++i) { \
+	for(size_t i = 0; i < sizeof(*(buf)) * (count); ++i) { \
 		if(0 == ((byte_t const *)(buf))[i]) continue; \
 		fprintf(stderr, "%s:%d Buffer at %p not zeroed (%ld)\n", \
 			__FILE__, __LINE__, (buf), i); \
