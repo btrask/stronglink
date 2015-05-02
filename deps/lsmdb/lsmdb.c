@@ -168,9 +168,9 @@ int lsmdb_env_open(LSMDB_env *const env, char const *const name, unsigned const 
 
 	char const *const map = "0123456789abcdef";
 	for(LSMDB_level i = 0; i < TABLE_MAX; ++i) {
-		char name[3] = { map[i/16], map[i%16], '\0' };
+		char table[3] = { map[i/16], map[i%16], '\0' };
 		MDB_dbi dbi;
-		rc = mdb_dbi_open(txn, name, MDB_CREATE, &dbi);
+		rc = mdb_dbi_open(txn, table, MDB_CREATE, &dbi);
 		assert(MDB_SUCCESS == rc);
 		if(dbi != MDB_DBI_START+i) {
 			mdb_txn_abort(txn);
