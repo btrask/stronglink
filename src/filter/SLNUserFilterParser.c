@@ -49,12 +49,8 @@ static bool read_space(strarg_t *const query) {
 }
 
 
-// TODO: HACK
 static SLNFilterRef createfilter(SLNFilterType const type) {
-	SLNFilterRef filter;
-	int rc = SLNFilterCreate((SLNSessionRef)-1, type, &filter);
-	assert(DB_SUCCESS == rc);
-	return filter;
+	return SLNFilterCreateInternal(type);
 }
 
 static SLNFilterRef parse_term(strarg_t *const query) {

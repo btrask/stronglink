@@ -133,6 +133,7 @@ typedef enum {
 } SLNFilterType;
 
 int SLNFilterCreate(SLNSessionRef const session, SLNFilterType const type, SLNFilterRef *const out);
+SLNFilterRef SLNFilterCreateInternal(SLNFilterType const type);
 void SLNFilterFree(SLNFilterRef *const filterptr);
 SLNFilterType SLNFilterGetType(SLNFilterRef const filter);
 SLNFilterRef SLNFilterUnwrap(SLNFilterRef const filter);

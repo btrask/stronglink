@@ -28,43 +28,36 @@
 @end
 
 int SLNFilterCreate(SLNSessionRef const session, SLNFilterType const type, SLNFilterRef *const out) {
-	// TODO: HACK for certain cases where we're not ready to deal with
-	// sessions everywhere (SLNUserFilterParser). Yes this is scary.
-	if((SLNSessionRef)-1 != session) {
-		if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
-	}
+	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
+	SLNFilterRef const filter = SLNFilterCreateInternal(type);
+	if(!filter) return DB_ENOMEM;
+	*out = filter;
+	return DB_SUCCESS;
+}
+SLNFilterRef SLNFilterCreateInternal(SLNFilterType const type) {
 	switch(type) {
 		case SLNAllFilterType:
-			*out = (SLNFilterRef)[[SLNAllFilter alloc] init];
-			return DB_SUCCESS;
+			return (SLNFilterRef)[[SLNAllFilter alloc] init];
 		case SLNVisibleFilterType:
-			*out = (SLNFilterRef)[[SLNVisibleFilter alloc] init];
-			return DB_SUCCESS;
+			return (SLNFilterRef)[[SLNVisibleFilter alloc] init];
 		case SLNFulltextFilterType:
-			*out = (SLNFilterRef)[[SLNFulltextFilter alloc] init];
-			return DB_SUCCESS;
+			return (SLNFilterRef)[[SLNFulltextFilter alloc] init];
 		case SLNMetadataFilterType:
-			*out = (SLNFilterRef)[[SLNMetadataFilter alloc] init];
-			return DB_SUCCESS;
+			return (SLNFilterRef)[[SLNMetadataFilter alloc] init];
 		case SLNIntersectionFilterType:
-			*out = (SLNFilterRef)[[SLNIntersectionFilter alloc] init];
-			return DB_SUCCESS;
+			return (SLNFilterRef)[[SLNIntersectionFilter alloc] init];
 		case SLNUnionFilterType:
-			*out = (SLNFilterRef)[[SLNUnionFilter alloc] init];
-			return DB_SUCCESS;
+			return (SLNFilterRef)[[SLNUnionFilter alloc] init];
 		case SLNNegationFilterType:
-			*out = (SLNFilterRef)[[SLNNegationFilter alloc] init];
-			return DB_SUCCESS;
+			return (SLNFilterRef)[[SLNNegationFilter alloc] init];
 		case SLNURIFilterType:
-			*out = (SLNFilterRef)[[SLNURIFilter alloc] init];
-			return DB_SUCCESS;
+			return (SLNFilterRef)[[SLNURIFilter alloc] init];
 		case SLNMetaFileFilterType:
-			*out = (SLNFilterRef)[[SLNMetaFileFilter alloc] init];
-			return DB_SUCCESS;
+			return (SLNFilterRef)[[SLNMetaFileFilter alloc] init];
 		case SLNBadMetaFileFilterType:
-			*out = (SLNFilterRef)[[SLNBadMetaFileFilter alloc] init];
-			return DB_SUCCESS;
-		default: assert(0); return DB_EINVAL;
+			return (SLNFilterRef)[[SLNBadMetaFileFilter alloc] init];
+		default:
+			assert(!"Filter type"); return NULL;
 	}
 }
 void SLNFilterFree(SLNFilterRef *const filterptr) {
