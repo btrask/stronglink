@@ -1,4 +1,4 @@
-#include <openssl/sha.h> // TODO: Switch to LibreSSL.
+#include <openssl/sha.h>
 #include "StrongLink.h"
 
 struct SLNHasher {
@@ -13,13 +13,19 @@ SLNHasherRef SLNHasherCreate(strarg_t const type) {
 	SLNHasherRef hasher = calloc(1, sizeof(struct SLNHasher));
 	if(!hasher) return NULL;
 	hasher->type = strdup(type);
-	if(
-		SHA1_Init(&hasher->sha1) < 0 ||
-		SHA256_Init(&hasher->sha256) < 0
-	) {
+
+	// Note: Support for old/weak algorithms is important for old files
+	// that have links using those algorithms. The algorithm we use
+	// internally is currently SHA-256.
+	// TODO: Plugin support.
+	int rc = 0;
+	rc = rc < 0 ? rc : SHA256_Init(&hasher->sha256);
+	rc = rc < 0 ? rc : SHA1_Init(&hasher->sha1);
+	if(rc < 0) {
 		SLNHasherFree(&hasher);
 		return NULL;
 	};
+
 	return hasher;
 }
 void SLNHasherFree(SLNHasherRef *const hasherptr) {
@@ -61,7 +67,11 @@ str_t **SLNHasherEnd(SLNHasherRef const hasher) {
 
 	// TODO: Plugins, dynamic size.
 	str_t **const URIs = malloc(sizeof(str_t *) * (4+1));
-	if(!URIs) return NULL;
+	if(!URIs) {
+		FREE(&sha1hex);
+		FREE(&sha256hex);
+		return NULL;
+	}
 
 	// Make sure the preferred URI (e.g. the one used for internalHash) is first.
 	URIs[0] = SLNFormatURI("sha256", sha256hex);
