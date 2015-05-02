@@ -77,13 +77,13 @@ typedef struct {
 } SLNFileInfo;
 
 
-SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t const sessionID, byte_t const sessionKey[SESSION_KEY_LEN], uint64_t const userID, SLNMode const mode_trusted, strarg_t const username);
+SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t const sessionID, byte_t const *const sessionKeyRaw, byte_t const *const sessionKeyEnc, uint64_t const userID, SLNMode const mode_trusted, strarg_t const username);
 SLNSessionRef SLNSessionRetain(SLNSessionRef const session);
 void SLNSessionRelease(SLNSessionRef *const sessionptr);
 SLNSessionCacheRef SLNSessionGetCache(SLNSessionRef const session);
 SLNRepoRef SLNSessionGetRepo(SLNSessionRef const session);
 uint64_t SLNSessionGetID(SLNSessionRef const session);
-byte_t const *SLNSessionGetKey(SLNSessionRef const session);
+int SLNSessionKeyCmp(SLNSessionRef const session, byte_t const *const enc);
 uint64_t SLNSessionGetUserID(SLNSessionRef const session);
 bool SLNSessionHasPermission(SLNSessionRef const session, SLNMode const mask);
 strarg_t SLNSessionGetUsername(SLNSessionRef const session);

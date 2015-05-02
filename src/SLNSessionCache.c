@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <openssl/sha.h>
 #include "../deps/smhasher/MurmurHash3.h"
 #include "util/bcrypt.h"
 #include "StrongLink.h"
@@ -37,7 +38,7 @@ SLNSessionCacheRef SLNSessionCacheCreate(SLNRepoRef const repo, uint16_t const s
 
 	SLNMode const pub_mode = SLNRepoGetPublicMode(repo);
 	if(pub_mode) {
-		cache->public = SLNSessionCreateInternal(cache, 0, NULL, 0, pub_mode, NULL);
+		cache->public = SLNSessionCreateInternal(cache, 0, NULL, NULL, 0, pub_mode, NULL);
 		if(!cache->public) {
 			SLNSessionCacheFree(&cache);
 			return NULL;
@@ -178,30 +179,25 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 	}
 	FREE(&passhash);
 
+	byte_t key_raw[SESSION_KEY_LEN];
+	rc = async_random(key_raw, sizeof(key_raw));
+	if(rc < 0) return DB_EIO;
 
-	byte_t bin[SESSION_KEY_LEN];
-	rc = async_random(bin, SESSION_KEY_LEN);
-	if(rc < 0) return DB_ENOMEM; // ???
-	char hex[SESSION_KEY_HEX+1];
-	tohex(hex, bin, SESSION_KEY_LEN);
-	hex[SESSION_KEY_HEX] = '\0';
+	byte_t key_enc[SHA256_DIGEST_LENGTH];
+	SHA256(key_raw, sizeof(key_raw), key_enc);
 
-	str_t *sessionHash = hashpass(hex);
-	if(!sessionHash) return DB_ENOMEM;
-
+	str_t key_str[SESSION_KEY_HEX+1];
+	tohex(key_str, key_enc, SESSION_KEY_LEN);
+	key_str[SESSION_KEY_HEX] = '\0';
 
 	SLNRepoDBOpen(repo, &db);
 	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
-	if(DB_SUCCESS != rc) {
-		FREE(&sessionHash);
-		return rc;
-	}
+	if(DB_SUCCESS != rc) return rc;
 
 	uint64_t const sessionID = db_next_id(SLNSessionByID, txn);
 	DB_val sessionID_key[1], session_val[1];
 	SLNSessionByIDKeyPack(sessionID_key, txn, sessionID);
-	SLNSessionByIDValPack(session_val, txn, userID, sessionHash);
-	FREE(&sessionHash);
+	SLNSessionByIDValPack(session_val, txn, userID, key_str);
 	rc = db_put(txn, sessionID_key, session_val, DB_NOOVERWRITE_FAST);
 	if(DB_SUCCESS != rc) {
 		db_txn_abort(txn); txn = NULL;
@@ -214,7 +210,7 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 	if(DB_SUCCESS != rc) return rc;
 
 
-	SLNSessionRef session = SLNSessionCreateInternal(cache, sessionID, bin, userID, mode, username);
+	SLNSessionRef session = SLNSessionCreateInternal(cache, sessionID, key_raw, key_enc, userID, mode, username);
 	if(!session) return DB_ENOMEM;
 	session_cache(cache, session);
 	*out = session;
@@ -225,13 +221,17 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 
 static int cookie_parse(strarg_t const cookie, uint64_t *const sessionID, byte_t sessionKey[SESSION_KEY_LEN]) {
 	unsigned long long id = 0;
-	str_t key[SESSION_KEY_HEX+1];
-	key[0] = '\0';
-	sscanf(cookie, "s=%llu:" SESSION_KEY_FMT, &id, key);
+	str_t key_str[SESSION_KEY_HEX+1];
+	key_str[0] = '\0';
+	sscanf(cookie, "s=%llu:" SESSION_KEY_FMT, &id, key_str);
 	if(0 == id) return DB_EINVAL;
-	if(strlen(key) != SESSION_KEY_HEX) return DB_EINVAL;
+	if(strlen(key_str) != SESSION_KEY_HEX) return DB_EINVAL;
 	*sessionID = (uint64_t)id;
-	tobin(sessionKey, key, SESSION_KEY_HEX);
+	byte_t key_raw[SESSION_KEY_LEN];
+	tobin(key_raw, key_str, SESSION_KEY_HEX);
+	byte_t key_enc[SHA256_DIGEST_LENGTH];
+	SHA256(key_raw, SESSION_KEY_LEN, key_enc);
+	memcpy(sessionKey, key_enc, SESSION_KEY_LEN);
 	return DB_SUCCESS;
 }
 static int session_lookup(SLNSessionCacheRef const cache, uint64_t const id, byte_t const key[SESSION_KEY_LEN], SLNSessionRef *const out) {
@@ -241,14 +241,13 @@ static int session_lookup(SLNSessionCacheRef const cache, uint64_t const id, byt
 		uint16_t const x = i % cache->size;
 		if(id != cache->ids[x]) continue;
 		SLNSessionRef const s = cache->sessions[x];
-		// TODO: Constant time comparison! Security-critical!
-		if(0 != memcmp(key, SLNSessionGetKey(s), SESSION_KEY_LEN)) return DB_EACCES;
+		if(0 != SLNSessionKeyCmp(s, key)) return DB_EACCES;
 		*out = SLNSessionRetain(s);
 		return DB_SUCCESS;
 	}
 	return DB_NOTFOUND;
 }
-static int session_load(SLNSessionCacheRef const cache, uint64_t const id, byte_t const key[SESSION_KEY_LEN], SLNSessionRef *const out) {
+static int session_load(SLNSessionCacheRef const cache, uint64_t const id, byte_t const *const key, SLNSessionRef *const out) {
 	SLNRepoRef const repo = cache->repo;
 	DB_env *db = NULL;
 	SLNRepoDBOpen(repo, &db);
@@ -266,10 +265,10 @@ static int session_load(SLNSessionCacheRef const cache, uint64_t const id, byte_
 		return rc;
 	}
 	uint64_t userID;
-	strarg_t hash;
-	SLNSessionByIDValUnpack(session_val, txn, &userID, &hash);
+	strarg_t key_str;
+	SLNSessionByIDValUnpack(session_val, txn, &userID, &key_str);
 	db_assertf(userID > 0, "Invalid session user ID %llu", (unsigned long long)userID);
-	db_assertf(hash, "Invalid session hash %s", hash);
+	db_assertf(key_str, "Invalid session hash %s", key_str);
 
 	DB_val userID_key[1];
 	SLNUserByIDKeyPack(userID_key, txn, userID);
@@ -293,28 +292,19 @@ static int session_load(SLNSessionCacheRef const cache, uint64_t const id, byte_
 	}
 
 	str_t *username = strdup(name);
-	str_t *sessionHash = strdup(hash);
+	byte_t key_enc[SESSION_KEY_LEN];
+	tobin(key_enc, key_str, SESSION_KEY_HEX);
 
 	db_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
 
-	if(!username || !sessionHash) {
+	if(!username) return DB_ENOMEM;
+	if(0 != memcmp(key, key_enc, SESSION_KEY_LEN)) {
 		FREE(&username);
-		FREE(&sessionHash);
-		return DB_ENOMEM;
-	}
-
-	char hex[SESSION_KEY_HEX+1];
-	tohex(hex, key, SESSION_KEY_LEN);
-	hex[SESSION_KEY_HEX] = '\0';
-	if(!checkpass(hex, sessionHash)) {
-		FREE(&username);
-		FREE(&sessionHash);
 		return DB_EACCES;
 	}
-	FREE(&sessionHash);
 
-	SLNSessionRef session = SLNSessionCreateInternal(cache, id, key, userID, mode, username);
+	SLNSessionRef session = SLNSessionCreateInternal(cache, id, NULL, key_enc, userID, mode, username);
 	FREE(&username);
 	if(!session) return DB_ENOMEM;
 	session_cache(cache, session);

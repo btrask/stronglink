@@ -1,3 +1,4 @@
+#include <openssl/sha.h>
 #include "util/bcrypt.h"
 #include "StrongLink.h"
 #include "SLNDB.h"
@@ -10,22 +11,43 @@
 struct SLNSession {
 	SLNSessionCacheRef cache;
 	uint64_t sessionID;
-	byte_t sessionKey[SESSION_KEY_LEN];
+	byte_t *sessionKeyRaw;
+	byte_t *sessionKeyEnc;
 	uint64_t userID;
 	SLNMode mode;
 	str_t *username;
 	unsigned refcount; // atomic
 };
 
-SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t const sessionID, byte_t const sessionKey[SESSION_KEY_LEN], uint64_t const userID, SLNMode const mode_trusted, strarg_t const username) {
+SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t const sessionID, byte_t const *const sessionKeyRaw, byte_t const *const sessionKeyEnc, uint64_t const userID, SLNMode const mode_trusted, strarg_t const username) {
 	assert(cache);
 	if(!mode_trusted) return NULL;
-	SLNSessionRef const session = calloc(1, sizeof(struct SLNSession));
+	SLNSessionRef session = calloc(1, sizeof(struct SLNSession));
 	if(!session) return NULL;
 	session->cache = cache;
 	session->sessionID = sessionID;
-	if(sessionKey) memcpy(session->sessionKey, sessionKey, SESSION_KEY_LEN);
-	else memset(session->sessionKey, 0, SESSION_KEY_LEN);
+
+	session->sessionKeyRaw = malloc(SESSION_KEY_LEN);
+	session->sessionKeyEnc = malloc(SESSION_KEY_LEN);
+	if(!session->sessionKeyRaw || !session->sessionKeyEnc) {
+		SLNSessionRelease(&session);
+		return NULL;
+	}
+	if(sessionKeyRaw) {
+		memcpy(session->sessionKeyRaw, sessionKeyRaw, SESSION_KEY_LEN);
+	} else {
+		FREE(&session->sessionKeyRaw);
+	}
+	if(sessionKeyEnc) {
+		memcpy(session->sessionKeyEnc, sessionKeyEnc, SESSION_KEY_LEN);
+	} else if(sessionKeyRaw) {
+		byte_t buf[SHA256_DIGEST_LENGTH];
+		SHA256(sessionKeyRaw, SESSION_KEY_LEN, buf);
+		memcpy(session->sessionKeyEnc, buf, SESSION_KEY_LEN);
+	} else {
+		FREE(&session->sessionKeyEnc);
+	}
+
 	session->userID = userID;
 	session->mode = mode_trusted;
 	session->username = username ? strdup(username) : NULL;
@@ -45,7 +67,8 @@ void SLNSessionRelease(SLNSessionRef *const sessionptr) {
 	if(--session->refcount) return;
 	session->cache = NULL;
 	session->sessionID = 0;
-	memset(session->sessionKey, 0, SESSION_KEY_LEN);
+	FREE(&session->sessionKeyRaw);
+	FREE(&session->sessionKeyEnc);
 	session->userID = 0;
 	session->mode = 0;
 	FREE(&session->username);
@@ -65,9 +88,10 @@ uint64_t SLNSessionGetID(SLNSessionRef const session) {
 	if(!session) return 0;
 	return session->sessionID;
 }
-byte_t const *SLNSessionGetKey(SLNSessionRef const session) {
-	if(!session) return NULL;
-	return session->sessionKey;
+int SLNSessionKeyCmp(SLNSessionRef const session, byte_t const *const enc) {
+	if(!session) return -1;
+	if(!session->sessionKeyEnc) return -1;
+	return memcmp(enc, session->sessionKeyEnc, SESSION_KEY_LEN);
 }
 uint64_t SLNSessionGetUserID(SLNSessionRef const session) {
 	if(!session) return -1;
@@ -83,8 +107,9 @@ strarg_t SLNSessionGetUsername(SLNSessionRef const session) {
 }
 str_t *SLNSessionCopyCookie(SLNSessionRef const session) {
 	if(!session) return NULL;
+	if(!session->sessionKeyRaw) return NULL;
 	str_t hex[SESSION_KEY_HEX+1];
-	tohex(hex, session->sessionKey, SESSION_KEY_LEN);
+	tohex(hex, session->sessionKeyRaw, SESSION_KEY_LEN);
 	hex[SESSION_KEY_HEX] = '\0';
 	return aasprintf("s=%llu:%s", (unsigned long long)session->sessionID, hex);
 }

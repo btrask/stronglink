@@ -38,7 +38,7 @@ SLNPullRef SLNRepoCreatePull(SLNRepoRef const repo, uint64_t const pullID, uint6
 
 	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);
 	pull->pullID = pullID;
-	pull->session = SLNSessionCreateInternal(cache, 0, NULL, userID, SLN_RDWR, NULL); // TODO: How to create this properly?
+	pull->session = SLNSessionCreateInternal(cache, 0, NULL, NULL, userID, SLN_RDWR, NULL); // TODO: How to create this properly?
 	pull->host = strdup(host);
 	pull->cookie = aasprintf("s=%s", sessionid ? sessionid : "");
 	pull->query = strdup(query);
