@@ -204,7 +204,11 @@ static int lsmdb_state_load(LSMDB_txn *const txn) {
 	// TODO: Ignore extra levels as long as they are STATE_NONE.
 	if(val->mv_size > LEVEL_MAX-1) return MDB_INCOMPATIBLE;
 	uint8_t const *const state = val->mv_data;
-	for(LSMDB_level i = 0; i < LEVEL_MAX; ++i) {
+	// WARNING: This can become an infinite loop under some versions of GCC!
+	// Haven't found a workaround.
+	// Try a different verison of GCC or use Clang instead.
+	// gcc version 4.8.3 20140911 (Red Hat 4.8.3-7)
+	for(LSMDB_level i = 0; i < LEVEL_MAX; i++) {
 		LSMDB_state const x = i < val->mv_size ? state[i] : STATE_NIL;
 		if(x >= STATE_MAX) return MDB_INCOMPATIBLE;
 		txn->state[i] = x;
