@@ -48,14 +48,22 @@ enum {
 	db_bind_uint64((val), (mode)); \
 	db_bind_uint64((val), (parent)); \
 	db_bind_uint64((val), (time));
-#define SLNUserByIDValUnpack(val, txn, username, passhash, token, mode, parent, time) ({ \
-	*(username) = db_read_string((val), (txn)); \
-	*(passhash) = db_read_string((val), (txn)); \
-	*(token) = db_read_string((val), (txn)); \
-	*(mode) = (SLNMode)db_read_uint64((val)); \
-	*(parent) = db_read_uint64((val)); \
-	*(time) = db_read_uint64((val)); \
-})
+static void SLNUserByIDValUnpack(DB_val *const val,
+                                 DB_txn *const txn,
+                                 strarg_t *const username,
+                                 strarg_t *const passhash,
+                                 strarg_t *const token,
+                                 SLNMode *const mode,
+                                 uint64_t *const parent,
+                                 uint64_t *const time)
+{
+	*username = db_read_string(val, txn);
+	*passhash = db_read_string(val, txn);
+	*token = db_read_string(val, txn);
+	*mode = (SLNMode)db_read_uint64(val);
+	*parent = db_read_uint64(val);
+	*time = db_read_uint64(val);
+}
 
 #define SLNUserIDByNameKeyPack(val, txn, username) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_INLINE_MAX); \
@@ -73,10 +81,14 @@ enum {
 	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_INLINE_MAX); \
 	db_bind_uint64((val), (userID)); \
 	db_bind_string((val), (sessionHash), (txn));
-#define SLNSessionByIDValUnpack(val, txn, userID, sessionHash) ({ \
-	*(userID) = db_read_uint64((val)); \
-	*(sessionHash) = db_read_string((val), (txn)); \
-})
+static void SLNSessionByIDValUnpack(DB_val *const val,
+                                    DB_txn *const txn,
+                                    uint64_t *const userID,
+                                    strarg_t *const sessionHash)
+{
+	*userID = db_read_uint64(val);
+	*sessionHash = db_read_string(val, txn);
+}
 
 #define SLNPullByIDKeyPack(val, txn, pullID) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_VARINT_MAX); \
@@ -86,11 +98,11 @@ enum {
 	DB_RANGE_STORAGE(range, DB_VARINT_MAX); \
 	db_bind_uint64((range)->min, SLNPullByID); \
 	db_range_genmax((range));
-#define SLNPullByIDKeyUnpack(val, txn, pullID) ({ \
-	uint64_t const table = db_read_uint64((val)); \
-	assert(SLNPullByID == table); \
-	*(pullID) = db_read_uint64((val)); \
-})
+static void SLNPullByIDKeyUnpack(DB_val *const val, DB_txn *const txn, uint64_t *const pullID) {
+	uint64_t const table = db_read_uint64(val);
+	assert(SLNPullByID == table);
+	*pullID = db_read_uint64(val);
+}
 
 #define SLNPullByIDValPack(val, txn, userID, host, sessionid, query) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX * 1 + DB_INLINE_MAX * 5); \
@@ -98,12 +110,12 @@ enum {
 	db_bind_string((val), (host), (txn)); \
 	db_bind_string((val), (sessionid), (txn)); \
 	db_bind_string((val), (query), (txn));
-#define SLNPullByIDValUnpack(val, txn, userID, host, sessionid, query) ({ \
-	*(userID) = db_read_uint64((val)); \
-	*(host) = db_read_string((val), (txn)); \
-	*(sessionid) = db_read_string((val), (txn)); \
-	*(query) = db_read_string((val), (txn)); \
-})
+static void SLNPullByIDValUnpack(DB_val *const val, DB_txn *const txn, uint64_t *const userID, strarg_t *const host, strarg_t *const sessionid, strarg_t *const query) {
+	*userID = db_read_uint64(val);
+	*host = db_read_string(val, txn);
+	*sessionid = db_read_string(val, txn);
+	*query = db_read_string(val, txn);
+}
 
 #define SLNFileByIDKeyPack(val, txn, fileID) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_VARINT_MAX); \
@@ -138,12 +150,12 @@ enum {
 	db_bind_uint64((range)->min, SLNFileIDAndURI); \
 	db_bind_uint64((range)->min, (fileID)); \
 	db_range_genmax((range));
-#define SLNFileIDAndURIKeyUnpack(val, txn, fileID, URI) ({ \
-	uint64_t const table = db_read_uint64((val)); \
-	assert(SLNFileIDAndURI == table); \
-	*(fileID) = db_read_uint64((val)); \
-	*(URI) = db_read_string((val), (txn)); \
-})
+static void SLNFileIDAndURIKeyUnpack(DB_val *const val, DB_txn *const txn, uint64_t *const fileID, strarg_t *const URI) {
+	uint64_t const table = db_read_uint64(val);
+	assert(SLNFileIDAndURI == table);
+	*fileID = db_read_uint64(val);
+	*URI = db_read_string(val, txn);
+}
 
 #define SLNURIAndFileIDKeyPack(val, txn, URI, fileID) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1); \
@@ -155,12 +167,12 @@ enum {
 	db_bind_uint64((range)->min, SLNURIAndFileID); \
 	db_bind_string((range)->min, (URI), (txn)); \
 	db_range_genmax((range));
-#define SLNURIAndFileIDKeyUnpack(val, txn, URI, fileID) ({ \
-	uint64_t const table = db_read_uint64((val)); \
-	assert(SLNURIAndFileID == table); \
-	*(URI) = db_read_string((val), (txn)); \
-	*(fileID) = db_read_uint64((val)); \
-})
+static void SLNURIAndFileIDKeyUnpack(DB_val *const val, DB_txn *const txn, strarg_t *const URI, uint64_t *const fileID) {
+	uint64_t const table = db_read_uint64(val);
+	assert(SLNURIAndFileID == table);
+	*URI = db_read_string(val, txn);
+	*fileID = db_read_uint64(val);
+}
 
 #define SLNMetaFileByIDKeyPack(val, txn, metaFileID) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_VARINT_MAX); \
@@ -170,20 +182,20 @@ enum {
 	DB_RANGE_STORAGE(range, DB_VARINT_MAX); \
 	db_bind_uint64((range)->min, SLNMetaFileByID); \
 	db_range_genmax((range));
-#define SLNMetaFileByIDKeyUnpack(val, txn, metaFileID) ({ \
-	uint64_t const table = db_read_uint64((val)); \
-	assert(SLNMetaFileByID == table); \
-	*(metaFileID) = db_read_uint64((val)); \
-})
+static void SLNMetaFileByIDKeyUnpack(DB_val *const val, DB_txn *const txn, uint64_t *const metaFileID) {
+	uint64_t const table = db_read_uint64(val);
+	assert(SLNMetaFileByID == table);
+	*metaFileID = db_read_uint64(val);
+}
 
 #define SLNMetaFileByIDValPack(val, txn, fileID, targetURI) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_INLINE_MAX); \
 	db_bind_uint64((val), (fileID)); \
 	db_bind_string((val), (targetURI), (txn));
-#define SLNMetaFileByIDValUnpack(val, txn, fileID, targetURI) ({ \
-	*(fileID) = db_read_uint64((val)); \
-	*(targetURI) = db_read_string((val), (txn)); \
-})
+static void SLNMetaFileByIDValUnpack(DB_val *const val, DB_txn *const txn, uint64_t *const fileID, strarg_t *const targetURI) {
+	*fileID = db_read_uint64(val);
+	*targetURI = db_read_string(val, txn);
+}
 
 #define SLNFileIDAndMetaFileIDKeyPack(val, txn, fileID, metaFileID) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX * 3); \
@@ -195,12 +207,12 @@ enum {
 	db_bind_uint64((range)->min, SLNFileIDAndMetaFileID); \
 	db_bind_uint64((range)->min, (fileID)); \
 	db_range_genmax((range));
-#define SLNFileIDAndMetaFileIDKeyUnpack(val, txn, fileID, metaFileID) ({ \
-	uint64_t const table = db_read_uint64((val)); \
-	assert(SLNFileIDAndMetaFileID == table); \
-	*(fileID) = db_read_uint64((val)); \
-	*(metaFileID) = db_read_uint64((val)); \
-})
+static void SLNFileIDAndMetaFileIDKeyUnpack(DB_val *const val, DB_txn *const txn, uint64_t *const fileID, uint64_t *const metaFileID) {
+	uint64_t const table = db_read_uint64(val);
+	assert(SLNFileIDAndMetaFileID == table);
+	*fileID = db_read_uint64(val);
+	*metaFileID = db_read_uint64(val);
+}
 
 #define SLNTargetURIAndMetaFileIDKeyPack(val, txn, targetURI, metaFileID) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 1); \
@@ -212,12 +224,12 @@ enum {
 	db_bind_uint64((range)->min, SLNTargetURIAndMetaFileID); \
 	db_bind_string((range)->min, (targetURI), (txn)); \
 	db_range_genmax((range));
-#define SLNTargetURIAndMetaFileIDKeyUnpack(val, txn, targetURI, metaFileID) ({ \
-	uint64_t const table = db_read_uint64((val)); \
-	assert(SLNTargetURIAndMetaFileID == table); \
-	*(targetURI) = db_read_string((val), (txn)); \
-	*(metaFileID) = db_read_uint64((val)); \
-})
+static void SLNTargetURIAndMetaFileIDKeyUnpack(DB_val *const val, DB_txn *const txn, strarg_t *const targetURI, uint64_t *const metaFileID) {
+	uint64_t const table = db_read_uint64(val);
+	assert(SLNTargetURIAndMetaFileID == table);
+	*targetURI = db_read_string(val, txn);
+	*metaFileID = db_read_uint64(val);
+}
 
 #define SLNMetaFileIDFieldAndValueKeyPack(val, txn, metaFileID, field, value) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 2); \
@@ -231,13 +243,13 @@ enum {
 	db_bind_uint64((range)->min, (metaFileID)); \
 	db_bind_string((range)->min, (field), (txn)); \
 	db_range_genmax((range));
-#define SLNMetaFileIDFieldAndValueKeyUnpack(val, txn, metaFileID, field, value) ({ \
-	uint64_t const table = db_read_uint64((val)); \
-	assert(SLNMetaFileIDFieldAndValue == table); \
-	*(metaFileID) = db_read_uint64((val)); \
-	*(field) = db_read_string((val), (txn)); \
-	*(value) = db_read_string((val), (txn)); \
-})
+static void SLNMetaFileIDFieldAndValueKeyUnpack(DB_val *const val, DB_txn *const txn, uint64_t *const metaFileID, strarg_t *const field, strarg_t *const value) {
+	uint64_t const table = db_read_uint64(val);
+	assert(SLNMetaFileIDFieldAndValue == table);
+	*metaFileID = db_read_uint64(val);
+	*field = db_read_string(val, txn);
+	*value = db_read_string(val, txn);
+}
 
 #define SLNFieldValueAndMetaFileIDKeyPack(val, txn, field, value, metaFileID) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX * 2 + DB_INLINE_MAX * 2); \
@@ -251,13 +263,13 @@ enum {
 	db_bind_string((range)->min, (field), (txn)); \
 	db_bind_string((range)->min, (value), (txn)); \
 	db_range_genmax((range));
-#define SLNFieldValueAndMetaFileIDKeyUnpack(val, txn, field, value, metaFileID) ({ \
-	uint64_t const table = db_read_uint64((val)); \
-	assert(SLNFieldValueAndMetaFileID == table); \
-	*(field) = db_read_string((val), (txn)); \
-	*(value) = db_read_string((val), (txn)); \
-	*(metaFileID) = db_read_uint64((val)); \
-})
+static void SLNFieldValueAndMetaFileIDKeyUnpack(DB_val *const val, DB_txn *const txn, strarg_t *const field, strarg_t *const value, uint64_t *const metaFileID) {
+	uint64_t const table = db_read_uint64(val);
+	assert(SLNFieldValueAndMetaFileID == table);
+	*field = db_read_string(val, txn);
+	*value = db_read_string(val, txn);
+	*metaFileID = db_read_uint64(val);
+}
 
 #define SLNTermMetaFileIDAndPositionKeyPack(val, txn, token, metaFileID, position) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX * 3 + DB_INLINE_MAX * 1); \
@@ -276,11 +288,11 @@ enum {
 	db_bind_string((range)->min, (token), (txn)); \
 	db_bind_uint64((range)->min, (metaFileID)); \
 	db_range_genmax((range));
-#define SLNTermMetaFileIDAndPositionKeyUnpack(val, txn, token, metaFileID, position) ({ \
-	uint64_t const table = db_read_uint64((val)); \
-	assert(SLNTermMetaFileIDAndPosition == table); \
-	*(token) = db_read_string((val), (txn)); \
-	*(metaFileID) = db_read_uint64((val)); \
-	*(position) = db_read_uint64((val)); \
-})
+static void SLNTermMetaFileIDAndPositionKeyUnpack(DB_val *const val, DB_txn *const txn, strarg_t *const token, uint64_t *const metaFileID, uint64_t *const position) {
+	uint64_t const table = db_read_uint64(val);
+	assert(SLNTermMetaFileIDAndPosition == table);
+	*token = db_read_string(val, txn);
+	*metaFileID = db_read_uint64(val);
+	*position = db_read_uint64(val);
+}
 
