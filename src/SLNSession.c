@@ -1,3 +1,6 @@
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
 #include <openssl/sha.h>
 #include "util/bcrypt.h"
 #include "StrongLink.h"

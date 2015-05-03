@@ -1,3 +1,6 @@
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
 #include "../../deps/uv/include/uv.h"
 #include "../async/async.h"
 #include "HTTPServer.h"

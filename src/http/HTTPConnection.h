@@ -1,3 +1,6 @@
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
 #ifndef HTTPCONNECTION_H
 #define HTTPCONNECTION_H
 

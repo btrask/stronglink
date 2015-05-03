@@ -1,9 +1,12 @@
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
+// Good for CORO_USE_VALGRIND.
+
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "../deps/libco/libco.h"
-
-// Good for CORO_USE_VALGRIND.
 #include "../deps/libcoro/coro.h"
 
 #ifdef LIBCO_MP

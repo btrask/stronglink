@@ -1,3 +1,6 @@
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
 #include <libgen.h> /* basename(3) */
 #include <limits.h>
 #include <signal.h>

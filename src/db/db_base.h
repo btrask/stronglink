@@ -1,3 +1,6 @@
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
 #ifndef DB_BASE_H
 #define DB_BASE_H
 

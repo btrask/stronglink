@@ -1,3 +1,6 @@
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
 #include <assert.h>
 #include <stdio.h> /* DEBUG */
 #include <openssl/sha.h> // TODO: Switch to LibreSSL.

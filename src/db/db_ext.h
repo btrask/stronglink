@@ -1,3 +1,6 @@
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
 #include "db_base.h"
 
 int db_get(DB_txn *const txn, DB_val *const key, DB_val *const data);

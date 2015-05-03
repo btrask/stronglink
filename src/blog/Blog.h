@@ -1,3 +1,6 @@
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
 #include "../http/HTTPServer.h"
 #include "../http/HTTPHeaders.h"
 #include "../http/MultipartForm.h"

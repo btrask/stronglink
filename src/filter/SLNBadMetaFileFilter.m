@@ -1,7 +1,10 @@
-#include "SLNFilter.h"
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
 
 // TODO: This file is deprecated.
 // We want to get rid of it just as soon as we rewrite our sync system.
+
+#include "SLNFilter.h"
 
 @interface SLNBadMetaFileFilterInternal : SLNFilter
 {

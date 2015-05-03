@@ -1,3 +1,6 @@
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
 
 
 // TODO: This code is obsolete and unused. Read-write locks should probably be

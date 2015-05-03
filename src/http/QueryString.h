@@ -1,3 +1,6 @@
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
 #include <stdbool.h>
 
 void QSValuesParse(char const *const qs, char *values[], char const *const fields[], size_t const count);

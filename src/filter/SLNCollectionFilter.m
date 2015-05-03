@@ -1,3 +1,6 @@
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
 #include "SLNFilter.h"
 
 static int filtercmp(SLNFilter *const a, SLNFilter *const b, int const dir) {

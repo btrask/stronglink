@@ -1,3 +1,6 @@
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
 #include "../../deps/multipart-parser-c/multipart_parser.h"
 #include "MultipartForm.h"
 

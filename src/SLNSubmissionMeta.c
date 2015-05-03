@@ -1,3 +1,6 @@
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
 #include <yajl/yajl_parse.h>
 #include "util/fts.h"
 #include "StrongLink.h"
