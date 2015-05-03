@@ -32,6 +32,7 @@ set(LIBRARY_SOURCES
   man.c
   xml.c
   html.c
+  commonmark.c
   html_unescape.gperf
   houdini_href_e.c
   houdini_html_e.c
@@ -75,17 +76,19 @@ set(CMAKE_LINKER_PROFILE "${CMAKE_LINKER_FLAGS_RELEASE} -pg")
 if (${CMAKE_MAJOR_VERSION} GREATER 1 AND ${CMAKE_MINOR_VERSION} GREATER 8)
   set(CMAKE_C_VISIBILITY_PRESET hidden)
   set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
-elseif(CMAKE_COMPILER_IS_GNUCC OR "${CMAKE_C_COMPILER_ID}" STREQUAL "Clang")
+elseif(CMAKE_COMPILER_IS_GNUCC OR ${CMAKE_C_COMPILER_ID} STREQUAL "Clang")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
 endif ()
 
 add_library(${LIBRARY} SHARED ${LIBRARY_SOURCES})
 add_library(${STATICLIBRARY} STATIC ${LIBRARY_SOURCES})
-# Include minor version in soname as long as major version is 0.
+# Include minor version and patch level in soname for now.
 set_target_properties(${LIBRARY} PROPERTIES
   OUTPUT_NAME "cmark"
-  SOVERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
+  SOVERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}
   VERSION ${PROJECT_VERSION})
+set_target_properties(${STATICLIBRARY} PROPERTIES
+  COMPILE_FLAGS -DCMARK_STATIC_DEFINE)
 
 if (MSVC)
   set_target_properties(${STATICLIBRARY} PROPERTIES
@@ -108,6 +111,8 @@ if (MSVC)
     APPEND PROPERTY LINK_FLAGS /INCREMENTAL:NO)
 endif(MSVC)
 
+set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_NO_WARNINGS ON)
+include (InstallRequiredSystemLibraries)
 install(TARGETS ${PROGRAM} ${LIBRARY}
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib

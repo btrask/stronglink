@@ -23,5 +23,6 @@ script:
  - |
      if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]
      then
+         make roundtrip_test
          make leakcheck
      fi

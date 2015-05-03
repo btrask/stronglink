@@ -24,7 +24,7 @@ extern "C" {
  * UTF-8-encoded string.
  */
 CMARK_EXPORT
-char *cmark_markdown_to_html(const char *text, int len);
+char *cmark_markdown_to_html(const char *text, int len, int options);
 
 /** ## Node Structure
  */
@@ -412,11 +412,12 @@ cmark_consolidate_text_nodes(cmark_node *root);
  *
  * Simple interface:
  *
- *     cmark_node *document = cmark_parse_document("Hello *world*", 12);
+ *     cmark_node *document = cmark_parse_document("Hello *world*", 12,
+ *                                                 CMARK_OPT_DEFAULT);
  *
  * Streaming interface:
  *
- *     cmark_parser *parser = cmark_parser_new();
+ *     cmark_parser *parser = cmark_parser_new(CMARK_OPT_DEFAULT);
  *     FILE *fp = fopen("myfile.md", "r");
  *     while ((bytes = fread(buffer, 1, sizeof(buffer), fp)) > 0) {
  *     	   cmark_parser_feed(parser, buffer, bytes);
@@ -479,6 +480,11 @@ char *cmark_render_html(cmark_node *root, int options);
  */
 CMARK_EXPORT
 char *cmark_render_man(cmark_node *root, int options);
+
+/** Render a 'node' tree as a commonmark document.
+ */
+CMARK_EXPORT
+char *cmark_render_commonmark(cmark_node *root, int options, int width);
 
 /** Default writer options.
  */
@@ -546,7 +552,6 @@ extern const char cmark_version_string[];
 #define NODE_STRONG               CMARK_NODE_STRONG
 #define NODE_LINK                 CMARK_NODE_LINK
 #define NODE_IMAGE                CMARK_NODE_IMAGE
-#define NODE_LINK_LABEL           CMARK_NODE_LINK_LABEL
 #define BULLET_LIST               CMARK_BULLET_LIST
 #define ORDERED_LIST              CMARK_ORDERED_LIST
 #define PERIOD_DELIM              CMARK_PERIOD_DELIM

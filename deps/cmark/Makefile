@@ -19,7 +19,7 @@ VERSION?=$(SPECVERSION)
 RELEASE?=CommonMark-$(VERSION)
 INSTALL_PREFIX?=/usr/local
 
-.PHONY: all cmake_build spec leakcheck clean fuzztest dingus upload test update-site upload-site debug asan mingw archive bench astyle update-spec
+.PHONY: all cmake_build spec leakcheck clean fuzztest dingus upload test update-site upload-site debug asan mingw archive bench astyle update-spec afl
 
 all: cmake_build man/man3/cmark.3
 
@@ -67,6 +67,8 @@ afl:
 	$(AFL_PATH)/afl-fuzz \
 	    -i test/afl_test_cases \
 	    -o test/afl_results \
+	    -x test/afl_dictionary \
+	    -t 100 \
 	    -m none \
 	    $(CMARK)
 
@@ -100,6 +102,13 @@ $(SRCDIR)/case_fold_switch.inc: $(DATADIR)/CaseFolding-3.2.0.txt
 # We include scanners.c in the repository, so this shouldn't
 # normally need to be generated.
 $(SRCDIR)/scanners.c: $(SRCDIR)/scanners.re
+	@case "$$(re2c -v)" in \
+	    *\ 0.13.7*|*\ 0.14|*\ 0.14.1) \
+		echo "re2c versions 0.13.7 through 0.14.1 are known to produce buggy code."; \
+		echo "Try a version >= 0.14.2 or <= 0.13.6."; \
+		false; \
+		;; \
+	esac
 	re2c --case-insensitive -b -i --no-generation-date -o $@ $<
 
 update-spec:
@@ -109,13 +118,16 @@ update-spec:
 test: $(SPEC) cmake_build
 	make -C $(BUILDDIR) test || (cat $(BUILDDIR)/Testing/Temporary/LastTest.log && exit 1)
 
+roundtrip_test: $(SPEC) cmake_build
+	python3 test/spec_tests.py --spec $< --prog test/roundtrip.sh
+
 $(ALLTESTS): $(SPEC)
 	python3 test/spec_tests.py --spec $< --dump-tests | python3 -c 'import json; import sys; tests = json.loads(sys.stdin.read()); print("\n".join([test["markdown"] for test in tests]))' > $@
 
 leakcheck: $(ALLTESTS)
-	cat $< | valgrind --leak-check=full --dsymutil=yes --error-exitcode=1 $(PROG) >/dev/null
-	cat $< | valgrind --leak-check=full --dsymutil=yes --error-exitcode=1 $(PROG) -t man >/dev/null
-	cat $< | valgrind --leak-check=full --dsymutil=yes --error-exitcode=1 $(PROG) -t xml >/dev/null
+	for format in html man xml commonmark; do \
+	  cat $< | valgrind --leak-check=full --dsymutil=yes --error-exitcode=1 $(PROG) -t $$format >/dev/null; \
+	done
 
 fuzztest:
 	{ for i in `seq 1 10`; do \

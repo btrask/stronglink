@@ -301,8 +301,10 @@ scan_delims(subject* subj, unsigned char c, bool * can_open, bool * can_close)
 	                   !utf8proc_is_space(after_char) &&
 	                   !utf8proc_is_punctuation(after_char));
 	if (c == '_') {
-		*can_open = left_flanking && !right_flanking;
-		*can_close = right_flanking && !left_flanking;
+		*can_open = left_flanking &&
+			(!right_flanking || utf8proc_is_punctuation(before_char));
+		*can_close = right_flanking &&
+			(!left_flanking || utf8proc_is_punctuation(after_char));
 	} else if (c == '\'' || c == '"') {
 		*can_open = left_flanking && !right_flanking;
 		*can_close = right_flanking;
@@ -636,7 +638,7 @@ unsigned char *cmark_clean_url(cmark_chunk *url)
 	}
 
 	cmark_strbuf_unescape(&buf);
-	return cmark_strbuf_detach(&buf);
+	return buf.size == 0 ? NULL : cmark_strbuf_detach(&buf);
 }
 
 unsigned char *cmark_clean_title(cmark_chunk *title)
@@ -660,7 +662,7 @@ unsigned char *cmark_clean_title(cmark_chunk *title)
 	}
 
 	cmark_strbuf_unescape(&buf);
-	return cmark_strbuf_detach(&buf);
+	return buf.size == 0 ? NULL : cmark_strbuf_detach(&buf);
 }
 
 // Parse an autolink or HTML tag.

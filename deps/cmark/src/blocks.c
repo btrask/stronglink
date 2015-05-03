@@ -367,7 +367,7 @@ static int parse_list_marker(cmark_chunk *input, int pos, cmark_list **dataptr)
 	startpos = pos;
 	c = peek_at(input, pos);
 
-	if ((c == '*' || c == '-' || c == '+') && !scan_hrule(input, pos)) {
+	if (c == '*' || c == '-' || c == '+') {
 		pos++;
 		if (!cmark_isspace(peek_at(input, pos))) {
 			return 0;
@@ -561,10 +561,10 @@ S_process_line(cmark_parser *parser, const unsigned char *buffer, size_t bytes)
 
 	// Add a newline to the end if not present:
 	// TODO this breaks abstraction:
-	if (parser->curline->ptr[parser->curline->size - 1] == '\n') {
+	if (parser->curline->size && parser->curline->ptr[parser->curline->size - 1] == '\n') {
 		cmark_strbuf_truncate(parser->curline, parser->curline->size - 1);
 	}
-	if (parser->curline->ptr[parser->curline->size - 1] == '\r') {
+	if (parser->curline->size && parser->curline->ptr[parser->curline->size - 1] == '\r') {
 		cmark_strbuf_truncate(parser->curline, parser->curline->size - 1);
 	}
 	cmark_strbuf_putc(parser->curline, '\n');
