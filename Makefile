@@ -17,7 +17,6 @@ CFLAGS += -g -fno-omit-frame-pointer
 CFLAGS += -DLIBCO_MP
 CFLAGS += -DINSTALL_PREFIX=\"$(PREFIX)\"
 
-# Also consider -Weverything...
 WARNINGS := -Werror -Wall -Wextra -Wshadow
 
 # Dead code can sometimes indicate bugs, but these are just too noisy and
