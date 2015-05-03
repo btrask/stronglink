@@ -14,22 +14,18 @@ struct Template {
 };
 
 TemplateRef TemplateCreate(strarg_t const str) {
-	size_t size = 10;
 	TemplateRef t = calloc(1, sizeof(struct Template));
 	if(!t) return NULL;
 	t->count = 0;
-	t->steps = malloc(sizeof(TemplateStep) * size);
-	if(!t->steps) {
-		TemplateFree(&t);
-		return NULL;
-	}
+	t->steps = NULL;
+	size_t size = 0;
 
 	regex_t exp[1];
 	regcomp(exp, "\\{\\{[a-zA-Z0-9]+\\}\\}", REG_EXTENDED);
 	strarg_t pos = str;
 	for(;;) {
 		if(t->count >= size) {
-			size *= 2;
+			size = MAX(10, size * 2);
 			t->steps = realloc(t->steps, sizeof(TemplateStep) * size);
 			if(!t->steps) {
 				regfree(exp);
@@ -101,7 +97,11 @@ void TemplateFree(TemplateRef *const tptr) {
 }
 int TemplateWrite(TemplateRef const t, TemplateArgCBs const *const cbs, void const *const actx, TemplateWritev const writev, void *wctx) {
 	if(!t) return 0;
-	for(size_t i = 0; i < t->count; ++i) {
+
+	uv_buf_t *output = calloc(t->count * 2, sizeof(uv_buf_t));
+	if(!output) return UV_ENOMEM;
+
+	for(size_t i = 0; i < t->count; i++) {
 		TemplateStep const *const s = &t->steps[i];
 		strarg_t const sstr = s->str;
 		str_t *astr = NULL;
@@ -112,19 +112,20 @@ int TemplateWrite(TemplateRef const t, TemplateArgCBs const *const cbs, void con
 			alen = astr ? strlen(astr) : 0;
 		}
 
-		if(0 == slen + alen) {
-			if(s->var && cbs->free) cbs->free(actx, s->var, &astr);
-			continue;
-		}
-		uv_buf_t info[] = {
-			uv_buf_init((char *)sstr, slen),
-			uv_buf_init((char *)astr, alen),
-		};
-		int rc = writev(wctx, info, numberof(info));
-		if(s->var && cbs->free) cbs->free(actx, s->var, &astr);
-		if(rc < 0) return rc;
+		output[i*2+0] = uv_buf_init((char *)sstr, slen);
+		output[i*2+1] = uv_buf_init((char *)astr, alen);
 	}
-	return 0;
+
+	int rc = writev(wctx, output, t->count * 2);
+
+	for(size_t i = 0; i < t->count; i++) {
+		TemplateStep const *const s = &t->steps[i];
+		str_t *astr = output[i*2+1].base;
+		if(s->var && cbs->free) cbs->free(actx, s->var, &astr);
+	}
+	FREE(&output);
+
+	return rc;
 }
 int TemplateWriteHTTPChunk(TemplateRef const t, TemplateArgCBs const *const cbs, void const *const actx, HTTPConnectionRef const conn) {
 	return TemplateWrite(t, cbs, actx, (TemplateWritev)HTTPConnectionWriteChunkv, conn);
