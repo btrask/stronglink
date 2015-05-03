@@ -506,11 +506,12 @@ int HTTPConnectionWriteChunkv(HTTPConnectionRef const conn, uv_buf_t const parts
 	return rc;
 }
 int HTTPConnectionWriteChunkFile(HTTPConnectionRef const conn, strarg_t const path) {
+	bool worker = false;
 	uv_file file = -1;
 	byte_t *buf = NULL;
 	int rc;
 
-	async_pool_enter(NULL);
+	async_pool_enter(NULL); worker = true;
 	rc = async_fs_open(path, O_RDONLY, 0000);
 	if(rc < 0) goto cleanup;
 	file = rc;
@@ -536,9 +537,9 @@ int HTTPConnectionWriteChunkFile(HTTPConnectionRef const conn, strarg_t const pa
 			uv_buf_init((char *)buf, len),
 			uv_buf_init(STR_LEN("\r\n")),
 		};
-		async_pool_leave(NULL);
+		async_fs_close(file); file = -1;
+		async_pool_leave(NULL); worker = false;
 		rc = HTTPConnectionWritev(conn, parts, numberof(parts));
-		async_pool_enter(NULL);
 		goto cleanup;
 	}
 
@@ -556,7 +557,7 @@ int HTTPConnectionWriteChunkFile(HTTPConnectionRef const conn, strarg_t const pa
 cleanup:
 	FREE(&buf);
 	if(file >= 0) { async_fs_close(file); file = -1; }
-	async_pool_leave(NULL);
+	if(worker) { async_pool_leave(NULL); worker = false; }
 	return rc;
 }
 int HTTPConnectionWriteChunkEnd(HTTPConnectionRef const conn) {
