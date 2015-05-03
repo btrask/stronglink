@@ -4,9 +4,9 @@
 #include "../async/async.h"
 #include "bcrypt.h"
 
-#define BCRYPT_PREFIX "$2a$" /* TODO: Are we supposed to use "$2y$" now? */
-#define BCRYPT_ROUNDS 13 /* TODO: Possibly reduce this to 12. */
-#define BCRYPT_SALT 16
+#define BCRYPT_PREFIX "$2b$"
+#define BCRYPT_ROUNDS 13
+#define BCRYPT_SALT_LEN 16
 
 bool checkpass(char const *const pass, char const *const hash) {
 	int size = 0;
@@ -20,14 +20,14 @@ bool checkpass(char const *const pass, char const *const hash) {
 char *hashpass(char const *const pass) {
 	// TODO: async_random isn't currently parallel or thread-safe
 //	async_pool_enter(NULL);
-	char input[BCRYPT_SALT];
-	if(async_random((unsigned char *)input, BCRYPT_SALT) < 0) {
+	char input[BCRYPT_SALT_LEN];
+	if(async_random((unsigned char *)input, BCRYPT_SALT_LEN) < 0) {
 //		async_pool_leave(NULL);
 		return NULL;
 	}
 	async_pool_enter(NULL); // TODO (above)
 
-	char *salt = crypt_gensalt_ra(BCRYPT_PREFIX, BCRYPT_ROUNDS, input, BCRYPT_SALT);
+	char *salt = crypt_gensalt_ra(BCRYPT_PREFIX, BCRYPT_ROUNDS, input, BCRYPT_SALT_LEN);
 	if(!salt) {
 		async_pool_leave(NULL);
 		return NULL;
