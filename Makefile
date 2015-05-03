@@ -12,8 +12,7 @@ YAJL_BUILD_DIR := $(DEPS_DIR)/yajl/build/yajl-2.1.1
 DESTDIR ?=
 PREFIX ?= /usr/local
 
-# TODO: Switch to c99
-CFLAGS += -std=gnu99
+CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE -D_BSD_SOURCE
 CFLAGS += -g -fno-omit-frame-pointer
 CFLAGS += -DLIBCO_MP
 CFLAGS += -DINSTALL_PREFIX=\"$(PREFIX)\"
