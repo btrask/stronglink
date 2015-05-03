@@ -22,6 +22,23 @@ static size_t append(str_t *const dst, size_t const dsize, strarg_t const src, s
 	return nlen - olen;
 }
 
+static ssize_t readall(uv_file const file, uv_buf_t const *const buf) {
+	async_pool_enter(NULL);
+	size_t pos = 0;
+	ssize_t rc;
+	for(;;) {
+		uv_buf_t b2 = uv_buf_init(buf->base+pos, buf->len-pos);
+		rc = async_fs_read(file, &b2, 1, -1);
+		if(rc < 0) break;
+		if(0 == rc) { rc = pos; break; }
+		pos += rc;
+		if(pos >= buf->len) { rc = pos; break; }
+	}
+	async_pool_leave(NULL);
+	return rc;
+}
+
+
 
 struct HTTPConnection {
 	uv_tcp_t stream[1];
@@ -453,15 +470,13 @@ int HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file) {
 	byte_t *buf = malloc(BUFFER_SIZE);
 	if(!buf) return UV_ENOMEM;
 	uv_buf_t const info = uv_buf_init((char *)buf, BUFFER_SIZE);
-	int64_t pos = 0;
 	for(;;) {
-		ssize_t const len = async_fs_read(file, &info, 1, pos);
+		ssize_t const len = readall(file, &info);
 		if(0 == len) break;
 		if(len < 0) {
 			FREE(&buf);
 			return (int)len;
 		}
-		pos += len;
 		uv_buf_t const write = uv_buf_init((char *)buf, len);
 		ssize_t written = async_write((uv_stream_t *)conn->stream, &write, 1);
 		if(written < 0) {
@@ -491,22 +506,58 @@ int HTTPConnectionWriteChunkv(HTTPConnectionRef const conn, uv_buf_t const parts
 	return rc;
 }
 int HTTPConnectionWriteChunkFile(HTTPConnectionRef const conn, strarg_t const path) {
-	uv_file const file = async_fs_open(path, O_RDONLY, 0000);
-	if(file < 0) return file;
+	uv_file file = -1;
+	byte_t *buf = NULL;
+	int rc;
+
+	async_pool_enter(NULL);
+	rc = async_fs_open(path, O_RDONLY, 0000);
+	if(rc < 0) goto cleanup;
+	file = rc;
+
+	buf = malloc(BUFFER_SIZE);
+	if(!buf) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
+
+	uv_buf_t const chunk = uv_buf_init((char *)buf, BUFFER_SIZE);
+	ssize_t len = readall(file, &chunk);
+	if(len < 0) rc = len;
+	if(rc < 0) goto cleanup;
+
+	// Fast path for small files.
+	if(len < BUFFER_SIZE) {
+		str_t pfx[16];
+		int const pfxlen = snprintf(pfx, sizeof(pfx), "%llx\r\n", (unsigned long long)len);
+		if(pfxlen < 0) rc = UV_UNKNOWN;
+		if(rc < 0) goto cleanup;
+
+		uv_buf_t parts[] = {
+			uv_buf_init(pfx, pfxlen),
+			uv_buf_init((char *)buf, len),
+			uv_buf_init(STR_LEN("\r\n")),
+		};
+		async_pool_leave(NULL);
+		rc = HTTPConnectionWritev(conn, parts, numberof(parts));
+		async_pool_enter(NULL);
+		goto cleanup;
+	}
+
 	uv_fs_t req[1];
-	int rc = async_fs_fstat(file, req);
-	if(rc < 0) {
-		async_fs_close(file);
-		return rc;
-	}
-	if(req->statbuf.st_size) {
-		rc = rc < 0 ? rc : HTTPConnectionWriteChunkLength(conn, req->statbuf.st_size);
-		rc = rc < 0 ? rc : HTTPConnectionWriteFile(conn, file);
-		rc = rc < 0 ? rc : HTTPConnectionWrite(conn, (byte_t const *)STR_LEN("\r\n"));
-		if(rc < 0) return rc;
-	}
-	async_fs_close(file);
-	return 0;
+	rc = async_fs_fstat(file, req);
+	if(rc < 0) goto cleanup;
+	if(0 == req->statbuf.st_size) goto cleanup;
+
+	// TODO: HACK, WriteFile continues from where we left off
+	rc = rc < 0 ? rc : HTTPConnectionWriteChunkLength(conn, req->statbuf.st_size);
+	rc = rc < 0 ? rc : HTTPConnectionWritev(conn, &chunk, 1);
+	rc = rc < 0 ? rc : HTTPConnectionWriteFile(conn, file);
+	rc = rc < 0 ? rc : HTTPConnectionWrite(conn, (byte_t const *)STR_LEN("\r\n"));
+
+cleanup:
+	FREE(&buf);
+	if(file >= 0) { async_fs_close(file); file = -1; }
+	async_pool_leave(NULL);
+	return rc;
 }
 int HTTPConnectionWriteChunkEnd(HTTPConnectionRef const conn) {
 	if(!conn) return 0;
