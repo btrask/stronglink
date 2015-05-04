@@ -242,9 +242,8 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 		if(0 == strcmp(var, "title")) unsafe = "(no title)";
 		if(0 == strcmp(var, "description")) unsafe = "(no description)";
 	}
-	str_t *result = htmlenc(unsafe);
 
-	return result;
+	return htmlenc(unsafe);
 }
 static void preview_free(preview_state const *const state, strarg_t const var, str_t **const val) {
 	FREE(val);

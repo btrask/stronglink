@@ -102,31 +102,34 @@ int TemplateWrite(TemplateRef const t, TemplateArgCBs const *const cbs, void con
 	if(!t) return 0;
 
 	uv_buf_t *output = calloc(t->count * 2, sizeof(uv_buf_t));
-	if(!output) return UV_ENOMEM;
+	str_t **vals = calloc(t->count, sizeof(str_t *));
+	if(!output || !vals) {
+		FREE(&output);
+		FREE(&vals);
+		return UV_ENOMEM;
+	}
 
 	for(size_t i = 0; i < t->count; i++) {
 		TemplateStep const *const s = &t->steps[i];
-		strarg_t const sstr = s->str;
-		str_t *astr = NULL;
-		size_t const slen = s->len;
-		ssize_t alen = 0;
-		if(s->var) {
-			astr = cbs->lookup(actx, s->var);
-			alen = astr ? strlen(astr) : 0;
-		}
-
-		output[i*2+0] = uv_buf_init((char *)sstr, slen);
-		output[i*2+1] = uv_buf_init((char *)astr, alen);
+		str_t *const val = s->var ? cbs->lookup(actx, s->var) : NULL;
+		size_t const len = val ? strlen(val) : 0;
+		output[i*2+0] = uv_buf_init((char *)s->str, s->len);
+		output[i*2+1] = uv_buf_init((char *)val, len);
+		vals[i] = val;
 	}
 
 	int rc = writev(wctx, output, t->count * 2);
 
+	FREE(&output);
+
 	for(size_t i = 0; i < t->count; i++) {
 		TemplateStep const *const s = &t->steps[i];
-		str_t *astr = output[i*2+1].base;
-		if(s->var && cbs->free) cbs->free(actx, s->var, &astr);
+		if(!s->var) continue;
+		if(cbs->free) cbs->free(actx, s->var, &vals[i]);
+		else vals[i] = NULL;
 	}
-	FREE(&output);
+	assert_zeroed(vals, t->count);
+	FREE(&vals);
 
 	return rc;
 }
