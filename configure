@@ -1,4 +1,6 @@
 #!/bin/sh
+set -e -u -o pipefail
+
 (cd deps/yajl && ./configure)
 (cd deps/snappy && ./autogen.sh && ./configure)
 (cd deps/uv && ./autogen.sh && ./configure)
