@@ -19,6 +19,8 @@ h1, h2 { font-weight: initial; }
 .floatl { float: left; }
 .floatr { float: right; }
 [hidden] { display: none; }
+.overflow { overflow: hidden; text-overflow: ellipsis; }
+.nowrap { white-space: nowrap; }
 
 a:link {
 	text-decoration: none;
@@ -67,9 +69,6 @@ input {
 }
 
 .entry {
-	overflow: hidden;
-	text-overflow: ellipsis;
-
 	border-radius: 3px;
 	border: 1px solid white;
 	background: #fff;
@@ -123,7 +122,5 @@ article pre, article code, a.URN {
 .thumbnail { width: 100px; height: 100px; max-width: 100px; max-height: 100px; float: left; }
 .details { margin-left: 120px; }
 .favicon { width: 16px; height: 16px; }
-.field { overflow: hidden; text-overflow: ellipsis; }
-.nowrap { white-space: nowrap; }
 
 
