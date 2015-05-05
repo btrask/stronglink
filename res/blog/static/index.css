@@ -29,11 +29,13 @@ a:hover {
 
 body {
 	background: #eee;
-	line-height: 1.5em;
 	word-wrap: break-word;
 }
 body, input {
 	font-family: Helvetica, sans-serif;
+}
+body, textarea {
+	line-height: 1.5em;
 }
 input {
 	padding: 2px 4px;
