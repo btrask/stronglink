@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include "QueryString.h"
 
 void QSValuesParse(char const *const qs, char *values[], char const *const fields[], size_t const count) {

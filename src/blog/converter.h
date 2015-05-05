@@ -4,6 +4,7 @@
 #include <regex.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <yajl/yajl_gen.h>
 #include "../async/async.h"
 #include "../http/QueryString.h"
