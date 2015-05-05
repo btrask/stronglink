@@ -12,6 +12,7 @@
 .clear { clear: both; }
 .light { color: #555; }
 .block { display: block; }
+.wrapper { line-height: 1em; }
 .wrapper > input { width: 100%; }
 .border { border-color: #999; border-style: solid; }
 h1, h2 { font-weight: initial; }
@@ -28,7 +29,6 @@ a:hover {
 
 body {
 	background: #eee;
-	font-size: 12pt;
 	line-height: 1.5em;
 	word-wrap: break-word;
 }
