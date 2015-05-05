@@ -30,7 +30,7 @@ void HTTPServerFree(HTTPServerRef *const serverptr) {
 	FREE(serverptr); server = NULL;
 }
 
-int HTTPServerListen(HTTPServerRef const server, strarg_t const port, uint32_t const type) {
+int HTTPServerListen(HTTPServerRef const server, strarg_t const address, strarg_t const port) {
 	if(!server) return 0;
 	assertf(!server->socket->data, "HTTPServer already listening");
 	int rc;
@@ -38,16 +38,14 @@ int HTTPServerListen(HTTPServerRef const server, strarg_t const port, uint32_t c
 	if(rc < 0) return rc;
 	server->socket->data = server;
 
-	assertf(INADDR_LOOPBACK == type || INADDR_ANY == type, "HTTPServer unsupported type");
-	int const loopback = INADDR_LOOPBACK == type ? 0 : AI_PASSIVE;
 	struct addrinfo const hints = {
-		.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG | AI_NUMERICSERV | loopback,
+		.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG | AI_NUMERICSERV | AI_PASSIVE,
 		.ai_family = AF_UNSPEC,
 		.ai_socktype = SOCK_STREAM,
 		.ai_protocol = 0, // ???
 	};
 	struct addrinfo *info;
-	rc = async_getaddrinfo(NULL, port, &hints, &info);
+	rc = async_getaddrinfo(address, port, &hints, &info);
 	if(rc < 0) {
 		HTTPServerClose(server);
 		return rc;

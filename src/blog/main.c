@@ -77,10 +77,7 @@ static void init(void *const unused) {
 		fprintf(stderr, "Web server could not be initialized\n");
 		return;
 	}
-	uint32_t type;
-	type = INADDR_ANY;
-//	type = INADDR_LOOPBACK;
-	int rc = HTTPServerListen(server, "8000", type); // TODO
+	int rc = HTTPServerListen(server, NULL, "8000"); // TODO
 	if(rc < 0) {
 		fprintf(stderr, "Unable to start server (%d, %s)", rc, uv_strerror(rc));
 		return;
