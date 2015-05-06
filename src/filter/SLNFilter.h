@@ -122,7 +122,6 @@ struct token {
 @interface SLNMetaFileFilter : SLNFilter
 {
 	DB_cursor *metafiles;
-	DB_cursor *age;
 }
 @end
 

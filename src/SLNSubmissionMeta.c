@@ -258,12 +258,6 @@ static uint64_t add_metafile(DB_txn *const txn, uint64_t const fileID, strarg_t 
 	rc = db_put(txn, metaFileID_key, metaFile_val, DB_NOOVERWRITE_FAST);
 	assert(!rc);
 
-	// TODO: Redundant, file IDs and meta-file IDs are now the same.
-	DB_val fileID_key[1];
-	SLNFileIDAndMetaFileIDKeyPack(fileID_key, txn, fileID, metaFileID);
-	rc = db_put(txn, fileID_key, &null, DB_NOOVERWRITE_FAST);
-	assert(!rc);
-
 	DB_val targetURI_key[1];
 	SLNTargetURIAndMetaFileIDKeyPack(targetURI_key, txn, targetURI, metaFileID);
 	rc = db_put(txn, targetURI_key, &null, DB_NOOVERWRITE_FAST);

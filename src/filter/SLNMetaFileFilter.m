@@ -6,7 +6,6 @@
 @implementation SLNMetaFileFilter
 - (void)free {
 	db_cursor_close(metafiles); metafiles = NULL;
-	db_cursor_close(age); age = NULL;
 	[super free];
 }
 
@@ -29,7 +28,6 @@
 	int rc = [super prepare:txn];
 	if(DB_SUCCESS != rc) return rc;
 	db_cursor_renew(txn, &metafiles); // SLNMetaFileByID
-	db_cursor_renew(txn, &age); // SLNFileIDAndMetaFileID
 	return DB_SUCCESS;
 }
 
@@ -75,15 +73,8 @@
 	db_assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
 }
 - (SLNAgeRange)fullAge:(uint64_t const)fileID {
-	DB_range range[1];
-	DB_val key[1];
-	SLNFileIDAndMetaFileIDRange1(range, NULL, fileID);
-	int rc = db_cursor_firstr(age, range, key, NULL, +1);
-	if(DB_NOTFOUND == rc) return (SLNAgeRange){UINT64_MAX, UINT64_MAX};
-	db_assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
-	uint64_t f, sortID;
-	SLNFileIDAndMetaFileIDKeyUnpack(key, NULL, &f, &sortID);
-	return (SLNAgeRange){sortID, UINT64_MAX};
+	// TODO: Check that fileID is a meta-file.
+	return (SLNAgeRange){fileID, UINT64_MAX};
 }
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {
 	return [self fullAge:fileID].min;

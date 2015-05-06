@@ -21,7 +21,7 @@ enum {
 	SLNURIAndFileID = 44,
 
 	SLNMetaFileByID = 60,
-	SLNFileIDAndMetaFileID = 61, // TODO: Redundant, they're equivalent.
+//	SLNFileIDAndMetaFileID = 61, // Redundant, they're equivalent.
 	SLNTargetURIAndMetaFileID = 62,
 	SLNMetaFileIDFieldAndValue = 63,
 	SLNFieldValueAndMetaFileID = 64,
@@ -198,23 +198,6 @@ static void SLNMetaFileByIDKeyUnpack(DB_val *const val, DB_txn *const txn, uint6
 static void SLNMetaFileByIDValUnpack(DB_val *const val, DB_txn *const txn, uint64_t *const fileID, strarg_t *const targetURI) {
 	*fileID = db_read_uint64(val);
 	*targetURI = db_read_string(val, txn);
-}
-
-#define SLNFileIDAndMetaFileIDKeyPack(val, txn, fileID, metaFileID) \
-	DB_VAL_STORAGE(val, DB_VARINT_MAX * 3); \
-	db_bind_uint64((val), SLNFileIDAndMetaFileID); \
-	db_bind_uint64((val), (fileID)); \
-	db_bind_uint64((val), (metaFileID));
-#define SLNFileIDAndMetaFileIDRange1(range, txn, fileID) \
-	DB_RANGE_STORAGE(range, DB_VARINT_MAX + DB_VARINT_MAX); \
-	db_bind_uint64((range)->min, SLNFileIDAndMetaFileID); \
-	db_bind_uint64((range)->min, (fileID)); \
-	db_range_genmax((range));
-static void SLNFileIDAndMetaFileIDKeyUnpack(DB_val *const val, DB_txn *const txn, uint64_t *const fileID, uint64_t *const metaFileID) {
-	uint64_t const table = db_read_uint64(val);
-	assert(SLNFileIDAndMetaFileID == table);
-	*fileID = db_read_uint64(val);
-	*metaFileID = db_read_uint64(val);
 }
 
 #define SLNTargetURIAndMetaFileIDKeyPack(val, txn, targetURI, metaFileID) \

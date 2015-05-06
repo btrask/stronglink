@@ -11,7 +11,6 @@
 	DB_txn *curtxn;
 	SLNFilter *subfilter; // weak ref
 	DB_cursor *metafiles;
-	DB_cursor *age_metafile;
 	DB_cursor *age_uri;
 	DB_cursor *age_files;
 }
@@ -92,7 +91,6 @@
 	curtxn = NULL;
 	subfilter = nil;
 	db_cursor_close(metafiles); metafiles = NULL;
-	db_cursor_close(age_metafile); age_metafile = NULL;
 	db_cursor_close(age_uri); age_uri = NULL;
 	db_cursor_close(age_files); age_files = NULL;
 	[super free];
@@ -108,7 +106,6 @@
 	assert(subfilter);
 	if([super prepare:txn] < 0) return -1;
 	db_cursor_renew(txn, &metafiles); // SLNMetaFileByID
-	db_cursor_renew(txn, &age_metafile); // SLNFileIDAndMetaFileID
 	db_cursor_renew(txn, &age_uri); // SLNMetaFileByID
 	db_cursor_renew(txn, &age_files);
 	curtxn = txn;
@@ -147,15 +144,8 @@
 - (SLNAgeRange)fullAge:(uint64_t const)fileID {
 	assert(subfilter);
 
-	DB_range metaFileIDs[1];
-	SLNFileIDAndMetaFileIDRange1(metaFileIDs, curtxn, fileID);
-	DB_val fileIDAndMetaFileID_key[1];
-	int rc = db_cursor_firstr(age_metafile, metaFileIDs, fileIDAndMetaFileID_key, NULL, +1);
-	if(DB_SUCCESS != rc) return (SLNAgeRange){ UINT64_MAX, UINT64_MAX };
-	uint64_t f;
-	uint64_t metaFileID;
-	SLNFileIDAndMetaFileIDKeyUnpack(fileIDAndMetaFileID_key, curtxn, &f, &metaFileID);
-	assert(fileID == f);
+	uint64_t const metaFileID = fileID;
+	int rc;
 
 	DB_val metaFileID_key[1];
 	SLNMetaFileByIDKeyPack(metaFileID_key, curtxn, metaFileID);
