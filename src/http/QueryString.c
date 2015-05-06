@@ -8,6 +8,8 @@
 #include <strings.h>
 #include "QueryString.h"
 
+#define UNUSED(x) ((void)(x))
+
 void QSValuesParse(char const *const qs, char *values[], char const *const fields[], size_t const count) {
 	for(size_t i = 0; i < count; i++) assert(!values[i]);
 	char const *pos = qs;
@@ -65,6 +67,7 @@ char *QSUnescape(char const *const s, size_t const slen, bool const decodeSpaces
 			case '%':
 				n = 0;
 				m = 0;
+				UNUSED(m);
 				state = HEX0;
 				break;
 			case '+':

@@ -115,6 +115,8 @@ cleanup:
 	if(buf) { munmap((void *)buf, src->size+1); buf = NULL; }
 	if(json) { yajl_gen_free(json); json = NULL; }
 	SLNSubmissionFree(&meta);
+	assert(html < 0);
+	assert(file < 0);
 	return rc;
 }
 int BlogConvert(BlogRef const blog,
@@ -167,6 +169,7 @@ int BlogGeneric(BlogRef const blog,
 cleanup:
 	async_fs_unlink(tmp); FREE(&tmp);
 	if(html >= 0) { async_fs_close(html); html = -1; }
+	assert(html < 0);
 	return rc;
 }
 int BlogMeta(BlogRef const blog,

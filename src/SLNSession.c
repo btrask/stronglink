@@ -133,7 +133,6 @@ int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn,
 	if(ulen < USER_MIN || ulen > USER_MAX) return DB_EINVAL;
 	if(plen < PASS_MIN || plen > PASS_MAX) return DB_EINVAL;
 
-	SLNRepoRef const repo = SLNSessionGetRepo(session);
 	SLNMode const mode = mode_unsafe & session->mode;
 	if(!mode) return DB_EINVAL;
 	uint64_t const parent = session->userID;

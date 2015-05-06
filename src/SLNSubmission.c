@@ -186,10 +186,6 @@ int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn) {
 	assert(txn);
 	assert(!sub->tmppath);
 
-	SLNSessionRef const session = sub->session;
-	SLNRepoRef const repo = SLNSubmissionGetRepo(sub);
-	int64_t const userID = SLNSessionGetUserID(session);
-
 	int64_t fileID = db_next_id(SLNFileByID, txn);
 	int rc;
 

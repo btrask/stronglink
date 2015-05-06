@@ -187,7 +187,7 @@ stop:
 	for(size_t i = 0; i < count; ++i) {
 		SLNSubmissionFree(&queue[i]);
 	}
-	assert_zeroed(queue, QUEUE_SIZE);
+	assert_zeroed(queue, count);
 
 	async_mutex_lock(pull->mutex);
 	assertf(pull->stop, "Writer ended early");
@@ -323,8 +323,8 @@ static int import(SLNPullRef const pull, strarg_t const URI, size_t const pos, H
 		fprintf(stderr, "Pull aasprintf error\n");
 		goto fail;
 	}
-	rc = 0;
-	rc = rc < 0 ? rc : HTTPConnectionWriteRequest(*conn, HTTP_GET, path, pull->host);
+	rc = HTTPConnectionWriteRequest(*conn, HTTP_GET, path, pull->host);
+	assert(rc >= 0); // TODO
 	FREE(&path);
 
 	HTTPConnectionWriteHeader(*conn, "Cookie", pull->cookie);

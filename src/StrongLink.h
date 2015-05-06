@@ -176,9 +176,10 @@ void SLNPullStop(SLNPullRef const pull);
 #define SLN_ALGO_FMT "%31[a-zA-Z0-9.-]"
 #define SLN_HASH_FMT "%255[a-zA-Z0-9.%_-]"
 static int SLNParseURI(strarg_t const URI, str_t *const algo, str_t *const hash) {
-	int len = 0;
 	algo[0] = '\0';
 	hash[0] = '\0';
+	if(!URI) return -1;
+	int len = 0;
 	sscanf(URI, "hash://" SLN_ALGO_FMT "/" SLN_HASH_FMT "%n", algo, hash, &len);
 	if(!algo[0]) return -1;
 	if(!hash[0]) return -1;

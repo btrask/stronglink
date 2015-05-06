@@ -563,6 +563,8 @@ cleanup:
 	FREE(&buf);
 	if(file >= 0) { async_fs_close(file); file = -1; }
 	if(worker) { async_pool_leave(NULL); worker = false; }
+	assert(file < 0);
+	assert(!worker);
 	return rc;
 }
 int HTTPConnectionWriteChunkEnd(HTTPConnectionRef const conn) {
