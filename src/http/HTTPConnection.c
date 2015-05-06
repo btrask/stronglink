@@ -551,6 +551,8 @@ int HTTPConnectionWriteChunkFile(HTTPConnectionRef const conn, strarg_t const pa
 	if(rc < 0) goto cleanup;
 	if(0 == req->statbuf.st_size) goto cleanup;
 
+	async_pool_leave(NULL); worker = false;
+
 	// TODO: HACK, WriteFile continues from where we left off
 	rc = rc < 0 ? rc : HTTPConnectionWriteChunkLength(conn, req->statbuf.st_size);
 	rc = rc < 0 ? rc : HTTPConnectionWritev(conn, &chunk, 1);
