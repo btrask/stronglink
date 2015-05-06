@@ -596,6 +596,7 @@ int HTTPConnectionSendStatus(HTTPConnectionRef const conn, uint16_t const status
 }
 int HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path, strarg_t const type, int64_t size) {
 	uv_file const file = async_fs_open(path, O_RDONLY, 0000);
+	if(UV_ENOENT == file) return HTTPConnectionSendStatus(conn, 404);
 	if(file < 0) return HTTPConnectionSendStatus(conn, 400); // TODO: Error conversion.
 	int rc = 0;
 	if(size < 0) {

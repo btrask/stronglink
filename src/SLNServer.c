@@ -409,6 +409,15 @@ int SLNServerDispatch(SLNRepoRef const repo, SLNSessionRef const session, HTTPCo
 	rc = rc >= 0 ? rc : POST_query(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_metafiles(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_query_obsolete(repo, session, conn, method, URI, headers);
-	return rc;
+	if(rc >= 0) return rc;
+
+	// We "own" the /sln prefix.
+	// Any other paths within it are invalid.
+	size_t const pfx = prefix("/sln", URI);
+	if(0 == pfx) return -1;
+	if('\0' == URI[pfx]) return 400;
+	if('?' == URI[pfx]) return 400;
+	if('/' == URI[pfx]) return 400;
+	return -1;
 }
 
