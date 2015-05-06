@@ -4,11 +4,11 @@
 #include "HTTPHeaders.h"
 
 #define HEADERS_MAX 20
-#define FIELDS_SIZE 128
+#define FIELDS_SIZE 256
 #define FIELD_MAX 24
-#define VALUE_MAX 1024
+#define VALUE_MAX 512
 #define VALUES_MIN (1024 * 1)
-#define VALUES_MAX (1024 * 16)
+#define VALUES_MAX (1024 * 8)
 
 struct HTTPHeaders {
 	size_t offset;
