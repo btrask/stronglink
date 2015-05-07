@@ -42,7 +42,9 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	strarg_t const type = SLNSubmissionGetType(sub);
 	if(!type) return DB_SUCCESS;
 	if(0 != strcasecmp(SLN_META_TYPE, type) &&
+	   0 != strcasecmp("text/x-sln-meta+json; charset=utf-8", type) &&
 	   0 != strcasecmp("text/efs-meta+json; charset=utf-8", type)) return DB_SUCCESS;
+	// TODO: Get rid of these obsolete types.
 
 	uv_file const fd = SLNSubmissionGetFile(sub);
 	if(fd < 0) return DB_EINVAL;

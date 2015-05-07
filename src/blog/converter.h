@@ -10,8 +10,7 @@
 #include "../http/QueryString.h"
 
 // TODO: Redefined from StrongLink.h.
-// TODO: Use vnd.* syntax?
-#define SLN_META_TYPE "text/x-sln-meta+json; charset=utf-8"
+#define SLN_META_TYPE "application/vnd.stronglink.meta"
 
 #define LIMIT_DEFAULT (1024 * 1024 * 1)
 #define LIMIT_SMALL (1024 * 16)

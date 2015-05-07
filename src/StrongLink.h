@@ -10,8 +10,7 @@
 
 #define URI_MAX (1023+1)
 
-// TODO: Use vnd.* syntax?
-#define SLN_META_TYPE "text/x-sln-meta+json; charset=utf-8"
+#define SLN_META_TYPE "application/vnd.stronglink.meta"
 
 extern uint32_t SLNSeed;
 
