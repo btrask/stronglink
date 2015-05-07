@@ -47,10 +47,12 @@
 #define LINKIFY_RE "([a-z][a-z0-9_-]+:(/{1,3}|[a-z0-9%])|www[0-9]{0,3}[.]|[a-z0-9.-]+[.][a-z]{2,4}/)([^[:space:]()<>]+|\\(([^[:space:]()<>]+|(\\([^[:space:]()<>]+\\)))*\\))+(\\(([^[:space:]()<>]+|(\\([^[:space:]()<>]+\\)))*\\)|[^][[:space:]`!(){};:'\".,<>?«»“”‘’])"
 
 static int write_html(uv_file const file, char const *const buf, size_t const len) {
+	if(0 == len) return 0;
 	uv_buf_t x = uv_buf_init((char *)buf, len);
 	return async_fs_writeall(file, &x, 1, -1);
 }
 static int write_text(uv_file const file, char const *const buf, size_t const len) {
+	if(0 == len) return 0;
 	uv_buf_t chunks[30];
 	size_t x = 0;
 	size_t y = SIZE_MAX;
