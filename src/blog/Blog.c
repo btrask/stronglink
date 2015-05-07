@@ -1,6 +1,7 @@
 // Copyright 2014-2015 Ben Trask
 // MIT licensed (see LICENSE for details)
 
+#include <yajl/yajl_gen.h>
 #include <yajl/yajl_tree.h>
 #include <limits.h>
 #include "Blog.h"
@@ -404,24 +405,65 @@ static int POST_post(BlogRef const blog,
 		return 500;
 	}
 
-	// TODO: Create an additional meta-file with submission-specific
-	// information.
-	// - Submission time
-	// - File name
-	// - Submitter name?
-	// - Comment?
-	// Note that these meta-files will be small, so it would be good to
-	// have more optimizations for small files (like storing files under
-	// 2K in the DB rather than in the file system).
 
-	SLNSubmissionRef subs[] = { sub, meta };
+	SLNSubmissionRef extra = NULL;
+	yajl_gen json = NULL;
+	rc = SLNSubmissionCreate(session, SLN_META_TYPE, &extra);
+	if(rc < 0) goto cleanup;
+
+	strarg_t const target = SLNSubmissionGetPrimaryURI(sub);
+	SLNSubmissionWrite(extra, (byte_t const *)target, strlen(target));
+	SLNSubmissionWrite(extra, (byte_t const *)STR_LEN("\n\n"));
+
+	json = yajl_gen_alloc(NULL);
+	if(!json) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
+	yajl_gen_config(json, yajl_gen_print_callback, (void (*)())SLNSubmissionWrite, extra);
+	yajl_gen_config(json, yajl_gen_beautify, (int)true);
+
+	yajl_gen_map_open(json);
+
+	strarg_t const title = NULL; // TODO
+	if(title) {
+		yajl_gen_string(json, (unsigned char const *)STR_LEN("title"));
+		yajl_gen_string(json, (unsigned char const *)title, strlen(title));
+	}
+
+	strarg_t const username = SLNSessionGetUsername(session);
+	if(username) {
+		yajl_gen_string(json, (unsigned char const *)STR_LEN("submitter-name"));
+		yajl_gen_string(json, (unsigned char const *)username, strlen(username));
+	}
+
+	// TODO
+//	uint64_t const now = uv_now(loop);
+//	yajl_gen_string(json, (unsigned char const *)STR_LEN("submission-time"));
+//	yajl_gen_string(json, (unsigned char const *)time, len);
+
+	yajl_gen_string(json, (unsigned char const *)STR_LEN("submission-source"));
+	yajl_gen_string(json, (unsigned char const *)STR_LEN("blog"));
+
+	// TODO: Comment field?
+
+	yajl_gen_map_close(json);
+
+	rc = SLNSubmissionEnd(extra);
+	if(rc < 0) goto cleanup;
+
+
+	SLNSubmissionRef subs[] = { sub, meta, extra };
 	rc = SLNSubmissionStoreBatch(subs, numberof(subs));
+	if(DB_SUCCESS != rc) rc = UV_EIO;
 
+
+cleanup:
+	if(json) { yajl_gen_free(json); json = NULL; }
 	SLNSubmissionFree(&sub);
 	SLNSubmissionFree(&meta);
+	SLNSubmissionFree(&extra);
 	MultipartFormFree(&form);
 
-	if(DB_SUCCESS != rc) return 500;
+	if(rc < 0) return 500;
 
 	HTTPConnectionWriteResponse(conn, 303, "See Other");
 	HTTPConnectionWriteHeader(conn, "Location", "/");
