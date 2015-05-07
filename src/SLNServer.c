@@ -10,7 +10,7 @@
 #include "http/QueryString.h"
 
 #define QUERY_BATCH_SIZE 50
-#define AUTH_FORM_MAX 1023
+#define AUTH_FORM_MAX (1023+1)
 
 // TODO: Put this somewhere.
 bool URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs) {
@@ -28,8 +28,8 @@ static int POST_auth(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 	if(HTTP_POST != method) return -1;
 	if(!URIPath(URI, "/sln/auth", NULL)) return -1;
 
-	str_t formdata[AUTH_FORM_MAX+1];
-	ssize_t len = HTTPConnectionReadBodyStatic(conn, (byte_t *)formdata, AUTH_FORM_MAX);
+	str_t formdata[AUTH_FORM_MAX];
+	ssize_t len = HTTPConnectionReadBodyStatic(conn, (byte_t *)formdata, sizeof(formdata)-1);
 	if(UV_EMSGSIZE == len) return 413; // Request Entity Too Large
 	if(len < 0) return 500;
 	formdata[len] = '\0';
@@ -75,7 +75,7 @@ static int GET_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 
 	// TODO: Check for conditional get headers and return 304 Not Modified.
 
-	str_t fileURI[SLN_URI_MAX+1];
+	str_t fileURI[SLN_URI_MAX];
 	int rc = snprintf(fileURI, sizeof(fileURI), "hash://%s/%s", algo, hash);
 	if(rc < 0 || rc >= sizeof(fileURI)) return 500;
 

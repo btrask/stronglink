@@ -7,7 +7,7 @@
 
 #define RESULTS_MAX 50
 #define BUFFER_SIZE (1024 * 8)
-#define AUTH_FORM_MAX 1023
+#define AUTH_FORM_MAX (1023+1)
 
 // TODO: Real public API.
 bool URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs);
@@ -147,7 +147,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(blog->repo));
 
-	str_t tmp[URI_MAX+1];
+	str_t tmp[URI_MAX];
 
 	str_t *account_HTMLSafe;
 	if(0 == SLNSessionGetUserID(session)) {
@@ -460,8 +460,8 @@ static int POST_auth(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	if(HTTP_POST != method) return -1;
 	if(!URIPath(URI, "/auth", NULL)) return -1;
 
-	str_t formdata[AUTH_FORM_MAX+1];
-	ssize_t len = HTTPConnectionReadBodyStatic(conn, (byte_t *)formdata, AUTH_FORM_MAX);
+	str_t formdata[AUTH_FORM_MAX];
+	ssize_t len = HTTPConnectionReadBodyStatic(conn, (byte_t *)formdata, sizeof(formdata)-1);
 	if(UV_EMSGSIZE == len) return 413; // Request Entity Too Large
 	if(len < 0) return 500;
 	formdata[len] = '\0';

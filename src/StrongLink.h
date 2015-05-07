@@ -8,7 +8,7 @@
 #include "async/async.h"
 #include "common.h"
 
-#define URI_MAX 1024
+#define URI_MAX (1023+1)
 
 // TODO: Use vnd.* syntax?
 #define SLN_META_TYPE "text/x-sln-meta+json; charset=utf-8"
@@ -61,6 +61,7 @@ void SLNRepoPullsStart(SLNRepoRef const repo);
 void SLNRepoPullsStop(SLNRepoRef const repo);
 
 
+// TODO: Make this private (and maybe clean it up).
 #define SESSION_KEY_LEN 16
 #define SESSION_KEY_HEX (SESSION_KEY_LEN*2)
 #define SESSION_KEY_FMT "%32[0-9a-fA-F]"
@@ -169,10 +170,10 @@ void SLNPullFree(SLNPullRef *const pullptr);
 int SLNPullStart(SLNPullRef const pull);
 void SLNPullStop(SLNPullRef const pull);
 
-#define SLN_URI_MAX 512 // Otherwise use URI_MAX
+#define SLN_URI_MAX (511+1) // Otherwise use URI_MAX
 #define SLN_INTERNAL_ALGO "sha256"
-#define SLN_ALGO_SIZE 32
-#define SLN_HASH_SIZE 256
+#define SLN_ALGO_SIZE (31+1)
+#define SLN_HASH_SIZE (255+1)
 #define SLN_ALGO_FMT "%31[a-zA-Z0-9.-]"
 #define SLN_HASH_FMT "%255[a-zA-Z0-9.%_-]"
 static int SLNParseURI(strarg_t const URI, str_t *const algo, str_t *const hash) {

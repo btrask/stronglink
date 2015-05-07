@@ -75,6 +75,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 		rc = DB_EIO;
 		goto cleanup;
 	}
+	assert(i < len);
 	str_t targetURI[URI_MAX];
 	memcpy(targetURI, buf->base, i);
 	targetURI[i] = '\0';

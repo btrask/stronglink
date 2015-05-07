@@ -10,8 +10,6 @@
 #define READER_COUNT 64
 #define QUEUE_SIZE 64 // TODO: Find a way to lower these without sacrificing performance, and perhaps automatically adjust them somehow.
 
-#define AUTH_FORM_MAX 1023
-
 struct SLNPull {
 	uint64_t pullID;
 	SLNSessionRef session;
@@ -243,7 +241,7 @@ static int reconnect(SLNPullRef const pull) {
 		return rc;
 	}
 
-	str_t path[URI_MAX+1];
+	str_t path[URI_MAX];
 	str_t *query_encoded = NULL;
 	if(pull->query) query_encoded = QSEscape(pull->query, strlen(pull->query), true);
 	snprintf(path, sizeof(path), "/sln/query-obsolete?q=%s", query_encoded ?: "");
