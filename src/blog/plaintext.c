@@ -41,10 +41,10 @@ CONVERTER(plaintext) {
 	rc = write_html(html, STR_LEN("</pre>"));
 	if(rc < 0) goto cleanup;
 
+	yajl_gen_array_close(json);
+
 	yajl_gen_string(json, (unsigned char const *)STR_LEN("fulltext"));
 	yajl_gen_string(json, (unsigned char const *)buf, size);
-
-	yajl_gen_array_close(json);
 
 cleanup:
 	regfree(linkify);
