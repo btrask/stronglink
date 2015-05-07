@@ -4,6 +4,7 @@
 #include <yajl/yajl_gen.h>
 #include <yajl/yajl_tree.h>
 #include <limits.h>
+#include <time.h>
 #include "Blog.h"
 
 #define RESULTS_MAX 50
@@ -429,21 +430,32 @@ static int POST_post(BlogRef const blog,
 		yajl_gen_string(json, (unsigned char const *)title, strlen(title));
 	}
 
+	// TODO: Comment or description?
+
 	strarg_t const username = SLNSessionGetUsername(session);
 	if(username) {
 		yajl_gen_string(json, (unsigned char const *)STR_LEN("submitter-name"));
 		yajl_gen_string(json, (unsigned char const *)username, strlen(username));
 	}
 
-	// TODO
-//	uint64_t const now = uv_now(loop);
-//	yajl_gen_string(json, (unsigned char const *)STR_LEN("submission-time"));
-//	yajl_gen_string(json, (unsigned char const *)time, len);
+	strarg_t const reponame = SLNRepoGetName(blog->repo);
+	if(reponame) {
+		yajl_gen_string(json, (unsigned char const *)STR_LEN("submitter-repo"));
+		yajl_gen_string(json, (unsigned char const *)reponame, strlen(reponame));
+	}
 
-	yajl_gen_string(json, (unsigned char const *)STR_LEN("submission-source"));
-	yajl_gen_string(json, (unsigned char const *)STR_LEN("blog"));
+	time_t const now = time(NULL);
+	struct tm t[1];
+	localtime_r(&now, t); // TODO: Error checking?
+	str_t tstr[31+1];
+	size_t const tlen = strftime(tstr, sizeof(tstr), "%FT%T%z", t); // ISO 8601
+	if(tlen) {
+		yajl_gen_string(json, (unsigned char const *)STR_LEN("submission-time"));
+		yajl_gen_string(json, (unsigned char const *)tstr, tlen);
+	}
 
-	// TODO: Comment field?
+	yajl_gen_string(json, (unsigned char const *)STR_LEN("submission-software"));
+	yajl_gen_string(json, (unsigned char const *)STR_LEN("StrongLink Blog"));
 
 	yajl_gen_map_close(json);
 
