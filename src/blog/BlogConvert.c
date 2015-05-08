@@ -247,7 +247,7 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 			for(; x > 1024 && i < numberof(units); i++) x /= 1024;
 			snprintf(buf, sizeof(buf), "%u %s", (unsigned int)x, units[i]);
 			unsafe = buf;
-			// P.S. Fuck scientific units.
+			// P.S. Fuck scientific prefixes.
 		}
 		SLNFileInfoCleanup(info);
 	}
