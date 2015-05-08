@@ -216,6 +216,7 @@ cleanup:
 
 // TODO
 static str_t *preview_metadata(preview_state const *const state, strarg_t const var) {
+	int rc;
 	strarg_t unsafe = NULL;
 	str_t buf[URI_MAX];
 	if(0 == strcmp(var, "rawURI")) {
@@ -234,10 +235,26 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 	if(0 == strcmp(var, "hashURI")) {
 		unsafe = state->fileURI;
 	}
+	if(0 == strcmp(var, "fileSize")) {
+		// TODO: Really, we should already have this info from when
+		// we got the URI in the first place.
+		SLNFileInfo info[1];
+		rc = SLNSessionGetFileInfo(state->session, state->fileURI, info);
+		if(DB_SUCCESS == rc) {
+			uint64_t x = info->size;
+			strarg_t const units[] = { "B", "KB", "MB", "GB", "TB" };
+			size_t i = 0;
+			for(; x > 1024 && i < numberof(units); i++) x /= 1024;
+			snprintf(buf, sizeof(buf), "%u %s", (unsigned int)x, units[i]);
+			unsafe = buf;
+			// P.S. Fuck scientific units.
+		}
+		SLNFileInfoCleanup(info);
+	}
 	if(unsafe) return htmlenc(unsafe);
 
 	str_t value[1024 * 4];
-	int rc = SLNSessionGetValueForField(state->session, value, sizeof(value), state->fileURI, var);
+	rc = SLNSessionGetValueForField(state->session, value, sizeof(value), state->fileURI, var);
 	if(DB_SUCCESS == rc && '\0' != value[0]) unsafe = value;
 
 	if(!unsafe) {
