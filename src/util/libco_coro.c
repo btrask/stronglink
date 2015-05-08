@@ -6,8 +6,8 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "../deps/libco/libco.h"
-#include "../deps/libcoro/coro.h"
+#include "../../deps/libco/libco.h"
+#include "../../deps/libcoro/coro.h"
 
 #ifdef LIBCO_MP
 #define thread_local __thread
