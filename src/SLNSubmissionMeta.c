@@ -89,9 +89,10 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 //	if(DB_SUCCESS != rc) goto cleanup;
 	subtxn = txn;
 
-	uint64_t metaFileID = 0;
-	metaFileID = add_metafile(subtxn, fileID, targetURI);
-//	if(DB_SUCCESS != rc) goto cleanup;
+	uint64_t const metaFileID = add_metafile(subtxn, fileID, targetURI);
+	if(!metaFileID) goto cleanup;
+	// Duplicate meta-file, not an error.
+	// TODO: Unless the previous version wasn't actually a meta-file.
 
 	ctx->txn = subtxn;
 	ctx->metaFileID = metaFileID;
@@ -99,7 +100,8 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	ctx->state = s_start;
 	ctx->field = NULL;
 	parser = yajl_alloc(&callbacks, NULL, ctx);
-	if(!parser) { rc = DB_ENOMEM; goto cleanup; }
+	if(!parser) rc = DB_ENOMEM;
+	if(DB_SUCCESS != rc) goto cleanup;
 	yajl_config(parser, yajl_allow_partial_values, (int)true);
 
 	yajl_status status = yajl_status_ok;
@@ -243,13 +245,10 @@ static yajl_callbacks const callbacks = {
 static uint64_t add_metafile(DB_txn *const txn, uint64_t const fileID, strarg_t const targetURI) {
 	uint64_t const metaFileID = fileID;
 	uint64_t const latestMetaFileID = db_next_id(SLNMetaFileByID, txn);
-	db_assert(metaFileID >= latestMetaFileID);
-	// At one point in the past, sort IDs were file IDs. Then we introduced
-	// meta-file IDs and sort IDs became different from file IDs. Now we're
-	// reunifying them.
-	// TODO: This will fail if an existing file gets re-added as a
-	// meta-file. We should get rid of the assertion and report a real
-	// error in that case.
+	if(metaFileID < latestMetaFileID) return 0;
+	// If it's not a new file, then it's not a new meta-file.
+	// Note that ordinary files can't be "promoted" to meta-files later
+	// because that would break the ordering.
 
 	int rc;
 	DB_val null = { 0, NULL };
