@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include "StrongLink.h"
+#include "db/db_schema.h"
 #include "http/HTTPConnection.h"
 #include "http/HTTPHeaders.h"
 #include "http/QueryString.h"
@@ -306,12 +307,13 @@ static int import(SLNPullRef const pull, strarg_t const URI, size_t const pos, H
 	str_t hash[SLN_HASH_SIZE];
 	if(SLNParseURI(URI, algo, hash) < 0) goto enqueue;
 
-	if(SLNSessionGetFileInfo(pull->session, URI, NULL) >= 0) goto enqueue;
+	int rc = SLNSessionGetFileInfo(pull->session, URI, NULL);
+	if(DB_SUCCESS == rc) goto enqueue;
+	db_assertf(DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
 
 	// TODO: We're logging out of order when we do it like this...
 //	fprintf(stderr, "Pulling %s\n", URI);
 
-	int rc = 0;
 	if(!*conn) {
 		rc = HTTPConnectionCreateOutgoing(pull->host, conn);
 		if(rc < 0) {
