@@ -271,6 +271,7 @@ URIListStream.prototype._transform = function(chunk, encoding, cb) {
 		if(!x) break;
 		this._buffer = this._buffer.slice(x[0].length);
 		if(!x[1].length) continue;
+		if('#' === x[1][0]) continue; // Comment line.
 		if(!this._meta) {
 			this.push(x[1]);
 		} else {

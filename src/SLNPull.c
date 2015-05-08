@@ -98,6 +98,10 @@ static void reader(SLNPullRef const pull) {
 			async_mutex_unlock(pull->connlock);
 			continue;
 		}
+		if('#' == URI[0]) { // Comment line.
+			async_mutex_unlock(pull->connlock);
+			continue;
+		}
 
 		async_mutex_lock(pull->mutex);
 		while(pull->count + 1 > QUEUE_SIZE) {
