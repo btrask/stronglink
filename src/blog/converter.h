@@ -39,7 +39,7 @@
 
 #define numberof(x) (sizeof(x)/sizeof(*x))
 #define STR_LEN(x) (x), (sizeof(x)-1)
-#define uv_buf_lit(str) uv_buf_init(STR_LEN(str))
+#define uv_buf_lit(str) uv_buf_init((char *)STR_LEN(str))
 
 // <http://daringfireball.net/2010/07/improved_regex_for_matching_urls>
 // Painstakingly ported to POSIX

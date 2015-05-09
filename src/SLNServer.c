@@ -211,7 +211,7 @@ static int sendURIBatch(SLNSessionRef const session, SLNFilterRef const filter, 
 	for(size_t i = 0; i < count; i++) {
 		uv_buf_t const parts[] = {
 			uv_buf_init((char *)URIs[i], strlen(URIs[i])),
-			uv_buf_init("\r\n", 2),
+			uv_buf_init((char *)STR_LEN("\r\n")),
 		};
 		rc = HTTPConnectionWriteChunkv(conn, parts, numberof(parts));
 		if(rc < 0) break;
@@ -274,7 +274,7 @@ static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, 
 		uint64_t const timeout = uv_now(loop)+(1000 * 30);
 		rc = SLNRepoSubmissionWait(repo, opts->sortID, timeout);
 		if(UV_ETIMEDOUT == rc) {
-			uv_buf_t const parts[] = { uv_buf_init("\r\n", 2) };
+			uv_buf_t const parts[] = { uv_buf_init((char *)STR_LEN("\r\n")) };
 			rc = HTTPConnectionWriteChunkv(conn, parts, numberof(parts));
 			if(rc < 0) break;
 			continue;

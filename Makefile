@@ -20,7 +20,7 @@ CFLAGS += -g -fno-omit-frame-pointer
 CFLAGS += -DLIBCO_MP
 CFLAGS += -DINSTALL_PREFIX=\"$(PREFIX)\"
 
-WARNINGS := -Werror -Wall -Wextra -Wshadow
+WARNINGS := -Werror -Wall -Wextra -Wshadow -Wwrite-strings
 
 # Dead code can sometimes indicate bugs, but these are just too noisy and
 # putting an UNUSED() macro everywhere would probably mask any problems

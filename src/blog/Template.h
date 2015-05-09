@@ -21,8 +21,8 @@ int TemplateWriteHTTPChunk(TemplateRef const t, TemplateArgCBs const *const cbs,
 int TemplateWriteFile(TemplateRef const t, TemplateArgCBs const *const cbs, void const *actx, uv_file const file);
 
 typedef struct {
-	str_t *var;
-	str_t *val;
+	strarg_t var;
+	strarg_t val;
 } TemplateStaticArg;
 extern TemplateArgCBs const TemplateStaticCBs;
 

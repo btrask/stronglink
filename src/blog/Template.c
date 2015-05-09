@@ -148,7 +148,7 @@ static str_t *TemplateStaticLookup(void const *const ptr, strarg_t const var) {
 	TemplateStaticArg const *args = ptr;
 	assertf(args, "TemplateStaticLookup args required");
 	while(args->var) {
-		if(0 == strcmp(args->var, var)) return args->val;
+		if(0 == strcmp(args->var, var)) return (str_t *)args->val;
 		args++;
 	}
 	return NULL;

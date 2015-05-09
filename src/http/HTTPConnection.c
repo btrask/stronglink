@@ -396,12 +396,12 @@ int HTTPConnectionWriteRequest(HTTPConnectionRef const conn, HTTPMethod const me
 	strarg_t methodstr = http_method_str(method);
 	uv_buf_t parts[] = {
 		uv_buf_init((char *)methodstr, strlen(methodstr)),
-		uv_buf_init(STR_LEN(" ")),
+		uv_buf_init((char *)STR_LEN(" ")),
 		uv_buf_init((char *)requestURI, strlen(requestURI)),
-		uv_buf_init(STR_LEN(" HTTP/1.1\r\n")),
-		uv_buf_init(STR_LEN("Host: ")),
+		uv_buf_init((char *)STR_LEN(" HTTP/1.1\r\n")),
+		uv_buf_init((char *)STR_LEN("Host: ")),
 		uv_buf_init((char *)host, strlen(host)),
-		uv_buf_init(STR_LEN("\r\n")),
+		uv_buf_init((char *)STR_LEN("\r\n")),
 	};
 	return HTTPConnectionWritev(conn, parts, numberof(parts));
 }
@@ -415,11 +415,11 @@ int HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const sta
 	assert(3 == status_len);
 
 	uv_buf_t parts[] = {
-		uv_buf_init(STR_LEN("HTTP/1.1 ")),
+		uv_buf_init((char *)STR_LEN("HTTP/1.1 ")),
 		uv_buf_init(status_str, status_len),
-		uv_buf_init(STR_LEN(" ")),
+		uv_buf_init((char *)STR_LEN(" ")),
 		uv_buf_init((char *)message, strlen(message)),
-		uv_buf_init(STR_LEN("\r\n")),
+		uv_buf_init((char *)STR_LEN("\r\n")),
 	};
 	return HTTPConnectionWritev(conn, parts, numberof(parts));
 }
@@ -429,9 +429,9 @@ int HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const field
 	if(!conn) return 0;
 	uv_buf_t parts[] = {
 		uv_buf_init((char *)field, strlen(field)),
-		uv_buf_init(STR_LEN(": ")),
+		uv_buf_init((char *)STR_LEN(": ")),
 		uv_buf_init((char *)value, strlen(value)),
-		uv_buf_init(STR_LEN("\r\n")),
+		uv_buf_init((char *)STR_LEN("\r\n")),
 	};
 	return HTTPConnectionWritev(conn, parts, numberof(parts));
 }
@@ -440,9 +440,9 @@ int HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, uint64_t cons
 	str_t str[16];
 	int const len = snprintf(str, sizeof(str), "%llu", (unsigned long long)length);
 	uv_buf_t parts[] = {
-		uv_buf_init(STR_LEN("Content-Length: ")),
+		uv_buf_init((char *)STR_LEN("Content-Length: ")),
 		uv_buf_init(str, len),
-		uv_buf_init(STR_LEN("\r\n")),
+		uv_buf_init((char *)STR_LEN("\r\n")),
 	};
 	return HTTPConnectionWritev(conn, parts, numberof(parts));
 }
@@ -453,13 +453,13 @@ int HTTPConnectionWriteSetCookie(HTTPConnectionRef const conn, strarg_t const co
 	str_t maxage_str[16];
 	int const maxage_len = snprintf(maxage_str, sizeof(maxage_str), "%llu", (unsigned long long)maxage);
 	uv_buf_t parts[] = {
-		uv_buf_init(STR_LEN("Set-Cookie: ")),
+		uv_buf_init((char *)STR_LEN("Set-Cookie: ")),
 		uv_buf_init((char *)cookie, strlen(cookie)),
-		uv_buf_init(STR_LEN("; Path=")),
+		uv_buf_init((char *)STR_LEN("; Path=")),
 		uv_buf_init((char *)path, strlen(path)),
-		uv_buf_init(STR_LEN("; Max-Age=")),
+		uv_buf_init((char *)STR_LEN("; Max-Age=")),
 		uv_buf_init(maxage_str, maxage_len),
-		uv_buf_init(STR_LEN("; HttpOnly\r\n")),
+		uv_buf_init((char *)STR_LEN("; HttpOnly\r\n")),
 	};
 	return HTTPConnectionWritev(conn, parts, numberof(parts));
 }
@@ -538,7 +538,7 @@ int HTTPConnectionWriteChunkFile(HTTPConnectionRef const conn, strarg_t const pa
 		uv_buf_t parts[] = {
 			uv_buf_init(pfx, pfxlen),
 			uv_buf_init((char *)buf, len),
-			uv_buf_init(STR_LEN("\r\n")),
+			uv_buf_init((char *)STR_LEN("\r\n")),
 		};
 		async_fs_close(file); file = -1;
 		async_pool_leave(NULL); worker = false;
