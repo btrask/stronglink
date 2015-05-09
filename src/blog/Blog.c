@@ -446,9 +446,9 @@ static int POST_post(BlogRef const blog,
 
 	time_t const now = time(NULL);
 	struct tm t[1];
-	localtime_r(&now, t); // TODO: Error checking?
+	gmtime_r(&now, t); // TODO: Error checking?
 	str_t tstr[31+1];
-	size_t const tlen = strftime(tstr, sizeof(tstr), "%FT%T%z", t); // ISO 8601
+	size_t const tlen = strftime(tstr, sizeof(tstr), "%FT%TZ", t); // ISO 8601
 	if(tlen) {
 		yajl_gen_string(json, (unsigned char const *)STR_LEN("submission-time"));
 		yajl_gen_string(json, (unsigned char const *)tstr, tlen);
