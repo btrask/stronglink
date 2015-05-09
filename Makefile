@@ -17,6 +17,7 @@ PREFIX ?= /usr/local
 
 CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE
 CFLAGS += -g -fno-omit-frame-pointer
+CFLAGS += -fvisibility=hidden
 CFLAGS += -DLIBCO_MP
 CFLAGS += -DINSTALL_PREFIX=\"$(PREFIX)\"
 
