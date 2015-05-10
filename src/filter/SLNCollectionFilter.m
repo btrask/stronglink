@@ -137,9 +137,7 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 }
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {
 	bool hit = false;
-	// TODO: Maybe better to check in reverse order?
-	// May have to sort first
-	for(size_t i = 0; i < count; i++) {
+	for(size_t i = count; i-- > 0;) {
 		uint64_t const age = [filters[i] fastAge:fileID :sortID];
 		if(age > sortID) return UINT64_MAX;
 		if(age == sortID) hit = true;
@@ -180,9 +178,7 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 }
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {
 	bool hit = false;
-	// TODO: Maybe better to check in reverse order?
-	// May have to sort first
-	for(size_t i = 0; i < count; i++) {
+	for(size_t i = count; i-- > 0;) {
 		uint64_t const age = [filters[i] fastAge:fileID :sortID];
 		if(age < sortID) return 0;
 		if(age == sortID) hit = true;
