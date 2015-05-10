@@ -22,6 +22,7 @@ static char *vaasprintf(char const *const fmt, va_list ap) {
 	}
 	return str;
 }
+static char *aasprintf(char const *const fmt, ...) __attribute__((format(printf, 1, 2)));
 static char *aasprintf(char const *const fmt, ...) {
 	va_list ap;
 	va_start(ap, fmt);
