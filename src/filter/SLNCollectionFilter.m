@@ -129,7 +129,7 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 - (SLNAgeRange)fullAge:(uint64_t const)fileID {
 	SLNAgeRange age = { 0, UINT64_MAX };
 	for(size_t i = 0; i < count; i++) {
-		SLNAgeRange const x = [filters[i] fullAge:fileID];
+		SLNAgeRange const x = [filters[count-1-i] fullAge:fileID];
 		if(valid(x.min) && x.min > age.min) age.min = x.min;
 		if(valid(x.max) && x.max < age.max) age.max = x.max;
 	}
@@ -137,8 +137,8 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 }
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {
 	bool hit = false;
-	for(size_t i = count; i-- > 0;) {
-		uint64_t const age = [filters[i] fastAge:fileID :sortID];
+	for(size_t i = 0; i < count; i++) {
+		uint64_t const age = [filters[count-1-i] fastAge:fileID :sortID];
 		if(age > sortID) return UINT64_MAX;
 		if(age == sortID) hit = true;
 	}
@@ -170,7 +170,7 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 - (SLNAgeRange)fullAge:(uint64_t const)fileID {
 	SLNAgeRange age = { UINT64_MAX, 0 };
 	for(size_t i = 0; i < count; i++) {
-		SLNAgeRange const x = [filters[i] fullAge:fileID];
+		SLNAgeRange const x = [filters[count-1-i] fullAge:fileID];
 		if(valid(x.min) && x.min < age.min) age.min = x.min;
 		if(valid(x.max) && x.max > age.max) age.max = x.max;
 	}
@@ -178,8 +178,8 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 }
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {
 	bool hit = false;
-	for(size_t i = count; i-- > 0;) {
-		uint64_t const age = [filters[i] fastAge:fileID :sortID];
+	for(size_t i = 0; i < count; i++) {
+		uint64_t const age = [filters[count-1-i] fastAge:fileID :sortID];
 		if(age < sortID) return 0;
 		if(age == sortID) hit = true;
 	}
