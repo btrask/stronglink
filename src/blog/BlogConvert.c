@@ -84,18 +84,12 @@ static int convert(BlogRef const blog,
 	yajl_gen_config(json, yajl_gen_print_callback, (void (*)())SLNSubmissionWrite, meta);
 	yajl_gen_config(json, yajl_gen_beautify, (int)true);
 
-	yajl_gen_map_open(json);
-	yajl_gen_string(json, (unsigned char const *)STR_LEN("type"));
-	yajl_gen_string(json, (unsigned char const *)src->type, strlen(src->type));
-
-
 	async_pool_enter(NULL);
+	yajl_gen_map_open(json);
 	rc = converter(html, json, buf, src->size, src->type);
+	yajl_gen_map_close(json);
 	async_pool_leave(NULL);
 	if(rc < 0) goto cleanup;
-
-
-	yajl_gen_map_close(json);
 
 	rc = async_fs_fdatasync(html);
 	if(rc < 0) goto cleanup;
@@ -170,45 +164,6 @@ cleanup:
 	async_fs_unlink(tmp); FREE(&tmp);
 	if(html >= 0) { async_fs_close(html); html = -1; }
 	assert(html < 0);
-	return rc;
-}
-int BlogMeta(BlogRef const blog,
-             SLNSessionRef const session,
-             SLNSubmissionRef *const outmeta,
-             strarg_t const URI,
-             SLNFileInfo const *const src)
-{
-	// TODO: We should probably have a SLNMetaFileWriter or something.
-
-	SLNSubmissionRef meta = NULL;
-	yajl_gen json = NULL;
-
-	int rc = SLNSubmissionCreate(session, SLN_META_TYPE, &meta);
-	if(rc < 0) goto cleanup;
-
-	rc = rc < 0 ? rc : SLNSubmissionWrite(meta, (byte_t const *)URI, strlen(URI));
-	rc = rc < 0 ? rc : SLNSubmissionWrite(meta, (byte_t const *)STR_LEN("\n\n"));
-	if(rc < 0) goto cleanup;
-
-	json = yajl_gen_alloc(NULL);
-	if(!json) rc = UV_ENOMEM;
-	if(rc < 0) goto cleanup;
-	yajl_gen_config(json, yajl_gen_print_callback, (void (*)())SLNSubmissionWrite, meta);
-	yajl_gen_config(json, yajl_gen_beautify, (int)true);
-
-	yajl_gen_map_open(json);
-	yajl_gen_string(json, (unsigned char const *)STR_LEN("type"));
-	yajl_gen_string(json, (unsigned char const *)src->type, strlen(src->type));
-	yajl_gen_map_close(json);
-
-	rc = SLNSubmissionEnd(meta);
-	if(rc < 0) goto cleanup;
-
-	*outmeta = meta; meta = NULL;
-
-cleanup:
-	if(json) { yajl_gen_free(json); json = NULL; }
-	SLNSubmissionFree(&meta);
 	return rc;
 }
 

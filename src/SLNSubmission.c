@@ -241,8 +241,9 @@ int SLNSubmissionStoreBatch(SLNSubmissionRef const *const list, size_t const cou
 		return rc;
 	}
 	uint64_t sortID = 0;
-	for(size_t i = 0; i < count; ++i) {
-		assert(list[i]);
+	rc = DB_NOTFOUND;
+	for(size_t i = 0; i < count; i++) {
+		if(!list[i]) continue;
 		assert(repo == SLNSessionGetRepo(list[i]->session));
 		rc = SLNSubmissionStore(list[i], txn);
 		if(DB_SUCCESS != rc) break;

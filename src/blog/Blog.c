@@ -356,10 +356,9 @@ static int parse_file(BlogRef const blog,
 	if(rc < 0) goto cleanup;
 
 	strarg_t const URI = SLNSubmissionGetPrimaryURI(file);
-	rc = -1;
-	rc = rc >= 0 ? rc : BlogConvert(blog, session, htmlpath, &meta, URI, src);
-	rc = rc >= 0 ? rc : BlogMeta(blog, session, &meta, URI, src);
-	if(rc < 0) goto cleanup;
+	(void)BlogConvert(blog, session, htmlpath, &meta, URI, src);
+	// We don't actually care about failure here?
+	// Even if no preview and no meta-file can be generated, that's fine.
 
 	*outfile = file; file = NULL;
 	*outmeta = meta; meta = NULL;

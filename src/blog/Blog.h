@@ -49,11 +49,6 @@ int BlogGeneric(BlogRef const blog,
                 strarg_t const htmlpath,
                 strarg_t const URI,
                 SLNFileInfo const *const src);
-int BlogMeta(BlogRef const blog,
-             SLNSessionRef const session,
-             SLNSubmissionRef *const outmeta,
-             strarg_t const URI,
-             SLNFileInfo const *const src);
 
 // TODO: Get rid of this stuff, or refactor it.
 typedef struct {
