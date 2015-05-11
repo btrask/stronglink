@@ -24,7 +24,7 @@ Parameters:
 - `q`: the query string
 - `lang`: language of the query string (not implemented)
 - `wait`: use long-polling to notify of new submissions (default true)
-- `start`: starting URI for pagination (prefix with - for paging backwards)
+- `start`: starting URI for pagination (prefix with `-` for paging backwards)
 - `count`: maximum number of results (not implemented)
 
 Implementation status: working but incomplete
@@ -43,6 +43,8 @@ Return syntax: `[meta-file URI] -> [target file URI]` each line
 
 Parameters:
 - `wait`: use long-polling to notify of new submissions (not implemented, default true)
+- `start`: starting URI for pagination (prefix with `-` for paging backwards)
+- `count`: maximum number of results (not implemented)
 
 Note: No query is accepted. Clients are expected to filter the results based on target URI.
 
