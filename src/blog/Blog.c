@@ -247,6 +247,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 			sendPreview(blog, conn, session, primaryURI, previewPath);
 			FREE(&previewPath);
 			if(count) TemplateWriteHTTPChunk(blog->backlinks, &TemplateStaticCBs, args, conn);
+			SLNFileInfoCleanup(info);
 		}
 	}
 
