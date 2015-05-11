@@ -23,8 +23,8 @@ bool URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs) {
 }
 
 
-
-static int POST_auth(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+// TODO: Some sort of token-based API auth system, like OAuth?
+/*static int POST_auth(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return -1;
 	if(!URIPath(URI, "/sln/auth", NULL)) return -1;
 
@@ -60,7 +60,7 @@ static int POST_auth(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 
 	FREE(&cookie);
 	return 0;
-}
+}*/
 static int GET_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
 	int len = 0;
@@ -401,7 +401,7 @@ static int GET_query_obsolete(SLNRepoRef const repo, SLNSessionRef const session
 
 int SLNServerDispatch(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	int rc = -1;
-	rc = rc >= 0 ? rc : POST_auth(repo, session, conn, method, URI, headers);
+//	rc = rc >= 0 ? rc : POST_auth(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_file(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_meta(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_file(repo, session, conn, method, URI, headers);
