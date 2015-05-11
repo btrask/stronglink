@@ -187,6 +187,15 @@ int async_fs_link_mkdirp(const char* path, const char* new_path) {
 	return async_fs_link(path, new_path);
 }
 
+int async_fs_open_dirname(const  char* path, int flags, int mode) {
+	ssize_t dlen = dirlen(path, strlen(path));
+	if(dlen < 0) return dlen;
+	char *mutable = strndup(path, dlen);
+	int rc = async_fs_open(mutable, flags, mode);
+	free(mutable); mutable = NULL;
+	return rc;
+}
+
 // TODO: Put this somewhere.
 static char *tohex(char const *const buf, size_t const len) {
 	char const map[] = "0123456789abcdef";
