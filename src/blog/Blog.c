@@ -98,6 +98,9 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	strarg_t qs = NULL;
 	if(!URIPath(URI, "/", &qs)) return -1;
 
+	// TODO: This is the most complicated function in the whole program.
+	// It's unbearable.
+
 	str_t *query = NULL;
 	str_t *query_HTMLSafe = NULL;
 	SLNFilterRef filter = NULL;
@@ -123,6 +126,25 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		FREE(&query_HTMLSafe);
 		return 500;
 	}
+
+	str_t tmp[URI_MAX];
+
+	SLNFilterToUserFilterString(filter, tmp, sizeof(tmp), 0);
+	str_t *parsed_HTMLSafe = htmlenc(tmp);
+
+	strarg_t primaryURI = NULL;
+	SLNFilterRef const core = SLNFilterUnwrap(filter);
+	if(SLNURIFilterType == SLNFilterGetType(core)) {
+		SLNFilterRef alt;
+		rc = SLNFilterCreate(session, SLNMetadataFilterType, &alt);
+		assert(DB_SUCCESS == rc); // TODO
+		SLNFilterAddStringArg(alt, STR_LEN("link"));
+		SLNFilterAddStringArg(alt, SLNFilterGetStringArg(core, 0), -1);
+		SLNFilterFree(&filter);
+		filter = alt; alt = NULL;
+		primaryURI = SLNFilterGetStringArg(filter, 1);
+	}
+
 //	SLNFilterPrint(filter, 0); // DEBUG
 
 	SLNFilterOpts opts[1];
@@ -153,8 +175,6 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(blog->repo));
 
-	str_t tmp[URI_MAX];
-
 	snprintf(tmp, sizeof(tmp), "Queried in %.3f seconds", (t2-t1) / 1e9);
 	str_t *querytime_HTMLSafe = htmlenc(tmp);
 
@@ -166,9 +186,6 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		snprintf(tmp, sizeof(tmp), "Account: %s", user);
 		account_HTMLSafe = htmlenc(tmp);
 	}
-
-	SLNFilterToUserFilterString(filter, tmp, sizeof(tmp), 0);
-	str_t *parsed_HTMLSafe = htmlenc(tmp);
 
 
 	// TODO: Write a real function for building query strings
@@ -221,6 +238,17 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	}
 	HTTPConnectionBeginBody(conn);
 	TemplateWriteHTTPChunk(blog->header, &TemplateStaticCBs, args, conn);
+
+	if(primaryURI) {
+		SLNFileInfo info[1];
+		rc = SLNSessionGetFileInfo(session, primaryURI, info);
+		if(DB_SUCCESS == rc) {
+			str_t *previewPath = BlogCopyPreviewPath(blog, info->hash);
+			sendPreview(blog, conn, session, primaryURI, previewPath);
+			FREE(&previewPath);
+			if(count) TemplateWriteHTTPChunk(blog->backlinks, &TemplateStaticCBs, args, conn);
+		}
+	}
 
 	for(size_t i = 0; i < count; i++) {
 		str_t algo[SLN_ALGO_SIZE]; // SLN_INTERNAL_ALGO
