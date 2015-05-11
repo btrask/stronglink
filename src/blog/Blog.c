@@ -103,8 +103,6 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	SLNFilterRef filter = NULL;
 	int rc;
 
-	uint64_t const t1 = uv_hrtime();
-
 	static strarg_t const fields[] = {
 		"q",
 	};
@@ -125,8 +123,6 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		FREE(&query_HTMLSafe);
 		return 500;
 	}
-
-	uint64_t const t2 = uv_hrtime();
 //	SLNFilterPrint(filter, 0); // DEBUG
 
 	SLNFilterOpts opts[1];
@@ -138,6 +134,8 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		return 500;
 	}
 	int const outdir = opts->outdir;
+
+	uint64_t const t1 = uv_hrtime();
 
 	size_t count;
 	str_t *URIs[RESULTS_MAX];
@@ -151,11 +149,13 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		return 500;
 	}
 
+	uint64_t const t2 = uv_hrtime();
+
 	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(blog->repo));
 
 	str_t tmp[URI_MAX];
 
-	snprintf(tmp, sizeof(tmp), "Queried in %.6f seconds", (t2-t1) / 1e9);
+	snprintf(tmp, sizeof(tmp), "Queried in %.4f seconds", (t2-t1) / 1e9);
 	str_t *querytime_HTMLSafe = htmlenc(tmp);
 
 	str_t *account_HTMLSafe;
