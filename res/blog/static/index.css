@@ -11,6 +11,7 @@
 .outline { outline: 1px solid red; } /* DEBUG */
 .clear { clear: both; }
 .light { color: #555; }
+.small { font-size: small; }
 .block { display: block; }
 .wrapper { line-height: 1em; }
 .wrapper > input { width: 100%; }

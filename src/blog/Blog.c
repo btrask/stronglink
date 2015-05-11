@@ -103,6 +103,8 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	SLNFilterRef filter = NULL;
 	int rc;
 
+	uint64_t const t1 = uv_hrtime();
+
 	static strarg_t const fields[] = {
 		"q",
 	};
@@ -123,6 +125,8 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		FREE(&query_HTMLSafe);
 		return 500;
 	}
+
+	uint64_t const t2 = uv_hrtime();
 //	SLNFilterPrint(filter, 0); // DEBUG
 
 	SLNFilterOpts opts[1];
@@ -150,6 +154,9 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(blog->repo));
 
 	str_t tmp[URI_MAX];
+
+	snprintf(tmp, sizeof(tmp), "Queried in %.6f seconds", (t2-t1) / 1e9);
+	str_t *querytime_HTMLSafe = htmlenc(tmp);
 
 	str_t *account_HTMLSafe;
 	if(0 == SLNSessionGetUserID(session)) {
@@ -193,6 +200,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	TemplateStaticArg const args[] = {
 		{"reponame", reponame_HTMLSafe},
+		{"querytime", querytime_HTMLSafe},
 		{"account", account_HTMLSafe},
 		{"query", query_HTMLSafe},
 		{"parsed", parsed_HTMLSafe},
@@ -225,6 +233,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	TemplateWriteHTTPChunk(blog->footer, &TemplateStaticCBs, args, conn);
 	FREE(&reponame_HTMLSafe);
+	FREE(&querytime_HTMLSafe);
 	FREE(&account_HTMLSafe);
 	FREE(&query_HTMLSafe);
 	FREE(&parsed_HTMLSafe);
