@@ -30,9 +30,9 @@ Parameters:
 Implementation status: working but incomplete
 
 **POST /sln/query**  
-Returns a URI list of files that match a given query. Large queries are accepted via request body.
+Returns a URI list of files that match a given query. Large queries are accepted via request body in "simple" or JSON format. Use the request `Content-Type` header to indicate the query type/language.
 
-Parameters: (same as above except `q`)
+Parameters: (same as above except `q` and `lang`)
 
 Implementation status: not implemented
 
