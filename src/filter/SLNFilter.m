@@ -67,7 +67,7 @@ void SLNFilterFree(SLNFilterRef *const filterptr) {
 	[(SLNFilter *)*filterptr free]; *filterptr = NULL;
 }
 SLNFilterType SLNFilterGetType(SLNFilterRef const filter) {
-	assert(filter);
+	if(!filter) return SLNFilterTypeInvalid;
 	return [(SLNFilter *)filter type];
 }
 SLNFilterRef SLNFilterUnwrap(SLNFilterRef const filter) {
