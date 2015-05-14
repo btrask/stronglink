@@ -23,7 +23,7 @@ Returns a URI list of files that match a given query.
 Parameters:
 - `q`: the query string
 - `lang`: language of the query string (not implemented)
-- `wait`: use long-polling to notify of new submissions (default true)
+- `wait`: use long-polling to notify of new submissions (default `true`)
 - `start`: starting URI for pagination (prefix with `-` for paging backwards)
 - `count`: maximum number of results (not implemented)
 
@@ -59,5 +59,50 @@ MIME type: `text/uri-list; charset=utf-8`
 
 See [RFC2483 section 5](https://tools.ietf.org/html/rfc2483#section-5). One URI per line. Lines beginning with `#` are comments and ignored (must be the first character of the line). Lines are delimited with CRLF but clients should be prepared to handle CR or LF too.
 
-Long-polling APIs will send a blank line every minute or less during idle to keep the connection open.
+By default, long-polling APIs will send a blank line every minute or less during idle to keep the connection open. This will be configurable in the future.
+
+## Meta-files
+
+MIME type: `application/vnd.stronglink.meta` (pending registration)
+Encoding: always UTF-8
+
+The first line is the URI of the meta-file's target. Only hash links are recognized. The URI is followed by two line breaks (a blank line).
+
+Then follows a JSON body describing the meta-data. Each field accepts an _array_ of values. If only one value is set, it can be a single item instead of an array. For each value, currently only strings are accepted.
+
+```
+hash://[algo]/[hash]
+
+{
+	"random attribute": "single value",
+	"another attribute": [
+		"multiple",
+		"values"
+	],
+}
+```
+
+The reason for storing the target URI outside of the JSON object is to enable single-pass parsing without additional buffering. During sync, StrongLink can be required to parse thousands of meta-files (or more) while the user waits, so parse performance is a high priority.
+
+The following special fields are recognized:
+
+- `title`: the file's title or filename (note that a file can even have multiple titles)
+- `description`: user information about the file
+- `tag`: tags (not implemented)
+- `link`: URIs that the file provides external links to
+- `embed`: URIs that the file embeds (note that these are considered dependencies when syncing; not implemented)
+- `fulltext`: full text content (this is the only attribute that may _not_ have multiple values within a single meta-file; this restriction might be lifted in the future)
+
+Additionally, some standard fields are:
+
+- `submitter-name`: the name of the user that submitted the file
+- `submitter-repo`: the name of the repository where the file was submitted
+- `submission-time`: an ISO 8601 time-stamp in UTC (e.g. "2015-05-13T10:02:47Z")
+- `submission-software`: the name of the application that created the meta-file
+
+Applications are free to define their own fields. Please consider whether a field name should be considered "global" or "application-specific," and prefix application-specific fields with the name of the application. The `sln.` prefix is reserved for future use.
+
+Values from multiple meta-files with the same target are combined. Applications should be aware that any field can have zero or more values. (As mentioned above, `fulltext` is currently the sole exception, in that it can only have one value per meta-file. It can still have multiple values from independent meta-files.)
+
+Meta-files are always excoded as UTF-8. Line endings are recommended to be LF-only, since that's what most JSON libraries use.
 
