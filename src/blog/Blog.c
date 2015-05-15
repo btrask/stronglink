@@ -505,6 +505,15 @@ static int POST_post(BlogRef const blog,
 	yajl_gen_string(json, (unsigned char const *)STR_LEN("submission-software"));
 	yajl_gen_string(json, (unsigned char const *)STR_LEN("StrongLink Blog"));
 
+	str_t *fulltext = aasprintf("%s\n%s",
+		title ?: "",
+		NULL ?: ""); // TODO: Description, GNU-ism
+	if(fulltext) {
+		yajl_gen_string(json, (unsigned char const *)STR_LEN("fulltext"));
+		yajl_gen_string(json, (unsigned char const *)fulltext, strlen(fulltext));
+	}
+	FREE(&fulltext);
+
 	yajl_gen_map_close(json);
 
 	rc = SLNSubmissionEnd(extra);
