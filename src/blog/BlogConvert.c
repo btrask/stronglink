@@ -196,11 +196,12 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 		SLNFileInfo info[1];
 		rc = SLNSessionGetFileInfo(state->session, state->fileURI, info);
 		if(DB_SUCCESS == rc) {
-			uint64_t x = info->size;
+			double const size = info->size;
+			double base = 1.0;
 			strarg_t const units[] = { "B", "KB", "MB", "GB", "TB" };
 			size_t i = 0;
-			for(; x > 1024 && i < numberof(units); i++) x /= 1024;
-			snprintf(buf, sizeof(buf), "%u %s", (unsigned int)x, units[i]);
+			for(; size/base > 1024.0 && i < numberof(units); i++) base *= 1024.0;
+			snprintf(buf, sizeof(buf), "%.1f %s", size/base, units[i]);
 			unsafe = buf;
 			// P.S. Fuck scientific prefixes.
 		}
