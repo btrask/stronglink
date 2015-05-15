@@ -78,7 +78,7 @@ hash://[algo]/[hash]
 	"another attribute": [
 		"multiple",
 		"values"
-	],
+	]
 }
 ```
 
