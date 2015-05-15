@@ -343,7 +343,8 @@ static int parse_file(BlogRef const blog,
                       SLNSessionRef const session,
                       MultipartFormRef const form,
                       SLNSubmissionRef *const outfile,
-                      SLNSubmissionRef *const outmeta)
+                      SLNSubmissionRef *const outmeta,
+                      str_t **const outname)
 {
 	assert(form);
 
@@ -374,13 +375,13 @@ static int parse_file(BlogRef const blog,
 		type = content_type;
 		static strarg_t const f[] = { "filename", "filename*" };
 		str_t *v[numberof(f)] = {};
-		str_t *t = NULL;
-		fprintf(stderr, "%s\n", content_disposition);
-		ContentDispositionParse(content_disposition, &t, v, f, numberof(f));
-		fprintf(stderr, "%s; filename=%s, filename*=%s\n", t, v[0], v[1]);
-		FREE(&t);
-		FREE(&v[0]);
-		FREE(&v[1]);
+		ContentDispositionParse(content_disposition, NULL, v, f, numberof(f));
+		if(v[1]) {
+			*outname = v[1]; v[1] = NULL;
+		} else {
+			*outname = v[0]; v[0] = NULL;
+		}
+		for(size_t i = 0; i < numberof(v); i++) FREE(&v[i]);
 	}
 
 	rc = SLNSubmissionCreate(session, type, &file);
@@ -443,7 +444,8 @@ static int POST_post(BlogRef const blog,
 
 	SLNSubmissionRef sub = NULL;
 	SLNSubmissionRef meta = NULL;
-	rc = parse_file(blog, session, form, &sub, &meta);
+	str_t *title = NULL;
+	rc = parse_file(blog, session, form, &sub, &meta, &title);
 	if(UV_EACCES == rc) {
 		MultipartFormFree(&form);
 		return 403;
@@ -471,7 +473,6 @@ static int POST_post(BlogRef const blog,
 
 	yajl_gen_map_open(json);
 
-	strarg_t const title = NULL; // TODO
 	if(title) {
 		yajl_gen_string(json, (unsigned char const *)STR_LEN("title"));
 		yajl_gen_string(json, (unsigned char const *)title, strlen(title));
@@ -517,6 +518,7 @@ static int POST_post(BlogRef const blog,
 
 cleanup:
 	if(json) { yajl_gen_free(json); json = NULL; }
+	FREE(&title);
 	SLNSubmissionFree(&sub);
 	SLNSubmissionFree(&meta);
 	SLNSubmissionFree(&extra);

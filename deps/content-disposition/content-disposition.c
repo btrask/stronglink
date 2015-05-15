@@ -163,7 +163,7 @@ static bool read_parm(char const **const src, char *const field, char *const val
 
 #define BUF_MAX 1024
 int ContentDispositionParse(char const *const str, char **const type, char *values[], char const *const fields[], size_t const count) {
-	assert(!*type);
+	assert(!type || !*type);
 	for(size_t i = 0; i < count; i++) assert(!values[i]);
 
 	if(strlen(str) >= BUF_MAX) return -1;
@@ -172,8 +172,8 @@ int ContentDispositionParse(char const *const str, char **const type, char *valu
 		char buf[BUF_MAX];
 		char *d = buf;
 		if(!read_token(&s, &d)) return -1;
-		*type = strndup(buf, d-buf);
-		if(!*type) return -1;
+		if(type) *type = strndup(buf, d-buf);
+		if(type && !*type) return -1;
 	}
 	for(;;) {
 		if(';' != *s++) break;
