@@ -161,7 +161,7 @@ static bool read_parm(char const **const src, char *const field, char *const val
 	return true;
 }
 
-#define BUF_MAX 256
+#define BUF_MAX 1024
 int ContentDispositionParse(char const *const str, char **const type, char *values[], char const *const fields[], size_t const count) {
 	assert(!*type);
 	for(size_t i = 0; i < count; i++) assert(!values[i]);

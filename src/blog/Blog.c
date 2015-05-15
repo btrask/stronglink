@@ -358,7 +358,7 @@ static int parse_file(BlogRef const blog,
 		"content-disposition",
 	};
 	char content_type[100];
-	char content_disposition[100];
+	char content_disposition[1024];
 	uv_buf_t values[] = {
 		uv_buf_init(BUF_LEN(content_type)),
 		uv_buf_init(BUF_LEN(content_disposition)),
