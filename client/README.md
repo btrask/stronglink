@@ -98,7 +98,7 @@ Additionally, some standard fields are:
 - `submitter-name`: the name of the user that submitted the file
 - `submitter-repo`: the name of the repository where the file was submitted
 - `submission-time`: an ISO 8601 time-stamp in UTC (e.g. "2015-05-13T10:02:47Z")
-- `submission-software`: the name of the application that created the meta-file
+- `submission-software`: the name of the application that submitted the file
 
 Applications are free to define their own fields. Please consider whether a field name should be considered "global" or "application-specific," and prefix application-specific fields with the name of the application. The `sln.` prefix is reserved for future use.
 
