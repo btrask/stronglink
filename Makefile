@@ -142,20 +142,22 @@ endif
 
 # Blog server
 HEADERS += \
+	$(SRC_DIR)/blog/Blog.h \
+	$(SRC_DIR)/blog/converter.h \
+	$(SRC_DIR)/blog/Template.h \
+	$(DEPS_DIR)/content-disposition/content-disposition.h \
 	$(DEPS_DIR)/cmark/src/cmark.h \
 	$(DEPS_DIR)/cmark/src/buffer.h \
 	$(DEPS_DIR)/cmark/src/houdini.h \
-	$(DEPS_DIR)/cmark/build/src/*.h \
-	$(SRC_DIR)/blog/Blog.h \
-	$(SRC_DIR)/blog/converter.h \
-	$(SRC_DIR)/blog/Template.h
+	$(DEPS_DIR)/cmark/build/src/*.h
 OBJECTS += \
 	$(BUILD_DIR)/blog/main.o \
 	$(BUILD_DIR)/blog/Blog.o \
 	$(BUILD_DIR)/blog/BlogConvert.o \
 	$(BUILD_DIR)/blog/Template.o \
 	$(BUILD_DIR)/blog/plaintext.o \
-	$(BUILD_DIR)/blog/markdown.o
+	$(BUILD_DIR)/blog/markdown.o \
+	$(BUILD_DIR)/deps/content-disposition/content-disposition.o
 
 STATIC_LIBS += $(DEPS_DIR)/cmark/build/src/libcmark.a
 CFLAGS += -I$(DEPS_DIR)/cmark/build/src
@@ -276,6 +278,10 @@ $(BUILD_DIR)/deps/sundown/%.o: $(DEPS_DIR)/sundown/%.c
 $(BUILD_DIR)/deps/smhasher/MurmurHash3.o: $(DEPS_DIR)/smhasher/MurmurHash3.cpp $(DEPS_DIR)/smhasher/MurmurHash3.h
 	@- mkdir -p $(dir $@)
 	$(CXX) -c -o $@ $< $(CXXFLAGS) $(WARNINGS)
+
+$(BUILD_DIR)/deps/content-disposition/content-disposition.o: $(DEPS_DIR)/content-disposition/content-disposition.c
+	@- mkdir -p $(dir $@)
+	$(CC) -c $(CFLAGS) $(WARNINGS) $< -o $@
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.[cm] $(HEADERS)
 	@- mkdir -p $(dir $@)

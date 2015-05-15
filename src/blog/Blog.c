@@ -6,6 +6,7 @@
 #include <limits.h>
 #include <time.h>
 #include "Blog.h"
+#include "../../deps/content-disposition/content-disposition.h"
 
 #define RESULTS_MAX 50
 #define BUFFER_SIZE (1024 * 8)
@@ -371,6 +372,15 @@ static int parse_file(BlogRef const blog,
 		type = "text/markdown; charset=utf-8";
 	} else {
 		type = content_type;
+		static strarg_t const f[] = { "filename", "filename*" };
+		str_t *v[numberof(f)] = {};
+		str_t *t = NULL;
+		fprintf(stderr, "%s\n", content_disposition);
+		ContentDispositionParse(content_disposition, &t, v, f, numberof(f));
+		fprintf(stderr, "%s; filename=%s, filename*=%s\n", t, v[0], v[1]);
+		FREE(&t);
+		FREE(&v[0]);
+		FREE(&v[1]);
 	}
 
 	rc = SLNSubmissionCreate(session, type, &file);
