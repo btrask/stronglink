@@ -240,7 +240,7 @@ static int reconnect(SLNPullRef const pull) {
 	int rc;
 	HTTPConnectionFree(&pull->conn);
 
-	rc = HTTPConnectionCreateOutgoing(pull->host, &pull->conn);
+	rc = HTTPConnectionCreateOutgoing(pull->host, 0, &pull->conn);
 	if(rc < 0) {
 		fprintf(stderr, "Pull couldn't connect to %s (%s)\n", pull->host, uv_strerror(rc));
 		return rc;
@@ -315,7 +315,7 @@ static int import(SLNPullRef const pull, strarg_t const URI, size_t const pos, H
 //	fprintf(stderr, "Pulling %s\n", URI);
 
 	if(!*conn) {
-		rc = HTTPConnectionCreateOutgoing(pull->host, conn);
+		rc = HTTPConnectionCreateOutgoing(pull->host, 0, conn);
 		if(rc < 0) {
 			fprintf(stderr, "Pull import connection error %s\n", uv_strerror(rc));
 			goto fail;

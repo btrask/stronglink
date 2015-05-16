@@ -56,7 +56,7 @@ struct HTTPConnection {
 	unsigned flags;
 };
 
-int HTTPConnectionCreateIncoming(uv_stream_t *const socket, HTTPConnectionRef *const out) {
+int HTTPConnectionCreateIncoming(uv_stream_t *const socket, unsigned const flags, HTTPConnectionRef *const out) {
 	HTTPConnectionRef conn = calloc(1, sizeof(struct HTTPConnection));
 	if(!conn) return UV_ENOMEM;
 	int rc = uv_tcp_init(async_loop, conn->stream);
@@ -70,7 +70,7 @@ cleanup:
 	HTTPConnectionFree(&conn);
 	return rc;
 }
-int HTTPConnectionCreateOutgoing(strarg_t const domain, HTTPConnectionRef *const out) {
+int HTTPConnectionCreateOutgoing(strarg_t const domain, unsigned const flags, HTTPConnectionRef *const out) {
 	str_t host[1023+1];
 	str_t service[15+1];
 	host[0] = '\0';

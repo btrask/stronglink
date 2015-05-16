@@ -22,8 +22,8 @@ typedef enum {
 
 typedef struct HTTPConnection* HTTPConnectionRef;
 
-int HTTPConnectionCreateIncoming(uv_stream_t *const socket, HTTPConnectionRef *const out);
-int HTTPConnectionCreateOutgoing(strarg_t const domain, HTTPConnectionRef *const out);
+int HTTPConnectionCreateIncoming(uv_stream_t *const socket, unsigned const flags, HTTPConnectionRef *const out);
+int HTTPConnectionCreateOutgoing(strarg_t const domain, unsigned const flags, HTTPConnectionRef *const out);
 void HTTPConnectionFree(HTTPConnectionRef *const connptr);
 int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_buf_t *const buf);
 void HTTPConnectionPop(HTTPConnectionRef const conn, size_t const len);
