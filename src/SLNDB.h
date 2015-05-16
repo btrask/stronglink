@@ -16,7 +16,7 @@ enum {
 
 	SLNFileByID = 40,
 	SLNFileIDByInfo = 41,
-//	SLNFileIDByType = 42, // Unused? Now we're storing types as regular meta-data.
+//	SLNFileIDByType = 42, // TODO
 	SLNFileIDAndURI = 43,
 	SLNURIAndFileID = 44,
 
@@ -33,7 +33,7 @@ enum {
 
 
 // TODO: Don't use simple assertions for data integrity checks.
-// TODO: Accept NULL out parameters in unpack macros
+// TODO: Accept NULL out parameters in unpack functions.
 
 #define SLNUserByIDKeyPack(val, txn, userID) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_VARINT_MAX); \
