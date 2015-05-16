@@ -5,8 +5,6 @@
 #include <stdlib.h>
 #include "async.h"
 
-#define UNUSED(x) ((void)(x))
-
 struct async_thread_list {
 	async_sem_t *sem;
 	async_t *thread;

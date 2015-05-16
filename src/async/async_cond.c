@@ -5,8 +5,6 @@
 #include <stdlib.h>
 #include "async.h"
 
-#define UNUSED(x) ((void)(x))
-
 // https://en.wikipedia.org/wiki/Monitor_%28synchronization%29
 // https://en.wikipedia.org/w/index.php?title=Monitor_%28synchronization%29&oldid=622007170
 // Monitor (synchronization)
