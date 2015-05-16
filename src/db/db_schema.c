@@ -155,7 +155,7 @@ char const *db_read_string(DB_val *const val, DB_txn *const txn) {
 	int rc = db_get(txn, &key, full);
 	db_assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
 	char const *const fstr = full->data;
-	db_assert('\0' == fstr[full->size]);
+	db_assert('\0' == fstr[full->size-1]);
 	return fstr;
 }
 void db_bind_string(DB_val *const val, char const *const str, DB_txn *const txn) {
@@ -164,6 +164,7 @@ void db_bind_string(DB_val *const val, char const *const str, DB_txn *const txn)
 }
 void db_bind_string_len(DB_val *const val, char const *const str, size_t const len, int const nulterm, DB_txn *const txn) {
 	assert(val);
+	assert(len == strnlen(str, len) && "Embedded nuls");
 	unsigned char *const out = val->data;
 	if(0 == len) {
 		out[val->size++] = '\0';
@@ -203,6 +204,7 @@ void db_bind_string_len(DB_val *const val, char const *const str, size_t const l
 	DB_val key = { DB_INLINE_MAX, out+val->size-DB_INLINE_MAX };
 	char *str2 = nulterm ? (char *)str : strndup(str, len);
 	DB_val full = { len+1, str2 };
+	assert('\0' == str2[full.size-1]);
 	rc = db_put(txn, &key, &full, 0);
 	if(!nulterm) free(str2);
 	str2 = NULL;
