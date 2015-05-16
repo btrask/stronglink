@@ -34,7 +34,7 @@ int HTTPServerListen(HTTPServerRef const server, strarg_t const address, strarg_
 	if(!server) return 0;
 	assertf(!server->socket->data, "HTTPServer already listening");
 	int rc;
-	rc = uv_tcp_init(loop, server->socket);
+	rc = uv_tcp_init(async_loop, server->socket);
 	if(rc < 0) return rc;
 	server->socket->data = server;
 

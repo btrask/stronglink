@@ -271,7 +271,7 @@ static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, 
 
 	SLNRepoRef const repo = SLNSessionGetRepo(session);
 	for(;;) {
-		uint64_t const timeout = uv_now(loop)+(1000 * 30);
+		uint64_t const timeout = uv_now(async_loop)+(1000 * 30);
 		rc = SLNRepoSubmissionWait(repo, opts->sortID, timeout);
 		if(UV_ETIMEDOUT == rc) {
 			uv_buf_t const parts[] = { uv_buf_init((char *)STR_LEN("\r\n")) };

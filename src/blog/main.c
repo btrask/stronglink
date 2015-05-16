@@ -53,7 +53,7 @@ static void ignore(uv_signal_t *const signal, int const signum) {
 }
 static void stop(uv_signal_t *const signal, int const signum) {
 	sig = signum;
-	uv_stop(loop);
+	uv_stop(async_loop);
 }
 
 static void init(void *const unused) {
@@ -85,7 +85,7 @@ static void init(void *const unused) {
 	fprintf(stderr, "StrongLink server running at http://localhost:8000/\n");
 	SLNRepoPullsStart(repo);
 
-	uv_signal_init(loop, sigint);
+	uv_signal_init(async_loop, sigint);
 	uv_signal_start(sigint, stop, SIGINT);
 	uv_unref((uv_handle_t *)sigint);
 }
@@ -108,7 +108,7 @@ int main(int const argc, char const *const *const argv) {
 	raiserlimit();
 	async_init();
 	uv_signal_t sigpipe[1];
-	uv_signal_init(loop, sigpipe);
+	uv_signal_init(async_loop, sigpipe);
 	uv_signal_start(sigpipe, ignore, SIGPIPE);
 	uv_unref((uv_handle_t *)sigpipe);
 
@@ -121,10 +121,10 @@ int main(int const argc, char const *const *const argv) {
 
 	// Even our init code wants to use async I/O.
 	async_spawn(STACK_DEFAULT, init, NULL);
-	uv_run(loop, UV_RUN_DEFAULT);
+	uv_run(async_loop, UV_RUN_DEFAULT);
 
 	async_spawn(STACK_DEFAULT, term, NULL);
-	uv_run(loop, UV_RUN_DEFAULT); // Allows term() to execute.
+	uv_run(async_loop, UV_RUN_DEFAULT); // Allows term() to execute.
 	HTTPServerFree(&server);
 	BlogFree(&blog);
 	SLNRepoFree(&repo);

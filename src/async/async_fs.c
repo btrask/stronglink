@@ -18,7 +18,7 @@ static void fs_cb(uv_fs_t *const req) {
 #define ASYNC_FS_WRAP(name, args...) \
 	async_pool_enter(NULL); \
 	uv_fs_t req[1]; \
-	int rc = uv_fs_##name(loop, req, ##args, NULL); \
+	int rc = uv_fs_##name(async_loop, req, ##args, NULL); \
 	uv_fs_req_cleanup(req); \
 	async_pool_leave(NULL); \
 	if(rc < 0) return rc; \
@@ -27,13 +27,13 @@ static void fs_cb(uv_fs_t *const req) {
 #define ASYNC_FS_WRAP(name, args...) \
 	uv_fs_t req[1]; \
 	uv_fs_cb cb = NULL; \
-	if(yield) { \
+	if(async_main) { \
 		req->data = async_active(); \
 		cb = fs_cb; \
 	} \
-	int rc = uv_fs_##name(loop, req, ##args, cb); \
+	int rc = uv_fs_##name(async_loop, req, ##args, cb); \
 	if(rc < 0) return rc; \
-	if(yield) { \
+	if(async_main) { \
 		rc = async_yield_cancelable(); \
 		if(UV_ECANCELED == rc) { \
 			uv_cancel((uv_req_t *)req); \
@@ -103,7 +103,7 @@ int async_fs_writeall(uv_file const file, uv_buf_t bufs[], unsigned int const nb
 int async_fs_fstat(uv_file file, uv_fs_t *const req) {
 	async_pool_enter(NULL);
 	uv_fs_t _req[1];
-	int const err = uv_fs_fstat(loop, req ? req : _req, file, NULL);
+	int const err = uv_fs_fstat(async_loop, req ? req : _req, file, NULL);
 	uv_fs_req_cleanup(req ? req : _req);
 	async_pool_leave(NULL);
 	return err;
@@ -111,7 +111,7 @@ int async_fs_fstat(uv_file file, uv_fs_t *const req) {
 int async_fs_stat_mode(const char* path, uv_fs_t *const req) {
 	async_pool_enter(NULL);
 	uv_fs_t _req[1];
-	int const err = uv_fs_stat(loop, req ? req : _req, path, NULL);
+	int const err = uv_fs_stat(async_loop, req ? req : _req, path, NULL);
 	uv_fs_req_cleanup(req ? req : _req);
 	async_pool_leave(NULL);
 	return err;

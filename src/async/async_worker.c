@@ -16,8 +16,8 @@ struct async_worker_s {
 static void work(void *const arg) {
 	async_worker_t *const worker = arg;
 	async_init();
-	worker->main = yield;
-	yield = NULL;
+	worker->main = async_main;
+	async_main = NULL;
 	for(;;) {
 		uv_sem_wait(&worker->sem);
 		if(!worker->work) break;
@@ -46,7 +46,7 @@ async_worker_t *async_worker_create(void) {
 		return NULL;
 	}
 	worker->async.data = worker;
-	if(uv_async_init(loop, &worker->async, leave) < 0) {
+	if(uv_async_init(async_loop, &worker->async, leave) < 0) {
 		uv_sem_destroy(&worker->sem);
 		free(worker);
 		return NULL;

@@ -136,7 +136,7 @@ int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn,
 	SLNMode const mode = mode_unsafe & session->mode;
 	if(!mode) return DB_EINVAL;
 	uint64_t const parent = session->userID;
-	uint64_t const time = uv_now(loop); // TODO: Appropriate timestamp?
+	uint64_t const time = uv_now(async_loop); // TODO: Appropriate timestamp?
 
 	uint64_t const userID = db_next_id(SLNUserByID, txn);
 	if(!userID) return DB_EACCES;

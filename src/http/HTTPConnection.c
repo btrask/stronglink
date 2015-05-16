@@ -59,7 +59,7 @@ struct HTTPConnection {
 int HTTPConnectionCreateIncoming(uv_stream_t *const socket, HTTPConnectionRef *const out) {
 	HTTPConnectionRef conn = calloc(1, sizeof(struct HTTPConnection));
 	if(!conn) return UV_ENOMEM;
-	int rc = uv_tcp_init(loop, conn->stream);
+	int rc = uv_tcp_init(async_loop, conn->stream);
 	if(rc < 0) goto cleanup;
 	rc = uv_accept(socket, (uv_stream_t *)conn->stream);
 	if(rc < 0) goto cleanup;
@@ -98,7 +98,7 @@ int HTTPConnectionCreateOutgoing(strarg_t const domain, HTTPConnectionRef *const
 
 	rc = UV_EADDRNOTAVAIL;
 	for(struct addrinfo *each = info; each; each = each->ai_next) {
-		rc = uv_tcp_init(loop, conn->stream);
+		rc = uv_tcp_init(async_loop, conn->stream);
 		if(rc < 0) break;
 
 		rc = async_tcp_connect(conn->stream, each->ai_addr);

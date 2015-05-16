@@ -31,8 +31,8 @@ typedef struct {
 	unsigned flags;
 } async_t;
 
-extern thread_local uv_loop_t loop[1];
-extern thread_local async_t *yield;
+extern thread_local uv_loop_t async_loop[1];
+extern thread_local async_t *async_main;
 
 int async_init(void);
 

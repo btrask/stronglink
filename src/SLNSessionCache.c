@@ -60,7 +60,7 @@ SLNSessionCacheRef SLNSessionCacheCreate(SLNRepoRef const repo, uint16_t const s
 	}
 
 	cache->timer->data = cache;
-	uv_timer_init(loop, cache->timer);
+	uv_timer_init(async_loop, cache->timer);
 	cache->timeouts = calloc(size, sizeof(*cache->timeouts));
 	cache->active = calloc(size, sizeof(*cache->active));
 	cache->pos = 0;
@@ -119,7 +119,7 @@ static void session_cache(SLNSessionCacheRef const cache, SLNSessionRef const se
 		SLNSessionRelease(&cache->sessions[x]);
 		cache->sessions[x] = SLNSessionRetain(session);
 		cache->active[cache->pos] = x;
-		cache->timeouts[cache->pos] = uv_now(loop) + EXPIRE_TIMEOUT;
+		cache->timeouts[cache->pos] = uv_now(async_loop) + EXPIRE_TIMEOUT;
 //		cache->pos++; // TODO: Is this a ring buffer?
 		// TODO: Start timer if necessary.
 		return;

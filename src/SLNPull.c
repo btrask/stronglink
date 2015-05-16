@@ -140,7 +140,7 @@ static void writer(SLNPullRef const pull) {
 	SLNSubmissionRef queue[QUEUE_SIZE];
 	size_t count = 0;
 	size_t skipped = 0;
-	double time = uv_now(loop) / 1000.0;
+	double time = uv_now(async_loop) / 1000.0;
 	for(;;) {
 		if(pull->stop) goto stop;
 
@@ -153,7 +153,7 @@ static void writer(SLNPullRef const pull) {
 					async_mutex_unlock(pull->mutex);
 					goto stop;
 				}
-				if(!count) time = uv_now(loop) / 1000.0;
+				if(!count) time = uv_now(async_loop) / 1000.0;
 			}
 			assert(pull->filled[pos]);
 			// Skip any bubbles in the queue.
@@ -178,7 +178,7 @@ static void writer(SLNPullRef const pull) {
 			SLNSubmissionFree(&queue[i]);
 		}
 
-		double const now = uv_now(loop) / 1000.0;
+		double const now = uv_now(async_loop) / 1000.0;
 		fprintf(stderr, "Pulled %f files per second\n", count / (now - time));
 		time = now;
 		count = 0;

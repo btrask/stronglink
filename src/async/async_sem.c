@@ -64,15 +64,15 @@ int async_sem_trywait(async_sem_t *const sem) {
 }
 int async_sem_timedwait(async_sem_t *const sem, uint64_t const future) {
 	assert(sem);
-	assert(yield);
-	assert(async_active() != yield); // TODO: Seems to be triggering...?
+	assert(async_main);
+	assert(async_active() != async_main); // TODO: Seems to be triggering...?
 	if(sem->value) {
 		--sem->value;
 		return 0;
 	}
 	uint64_t now = 0;
 	if(future < UINT64_MAX) {
-		now = uv_now(loop);
+		now = uv_now(async_loop);
 		if(now >= future) return UV_ETIMEDOUT;
 	}
 	async_thread_list us[1];
@@ -88,7 +88,7 @@ int async_sem_timedwait(async_sem_t *const sem, uint64_t const future) {
 	uv_timer_t timer[1];
 	if(future < UINT64_MAX) {
 		timer->data = us;
-		uv_timer_init(loop, timer);
+		uv_timer_init(async_loop, timer);
 		uv_timer_start(timer, timeout_cb, future - now, 0);
 	}
 	int rc = async_yield_flags(sem->flags);

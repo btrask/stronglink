@@ -7,8 +7,8 @@
 #include <openssl/rand.h>
 #include "async.h"
 
-thread_local uv_loop_t loop[1] = {};
-thread_local async_t *yield = NULL;
+thread_local uv_loop_t async_loop[1] = {};
+thread_local async_t *async_main = NULL;
 
 static thread_local async_t master[1] = {};
 static thread_local async_t *active = NULL;
@@ -20,12 +20,12 @@ static thread_local void *arg_arg = NULL;
 static void trampoline_fn(void);
 
 int async_init(void) {
-	int rc = uv_loop_init(loop);
+	int rc = uv_loop_init(async_loop);
 	if(rc < 0) return rc;
 	master->fiber = co_active();
 	master->flags = 0;
 	active = master;
-	yield = master;
+	async_main = master;
 	trampoline = co_create(STACK_DEFAULT, trampoline_fn);
 	if(!trampoline) return UV_ENOMEM;
 	return 0;
@@ -51,10 +51,10 @@ int async_spawn(size_t const stack, void (*const func)(void *), void *const arg)
 	arg_arg = arg;
 
 	// Similar to async_wakeup but the new thread is not created yet
-	async_t *const original = yield;
-	yield = async_active();
+	async_t *const original = async_main;
+	async_main = async_active();
 	co_switch(fiber);
-	yield = original;
+	async_main = original;
 
 	return 0;
 }
@@ -63,29 +63,29 @@ void async_switch(async_t *const thread) {
 	co_switch(thread->fiber);
 }
 void async_wakeup(async_t *const thread) {
-	assert(thread != yield);
-	async_t *const original = yield;
-	yield = async_active();
+	assert(thread != async_main);
+	async_t *const original = async_main;
+	async_main = async_active();
 	async_switch(thread);
-	yield = original;
+	async_main = original;
 }
 static void trampoline_fn(void) {
 	for(;;) {
 		void (*const func)(void *) = arg_func;
 		void *const arg = arg_arg;
 		func(arg);
-		async_switch(yield);
+		async_switch(async_main);
 	}
 }
 void async_call(void (*const func)(void *), void *const arg) {
 	arg_func = func;
 	arg_arg = arg;
-	active = yield;
+	active = async_main;
 	co_switch(trampoline);
 }
 
 void async_yield(void) {
-	async_switch(yield);
+	async_switch(async_main);
 }
 int async_yield_cancelable(void) {
 	async_t *const thread = async_active();
@@ -148,11 +148,11 @@ int async_getaddrinfo(char const *const node, char const *const service, struct 
 	uv_getaddrinfo_t req[1];
 	req->data = state;
 	uv_getaddrinfo_cb cb = NULL;
-	if(yield) {
+	if(async_main) {
 		state->thread = async_active();
 		cb = getaddrinfo_cb;
 	}
-	int const err = uv_getaddrinfo(loop, req, cb, node, service, hints);
+	int const err = uv_getaddrinfo(async_loop, req, cb, node, service, hints);
 	if(err < 0) return err;
 	if(cb) async_yield();
 	if(res) *res = state->res;
@@ -170,7 +170,7 @@ int async_sleep(uint64_t const milliseconds) {
 	uv_timer_t timer[1];
 	timer->data = async_active();
 	int err;
-	err = uv_timer_init(loop, timer);
+	err = uv_timer_init(async_loop, timer);
 	if(err < 0) return err;
 	if(milliseconds > 0) {
 		err = uv_timer_start(timer, timer_cb, milliseconds, 0);
