@@ -1,0 +1,136 @@
+#!/usr/bin/env node
+
+var fs = require("fs");
+var pathmodule = require("path");
+
+var sln = require("../sln-client");
+var mime = require("./mime");
+
+var repo = sln.mainRepo();
+
+function has(obj, prop) {
+	return Object.prototype.hasOwnProperty.call(obj, prop);
+}
+function numericStringCompare(a1, b1) {
+	var ra = /(\D*)(\d*)/g;
+	var rb = /(\D*)(\d*)/g;
+	var a2, b2, r;
+	for(;;) {
+		a2 = ra.exec(a1);
+		b2 = rb.exec(b1);
+		if(!a2[0] && !b2[0]) return 0;
+		if(a2[1].length !== b2[1].length) return a2[0].localeCompare(b2[0]);
+		r = a2[1].localeCompare(b2[1]) || (+a2[2]-b2[2]);
+		if(r) return r;
+	}
+}
+function texttype(type) {
+	if("text/plain" === type) return true;
+	if("text/plain; charset=utf-8" === type) return true;
+	if("text/markdown" === type) return true;
+	if("text/markdown; charset=utf-8" === type) return true;
+	if("text/x-markdown" === type) return true;
+	if("text/x-markdown; charset=utf-8" === type) return true;
+	return false;
+}
+function trampoline(func/* (next) */) {
+	var called, finished;
+	for(;;) {
+		called = false;
+		finished = false;
+		func(next);
+		finished = true;
+		if(!called) break;
+	}
+	function next() {
+		called = true;
+		if(finished) trampoline(func);
+	}
+}
+
+// WARNING: We use some blocking APIs because callbacks are such a pain.
+function submitfile(path, cb) {
+	var ext = pathmodule.extname(path).toLowerCase();
+	var type = has(mime, ext) ? mime[ext] : "application/octet-stream";
+
+	var file = fs.createReadStream(path, {});
+	var upload = repo.createSubStream(type, {});
+
+	file.pipe(upload);
+	upload.on("error", function(err) {
+		cb(err, null);
+	});
+	upload.on("submission", function(fileinfo) {
+		var title = pathmodule.basename(path);
+		var fulltext = title+"\n";
+		if(texttype(type)) fulltext += fs.readFileSync(path, "utf8").slice(0, 1024 * 512);
+		var stats = fs.statSync(path);
+		var meta = {
+			"title": title,
+			"creation-time": stats.birthtime.toISOString(), // WTF is birthtime?
+			"modification-time": stats.mtime.toISOString(),
+			//"submitter-name": username,
+			//"submitter-repo": reponame,
+			"submission-time": (new Date).toISOString(),
+			"submission-software": "sln-import-dir",
+			"fulltext": fulltext,
+		};
+		repo.submitMeta(fileinfo.location, meta, function(err, metainfo) {
+			if(err) return cb(err, null);
+			cb(null, fileinfo);
+		});
+	});
+}
+function submitdir(path, cb) {
+	console.log(path);
+
+	fs.readdir(path, function(err, names) {
+		if(err) {
+			if("ENOTDIR" !== err.code) return cb(err, null);
+			submitfile(path, function(err, info) {
+				if(err) return cb(err, null);
+				return cb(null, null);
+			});
+			return;
+		}
+		names.sort(numericStringCompare);
+		var i = 0;
+		trampoline(function(next) {
+			if(i >= names.length) return cb(null, null);
+			submitdir(pathmodule.join(path, names[i]), function(err, info) {
+				if(err) return cb(err, null);
+				i++;
+				next();
+			});
+		});
+	});
+}
+
+
+var root = process.argv[2];
+if(!root) {
+	console.error("Usage: sln-import-dir <dir>");
+	process.exit(1);
+}
+submitdir(root, function(err, uris) {
+	console.log("done", err);
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
