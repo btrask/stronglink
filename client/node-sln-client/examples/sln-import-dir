@@ -71,7 +71,7 @@ function submitfile(path, cb) {
 			"modification-time": stats.mtime.toISOString(),
 			//"submitter-name": username,
 			//"submitter-repo": reponame,
-			"submission-time": (new Date).toISOString(),
+			//"submission-time": (new Date).toISOString(),
 			"submission-software": "sln-import-dir",
 			"fulltext": fulltext,
 		};
@@ -115,22 +115,4 @@ if(!root) {
 submitdir(root, function(err, uris) {
 	console.log("done", err);
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
