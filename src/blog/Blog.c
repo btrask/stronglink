@@ -67,8 +67,11 @@ static int sendPreview(BlogRef const blog, HTTPConnectionRef const conn, SLNSess
 	// It's okay to accidentally regenerate a preview
 	// It's okay to send an error if another thread tried to gen and failed
 	// We want to minimize false positives and false negatives
-	// In particular, if a million connections request a new file at once, we want to avoid starting gen for each connection before any of them have finished
-	// Capping the total number of concurrent gens to PENDING_MAX is not a bad side effect
+	// In particular, if a million connections request a new file at once,
+	// we want to avoid starting gen for each connection before any of them
+	// have finished
+	// Capping the total number of concurrent gens to PENDING_MAX is not
+	// a bad side effect
 	size_t x = 0;
 	async_mutex_lock(blog->pending_mutex);
 	for(;; async_cond_wait(blog->pending_cond, blog->pending_mutex)) {
