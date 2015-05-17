@@ -46,20 +46,23 @@ static void gen_done(BlogRef const blog, strarg_t const path, size_t const x) {
 	async_cond_broadcast(blog->pending_cond);
 	async_mutex_unlock(blog->pending_mutex);
 }
-static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, SLNSessionRef const session, strarg_t const URI, strarg_t const path) {
-	if(!path) return;
+static int sendPreview(BlogRef const blog, HTTPConnectionRef const conn, SLNSessionRef const session, strarg_t const URI, strarg_t const path) {
+	if(!path) return UV_EINVAL;
 
 	preview_state const state = {
 		.blog = blog,
 		.session = session,
 		.fileURI = URI,
 	};
-	TemplateWriteHTTPChunk(blog->entry_start, &preview_cbs, &state, conn);
+	int rc = TemplateWriteHTTPChunk(blog->entry_start, &preview_cbs, &state, conn);
+	if(rc < 0) return rc;
 
-	if(HTTPConnectionWriteChunkFile(conn, path) >= 0) {
-		TemplateWriteHTTPChunk(blog->entry_end, &preview_cbs, &state, conn);
-		return;
+	rc = HTTPConnectionWriteChunkFile(conn, path);
+	if(rc >= 0) {
+		rc = TemplateWriteHTTPChunk(blog->entry_end, &preview_cbs, &state, conn);
+		return rc;
 	}
+	if(UV_ENOENT != rc) return rc;
 
 	// It's okay to accidentally regenerate a preview
 	// It's okay to send an error if another thread tried to gen and failed
@@ -77,21 +80,25 @@ static void sendPreview(BlogRef const blog, HTTPConnectionRef const conn, SLNSes
 
 	if(x < PENDING_MAX) {
 		SLNFileInfo src[1];
-		int rc = SLNSessionGetFileInfo(session, URI, src);
-		assert(rc >= 0); // TODO;
+		rc = SLNSessionGetFileInfo(session, URI, src);
+		assertf(DB_SUCCESS == rc, "Preview error %s", db_strerror(rc)); // TODO
 		rc = -1;
 		rc = rc >= 0 ? rc : BlogConvert(blog, session, path, NULL, URI, src);
 		rc = rc >= 0 ? rc : BlogGeneric(blog, session, path, URI, src);
-		assert(rc >= 0); // TODO
+		assertf(rc >= 0 || UV_EEXIST == rc, "Preview error %s", uv_strerror(rc)); // TODO
 		SLNFileInfoCleanup(src);
 		gen_done(blog, path, x);
 	}
 
-	if(HTTPConnectionWriteChunkFile(conn, path) < 0) {
-		TemplateWriteHTTPChunk(blog->empty, &preview_cbs, &state, conn);
+	rc = HTTPConnectionWriteChunkFile(conn, path);
+	if(UV_ENOENT == rc) {
+		rc = TemplateWriteHTTPChunk(blog->empty, &preview_cbs, &state, conn);
 	}
+	if(rc < 0) return rc;
 
-	TemplateWriteHTTPChunk(blog->entry_end, &preview_cbs, &state, conn);
+	rc = TemplateWriteHTTPChunk(blog->entry_end, &preview_cbs, &state, conn);
+	if(rc < 0) return rc;
+	return 0;
 }
 
 static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
@@ -257,8 +264,9 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		str_t hash[SLN_HASH_SIZE];
 		SLNParseURI(URIs[i], algo, hash);
 		str_t *previewPath = BlogCopyPreviewPath(blog, hash);
-		sendPreview(blog, conn, session, URIs[i], previewPath);
+		rc = sendPreview(blog, conn, session, URIs[i], previewPath);
 		FREE(&previewPath);
+		if(rc < 0) break;
 	}
 
 	TemplateWriteHTTPChunk(blog->footer, &TemplateStaticCBs, args, conn);
