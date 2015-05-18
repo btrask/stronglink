@@ -12,6 +12,16 @@
 #include "../../deps/lsmdb/liblmdb/lmdb.h"
 #include "db_base.h"
 
+// TODO
+#define assert_zeroed(buf, count) ({ \
+	for(size_t i = 0; i < sizeof(*(buf)) * (count); ++i) { \
+		if(0 == ((char const *)(buf))[i]) continue; \
+		fprintf(stderr, "%s:%d Buffer at %p not zeroed (%ld)\n", \
+			__FILE__, __LINE__, (buf), i); \
+		abort(); \
+	} \
+})
+
 #define MDB_RDWR 0
 
 #define MDB_MAIN_DBI 1
@@ -43,6 +53,7 @@ struct DB_txn {
 	DB_txn *parent;
 	unsigned flags;
 	leveldb_readoptions_t *ropts;
+	leveldb_snapshot_t const *snapshot;
 	MDB_txn *tmptxn;
 	DB_cursor *cursor;
 };
@@ -98,8 +109,8 @@ struct LDB_cursor {
 	leveldb_iterator_t *iter;
 	MDB_cmp_func *cmp;
 	unsigned char valid;
+	unsigned char offset;
 	char *bufs[LDB_BUF_RECALL];
-	unsigned offset;
 };
 static void ldb_cursor_close(LDB_cursor *const cursor);
 static int ldb_cursor_open(leveldb_t *const db, leveldb_readoptions_t *const ropts, MDB_cmp_func *const cmp, LDB_cursor **const out) {
@@ -123,9 +134,11 @@ static void ldb_cursor_close(LDB_cursor *const cursor) {
 	for(unsigned i = 0; i < LDB_BUF_RECALL; ++i) {
 		leveldb_free(cursor->bufs[i]); cursor->bufs[i] = NULL;
 	}
-	leveldb_iter_destroy(cursor->iter);
+	leveldb_iter_destroy(cursor->iter); cursor->iter = NULL;
 	cursor->cmp = NULL;
 	cursor->valid = 0;
+	cursor->offset = 0;
+	assert_zeroed(cursor, 1);
 	free(cursor);
 }
 static int ldb_cursor_clear(LDB_cursor *const cursor) {
@@ -292,11 +305,13 @@ int db_env_open(DB_env *const env, char const *const name, unsigned const flags,
 }
 void db_env_close(DB_env *const env) {
 	if(!env) return;
-	leveldb_filterpolicy_destroy(env->filterpolicy);
-	leveldb_options_destroy(env->opts);
-	leveldb_close(env->db);
-	leveldb_writeoptions_destroy(env->wopts);
-	mdb_env_close(env->tmpenv);
+	leveldb_options_destroy(env->opts); env->opts = NULL;
+	leveldb_filterpolicy_destroy(env->filterpolicy); env->filterpolicy = NULL;
+	leveldb_close(env->db); env->db = NULL;
+	mdb_env_close(env->tmpenv); env->tmpenv = NULL;
+	leveldb_writeoptions_destroy(env->wopts); env->wopts = NULL;
+	env->cmp = NULL;
+	assert_zeroed(env, 1);
 	free(env);
 }
 
@@ -320,6 +335,7 @@ int db_txn_begin(DB_env *const env, DB_txn *const parent, unsigned const flags, 
 	txn->parent = parent;
 	txn->flags = flags;
 	txn->ropts = leveldb_readoptions_create();
+	txn->snapshot = NULL;
 	txn->tmptxn = tmptxn;
 	if(!txn->ropts) {
 		db_txn_abort(txn);
@@ -382,23 +398,35 @@ int db_txn_commit(DB_txn *const txn) {
 }
 void db_txn_abort(DB_txn *const txn) {
 	if(!txn) return;
-	db_cursor_close(txn->cursor);
-	leveldb_readoptions_destroy(txn->ropts);
+	if(txn->snapshot) {
+		leveldb_readoptions_set_snapshot(txn->ropts, NULL);
+		leveldb_release_snapshot(txn->env->db, txn->snapshot); txn->snapshot = NULL;
+	}
+	leveldb_readoptions_destroy(txn->ropts); txn->ropts = NULL;
+	db_cursor_close(txn->cursor); txn->cursor = NULL;
 	mdb_txn_abort(txn->tmptxn); txn->tmptxn = NULL;
+	txn->env = NULL;
+	txn->parent = NULL;
+	txn->flags = 0;
+	assert_zeroed(txn, 1);
 	free(txn);
 }
 void db_txn_reset(DB_txn *const txn) {
 	if(!txn) return;
 	assert(txn->flags & DB_RDONLY);
-	leveldb_readoptions_set_snapshot(txn->ropts, NULL);
+	if(txn->snapshot) {
+		leveldb_readoptions_set_snapshot(txn->ropts, NULL);
+		leveldb_release_snapshot(txn->env->db, txn->snapshot); txn->snapshot = NULL;
+	}
 }
 int db_txn_renew(DB_txn *const txn) {
 	// TODO: If renew fails, does the user have to explicitly abort?
 	if(!txn) return DB_EINVAL;
 	assert(txn->flags & DB_RDONLY);
-	leveldb_snapshot_t const *snapshot = leveldb_create_snapshot(txn->env->db);
-	if(!snapshot) return DB_ENOMEM;
-	leveldb_readoptions_set_snapshot(txn->ropts, snapshot);
+	assert(!txn->snapshot);
+	txn->snapshot = leveldb_create_snapshot(txn->env->db);
+	if(!txn->snapshot) return DB_ENOMEM;
+	leveldb_readoptions_set_snapshot(txn->ropts, txn->snapshot);
 	return DB_SUCCESS;
 }
 int db_txn_get_flags(DB_txn *const txn, unsigned *const flags) {
@@ -439,10 +467,12 @@ void db_cursor_close(DB_cursor *const cursor) {
 	if(!cursor) return;
 	mdb_cursor_close(cursor->pending); cursor->pending = NULL;
 	db_cursor_reset(cursor);
+	assert_zeroed(cursor, 1);
 	free(cursor);
 }
 void db_cursor_reset(DB_cursor *const cursor) {
 	if(!cursor) return;
+	cursor->txn = NULL;
 	cursor->state = S_INVALID;
 	ldb_cursor_close(cursor->persist); cursor->persist = NULL;
 }
@@ -450,6 +480,9 @@ int db_cursor_renew(DB_txn *const txn, DB_cursor **const out) {
 	if(!out) return DB_EINVAL;
 	if(!*out) return db_cursor_open(txn, out);
 	DB_cursor *const cursor = *out;
+	assert(!cursor->txn);
+	assert(S_INVALID == cursor->state);
+	assert(!cursor->persist);
 	cursor->txn = txn;
 	cursor->state = S_INVALID;
 	int rc = ldb_cursor_open(txn->env->db, txn->ropts, txn->env->cmp, &cursor->persist);
