@@ -35,6 +35,7 @@ void QSValuesParse(char const *const qs, char *values[], char const *const field
 
 		for(size_t i = 0; i < count; ++i) {
 			if(0 != strncasecmp(fields[i], pos, flen)) continue;
+			if('\0' != fields[i][flen]) continue;
 			if(values[i]) continue;
 			if(sep) {
 				values[i] = QSUnescape(pos+flen+sep, vlen, true);
@@ -112,6 +113,7 @@ char *QSUnescape(char const *const s, size_t const slen, bool const decodeSpaces
 		}
 	}
 	out[outIndex++] = '\0';
+	assert(outIndex <= slen+1);
 	return out;
 }
 
