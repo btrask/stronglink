@@ -17,14 +17,14 @@ static bool issep(char const c) {
 static strarg_t read_term(strarg_t *const query, size_t *const outlen) {
 	strarg_t q = *query;
 	char const x = *q++;
-	strarg_t term;
-	size_t len;
+	strarg_t term = NULL;
+	size_t len = 0;
 	if('"' == x || '\'' == x) {
 		for(; '\0' != *q && x != *q; q++);
 		term = *query + 1;
 		len = q - term;
 		if(x == *q) q++;
-	} else {
+	} else if('\0' != x) {
 		for(; '\0' != *q && !issep(*q); q++);
 		term = *query;
 		len = q - term;
