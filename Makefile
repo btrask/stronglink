@@ -30,11 +30,6 @@ WARNINGS += -Wno-unused -Wno-unused-parameter
 # For OS X.
 WARNINGS += -Wno-deprecated
 
-# We define our own Objective-C root class (SLNObject) because we don't use
-# Apple's frameworks. Warning only used by Clang. GCC complains about it when
-# it stops on an unrelated error, but otherwise it doesn't cause any problems.
-WARNINGS += -Wno-objc-root-class
-
 # We use use the isa instance variable when checking that all of the other
 # instance variables are zeroed.
 WARNINGS += -Wno-deprecated-objc-isa-usage
