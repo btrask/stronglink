@@ -88,7 +88,6 @@ void SLNSessionCacheFree(SLNSessionCacheRef *const cacheptr) {
 	cache->size = 0;
 
 	async_close((uv_handle_t *)cache->timer);
-	memset(cache->timer, 0, sizeof(cache->timer));
 	FREE(&cache->timeouts);
 	FREE(&cache->active);
 	cache->pos = 0;
