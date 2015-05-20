@@ -108,6 +108,14 @@ static void term(void *const unused) {
 	uv_signal_stop(sigpipe);
 	uv_close((uv_handle_t *)sigpipe, NULL);
 }
+static void cleanup(void *const unused) {
+	HTTPServerFree(&server);
+	BlogFree(&blog);
+	SLNRepoFree(&repo);
+
+	async_pool_destroy_shared();
+}
+
 int main(int const argc, char const *const *const argv) {
 	// Depending on how async_pool and async_fs are configured, we might be
 	// using our own thread pool heavily or not. However, at the minimum,
@@ -130,13 +138,13 @@ int main(int const argc, char const *const *const argv) {
 	uv_run(async_loop, UV_RUN_DEFAULT);
 
 	async_spawn(STACK_DEFAULT, term, NULL);
-	uv_run(async_loop, UV_RUN_DEFAULT); // Allows term() to execute.
+	uv_run(async_loop, UV_RUN_DEFAULT);
 
-	HTTPServerFree(&server);
-	BlogFree(&blog);
-	SLNRepoFree(&repo);
+	// cleanup is separate from term because connections might
+	// still be active.
+	async_spawn(STACK_DEFAULT, cleanup, NULL);
+	uv_run(async_loop, UV_RUN_DEFAULT);
 
-	async_pool_destroy_shared();
 	async_destroy();
 
 	// TODO: Windows?

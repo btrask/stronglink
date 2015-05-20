@@ -2,6 +2,7 @@
 // MIT licensed (see LICENSE for details)
 
 #include <assert.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include "async.h"
 
@@ -11,6 +12,7 @@ struct async_worker_s {
 	async_t *work;
 	async_t *main;
 	uv_async_t async[1];
+	bool run;
 };
 
 static void work(void *const arg) {
@@ -20,9 +22,9 @@ static void work(void *const arg) {
 	async_main = NULL;
 	for(;;) {
 		uv_sem_wait(worker->sem);
-		if(!worker->work) break;
 		async_switch(worker->work);
 		uv_async_send(worker->async);
+		if(!worker->run) break;
 	}
 	async_destroy();
 }
@@ -59,12 +61,14 @@ async_worker_t *async_worker_create(void) {
 		return NULL;
 	}
 	uv_unref((uv_handle_t *)worker->async);
+	worker->run = true;
 	return worker;
 }
 void async_worker_free(async_worker_t *const worker) {
 	if(!worker) return;
-	assert(!worker->work);
-	uv_sem_post(worker->sem);
+	async_worker_enter(worker);
+	worker->run = false;
+	async_worker_leave(worker);
 	uv_thread_join(worker->thread);
 	uv_sem_destroy(worker->sem);
 	uv_ref((uv_handle_t *)worker->async);

@@ -156,16 +156,16 @@ int async_cond_timedwait(async_cond_t *const cond, async_mutex_t *const mutex, u
 // async_worker.c
 typedef struct async_worker_s async_worker_t;
 async_worker_t *async_worker_create(void);
-void async_worker_free(async_worker_t *const worker);
+void async_worker_free(async_worker_t *const worker); // Note: async
 void async_worker_enter(async_worker_t *const worker);
 void async_worker_leave(async_worker_t *const worker);
 
 // async_pool.c
 typedef struct async_pool_s async_pool_t;
 async_pool_t *async_pool_get_shared(void);
-void async_pool_destroy_shared(void);
+void async_pool_destroy_shared(void); // Note: async
 async_pool_t *async_pool_create(void);
-void async_pool_free(async_pool_t *const pool);
+void async_pool_free(async_pool_t *const pool); // Note: async
 void async_pool_enter(async_pool_t *const pool);
 void async_pool_leave(async_pool_t *const pool);
 async_worker_t *async_pool_get_worker(void);
