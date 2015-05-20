@@ -16,6 +16,7 @@ static strarg_t path = NULL;
 static SLNRepoRef repo = NULL;
 static BlogRef blog = NULL;
 static HTTPServerRef server = NULL;
+static uv_signal_t sigpipe[1] = {};
 static uv_signal_t sigint[1] = {};
 static int sig = 0;
 
@@ -59,6 +60,10 @@ static void stop(uv_signal_t *const signal, int const signum) {
 static void init(void *const unused) {
 	async_random((byte_t *)&SLNSeed, sizeof(SLNSeed));
 
+	uv_signal_init(async_loop, sigpipe);
+	uv_signal_start(sigpipe, ignore, SIGPIPE);
+	uv_unref((uv_handle_t *)sigpipe);
+
 	str_t *tmp = strdup(path);
 	strarg_t const reponame = basename(tmp); // TODO
 	repo = SLNRepoCreate(path, reponame);
@@ -91,12 +96,17 @@ static void init(void *const unused) {
 }
 static void term(void *const unused) {
 	fprintf(stderr, "\nStopping StrongLink server...\n");
+
 	uv_ref((uv_handle_t *)sigint);
 	uv_signal_stop(sigint);
 	async_close((uv_handle_t *)sigint);
 
 	SLNRepoPullsStop(repo);
 	HTTPServerClose(server);
+
+	uv_ref((uv_handle_t *)sigpipe);
+	uv_signal_stop(sigpipe);
+	uv_close((uv_handle_t *)sigpipe, NULL);
 }
 int main(int const argc, char const *const *const argv) {
 	// Depending on how async_pool and async_fs are configured, we might be
@@ -107,10 +117,6 @@ int main(int const argc, char const *const *const argv) {
 
 	raiserlimit();
 	async_init();
-	uv_signal_t sigpipe[1];
-	uv_signal_init(async_loop, sigpipe);
-	uv_signal_start(sigpipe, ignore, SIGPIPE);
-	uv_unref((uv_handle_t *)sigpipe);
 
 	// TODO: Real option parsing.
 	if(2 != argc || '-' == argv[1][0]) {
@@ -125,13 +131,13 @@ int main(int const argc, char const *const *const argv) {
 
 	async_spawn(STACK_DEFAULT, term, NULL);
 	uv_run(async_loop, UV_RUN_DEFAULT); // Allows term() to execute.
+
 	HTTPServerFree(&server);
 	BlogFree(&blog);
 	SLNRepoFree(&repo);
 
-	uv_ref((uv_handle_t *)sigpipe);
-	uv_signal_stop(sigpipe);
-	uv_close((uv_handle_t *)sigpipe, NULL);
+	async_pool_destroy_shared();
+	async_destroy();
 
 	// TODO: Windows?
 	if(sig) raise(sig);

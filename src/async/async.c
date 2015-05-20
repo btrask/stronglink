@@ -30,6 +30,18 @@ int async_init(void) {
 	if(!trampoline) return UV_ENOMEM;
 	return 0;
 }
+void async_destroy(void) {
+	assert(async_loop);
+	co_delete(trampoline); trampoline = NULL;
+	uv_loop_close(async_loop);
+	memset(async_loop, 0, sizeof(async_loop));
+
+// TODO: Not safe for various libco backends?
+#if defined(CORO_USE_VALGRIND)
+	co_delete(master->fiber);
+	memset(master, 0, sizeof(master));
+#endif
+}
 
 async_t *async_active(void) {
 	return active;
@@ -144,6 +156,14 @@ static void getaddrinfo_cb(uv_getaddrinfo_t *const req, int const status, struct
 	async_switch(state->thread);
 }
 int async_getaddrinfo(char const *const node, char const *const service, struct addrinfo const *const hints, struct addrinfo **const res) {
+// uv_getaddrinfo kind of sucks so we try to avoid it.
+// TODO: We don't ever define __POSIX__ currently.
+#if defined(__POSIX__) || defined(CORO_USE_VALGRIND)
+	async_pool_enter(NULL);
+	int rc = getaddrinfo(node, service, hints, res);
+	async_pool_leave(NULL);
+	return rc;
+#else
 	getaddrinfo_state state[1];
 	uv_getaddrinfo_t req[1];
 	req->data = state;
@@ -157,6 +177,7 @@ int async_getaddrinfo(char const *const node, char const *const service, struct 
 	if(cb) async_yield();
 	if(res) *res = state->res;
 	return state->status;
+#endif
 }
 
 static void async_close_cb(uv_handle_t *const handle) {

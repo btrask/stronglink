@@ -24,6 +24,7 @@ static void work(void *const arg) {
 		async_switch(worker->work);
 		uv_async_send(worker->async);
 	}
+	async_destroy();
 }
 static void enter(void *const arg) {
 	async_worker_t *const worker = arg;

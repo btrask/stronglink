@@ -35,6 +35,7 @@ extern thread_local uv_loop_t async_loop[1];
 extern thread_local async_t *async_main;
 
 int async_init(void);
+void async_destroy(void);
 
 async_t *async_active(void);
 int async_spawn(size_t const stack, void (*const func)(void *), void *const arg);
@@ -162,6 +163,7 @@ void async_worker_leave(async_worker_t *const worker);
 // async_pool.c
 typedef struct async_pool_s async_pool_t;
 async_pool_t *async_pool_get_shared(void);
+void async_pool_destroy_shared(void);
 async_pool_t *async_pool_create(void);
 void async_pool_free(async_pool_t *const pool);
 void async_pool_enter(async_pool_t *const pool);

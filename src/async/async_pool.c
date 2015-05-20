@@ -27,6 +27,9 @@ async_pool_t *async_pool_get_shared(void) {
 	if(!shared) shared = async_pool_create();
 	return shared;
 }
+void async_pool_destroy_shared(void) {
+	async_pool_free(shared); shared = NULL;
+}
 
 async_pool_t *async_pool_create(void) {
 	async_pool_t *const pool = calloc(1, sizeof(struct async_pool_s));
