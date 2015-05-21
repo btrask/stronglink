@@ -174,9 +174,10 @@ static bool needs_quotes(strarg_t const str) {
 	return false;
 }
 static size_t wr(str_t *const data, size_t const size, strarg_t const str) {
-	size_t const len = MIN(size, strlen(str));
+	if(size < 1) return 0;
+	size_t const len = MIN(size-1, strlen(str));
 	memcpy(data, str, len);
-	if(len < size) data[len] = '\0';
+	data[len] = '\0';
 	return len;
 }
 static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str) {
