@@ -24,29 +24,22 @@ static str_t *BlogCopyPreviewPath(BlogRef const blog, strarg_t const hash) {
 
 
 static bool gen_pending(BlogRef const blog, strarg_t const path) {
-	for(size_t i = 0; i < PENDING_MAX; ++i) {
+	for(size_t i = 0; i < PENDING_MAX; i++) {
 		if(!blog->pending[i]) continue;
 		if(0 == strcmp(blog->pending[i], path)) return true;
 	}
 	return false;
 }
-static bool gen_available(BlogRef const blog, strarg_t const path, size_t *const x) {
-	for(size_t i = 0; i < PENDING_MAX; ++i) {
+static bool gen_available(BlogRef const blog, strarg_t const path, size_t *const slot) {
+	for(size_t i = 0; i < PENDING_MAX; i++) {
 		if(blog->pending[i]) continue;
 		blog->pending[i] = path;
-		*x = i;
+		*slot = i;
 		return true;
 	}
 	return false;
 }
-static void gen_done(BlogRef const blog, strarg_t const path, size_t const x) {
-	async_mutex_lock(blog->pending_mutex);
-	assert(path == blog->pending[x]);
-	blog->pending[x] = NULL;
-	async_cond_broadcast(blog->pending_cond);
-	async_mutex_unlock(blog->pending_mutex);
-}
-static void gen_regen(BlogRef const blog, SLNSessionRef const session, strarg_t const URI, strarg_t const path) {
+static void gen_preview(BlogRef const blog, SLNSessionRef const session, strarg_t const URI, strarg_t const path) {
 	// It's okay to accidentally regenerate a preview
 	// It's okay to send an error if another thread tried to gen and failed
 	// We want to minimize false positives and false negatives
@@ -55,28 +48,35 @@ static void gen_regen(BlogRef const blog, SLNSessionRef const session, strarg_t 
 	// have finished
 	// Capping the total number of concurrent gens to PENDING_MAX is not
 	// a bad side effect
-	size_t x = 0;
+	bool beat_us_to_it = false;
+	size_t slot = SIZE_MAX;
 	async_mutex_lock(blog->pending_mutex);
 	for(;; async_cond_wait(blog->pending_cond, blog->pending_mutex)) {
-		if(gen_pending(blog, path)) { x = PENDING_MAX; continue; }
-		if(x >= PENDING_MAX) break;
-		if(gen_available(blog, path, &x)) break;
+		if(gen_pending(blog, path)) { beat_us_to_it = true; continue; }
+		if(beat_us_to_it) break;
+		if(gen_available(blog, path, &slot)) break;
 	}
 	async_mutex_unlock(blog->pending_mutex);
 
-	if(x < PENDING_MAX) {
-		SLNFileInfo src[1];
-		int rc = SLNSessionGetFileInfo(session, URI, src);
-		assertf(DB_SUCCESS == rc, "Preview error %s", db_strerror(rc)); // TODO
+	if(beat_us_to_it) return; // Note: we don't know their return status.
+	assert(slot < PENDING_MAX);
+
+	SLNFileInfo src[1];
+	int rc = SLNSessionGetFileInfo(session, URI, src);
+	if(DB_SUCCESS == rc) {
 		rc = -1;
 		rc = rc >= 0 ? rc : BlogConvert(blog, session, path, NULL, URI, src);
 		rc = rc >= 0 ? rc : BlogGeneric(blog, session, path, URI, src);
-		assertf(rc >= 0 || UV_EEXIST == rc, "Preview error %s", uv_strerror(rc)); // TODO
 		SLNFileInfoCleanup(src);
-		gen_done(blog, path, x);
 	}
+
+	async_mutex_lock(blog->pending_mutex);
+	assert(path == blog->pending[slot]);
+	blog->pending[slot] = NULL;
+	async_cond_broadcast(blog->pending_cond);
+	async_mutex_unlock(blog->pending_mutex);
 }
-static int sendPreview(BlogRef const blog, HTTPConnectionRef const conn, SLNSessionRef const session, strarg_t const URI, strarg_t const path) {
+static int send_preview(BlogRef const blog, HTTPConnectionRef const conn, SLNSessionRef const session, strarg_t const URI, strarg_t const path) {
 	if(!path) return UV_EINVAL;
 
 	preview_state const state = {
@@ -94,7 +94,7 @@ static int sendPreview(BlogRef const blog, HTTPConnectionRef const conn, SLNSess
 	}
 	if(UV_ENOENT != rc) return rc;
 
-	gen_regen(blog, session, URI, path);
+	gen_preview(blog, session, URI, path);
 
 	rc = HTTPConnectionWriteChunkFile(conn, path);
 	if(UV_ENOENT == rc) {
@@ -258,7 +258,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		rc = SLNSessionGetFileInfo(session, primaryURI, info);
 		if(DB_SUCCESS == rc) {
 			str_t *previewPath = BlogCopyPreviewPath(blog, info->hash);
-			sendPreview(blog, conn, session, primaryURI, previewPath);
+			send_preview(blog, conn, session, primaryURI, previewPath);
 			FREE(&previewPath);
 			if(count) TemplateWriteHTTPChunk(blog->backlinks, &TemplateStaticCBs, args, conn);
 			SLNFileInfoCleanup(info);
@@ -270,7 +270,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		str_t hash[SLN_HASH_SIZE];
 		SLNParseURI(URIs[i], algo, hash);
 		str_t *previewPath = BlogCopyPreviewPath(blog, hash);
-		rc = sendPreview(blog, conn, session, URIs[i], previewPath);
+		rc = send_preview(blog, conn, session, URIs[i], previewPath);
 		FREE(&previewPath);
 		if(rc < 0) break;
 	}
