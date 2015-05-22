@@ -46,24 +46,7 @@ static void gen_done(BlogRef const blog, strarg_t const path, size_t const x) {
 	async_cond_broadcast(blog->pending_cond);
 	async_mutex_unlock(blog->pending_mutex);
 }
-static int sendPreview(BlogRef const blog, HTTPConnectionRef const conn, SLNSessionRef const session, strarg_t const URI, strarg_t const path) {
-	if(!path) return UV_EINVAL;
-
-	preview_state const state = {
-		.blog = blog,
-		.session = session,
-		.fileURI = URI,
-	};
-	int rc = TemplateWriteHTTPChunk(blog->entry_start, &preview_cbs, &state, conn);
-	if(rc < 0) return rc;
-
-	rc = HTTPConnectionWriteChunkFile(conn, path);
-	if(rc >= 0) {
-		rc = TemplateWriteHTTPChunk(blog->entry_end, &preview_cbs, &state, conn);
-		return rc;
-	}
-	if(UV_ENOENT != rc) return rc;
-
+static void gen_regen(BlogRef const blog, SLNSessionRef const session, strarg_t const URI, strarg_t const path) {
 	// It's okay to accidentally regenerate a preview
 	// It's okay to send an error if another thread tried to gen and failed
 	// We want to minimize false positives and false negatives
@@ -83,7 +66,7 @@ static int sendPreview(BlogRef const blog, HTTPConnectionRef const conn, SLNSess
 
 	if(x < PENDING_MAX) {
 		SLNFileInfo src[1];
-		rc = SLNSessionGetFileInfo(session, URI, src);
+		int rc = SLNSessionGetFileInfo(session, URI, src);
 		assertf(DB_SUCCESS == rc, "Preview error %s", db_strerror(rc)); // TODO
 		rc = -1;
 		rc = rc >= 0 ? rc : BlogConvert(blog, session, path, NULL, URI, src);
@@ -92,6 +75,26 @@ static int sendPreview(BlogRef const blog, HTTPConnectionRef const conn, SLNSess
 		SLNFileInfoCleanup(src);
 		gen_done(blog, path, x);
 	}
+}
+static int sendPreview(BlogRef const blog, HTTPConnectionRef const conn, SLNSessionRef const session, strarg_t const URI, strarg_t const path) {
+	if(!path) return UV_EINVAL;
+
+	preview_state const state = {
+		.blog = blog,
+		.session = session,
+		.fileURI = URI,
+	};
+	int rc = TemplateWriteHTTPChunk(blog->entry_start, &preview_cbs, &state, conn);
+	if(rc < 0) return rc;
+
+	rc = HTTPConnectionWriteChunkFile(conn, path);
+	if(rc >= 0) {
+		rc = TemplateWriteHTTPChunk(blog->entry_end, &preview_cbs, &state, conn);
+		return rc;
+	}
+	if(UV_ENOENT != rc) return rc;
+
+	gen_regen(blog, session, URI, path);
 
 	rc = HTTPConnectionWriteChunkFile(conn, path);
 	if(UV_ENOENT == rc) {
