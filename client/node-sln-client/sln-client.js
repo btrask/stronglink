@@ -13,6 +13,7 @@ function has(obj, prop) {
 	return Object.prototype.hasOwnProperty.call(obj, prop);
 }
 
+// returns: { algo: string, hash: string, query: string, fragment: string }
 sln.parseURI = function(uri) {
 	var x = /hash:\/\/([\w\d.-]+)\/([\w\d_-]+)(\?[\w\d%=_-]*)?(#[\w\d_-])?/.exec(uri);
 	if(!x) return null;
@@ -23,6 +24,7 @@ sln.parseURI = function(uri) {
 		fragment: x[4] || null,
 	};
 };
+// obj: { algo: string, hash: string, query: string, fragment: string }
 sln.formatURI = function(obj) {
 	if(!obj.algo) return null;
 	if(!obj.hash) return null;
@@ -66,12 +68,17 @@ function Repo(url, session) {
 	if("/" === this.path.slice(-1)) this.path = this.path.slice(0, -1);
 }
 Repo.prototype.info = function(cb) {
-	return {
-		reponame: null,
-		username: null,
-	};
+	// TODO
+	process.nextTick(function() {
+		cb(null, {
+			reponame: null,
+			username: null,
+		});
+	});
 };
 
+// opts: { count: number, wait: bool, agent: http.Agent }
+// returns: stream.Readable
 Repo.prototype.query = function(query, opts, cb) {
 	if(!opts) opts = {};
 	if(!has(opts, "count")) opts.count = 50;
@@ -89,6 +96,8 @@ Repo.prototype.query = function(query, opts, cb) {
 		cb(err, null);
 	});
 };
+// opts: { q: string, lang: string, start: string, count: number, wait: bool }
+// returns: stream.Readable
 Repo.prototype.createQueryStream = function(query, opts) {
 	var repo = this;
 	// TODO: Use POST, accept non-string queries.
@@ -109,6 +118,8 @@ Repo.prototype.createQueryStream = function(query, opts) {
 	});
 	return new URIListStream({ meta: false, req: req });
 };
+// opts: { start: string, count: number, wait: bool }
+// returns: stream.Readable
 Repo.prototype.createMetafilesStream = function(opts) {
 	var repo = this;
 	var req = repo.client.get({
@@ -126,33 +137,27 @@ Repo.prototype.createMetafilesStream = function(opts) {
 	});
 	return new URIListStream({ meta: true, req: req });
 };
+// opts: { method: string, accept: string }
+// returns: http.ClientRequest
 Repo.prototype.createFileStream = function(uri, opts) {
 	var repo = this;
 	var obj = sln.paseURI(uri);
 	if(!obj) throw new Error("Bad URI "+uri);
-	var stream = new PassThroughStream();
 	var req = repo.client.get({
+		method: opts && has(opts, "method") ? opts.method : "GET",
 		hostname: repo.hostname,
 		port: repo.port,
 		path: repo.path+"/sln/file/"+obj.algo+"/"+obj.hash,
 		headers: {
 			"Cookie": "s="+repo.session,
+			"Accept": opts && has(opts, "accept") ? opts.accept : "*",
 		},
 	});
-	req.on("response", function(res) {
-		if(200 == res.statusCode) {
-			res.pipe(stream);
-		} else {
-			var err = new Error("Status code "+res.statusCode);
-			err.statusCode = res.statusCode;
-			stream.emit("error", err);
-		}
-	});
-	req.on("error", function(err) {
-		stream.emit("error", err);
-	});
-	return stream;
+	return req;
 };
+// TODO: This is just completely wrong.
+// 1. We should expose a reusable meta-file parser
+// 2. /sln/meta/* returns meta-data in JSON, not an individual meta-file
 Repo.prototype.getMeta = function(uri, cb) {
 	var repo = this;
 	var req = repo.client.get({
@@ -184,6 +189,8 @@ Repo.prototype.getMeta = function(uri, cb) {
 	});
 };
 
+// opts: (none)
+// returns: stream.Readable
 Repo.prototype.createSubStream = function(type, opts) {
 	var repo = this;
 	var req = repo.client.request({
@@ -241,6 +248,7 @@ var util = require("util");
 var TransformStream = require("stream").Transform;
 var StringDecoder = require('string_decoder').StringDecoder;
 
+// opts: { req: http.ClientRequest }
 function URIListStream(opts) {
 	var stream = this;
 	TransformStream.call(stream, { readableObjectMode: true });
