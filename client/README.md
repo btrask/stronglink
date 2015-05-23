@@ -10,6 +10,8 @@ Implementation status: working but incomplete
 **GET /sln/meta/[algo]/[hash]**  
 Returns the current, cummulative meta-data snapshot of a given file in JSON format.
 
+Note: If you just want a specific meta-file, look it up with `/sln/file/[algo]/[hash]`. If you want all of the meta-files for a given file, use a query (not implemented).
+
 Implementation status: not implemented
 
 **POST /sln/file**  
