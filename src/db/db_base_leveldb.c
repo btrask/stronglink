@@ -122,6 +122,8 @@ static int ldb_cursor_open(leveldb_t *const db, leveldb_readoptions_t *const rop
 	if(!cursor) return DB_ENOMEM;
 	cursor->iter = leveldb_create_iterator(db, ropts);
 	cursor->cmp = cmp;
+	cursor->valid = 0;
+	cursor->offset = 0;
 	if(!cursor->iter) {
 		ldb_cursor_close(cursor);
 		return DB_ENOMEM;
@@ -144,6 +146,18 @@ static void ldb_cursor_close(LDB_cursor *const cursor) {
 static int ldb_cursor_clear(LDB_cursor *const cursor) {
 	if(!cursor) return DB_EINVAL;
 	cursor->valid = 0;
+	return DB_SUCCESS;
+}
+static int ldb_cursor_renew(leveldb_t *const db, leveldb_readoptions_t *const ropts, MDB_cmp_func *const cmp, LDB_cursor **const out) {
+	if(!out) return DB_EINVAL;
+	if(!*out) return ldb_cursor_open(db, ropts, cmp, out);
+	LDB_cursor *const cursor = *out;
+	leveldb_iter_destroy(cursor->iter); cursor->iter = NULL;
+	cursor->iter = leveldb_create_iterator(db, ropts);
+	if(!cursor->iter) return DB_ENOMEM;
+	cursor->cmp = cmp;
+	cursor->valid = 0;
+	cursor->offset = 0;
 	return DB_SUCCESS;
 }
 static int ldb_cursor_current(LDB_cursor *const cursor, MDB_val *const key, MDB_val *const val) {
@@ -480,12 +494,9 @@ int db_cursor_renew(DB_txn *const txn, DB_cursor **const out) {
 	if(!out) return DB_EINVAL;
 	if(!*out) return db_cursor_open(txn, out);
 	DB_cursor *const cursor = *out;
-	assert(!cursor->txn);
-	assert(S_INVALID == cursor->state);
-	assert(!cursor->persist);
 	cursor->txn = txn;
 	cursor->state = S_INVALID;
-	int rc = ldb_cursor_open(txn->env->db, txn->ropts, txn->env->cmp, &cursor->persist);
+	int rc = ldb_cursor_renew(txn->env->db, txn->ropts, txn->env->cmp, &cursor->persist);
 	if(DB_SUCCESS != rc) return rc;
 	return DB_SUCCESS;
 }
