@@ -139,7 +139,7 @@ Repo.prototype.createMetafilesStream = function(opts) {
 };
 // opts: { method: string, accept: string }
 // returns: http.ClientRequest
-Repo.prototype.createFileStream = function(uri, opts) {
+Repo.prototype.createFileRequest = function(uri, opts) {
 	var repo = this;
 	var obj = sln.paseURI(uri);
 	if(!obj) throw new Error("Bad URI "+uri);
