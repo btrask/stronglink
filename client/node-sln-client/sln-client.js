@@ -1,3 +1,6 @@
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
 var sln = exports;
 
 var fs = require("fs");
