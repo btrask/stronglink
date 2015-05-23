@@ -141,7 +141,7 @@ Repo.prototype.createMetafilesStream = function(opts) {
 // returns: http.ClientRequest
 Repo.prototype.createFileRequest = function(uri, opts) {
 	var repo = this;
-	var obj = sln.paseURI(uri);
+	var obj = sln.parseURI(uri);
 	if(!obj) throw new Error("Bad URI "+uri);
 	var req = repo.client.get({
 		method: opts && has(opts, "method") ? opts.method : "GET",
