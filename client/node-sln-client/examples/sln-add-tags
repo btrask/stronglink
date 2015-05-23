@@ -21,7 +21,7 @@ var meta = {
 var stream = repo.createQueryStream(query, { wait: false });
 stream.on("data", function(URI) {
 	stream.pause();
-	repo.submitMeta(URI, meta, function(err, obj) {
+	repo.submitMeta(URI, meta, {}, function(err, obj) {
 		if(err) throw err;
 		stream.resume();
 		console.log(URI);

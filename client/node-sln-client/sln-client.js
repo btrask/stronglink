@@ -190,8 +190,22 @@ Repo.prototype.getMeta = function(uri, cb) {
 };
 
 // opts: (none)
-// returns: stream.Readable
-Repo.prototype.createSubStream = function(type, opts) {
+Repo.prototype.submitFile = function(buf, type, opts, cb) {
+	var repo = this;
+	var stream;
+	try { stream = repo.createSubmissionStream(type, opts); }
+	catch(err) { process.nextTick(function() { cb(err, null); }); }
+	stream.on("submission", function(obj) {
+		cb(null, obj);
+	});
+	stream.on("error", function(err) {
+		cb(err, null);
+	});
+	stream.end(buf);
+};
+// opts: (none)
+// returns: stream.Writable
+Repo.prototype.createSubmissionStream = function(type, opts) {
 	var repo = this;
 	var req = repo.client.request({
 		method: "POST",
@@ -222,13 +236,16 @@ Repo.prototype.createSubStream = function(type, opts) {
 	});
 	return stream;
 };
-Repo.prototype.submitMeta = function(uri, meta, cb) {
+// opts: (none)
+Repo.prototype.submitMeta = function(uri, meta, opts, cb) {
 	if("string" !== typeof uri) throw new Error("Invalid URI");
 	if(0 === uri.length) throw new Error("Invalid URI");
 	// TODO: Validate `meta`
 	var repo = this;
 	var type = "text/x-sln-meta+json; charset=utf-8";
-	var stream = repo.createSubStream(type, {});
+	var stream;
+	try { stream = repo.createSubStream(type, opts); }
+	catch(err) { process.nextTick(function() { cb(err, null); }); }
 	stream.end(uri+"\n\n"+JSON.stringify(meta, null, "    "), "utf8");
 	stream.on("submission", function(obj) {
 		cb(null, obj);

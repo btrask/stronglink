@@ -56,7 +56,7 @@ function submitfile(path, cb) {
 	var type = has(mime, ext) ? mime[ext] : "application/octet-stream";
 
 	var file = fs.createReadStream(path, {});
-	var upload = repo.createSubStream(type, {});
+	var upload = repo.createSubmissionStream(type, {});
 
 	file.pipe(upload);
 	upload.on("error", function(err) {
