@@ -290,9 +290,6 @@ Repo.prototype.submitMeta = function(uri, meta, opts, cb) {
 	});
 };
 
-// Future APIs
-// - Pulls
-// - Other configuration?
 
 
 
