@@ -276,7 +276,7 @@ Repo.prototype.submitMeta = function(uri, meta, opts, cb) {
 	var repo = this;
 	var type = "application/vnd.stronglink.meta";
 	var stream;
-	try { stream = repo.createSubStream(type, opts); }
+	try { stream = repo.createSubmissionStream(type, opts); }
 	catch(err) { process.nextTick(function() { cb(err, null); }); }
 	stream.end(uri+"\n\n"+JSON.stringify(meta, null, "    "), "utf8");
 	stream.on("submission", function(obj) {
