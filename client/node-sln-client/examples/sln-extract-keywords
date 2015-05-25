@@ -1,0 +1,79 @@
+#!/usr/bin/env node
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
+var sln = require("../sln-client");
+var repo = sln.mainRepo();
+
+function texttype(type) {
+	if("text/plain" === type) return true;
+	if("text/plain; charset=utf-8" === type) return true;
+	if("text/markdown" === type) return true;
+	if("text/markdown; charset=utf-8" === type) return true;
+	if("text/x-markdown" === type) return true;
+	if("text/x-markdown; charset=utf-8" === type) return true;
+	return false;
+}
+function extract(body) {
+	var hashtag = /(?:^|[\s(])#([\w\d_-]{3,})\b/g;
+	var keywords = /\bKeywords: ([^\r\n]*)\b/g;
+	var keyword = /([^,]{3,})(, )?/g;
+	var meta = {
+		hashtags: [],
+		keywords: [],
+	};
+	var x, y;
+	for(;;) {
+		x = hashtag.exec(body);
+		if(!x) break;
+		meta.hashtags.push(x[1]);
+	}
+	for(;;) {
+		x = keywords.exec(body);
+		if(!x) break;
+		keyword.lastIndex = 0;
+		for(;;) {
+			y = keyword.exec(x[1]);
+			if(!y) break;
+			meta.keywords.push(y[1]);
+		}
+	}
+	return meta;
+}
+
+var stream = repo.createQueryStream("", { wait: false });
+stream.on("data", function(URI) {
+	stream.pause();
+	var req = repo.createFileRequest(URI, {});
+	req.on("response", function(res) {
+		if(200 != res.statusCode) throw new Error("Status "+res.statusCode);
+
+		// TODO: We don't accept type filters or content negotation yet...
+		if(!texttype(res.headers["content-type"])) {
+			res.resume(); // Drain
+			stream.resume();
+			return;
+		}
+
+		var body = "";
+		res.setEncoding("utf8");
+		res.on("data", function(chunk) {
+			body += chunk;
+		});
+		res.on("end", function() {
+
+			// TODO
+			console.log("\n---\n");
+			console.log(body);
+			console.log("\n");
+			console.log(extract(body));
+			stream.resume();
+
+//			repo.submitMeta(URI, meta, function(err, info) {
+//				stream.resume();
+//			});
+
+		});
+	});
+});
+
