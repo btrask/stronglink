@@ -7,7 +7,7 @@ var fs = require("fs");
 var http = require("http");
 var qs = require("querystring");
 var PassThroughStream = require("stream").PassThrough;
-var urlModule = require("url");
+var urlmodule = require("url");
 
 function has(obj, prop) {
 	return Object.prototype.hasOwnProperty.call(obj, prop);
@@ -66,7 +66,7 @@ sln.createRepo = function(url, session) {
 sln.Repo = Repo;
 
 function Repo(url, session) {
-	var obj = urlModule.parse(url);
+	var obj = urlmodule.parse(url);
 	this.hostname = obj.hostname;
 	this.port = obj.port;
 	this.path = obj.path;
@@ -104,7 +104,7 @@ Repo.prototype.query = function(query, opts, cb) {
 		cb(err, null);
 	});
 };
-// opts: { q: string, lang: string, start: string, count: number, wait: bool }
+// opts: { q: string, lang: string, start: string, count: number, wait: bool, agent: http.Agent }
 // returns: stream.Readable
 Repo.prototype.createQueryStream = function(query, opts) {
 	var repo = this;
@@ -126,7 +126,7 @@ Repo.prototype.createQueryStream = function(query, opts) {
 	});
 	return new URIListStream({ meta: false, req: req });
 };
-// opts: { start: string, count: number, wait: bool }
+// opts: { start: string, count: number, wait: bool, agent: http.Agent }
 // returns: stream.Readable
 Repo.prototype.createMetafilesStream = function(opts) {
 	var repo = this;
