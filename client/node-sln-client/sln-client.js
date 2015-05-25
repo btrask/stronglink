@@ -187,11 +187,14 @@ Repo.prototype.createFileRequest = function(uri, opts) {
 	});
 	return req;
 };
-// TODO: This is just completely wrong.
-// 1. We should expose a reusable meta-file parser
-// 2. /sln/meta/* returns meta-data in JSON, not an individual meta-file
 Repo.prototype.getMeta = function(uri, cb) {
-	var repo = this;
+	throw new Error("Not implemented");
+
+	// TODO: This is just completely wrong.
+	// 1. We should expose a reusable meta-file parser
+	// 2. /sln/meta/* returns meta-data in JSON, not an individual meta-file
+
+/*	var repo = this;
 	var req = repo.client.get({
 		hostname: repo.hostname,
 		port: repo.port,
@@ -218,7 +221,7 @@ Repo.prototype.getMeta = function(uri, cb) {
 	});
 	req.on("error", function(err) {
 		cb(err, null);
-	});
+	});*/
 };
 
 // opts: (none)
