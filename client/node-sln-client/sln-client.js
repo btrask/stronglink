@@ -146,7 +146,7 @@ Repo.prototype.createMetafilesStream = function(opts) {
 	return new URIListStream({ meta: true, req: req });
 };
 // opts: { accept: string, encoding: string }
-// cb: err, data
+// cb: err, { data: Buffer/string, type: string }
 Repo.prototype.getFile = function(uri, opts, cb) {
 	var repo = this;
 	var req = repo.createFileRequest(uri, opts);
@@ -159,8 +159,10 @@ Repo.prototype.getFile = function(uri, opts, cb) {
 			parts.push(chunk);
 		});
 		res.on("end", function() {
-			if(enc) return cb(null, parts.join(""));
-			else return cb(null, Buffer.concat(parts));
+			cb(null, {
+				type: res.headers["content-type"],
+				data: enc ? parts.join("") : Buffer.concat(parts),
+			});
 		});
 	});
 	req.on("error", function(err) {
