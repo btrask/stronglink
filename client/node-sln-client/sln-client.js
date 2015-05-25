@@ -274,7 +274,7 @@ Repo.prototype.submitMeta = function(uri, meta, opts, cb) {
 	if(0 === uri.length) throw new Error("Invalid URI");
 	// TODO: Validate `meta`
 	var repo = this;
-	var type = "text/x-sln-meta+json; charset=utf-8";
+	var type = "application/vnd.stronglink.meta";
 	var stream;
 	try { stream = repo.createSubStream(type, opts); }
 	catch(err) { process.nextTick(function() { cb(err, null); }); }
