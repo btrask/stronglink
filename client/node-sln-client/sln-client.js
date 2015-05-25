@@ -85,8 +85,8 @@ Repo.prototype.info = function(cb) {
 	});
 };
 
-// opts: { count: number, wait: bool, agent: http.Agent }
-// returns: stream.Readable
+// opts: { lang: string, start: string, count: number, wait: bool, agent: http.Agent }
+// cb: err: Error, uri: string
 Repo.prototype.query = function(query, opts, cb) {
 	if(!opts) opts = {};
 	if(!has(opts, "count")) opts.count = 50;
@@ -104,8 +104,8 @@ Repo.prototype.query = function(query, opts, cb) {
 		cb(err, null);
 	});
 };
-// opts: { q: string, lang: string, start: string, count: number, wait: bool, agent: http.Agent }
-// returns: stream.Readable
+// opts: { lang: string, start: string, count: number, wait: bool, agent: http.Agent }
+// returns: stream.Readable (object mode, emits uri: string)
 Repo.prototype.createQueryStream = function(query, opts) {
 	var repo = this;
 	// TODO: Use POST, accept non-string queries.
@@ -127,7 +127,7 @@ Repo.prototype.createQueryStream = function(query, opts) {
 	return new URIListStream({ meta: false, req: req });
 };
 // opts: { start: string, count: number, wait: bool, agent: http.Agent }
-// returns: stream.Readable
+// returns: stream.Readable (object mode, emits { uri: string, target: string })
 Repo.prototype.createMetafilesStream = function(opts) {
 	var repo = this;
 	var req = repo.client.get({
@@ -146,7 +146,7 @@ Repo.prototype.createMetafilesStream = function(opts) {
 	return new URIListStream({ meta: true, req: req });
 };
 // opts: { accept: string, encoding: string }
-// cb: err, { data: Buffer/string, type: string }
+// cb: err: Error, { data: Buffer/string, type: string }
 Repo.prototype.getFile = function(uri, opts, cb) {
 	var repo = this;
 	var req = repo.createFileRequest(uri, opts);
@@ -239,7 +239,7 @@ Repo.prototype.submitFile = function(buf, type, opts, cb) {
 	stream.end(buf);
 };
 // opts: (none)
-// returns: stream.Writable
+// returns: stream.Writable (emits "submission": { location: string })
 Repo.prototype.createSubmissionStream = function(type, opts) {
 	var repo = this;
 	var req = repo.client.request({
