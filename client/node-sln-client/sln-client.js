@@ -37,20 +37,28 @@ sln.formatURI = function(obj) {
 //sln.createHasher = function() {};
 //sln.Hasher = Hasher;
 
-var mainRepo = (function() {
-	try {
-		// TODO: Suitable config location depending on platform.
-		var config = "~/.config/stronglink/client.json".replace(/^~/, process.env.HOME);
-		var info = JSON.parse(fs.readFileSync(config, "utf8"));
-		if("string" !== typeof info.url) throw new Error("Invalid URL");;
-		if("string" != typeof info.session) throw new Error("Invalid session");
-		return new Repo(info.url, info.session);
-	} catch(e) {
-		return null;
+var mainRepo = undefined;
+sln.mainRepoOptional = function() {
+	if(undefined === mainRepo) {
+		try {
+			// TODO: Suitable config location depending on platform.
+			var config = "~/.config/stronglink/client.json".replace(/^~/, process.env.HOME);
+			var info = JSON.parse(fs.readFileSync(config, "utf8"));
+			if("string" !== typeof info.url) throw new Error("Invalid URL");;
+			if("string" != typeof info.session) throw new Error("Invalid session");
+			mainRepo = new Repo(info.url, info.session);
+		} catch(e) {
+			mainRepo = null;
+		}
 	}
-})();
-sln.mainRepo = function() {
 	return mainRepo;
+};
+sln.mainRepo = function() {
+	var repo = sln.mainRepoOptional();
+	if(repo) return repo;
+	console.error("Error: no StrongLink repository configured");
+	// TODO: We should have a simple script that the user can run.
+	process.exit(1);
 };
 sln.createRepo = function(url, session) {
 	return new sln.Repo(url, session);
@@ -136,6 +144,28 @@ Repo.prototype.createMetafilesStream = function(opts) {
 		agent: opts && has(opts, "agent") ? opts.agent : false,
 	});
 	return new URIListStream({ meta: true, req: req });
+};
+// opts: { accept: string, encoding: string }
+// cb: err, data
+Repo.prototype.getFile = function(uri, opts, cb) {
+	var repo = this;
+	var req = repo.createFileRequest(uri, opts);
+	req.on("response", function(res) {
+		if(200 !== res.statusCode) return cb(new Error("Status "+res.statusCode), null);
+		var parts = [];
+		var enc = opts && has(opts, "encoding") ? opts.encoding : null;
+		if(enc) res.setEncoding(enc);
+		res.on("data", function(chunk) {
+			parts.push(chunk);
+		});
+		res.on("end", function() {
+			if(enc) return cb(null, parts.join(""));
+			else return cb(null, Buffer.concat(parts));
+		});
+	});
+	req.on("error", function(err) {
+		cb(err, null);
+	});
 };
 // opts: { method: string, accept: string }
 // returns: http.ClientRequest

@@ -4,10 +4,6 @@
 
 var sln = require("../sln-client");
 var repo = sln.mainRepo();
-if(!repo) {
-	console.error("No StrongLink repository configured");
-	process.exit(1);
-}
 
 if(process.argv.length < 3) {
 	console.error("Usage: "+process.argv[1]+" <tags> <query>");
