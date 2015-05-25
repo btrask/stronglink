@@ -44,8 +44,8 @@ sln.mainRepoOptional = function() {
 			// TODO: Suitable config location depending on platform.
 			var config = "~/.config/stronglink/client.json".replace(/^~/, process.env.HOME);
 			var info = JSON.parse(fs.readFileSync(config, "utf8"));
-			if("string" !== typeof info.url) throw new Error("Invalid URL");;
-			if("string" != typeof info.session) throw new Error("Invalid session");
+			if("string" !== typeof info.url) throw new Error("Invalid URL");
+			if("string" !== typeof info.session) throw new Error("Invalid session");
 			mainRepo = new Repo(info.url, info.session);
 		} catch(e) {
 			mainRepo = null;
