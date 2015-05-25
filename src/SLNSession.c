@@ -170,7 +170,6 @@ int SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const f
 	DB_txn *txn = NULL;
 	int rc = DB_SUCCESS;
 
-//	uint64_t const then = uv_hrtime();
 	SLNRepoRef const repo = SLNSessionGetRepo(session);
 	SLNRepoDBOpen(repo, &db);
 	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
@@ -208,8 +207,6 @@ int SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const f
 cleanup:
 	db_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
-//	uint64_t const now = uv_hrtime();
-//	fprintf(stderr, "Query in %f ms\n", (now-then) / 1000.0 / 1000.0);
 
 	return rc;
 }
