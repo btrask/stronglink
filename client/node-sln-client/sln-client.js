@@ -297,7 +297,7 @@ var util = require("util");
 var TransformStream = require("stream").Transform;
 var StringDecoder = require('string_decoder').StringDecoder;
 
-// opts: { req: http.ClientRequest }
+// opts: { meta: bool, req: http.ClientRequest }
 function URIListStream(opts) {
 	var stream = this;
 	TransformStream.call(stream, { readableObjectMode: true });
