@@ -14,19 +14,60 @@ function texttype(type) {
 	if("text/x-markdown; charset=utf-8" === type) return true;
 	return false;
 }
+
+
+// Note: This code is tuned for my personal notes, and isn't likely to be widely
+// applicable unless you happen to use the same conventions.
+
+function parsetopic(body) {
+	var topic = /^([^\r\n]+)(?:\r\n|\r|\n){2}/.exec(body);
+	if(!topic) return null;
+	topic = topic[1];
+	if(/^(>|#|\\#)/.test(topic)) return null;
+	if(/[.?!:]$/.test(topic)) return null;
+	if(/^[\w][\w\d-]*:[\S]/.test(topic)) return null;
+	var date = /\b\d\d\d\d--?\d\d-\d\d\d?\b/; // -- and ddd for typos
+	var x = date.exec(topic);
+	if(x) return x.index > 0 ? topic.slice(0, x.index).trim() : null;
+	if(topic.length > 40) return null; // our topics are always short
+	return topic.trim();
+}
+function parsedates(body) {
+	var results = [];
+	var date = /\b(\d\d\d\d)--?(\d\d)-(\d\d)(?: (\d\d?):(\d\d)(?::(\d\d))?(?: ?(AM|PM))?)?/gi;
+	var x;
+	for(;;) {
+		x = date.exec(body);
+		if(!x) break;
+		var yyyy = +x[1];
+		var mm = +x[2];
+		var dd = +x[3];
+		var HH = +x[4]||0;
+		var MM = +x[5]||0;
+		var SS = +x[6]||0;
+		if(x[7]) HH %= 12;
+		if(/PM/i.test(x[7])) HH += 12;
+		results.push(new Date(yyyy, mm-1, dd, HH, MM, SS).toISOString());
+	}
+	return results;
+}
+
 function extract(body) {
 	var hashtag = /(?:^|[\s(])#([\w\d_-]{3,})\b/g;
 	var keywords = /\bKeywords: ([^\r\n]*)\b/g;
 	var keyword = /([^,]{3,})(, )?/g;
 	var meta = {
-		hashtags: [],
-		keywords: [],
+		hashtag: [],
+		keyword: [],
+		topic: parsetopic(body),
+		date: parsedates(body),
 	};
 	var x, y;
 	for(;;) {
 		x = hashtag.exec(body);
 		if(!x) break;
-		meta.hashtags.push(x[1]);
+		if(/^\d*$/.test(x[1])) continue; // Exclude e.g. GitHub issue IDs #560
+		meta.hashtag.push(x[1]);
 	}
 	for(;;) {
 		x = keywords.exec(body);
@@ -35,10 +76,27 @@ function extract(body) {
 		for(;;) {
 			y = keyword.exec(x[1]);
 			if(!y) break;
-			meta.keywords.push(y[1]);
+			meta.keyword.push(y[1]);
 		}
 	}
 	return meta;
+}
+function fakemeta(body) {
+	var fakemeta = /^(hash:[\S]+)[\r\n]+([+-] #[\w\d_-]{3,}[\r\n]*)+$/;
+	var change = /([+-]) #([\w\d_-]{3,})\b/g;
+	var x = fakemeta.exec(body);
+	if(!x) return null;
+	var target = x[1];
+	var meta = {
+		hashtag: [],
+	};
+	change.lastIndex = target.length;
+	for(;;) {
+		x = change.exec(body);
+		if(!x) break;
+		if("+" === x[1]) meta.hashtag.push(x[2]); // ignore removals
+	}
+	return { target: target, meta: meta };
 }
 
 var stream = repo.createQueryStream("", { wait: false });
@@ -62,16 +120,31 @@ stream.on("data", function(URI) {
 		});
 		res.on("end", function() {
 
-			// TODO
-			console.log("\n---\n");
-			console.log(body);
-			console.log("\n");
-			console.log(extract(body));
-			stream.resume();
+			// DEBUG
+			/*if(Math.random() < (100/8000)) {
+			//	console.log("\n---");
+				console.log("\n"+URI);
+			//	console.log("\n"+body);
+			//	console.log("\n");
+				console.log(fakemeta(body) || extract(body));
+			}*/
 
-//			repo.submitMeta(URI, meta, function(err, info) {
-//				stream.resume();
-//			});
+			var obj = fakemeta(body);
+			if(obj) {
+				repo.submitMeta(URI, { "type": "fakemeta" }, {}, function(err) {
+					if(err) throw err;
+					repo.submitMeta(obj.target, obj.meta, {}, function(err) {
+						if(err) throw err;
+						stream.resume();
+					});
+				});
+				return;
+			}
+			obj = extract(body);
+			repo.submitMeta(URI, obj, {}, function(err) {
+				if(err) throw err;
+				stream.resume();
+			});
 
 		});
 	});
