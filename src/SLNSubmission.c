@@ -208,6 +208,7 @@ int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn) {
 	assert(sub);
 	assert(txn);
 	assert(!sub->tmppath);
+	// Session permissions were already checked when the sub was created.
 
 	int64_t fileID = db_next_id(SLNFileByID, txn);
 	int rc;
@@ -254,6 +255,8 @@ int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn) {
 }
 int SLNSubmissionStoreBatch(SLNSubmissionRef const *const list, size_t const count) {
 	if(!count) return DB_SUCCESS;
+	// Session permissions were already checked when the sub was created.
+
 	SLNRepoRef const repo = SLNSessionGetRepo(list[0]->session);
 	DB_env *db = NULL;
 	SLNRepoDBOpen(repo, &db);
