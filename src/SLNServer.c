@@ -155,39 +155,25 @@ static int POST_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 	strarg_t const type = HTTPHeadersGet(headers, "Content-Type");
 	if(!type) return 400;
 
-	SLNSubmissionRef sub;
+	SLNSubmissionRef sub = NULL;
 	int rc = SLNSubmissionCreate(session, type, &sub);
-	if(UV_EACCES == rc) return 403;
-	if(rc < 0) return 500;
+	if(rc < 0) goto cleanup;
 	for(;;) {
 		uv_buf_t buf[1] = {};
 		rc = HTTPConnectionReadBody(conn, buf);
-		if(rc < 0) {
-			SLNSubmissionFree(&sub);
-			return 0;
-		}
+		if(rc < 0) goto cleanup;
 		if(0 == buf->len) break;
-		rc = SLNSubmissionWrite(sub, (byte_t *)buf->base, buf->len);
-		if(rc < 0) {
-			SLNSubmissionFree(&sub);
-			return 500;
-		}
+		rc = SLNSubmissionWrite(sub, (byte_t const *)buf->base, buf->len);
+		if(rc < 0) goto cleanup;
 	}
 	rc = SLNSubmissionEnd(sub);
-	if(rc < 0) {
-		SLNSubmissionFree(&sub);
-		return 500;
-	}
+	if(rc < 0) goto cleanup;
 	rc = SLNSubmissionStoreBatch(&sub, 1);
-	if(rc < 0) {
-		SLNSubmissionFree(&sub);
-		return 500;
-	}
+	if(DB_SUCCESS != rc) rc = -1; // TODO: Better way to handle db/uv errors.
+	if(rc < 0) goto cleanup;
 	strarg_t const location = SLNSubmissionGetPrimaryURI(sub);
-	if(!location) {
-		SLNSubmissionFree(&sub);
-		return 500;
-	}
+	if(!location) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
 
 	HTTPConnectionWriteResponse(conn, 201, "Created");
 	HTTPConnectionWriteHeader(conn, "X-Location", location);
@@ -195,7 +181,10 @@ static int POST_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 	HTTPConnectionWriteContentLength(conn, 0);
 	HTTPConnectionBeginBody(conn);
 	HTTPConnectionEnd(conn);
+
+cleanup:
 	SLNSubmissionFree(&sub);
+	if(UV_EACCES == rc) return 403;
 	if(rc < 0) return 500;
 	return 0;
 }
