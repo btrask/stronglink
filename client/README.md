@@ -70,7 +70,7 @@ Encoding: always UTF-8
 
 The first line is the URI of the meta-file's target. Only hash links are recognized. The URI is followed by two line breaks (a blank line).
 
-Then follows a JSON body describing the meta-data. Each field accepts an _array_ of values. If only one value is set, it can be a single item instead of an array. For each value, currently only strings are accepted.
+Then follows a JSON body describing the meta-data. Each field accepts an _array_ of values. If only one value is set, it can be a single item instead of an array. For each value, currently only strings and nulls are accepted (nulls are simply ignored).
 
 ```
 hash://[algo]/[hash]

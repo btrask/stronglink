@@ -147,7 +147,15 @@ cleanup:
 // TODO: Improve style, error handling.
 
 static int yajl_null(parser_t *const ctx) {
-	return false;
+	switch(ctx->state) {
+	case s_field_value:
+		ctx->state = s_top;
+		return true;
+	case s_field_array:
+		return true;
+	default:
+		return false;
+	}
 }
 static int yajl_boolean(parser_t *const ctx, int const flag) {
 	return false;
