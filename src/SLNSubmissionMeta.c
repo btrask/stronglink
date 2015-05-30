@@ -149,6 +149,7 @@ cleanup:
 static int yajl_null(parser_t *const ctx) {
 	switch(ctx->state) {
 	case s_field_value:
+		FREE(&ctx->field);
 		ctx->state = s_top;
 		return true;
 	case s_field_array:
