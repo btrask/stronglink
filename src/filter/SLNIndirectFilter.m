@@ -14,10 +14,6 @@
 	[super free];
 }
 
-- (SLNFilter *)unwrap {
-	return self;
-}
-
 - (int)prepare:(DB_txn *const)txn {
 	int rc = [super prepare:txn];
 	if(DB_SUCCESS != rc) return rc;

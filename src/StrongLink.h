@@ -127,6 +127,7 @@ typedef enum {
 	SLNUnionFilterType,
 	SLNNegationFilterType,
 	SLNURIFilterType,
+	SLNTargetURIFilterType,
 	SLNFulltextFilterType,
 	SLNMetadataFilterType,
 //	SLNLinkedFromFilterType, // TODO: Forward links?

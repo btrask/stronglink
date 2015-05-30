@@ -83,11 +83,17 @@ static SLNFilterRef parse_attr(strarg_t *const query) {
 	size_t vlen;
 	strarg_t const v = read_term(&q, &vlen);
 	if(!v) return NULL;
-	SLNFilterRef md = createfilter(SLNMetadataFilterType);
-	SLNFilterAddStringArg(md, f, flen);
-	SLNFilterAddStringArg(md, v, vlen);
+	SLNFilterRef filter = NULL;
+	if(sizeof("target")-1 == flen && 0 == strncasecmp("target", f, flen)) {
+		filter = createfilter(SLNTargetURIFilterType);
+		SLNFilterAddStringArg(filter, v, vlen);
+	} else {
+		filter = createfilter(SLNMetadataFilterType);
+		SLNFilterAddStringArg(filter, f, flen);
+		SLNFilterAddStringArg(filter, v, vlen);
+	}
 	*query = q;
-	return md;
+	return filter;
 }
 static SLNFilterRef parse_link(strarg_t *const query) {
 	strarg_t q = *query;

@@ -19,6 +19,10 @@
 @end
 
 @implementation SLNFilter
+- (SLNFilter *)unwrap {
+	return self;
+}
+
 - (int)addStringArg:(strarg_t const)str :(size_t const)len {
 	return DB_EINVAL;
 }
@@ -55,6 +59,8 @@ SLNFilterRef SLNFilterCreateInternal(SLNFilterType const type) {
 			return (SLNFilterRef)[[SLNNegationFilter alloc] init];
 		case SLNURIFilterType:
 			return (SLNFilterRef)[[SLNURIFilter alloc] init];
+		case SLNTargetURIFilterType:
+			return (SLNFilterRef)[[SLNTargetURIFilter alloc] init];
 		case SLNMetaFileFilterType:
 			return (SLNFilterRef)[[SLNMetaFileFilter alloc] init];
 		case SLNBadMetaFileFilterType:

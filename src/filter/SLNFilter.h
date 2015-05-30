@@ -19,6 +19,11 @@ typedef struct {
 - (void)free;
 @end
 
+// TODO: At one point I had a System(tm) for declaring abstract and concrete
+// methods, but over time it has falling into disrepair. We should reevaluate
+// using @protocols with optional methods to see if we can get better
+// compile-time checking.
+
 @interface SLNFilter : SLNObject
 @end
 @interface SLNFilter (Abstract)
@@ -46,8 +51,6 @@ typedef struct {
 	DB_cursor *age_uris;
 	DB_cursor *age_metafiles;
 }
-- (SLNFilter *)unwrap;
-
 - (int)prepare:(DB_txn *const)txn;
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
@@ -100,7 +103,6 @@ struct token {
 	size_t asize;
 	int sort;
 }
-- (SLNFilter *)unwrap;
 - (int)addFilterArg:(SLNFilter *const)filter;
 
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
@@ -145,6 +147,14 @@ struct token {
 	DB_txn *curtxn;
 	str_t *URI;
 	DB_cursor *files;
+	DB_cursor *age;
+}
+@end
+@interface SLNTargetURIFilter : SLNFilter
+{
+	DB_txn *curtxn;
+	str_t *targetURI;
+	DB_cursor *metafiles;
 	DB_cursor *age;
 }
 @end
