@@ -36,7 +36,7 @@ A lot of notetaking systems still don't have sync. Many that do will lose data d
 Currently the interface is web-based but native versions are planned.
 
 **How does it compare to other blog platforms?**  
-StrongLink is intended to be as fast and secure as a static site generator, although it currently falls short on both fronts. Unlike most blog software, it has built-in search, and you can keep a local copy and write offline.
+StrongLink is intended to be almost as fast and secure as a static site generator, although it currently falls short on both fronts. Unlike most blog software, it has built-in search, and you can keep a local copy and write offline.
 
 It doesn't have any themes or plugins yet.
 
