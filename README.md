@@ -5,21 +5,25 @@ StrongLink is a notetaking/blogging system that supports search and sync. You ca
 
 A raw hash link in StrongLink looks like this:
 
->     hash://sha256/641b771e5cf5c6173843bc2eecc9f44f835c68b7a6f6b2fb35c60ed88af17928
->     hash://sha256/641b771e5cf5c6173843bc2e (short version)
+>     hash://sha256/6834b5440fc88e00a1e7fec197f9f42c72fd92600275ba1afc7704e8e3bcd1ee
+>     hash://sha256/6834b5440fc88e00a1e7fec1 (short version)
 
-A hash link that's "resolved" might look like this:
+- `hash`: the URI scheme. ([`ni`](http://tools.ietf.org/html/rfc6920) might be supported in the future)
+- `sha256`: the hash algorithm. A variety of algorithms are supported.
+- `6834b544...`: the hash which uniquely identifies a particular file.
 
-> [link](http://notes.bentrask.com/?q=hash://sha256/641b771e5cf5c6173843bc2eecc9f44f835c68b7a6f6b2fb35c60ed88af17928)<sup>\[[#](hash://sha256/641b771e5cf5c6173843bc2eecc9f44f835c68b7a6f6b2fb35c60ed88af17928)\]</sup> (note: raw hashes are blocked on GitHub, otherwise the `#` would be a link)
+Content addresses are unique in that they are _statically_ assigned by a _decentralized_ authority (the hash algorithm, which anyone can run). "Static" means the content for a given hash can never change once the algorithm is created. "Decentralized" means the same file will always be assigned the same hash, even by two people (or computers) without talking to each other. This is different from URLs, which are dynamically assigned by a centralized web server (although you can have many servers), and also different from ISBNs which are assigned dynamically by a central authority but then never changed.
 
-The purpose of the two links (the main link and the `#` superscript) is to provide the resolved and unresolved version of the address. Hash links are universal but relative, meaning you need a known location to resolve them in relation to. With StrongLink, this location is your own repository, which you might run on your own device or in the cloud.
+With StrongLink, you resolve hash links using your own repository, which you can run locally (or wherever you want: mobile, desktop or server).
 
-StrongLink is currently in alpha. Features are missing and some things may be broken.
+StrongLink is currently in alpha. Features are missing and some things may be broken. Check the open issues, where most of the major problems are documented.
+
+It currently takes some work to set up, but the goal is to be as easy to run as Notepad or WordPress.
 
 Demo
 ----
 
-The StrongLink development log is self-hosting. You can find thousands of notes spanning several years [here](http://notes.bentrask.com/).
+The StrongLink development log is self-hosting. You can find thousands of notes spanning several years [here](http://bentrask.com/).
 
 FAQ
 ---
@@ -29,12 +33,21 @@ StrongLink is designed to be highly scalable. It won't bog down or get harder to
 
 A lot of notetaking systems still don't have sync. Many that do will lose data during conflicts or just at random. The reason sync systems are so bad is because application developers don't recognize the seriousness of the problem: doing sync properly means building a distributed system. StrongLink is a distributed system based on an append-only log and is available, partition-tolerant, and eventually consistent.
 
-Currently the interface is web-based but I'd like to write a native Cocoa version at some point.
+Currently the interface is web-based but native versions are planned.
 
 **How does it compare to other blog platforms?**  
-StrongLink is almost as fast as a static site generator and has built-in search. You can keep a local copy and write offline.
+StrongLink is intended to be as fast and secure as a static site generator, although it currently falls short on both fronts. Unlike most blog software, it has built-in search, and you can keep a local copy and write offline.
 
 It doesn't have any themes or plugins yet.
+
+**How does it compare to web search engines?**  
+StrongLink is built like a miniature (but "real") search engine, although it has some different design goals.
+
+It's designed to scale, but a single repository will never be as large as the entire Web, so it can take fewer shortcuts and return more accurate results. The index is fully ACID, so there is no delay before results show up or chance of files getting "missed." Results are ordered chronologically rather than by fuzzy relevance heuristics (which is admittedly sometimes a downside). It doesn't (currently) use stopwords and stemming can be changed on a per-repository basis.
+
+Your searches never leave your machine. It can index private files without exposing them to a third party.
+
+A major challenge of the design is being able to sync a large index quickly between repositories. After a lot of [blood, sweat and tears](https://github.com/btrask/lsmdb/), we have some solid sync performance, but there's still room for improvement.
 
 **How does it compare to other content addressing systems?**  
 StrongLink follows my [Principles of Content Addressing](http://bentrask.com/notes/content-addressing.html). It focuses on providing content addresses as regular links you can use between your files.
@@ -46,22 +59,35 @@ I'd like to thank Juan Batiz-Benet, creator of IPFS, for giving me some valuable
 **What is the status of the project?**  
 I've been using StrongLink (and earlier prototypes) for my own notes for years. So far I haven't lost any data.
 
-It's currently missing a large number of features. There is no configuration interface yet, so you will need to recompile the code just to set it up. Basic security features are still missing too, like HTTPS and CSRF tokens, so you should know what you're doing.
+It's currently missing a large number of features.
 
-The sync API will change before final release. There will be a way to migrate your notes.
+The client API (used for syncing) will change slightly before version 1.0 is reached. There will be a way to migrate your notes.
+
+The server API (used for embedding as a library) is completely unfinished and isn't ready (or documented) for public consumption.
 
 **Will it ever support mutability?**  
 Hopefully, yes. The plan is to build a mutable interface layer on top of the immutable data store. This will keep StrongLink's sync protocol simple and reliable while gradually supporting a broader range of uses. Mutable tags will come first, and then eventually mutable files (using diffs rather than block deduplication).
 
 File deletion support is also planned, but deletions will only apply to the current device (they won't sync).
 
-**Why is it written in C?**  
-Eventually the core of StrongLink (without the blog interface) will be bundled as a reusable library. In this mode StrongLink would function more like a message queue with high level filtering features. I'd also like to release a native version for iOS and Android, where a small footprint is important. Using C opens up a lot of options.
+**What about typos?**  
+Mutability or semantic hashes (TBA) should eventually give some options for correcting typos. Right now, think of it like writing in ink.
 
-A small portion of the code is actually written in portable Objective-C. So far it's been tested on Linux and Mac OS X.
+You can always submit a new file with any changes you want.
 
-We take [a long list of precautions](http://notes.bentrask.com/?q=hash://sha256/b5cfd43def108b74b5bb5da3ae92613fc27624811df8a6d1aea7ff558e8bc934)<sup>\[[#](hash://sha256/b5cfd43def108b74b5bb5da3ae92613fc27624811df8a6d1aea7ff558e8bc934)\]</sup> to ensure security, with more planned. Many are at the language layer, but many have nothing to do with the language used.
+**Is it secure?**  
+Just like the vast majority of software you probably use every day, StrongLink is grossly insecure.
+
+Story time: I've been using [QubesOS](https://qubes-os.org/) as my main system for the past six months. Qubes is the only desktop OS that takes security seriously (like how OpenBSD is the only server OS that takes security seriously), but despite that I've been vulnerable to exploits from all directions. Qubes itself was vulnerable to [many major problems in Xen](http://xenbits.xen.org/xsa/), and it can't even help with problems with the hardware (Rowhammer), network stack (TLS), and [its own core utilities](https://groups.google.com/forum/#!topic/qubes-users/kR2fMpZFtV8). Despite that, everything else is _worse_.
+
+Computer security is currently in a catch-22. Security researchers and cryptographers are too afraid to make real-world applications and protocols because they know they'd mess up and ruin their reputations. Application developers are all too happy to promise the world because they don't know what security means and have no reputation worth mentioning. I'm an application developer, no matter how much time I force myself to spend studying security issues. While I know many of the pitfalls, I had to choose features over security in order for this project to ever see the light of day.
+
+If you're an established security researcher, contact me privately and I'll give you my personal cell phone number so you can report any vulnerabilities you find ASAP. (If you're not established, sorry, but just find and report some bugs first.) If you need a place to start looking, try the query parser, which uses lots of very elegant and very dangerous raw pointer manipulation. That said, there is currently only one known active vulnerability in StrongLink (not using CSRF tokens).
+
+For the record, only a small fraction of the security bugs that have already been fixed during development would've been prevented by using a "safe" language like Rust. (I'm very excited to use Rust once it's ready for prime time in about five years.)
+
+In the long run, the plan for StrongLink security is to follow the model of [qmail](qmailsec-20071101.pdf) [TODO]: avoid bloat and clamp down on unnecessary changes while trying to make the code obvious and going over everything with a fine-tooth comb.
 
 **My question isn't answered here...**  
-Please search the [development log](http://notes.bentrask.com/). Most questions have been answered and most suggestions have been considered.
+Please search [my notes and development log](http://bentrask.com/). Most questions have been answered and most suggestions have been considered.
 
