@@ -26,6 +26,7 @@ enum {
 	SLNMetaFileIDFieldAndValue = 63,
 	SLNFieldValueAndMetaFileID = 64,
 	SLNTermMetaFileIDAndPosition = 65,
+	SLNFirstUniqueMetaFileID = 66,
 
 	// It's expected that values less than ~240 should fit in one byte
 	// Depending on the varint format, of course
@@ -280,5 +281,19 @@ static void SLNTermMetaFileIDAndPositionKeyUnpack(DB_val *const val, DB_txn *con
 	*token = db_read_string(val, txn);
 	*metaFileID = db_read_uint64(val);
 	*position = db_read_uint64(val);
+}
+
+#define SLNFirstUniqueMetaFileIDKeyPack(val, txn, metaFileID) \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX * 2); \
+	db_bind_uint64((val), SLNFirstUniqueMetaFileID); \
+	db_bind_uint64((val), (metaFileID));
+#define SLNFirstUniqueMetaFileIDRange0(range, txn) \
+	DB_RANGE_STORAGE(range, DB_VARINT_MAX); \
+	db_bind_uint64((range)->min, SLNFirstUniqueMetaFileID); \
+	db_range_genmax((range));
+static void SLNFirstUniqueMetaFileIDKeyUnpack(DB_val *const val, DB_txn *const txn, uint64_t *const metaFileID) {
+	uint64_t const table = db_read_uint64(val);
+	assert(SLNFirstUniqueMetaFileID == table);
+	*metaFileID = db_read_uint64(val);
 }
 

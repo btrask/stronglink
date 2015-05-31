@@ -259,20 +259,33 @@ static uint64_t add_metafile(DB_txn *const txn, uint64_t const fileID, strarg_t 
 	// Note that ordinary files can't be "promoted" to meta-files later
 	// because that would break the ordering.
 
-	int rc;
 	DB_val null = { 0, NULL };
+	DB_cursor *cursor = NULL;
+	int rc = db_txn_cursor(txn, &cursor);
+	assert(DB_SUCCESS == rc);
 
 	DB_val metaFileID_key[1];
 	SLNMetaFileByIDKeyPack(metaFileID_key, txn, metaFileID);
 	DB_val metaFile_val[1];
 	SLNMetaFileByIDValPack(metaFile_val, txn, fileID, targetURI);
 	rc = db_put(txn, metaFileID_key, metaFile_val, DB_NOOVERWRITE_FAST);
-	assert(!rc);
+	assert(DB_SUCCESS == rc);
+
+	DB_range alts[1];
+	SLNTargetURIAndMetaFileIDRange1(alts, txn, targetURI);
+	rc = db_cursor_firstr(cursor, alts, NULL, NULL, +1);
+	assert(DB_SUCCESS == rc || DB_NOTFOUND == rc);
+	if(DB_NOTFOUND == rc) {
+		DB_val unique[1];
+		SLNFirstUniqueMetaFileIDKeyPack(unique, txn, metaFileID);
+		rc = db_put(txn, unique, &null, DB_NOOVERWRITE_FAST);
+		assert(DB_SUCCESS == rc);
+	}
 
 	DB_val targetURI_key[1];
 	SLNTargetURIAndMetaFileIDKeyPack(targetURI_key, txn, targetURI, metaFileID);
 	rc = db_put(txn, targetURI_key, &null, DB_NOOVERWRITE_FAST);
-	assert(!rc);
+	assert(DB_SUCCESS == rc);
 
 	return metaFileID;
 }

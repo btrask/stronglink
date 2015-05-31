@@ -164,19 +164,19 @@
 - (int)prepare:(DB_txn *const)txn {
 	int rc = [super prepare:txn];
 	if(DB_SUCCESS != rc) return rc;
-	db_cursor_renew(txn, &metafiles); // SLNMetaFileByID
+	db_cursor_renew(txn, &metafiles); // SLNFirstUniqueMetaFileID
 	return DB_SUCCESS;
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
 	DB_range range[1];
-	SLNMetaFileByIDRange0(range, curtxn);
+	SLNFirstUniqueMetaFileIDRange0(range, curtxn);
 	DB_val sortID_key[1];
-	SLNMetaFileByIDKeyPack(sortID_key, curtxn, sortID);
+	SLNFirstUniqueMetaFileIDKeyPack(sortID_key, curtxn, sortID);
 	int rc = db_cursor_seekr(metafiles, range, sortID_key, NULL, dir);
 	if(DB_SUCCESS != rc) return invalid(dir);
 	uint64_t actualSortID;
-	SLNMetaFileByIDKeyUnpack(sortID_key, curtxn, &actualSortID);
+	SLNFirstUniqueMetaFileIDKeyUnpack(sortID_key, curtxn, &actualSortID);
 	return actualSortID;
 }
 - (uint64_t)currentMeta:(int const)dir {
@@ -184,17 +184,17 @@
 	int rc = db_cursor_current(metafiles, sortID_key, NULL);
 	if(DB_SUCCESS != rc) return invalid(dir);
 	uint64_t sortID;
-	SLNMetaFileByIDKeyUnpack(sortID_key, curtxn, &sortID);
+	SLNFirstUniqueMetaFileIDKeyUnpack(sortID_key, curtxn, &sortID);
 	return sortID;
 }
 - (uint64_t)stepMeta:(int const)dir {
 	DB_range range[1];
-	SLNMetaFileByIDRange0(range, curtxn);
+	SLNFirstUniqueMetaFileIDRange0(range, curtxn);
 	DB_val sortID_key[1];
 	int rc = db_cursor_nextr(metafiles, range, sortID_key, NULL, dir);
 	if(DB_SUCCESS != rc) return invalid(dir);
 	uint64_t sortID;
-	SLNMetaFileByIDKeyUnpack(sortID_key, curtxn, &sortID);
+	SLNFirstUniqueMetaFileIDKeyUnpack(sortID_key, curtxn, &sortID);
 	return sortID;
 }
 - (bool)match:(uint64_t const)metaFileID {
