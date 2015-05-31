@@ -59,9 +59,9 @@ I'd like to thank Juan Batiz-Benet, creator of IPFS, for giving me some valuable
 **What is the status of the project?**  
 I've been using StrongLink (and earlier prototypes) for my own notes for years. So far I haven't lost any data.
 
-It's currently missing a large number of features.
+It's currently missing a large number of features. Most major problems are documented as GitHub issues.
 
-The client API (used for syncing) will change slightly before version 1.0 is reached. There will be a way to migrate your notes.
+The [client API](TODO) (used for syncing) will change slightly before version 1.0 is reached. There will be a way to migrate your notes.
 
 The server API (used for embedding as a library) is completely unfinished and isn't ready (or documented) for public consumption.
 
