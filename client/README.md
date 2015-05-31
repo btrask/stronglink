@@ -106,6 +106,8 @@ Applications are free to define their own fields. Please consider whether a fiel
 
 Values from multiple meta-files with the same target are combined. Applications should be aware that any field can have zero or more values. (As mentioned above, `fulltext` is currently the sole exception, in that it can only have one value per meta-file. It can still have multiple values from independent meta-files.)
 
+Although fields can contain multiple values, it's strongly recommended that applications define field names as singular terms (e.g. "hashtag" rather than "hashtags"). This is so that queries make more sense (e.g. `hashtag=[tag]` rather than `hashtags=[tag]`).
+
 Currently meta-data values are append-only. In the future this format will be extended to indicate values to be removed.
 
 Meta-files are always excoded as UTF-8. Line endings are recommended to be LF-only, since that's what most JSON libraries use.
