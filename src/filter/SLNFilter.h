@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <ctype.h>
 #include <objc/runtime.h>
-#include <objc/Object.h>
 #include "../StrongLink.h"
 #include "../SLNDB.h"
 
@@ -13,7 +12,10 @@ typedef struct {
 	uint64_t max;
 } SLNAgeRange;
 
-@interface SLNObject : Object
+@interface SLNObject
+{
+	Class isa;
+}
 + (id)alloc;
 - (id)init;
 - (void)free;
