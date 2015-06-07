@@ -131,6 +131,7 @@ OBJECTS := \
 	$(BUILD_DIR)/deps/fts3/fts3_porter.o \
 	$(BUILD_DIR)/deps/http_parser.o \
 	$(BUILD_DIR)/deps/multipart_parser.o \
+	$(BUILD_DIR)/deps/openbsd-compat/reallocarray.o \
 	$(BUILD_DIR)/deps/openbsd-compat/strlcat.o \
 	$(BUILD_DIR)/deps/openbsd-compat/strlcpy.o \
 	$(BUILD_DIR)/deps/smhasher/MurmurHash3.o

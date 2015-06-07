@@ -4,14 +4,17 @@
 // a few C runtime extensions.
 
 #include <sys/types.h>
+#include <stdint.h>
 
 #ifndef HAVE_STRLCPY
-/* #include <sys/types.h> XXX Still needed? */
 size_t strlcpy(char *dst, const char *src, size_t siz);
 #endif
 
 #ifndef HAVE_STRLCAT
-/* #include <sys/types.h> XXX Still needed? */
 size_t strlcat(char *dst, const char *src, size_t siz);
 #endif 
+
+#ifndef HAVE_REALLOCARRAY
+void *reallocarray(void *, size_t, size_t);
+#endif
 
