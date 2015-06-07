@@ -82,6 +82,7 @@ HEADERS := \
 	$(DEPS_DIR)/http_parser/http_parser.h \
 	$(DEPS_DIR)/lsmdb/liblmdb/lmdb.h \
 	$(DEPS_DIR)/multipart-parser-c/multipart_parser.h \
+	$(DEPS_DIR)/openbsd-compat/includes.h \
 	$(DEPS_DIR)/smhasher/MurmurHash3.h \
 	$(YAJL_BUILD_DIR)/include/yajl/*.h
 
@@ -130,6 +131,8 @@ OBJECTS := \
 	$(BUILD_DIR)/deps/fts3/fts3_porter.o \
 	$(BUILD_DIR)/deps/http_parser.o \
 	$(BUILD_DIR)/deps/multipart_parser.o \
+	$(BUILD_DIR)/deps/openbsd-compat/strlcat.o \
+	$(BUILD_DIR)/deps/openbsd-compat/strlcpy.o \
 	$(BUILD_DIR)/deps/smhasher/MurmurHash3.o
 
 ifdef USE_VALGRIND
@@ -277,9 +280,13 @@ $(BUILD_DIR)/deps/sundown/%.o: $(DEPS_DIR)/sundown/%.c
 
 $(BUILD_DIR)/deps/smhasher/MurmurHash3.o: $(DEPS_DIR)/smhasher/MurmurHash3.cpp $(DEPS_DIR)/smhasher/MurmurHash3.h
 	@- mkdir -p $(dir $@)
-	$(CXX) -c -o $@ $< $(CXXFLAGS) $(WARNINGS)
+	$(CXX) -c $(CXXFLAGS) $(WARNINGS) $< -o $@
 
 $(BUILD_DIR)/deps/content-disposition/content-disposition.o: $(DEPS_DIR)/content-disposition/content-disposition.c
+	@- mkdir -p $(dir $@)
+	$(CC) -c $(CFLAGS) $(WARNINGS) $< -o $@
+
+$(BUILD_DIR)/deps/openbsd-compat/%.o: $(DEPS_DIR)/openbsd-compat/%.c $(DEPS_DIR)/openbsd-compat/includes.h
 	@- mkdir -p $(dir $@)
 	$(CC) -c $(CFLAGS) $(WARNINGS) $< -o $@
 
