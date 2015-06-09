@@ -6,6 +6,7 @@
 #include <objc/runtime.h>
 #include "../StrongLink.h"
 #include "../SLNDB.h"
+#include "../../deps/openbsd-compat/includes.h"
 
 typedef struct {
 	uint64_t min;
@@ -177,20 +178,17 @@ static uint64_t invalid(int const dir) {
 }
 
 static void indent(size_t const depth) {
-	for(size_t i = 0; i < depth; ++i) fprintf(stderr, "\t");
+	for(size_t i = 0; i < depth; i++) fputc('\t', stderr);
 }
 static bool needs_quotes(strarg_t const str) {
-	for(size_t i = 0; '\0' != str[i]; ++i) {
-		if(isspace(str[i])) return true;
+	// TODO: Kind of a hack.
+	for(size_t i = 0; '\0' != str[i]; i++) {
+		if(isspace(str[i]) || '=' == str[i]) return true;
 	}
 	return false;
 }
 static size_t wr(str_t *const data, size_t const size, strarg_t const str) {
-	if(size < 1) return 0;
-	size_t const len = MIN(size-1, strlen(str));
-	memcpy(data, str, len);
-	data[len] = '\0';
-	return len;
+	return strlcpy(data, str, size);
 }
 static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str) {
 	size_t len = 0;
