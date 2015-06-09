@@ -14,17 +14,6 @@ enum {
 
 static http_parser_settings const settings;
 
-// TODO: Copied from Headers.h, which should go away eventually.
-// TODO: Replace with strlcat or something.
-static size_t append(str_t *const dst, size_t const dsize, strarg_t const src, size_t const slen) {
-	if(!dsize) return 0;
-	size_t const olen = strlen(dst);
-	size_t const nlen = MIN(olen + slen, dsize-1);
-	memcpy(dst + olen, src, nlen - olen);
-	dst[nlen] = '\0';
-	return nlen - olen;
-}
-
 static ssize_t readall(uv_file const file, uv_buf_t const *const buf) {
 	async_pool_enter(NULL);
 	size_t pos = 0;
@@ -260,7 +249,7 @@ int HTTPConnectionReadHeaderField(HTTPConnectionRef const conn, str_t field[], s
 			assertf(0, "Unexpected HTTP event %d", type);
 			return UV_UNKNOWN;
 		}
-		append(field, max, buf->base, buf->len);
+		append_buf_to_string(field, max, buf->base, buf->len);
 	}
 	return 0;
 }
@@ -280,7 +269,7 @@ int HTTPConnectionReadHeaderValue(HTTPConnectionRef const conn, str_t value[], s
 			assertf(0, "Unexpected HTTP event %d", type);
 			return UV_UNKNOWN;
 		}
-		append(value, max, buf->base, buf->len);
+		append_buf_to_string(value, max, buf->base, buf->len);
 	}
 	return 0;
 }
@@ -320,7 +309,7 @@ int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t out[], size_t
 			if('\r' == buf->base[i]) break;
 			if('\n' == buf->base[i]) break;
 		}
-		append(out, max, buf->base, i);
+		append_buf_to_string(out, max, buf->base, i);
 		HTTPConnectionPop(conn, i);
 		if(i < buf->len) break;
 	}

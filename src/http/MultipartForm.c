@@ -4,17 +4,6 @@
 #include "../../deps/multipart-parser-c/multipart_parser.h"
 #include "MultipartForm.h"
 
-// TODO: BAD
-static size_t append(str_t *const dst, size_t const dsize, strarg_t const src, size_t const slen) {
-	if(!dsize) return 0;
-	size_t const olen = strlen(dst);
-	size_t const nlen = MIN(olen + slen, dsize-1);
-	memcpy(dst + olen, src, nlen - olen);
-	dst[nlen] = '\0';
-	return nlen - olen;
-}
-
-
 static multipart_parser_settings const callbacks;
 
 struct MultipartForm {
@@ -125,7 +114,7 @@ int MultipartFormReadHeaderField(MultipartFormRef const form, str_t field[], siz
 			assertf(0, "Unexpected multipart event %d", type);
 			return UV_UNKNOWN;
 		}
-		append(field, max, buf->base, buf->len);
+		append_buf_to_string(field, max, buf->base, buf->len);
 	}
 	return 0;
 }
@@ -145,7 +134,7 @@ int MultipartFormReadHeaderValue(MultipartFormRef const form, str_t value[], siz
 			assertf(0, "Unexpected multipart event %d", type);
 			return UV_UNKNOWN;
 		}
-		append(value, max, buf->base, buf->len);
+		append_buf_to_string(value, max, buf->base, buf->len);
 	}
 	return 0;
 }
