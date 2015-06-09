@@ -3,6 +3,7 @@
 
 #include "StrongLink.h"
 #include "SLNDB.h"
+#include "../deps/openbsd-compat/includes.h"
 
 #define CACHE_SIZE 1000
 
@@ -334,7 +335,7 @@ static void loadPulls(SLNRepoRef const repo) {
 		SLNPullRef const pull = SLNRepoCreatePull(repo, pullID, userID, host, sessionid, query);
 		if(repo->pull_count+1 > repo->pull_size) {
 			repo->pull_size = (repo->pull_count+1) * 2;
-			repo->pulls = realloc(repo->pulls, sizeof(SLNPullRef) * repo->pull_size);
+			repo->pulls = reallocarray(repo->pulls, repo->pull_size, sizeof(SLNPullRef));
 			assert(repo->pulls); // TODO: Handle error
 		}
 		repo->pulls[repo->pull_count++] = pull;

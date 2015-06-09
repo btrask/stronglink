@@ -2,6 +2,7 @@
 // MIT licensed (see LICENSE for details)
 
 #include "HTTPHeaders.h"
+#include "../../deps/openbsd-compat/includes.h"
 
 #define HEADERS_MAX 20
 #define FIELDS_SIZE 256
@@ -92,7 +93,7 @@ int HTTPHeadersLoad(HTTPHeadersRef const h, HTTPConnectionRef const conn) {
 		if(h->offsets[h->count]+vlen+1 >= h->values_size) {
 			h->values_size = MAX(VALUES_MIN, h->values_size * 2);
 			h->values_size = MAX(h->values_size, h->offsets[h->count]+vlen+1);
-			h->values = realloc(h->values, h->values_size);
+			h->values = reallocarray(h->values, 1, h->values_size);
 			assert(h->values); // TODO
 		}
 

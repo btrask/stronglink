@@ -3,6 +3,7 @@
 
 #include <regex.h>
 #include "Template.h"
+#include "../../deps/openbsd-compat/includes.h"
 
 #define TEMPLATE_MAX (1024 * 512)
 
@@ -29,7 +30,7 @@ TemplateRef TemplateCreate(strarg_t const str) {
 	for(;;) {
 		if(t->count >= size) {
 			size = MAX(10, size * 2);
-			t->steps = realloc(t->steps, sizeof(TemplateStep) * size);
+			t->steps = reallocarray(t->steps, size, sizeof(TemplateStep));
 			if(!t->steps) {
 				regfree(exp);
 				TemplateFree(&t);

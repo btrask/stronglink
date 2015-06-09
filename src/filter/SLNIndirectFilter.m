@@ -248,7 +248,7 @@
 		if(SQLITE_OK != rc) break;
 		if(count+1 > asize) {
 			asize = MAX(8, asize*2);
-			tokens = realloc(tokens, sizeof(tokens[0]) * asize);
+			tokens = reallocarray(tokens, asize, sizeof(tokens[0]));
 			assert(tokens); // TODO
 		}
 		tokens[count++].str = strndup(token, tlen);

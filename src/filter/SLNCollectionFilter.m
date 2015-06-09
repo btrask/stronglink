@@ -41,7 +41,7 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 	assert(filter);
 	if(count+1 > asize) {
 		asize = MAX(8, asize * 2);
-		filters = realloc(filters, sizeof(filters[0]) * asize);
+		filters = reallocarray(filters, asize, sizeof(filters[0]));
 		assert(filters); // TODO
 	}
 	filters[count++] = filter;
