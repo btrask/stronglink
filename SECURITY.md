@@ -52,18 +52,13 @@ Planned (pro tip: places bugs might be hiding):
 - Check all uses of `malloc` to see whether they should be replaced with `calloc`
 - Check all variable declarations to make sure they're properly initialized
 - Check all math operations for possible overflow
-- Use CSRF token for form submissions
 - Perform fuzz testing on inputs
 - Support socket activation
-- `chroot` support
 - Create some sort of high level test suite
+- Unit testing (maybe, mixed feelings)
 - Support Markdown parsing in a separate process with sandboxing
 - Do thorough error checking everywhere (currently only in some places)
-- DOM-based HTML generation for server-side templates (necessary to protect against poorly written templates)
-- Rewrite the query parser and content disposition parser to avoid raw pointer manipulation (what are the options for secure parsing in C? We could use Nom, or port it...)
-- Unit testing (maybe, mixed feelings)
-- HTTPS support
-- Digital signature support (using something like GPG)
+- Do parsing through a safe string wrapper/library (something like Nom...)
 - Release a set of contributing guidelines (more than just the above)
 
 Rejected:
@@ -89,6 +84,8 @@ What does "no questions asked" mean? The intention is that I will err on the sid
 - The bug does NOT have to be exploitable
 - You do NOT have to provide a real-world scenario
 - The bug DOES have to be "security-related"
+- The bug does NOT have to occur under the default configuration
+- But it DOES have to make some sense
 - Bugs in libraries that StrongLink uses DO count
 - You DO have to give details about the bug so it can be fixed
 - Some questions MAY be asked (despite "no questions asked")
@@ -137,11 +134,16 @@ If you're an established security researcher, contact me privately and I'll give
 
 For now there are no embargo requirements.
 
-Past security-related bugs
+Bug advisory
 --------------------------
 
 Reverse chronological order by date fixed (bugs that aren't fixed yet should also be listed):
 
+- Unfixed: CSRF tokens are not used
+- Unfixed: HTTPS is not supported
+- Unfixed: Digital signatures (e.g. GPG) are not supported
+- Unfixed: DOM-based template parsing is not used
+- Unfixed: The user query parser and content-disposition parser use lots of raw pointer manipulation
 - 2015-05-30: Confused UV errors with DB errors in upload handler (not exploitable; fixed in 0065f969845981781bf2d3eab330a74a070dd079)
 - 2015-05-21: Always ensure filter representation is nul-terminated (probably not exploitable; fixed in c9bd941573e124f06274ed9a9e24a8d115902b09)
 - 2015-05-18: Read beyond string termination in user query parser (not exploitable; fixed in f9291586fbef19e85f30c32c502bbd5eacd777e3)
