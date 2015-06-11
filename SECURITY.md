@@ -96,7 +96,7 @@ What does "no questions asked" mean? The intention is that I will err on the sid
 
 "Security-related" means "hypothetically exploitable in absence of other mitigating factors." "Defense in depth" is NOT an excuse. Denial of service or use in attacks against other systems (e.g. the qmail spam reflection problem) DO count.
 
-Bugs in StrongLink should be reported via GitHub issues. Bugs in other libraries should be reported to the maintainer of said libraries FIRST, and then referenced in a GitHub issue for the StrongLink project. Payouts for other libraries will be made when the those libraries' maintainers acknowledge their bugs.
+Bugs in StrongLink should be reported via GitHub issues. Bugs in other libraries should be reported to the maintainer of said library FIRST, and then referenced in a GitHub issue for the StrongLink project. Payouts for other libraries will be made when the those libraries' maintainers acknowledge their bugs.
 
 Bugs must be new. Known issues DON'T count, even if there is no GitHub issue for them. But issues that aren't PUBLICLY documented somewhere DO count (unless they're embargoed, but we don't do that for now).
 
