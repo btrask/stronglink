@@ -54,14 +54,14 @@ StrongLink follows my [Principles of Content Addressing](http://bentrask.com/not
 
 I would be extremely happy if other projects took some notes from StrongLink's design.
 
-I'd like to thank Juan Batiz-Benet, creator of IPFS, for giving me some valuable feedback.
+I'd like to thank Juan Batiz-Benet, creator of [IPFS](http://ipfs.io/), for giving me some valuable feedback.
 
 **What is the status of the project?**  
 I've been using StrongLink (and earlier prototypes) for my own notes for years. So far I haven't lost any data.
 
 It's currently missing a large number of features. Most major problems are documented as GitHub issues.
 
-The [client API](TODO) (used for syncing) will change slightly before version 1.0 is reached. There will be a way to migrate your notes.
+The [client API](https://github.com/btrask/stronglink/blob/master/client/README.md) (used for syncing) will change slightly before version 1.0 is reached. There will be a way to migrate your notes.
 
 The server API (used for embedding as a library) is completely unfinished and isn't ready (or documented) for public consumption.
 
@@ -82,11 +82,7 @@ Story time: I've been using [QubesOS](https://qubes-os.org/) as my main system f
 
 Computer security is currently in a catch-22. Security researchers and cryptographers are too afraid to make real-world applications and protocols because they know they'd mess up and ruin their reputations. Application developers are all too happy to promise the world because they don't know what security means and have no reputation worth mentioning. I'm an application developer, no matter how much time I force myself to spend studying security issues. While I know many of the pitfalls, I had to choose features over security in order for this project to ever see the light of day.
 
-If you're an established security researcher, contact me privately and I'll give you my personal cell phone number so you can report any vulnerabilities you find ASAP. (If you're not established, sorry, but just find and report some bugs first.) If you need a place to start looking, try the query parser, which uses lots of very elegant and very dangerous raw pointer manipulation. That said, there is currently only one known active vulnerability in StrongLink (not using CSRF tokens).
-
-For the record, only a small fraction of the security bugs that have already been fixed during development would've been prevented by using a "safe" language like Rust. (I'm very excited to use Rust once it's ready for prime time in about five years.)
-
-In the long run, the plan for StrongLink security is to follow the model of [qmail](qmailsec-20071101.pdf) [TODO]: avoid bloat and clamp down on unnecessary changes while trying to make the code obvious and going over everything with a fine-tooth comb.
+Please see the [StrongLink Security Information page](https://github.com/btrask/stronglink/blob/master/SECURITY.md) for more information.
 
 **My question isn't answered here...**  
 Please search [my notes and development log](http://bentrask.com/). Most questions have been answered and most suggestions have been considered.
