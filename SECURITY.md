@@ -95,12 +95,12 @@ What does "no questions asked" mean? The intention is that I will err on the sid
 
 Bugs in StrongLink should be reported via GitHub issues. Bugs in other libraries should be reported to the maintainer of said library FIRST, and then referenced in a GitHub issue for the StrongLink project. Payouts for other libraries will be made when the those libraries' maintainers acknowledge their bugs.
 
-Bugs must be new. Known issues DON'T count, even if there is no GitHub issue for them. But issues that aren't PUBLICLY documented somewhere DO count (unless they're embargoed, but we don't do that for now).
+Bugs must be new. Known issues DON'T count, even if there is no GitHub issue for them. But issues that aren't PUBLICLY documented somewhere DO count (unless they're embargoed, but we don't do that for now). If a version of StrongLink is released that uses an outdated library with known vulnerabilities, that DOES count.
 
 Only libraries that StrongLink "bundles" count. Currently those libraries are:
 
 - cmark
-- content-disposition (part of StrongLink)
+- content-disposition (really part of StrongLink)
 - crypt_blowfish
 - fts3
 - http_parser
