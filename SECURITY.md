@@ -41,13 +41,15 @@ Practices in use (pro tip: contributing guidelines):
 - Use established HTML sanitization instead of DIY
 - Use assertions to assert obvious invariants
 - Ship with assertions on
+- Test under Valgrind
+- Test under Clang static analyzer
+- Test under [Facebook Infer](http://fbinfer.com/) static analyzer
 
 Planned (pro tip: places bugs might be hiding):
 
 - Look into `-fsanitize`
-- Check with static analyzers
+- Check with other static analyzers
 - Use guard pages around sensitive memory? (e.g. cookie cache)
-- Petition cryptographers to do their damn jobs instead of expecting application developers to do it for them
 - Support client-side encryption for remote backups
 - Check all uses of `malloc` to see whether they should be replaced with `calloc`
 - Check all variable declarations to make sure they're properly initialized
@@ -55,7 +57,7 @@ Planned (pro tip: places bugs might be hiding):
 - Perform fuzz testing on inputs
 - Support socket activation
 - Create some sort of high level test suite
-- Unit testing (maybe, mixed feelings)
+- Automated unit testing (maybe, mixed feelings)
 - Support Markdown parsing in a separate process with sandboxing
 - Do thorough error checking everywhere (currently only in some places)
 - Do parsing through a safe string wrapper/library (something like Nom...)
@@ -67,6 +69,7 @@ Rejected:
 - Drop privileges if started as root (shouldn't be run as root)
 - Use static allocation to keep potential buffer overflows off the stack (not a real solution)
 - Switch to Rust (maybe once it's ready for prime time in five years)
+- [Content Security Policy](http://lcamtuf.coredump.cx/postxss/), except in certain cases (defense in depth is good, but security through obscurity is bad)
 
 Low stakes bug bounty program
 -----------------------------
@@ -141,7 +144,7 @@ Reverse chronological order by date fixed (bugs that aren't fixed yet should als
 
 - Unfixed: CSRF tokens are not used
 - Unfixed: HTTPS is not supported
-- Unfixed: Digital signatures (e.g. GPG) are not supported
+- Unfixed: Digital signatures (e.g. GPG or [OpenBSD's Signify](http://www.openbsd.org/papers/bsdcan-signify.html)) are not supported
 - Unfixed: DOM-based template parsing is not used
 - Unfixed: The user query parser and content-disposition parser use lots of raw pointer manipulation
 - 2015-05-30: Confused UV errors with DB errors in upload handler (not exploitable; fixed in 0065f969845981781bf2d3eab330a74a070dd079)
