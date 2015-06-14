@@ -200,6 +200,7 @@ int async_fs_open_dirname(const  char* path, int flags, int mode) {
 static char *tohex(char const *const buf, size_t const len) {
 	char const map[] = "0123456789abcdef";
 	char *const hex = calloc(len*2+1, 1);
+	if(!hex) return NULL;
 	for(size_t i = 0; i < len; ++i) {
 		hex[i*2+0] = map[0xf & (buf[i] >> 4)];
 		hex[i*2+1] = map[0xf & (buf[i] >> 0)];
