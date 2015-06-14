@@ -6,6 +6,8 @@ StrongLink's security practices
 
 The long-term plan for StrongLink security is to follow the basic model of [qmail](http://cr.yp.to/qmail/qmailsec-20071101.pdf): avoid bloat and clamp down on unnecessary churn while trying to make the code obvious and going over everything with a fine-tooth comb.
 
+Please remember this project as a whole is still very young. One goal of releasing it this early is to get feedback on the relative priority of different areas, including security.
+
 Practices in use (pro tip: contributing guidelines):
 
 - Zero pointers on free and check that freed memory is zeroed
