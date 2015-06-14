@@ -72,7 +72,6 @@ static int GET_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 	hash[0] = '\0';
 	sscanf(URI, "/sln/file/" SLN_ALGO_FMT "/" SLN_HASH_FMT "%n", algo, hash, &len);
 	if(!algo[0] || !hash[0]) return -1;
-//	if('/' == URI[len]) len++;
 	if('\0' != URI[len] && '?' != URI[len]) return -1;
 
 	// TODO: Check for conditional get headers and return 304 Not Modified.
@@ -139,7 +138,6 @@ static int GET_meta(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 	hash[0] = '\0';
 	sscanf(URI, "/sln/meta/" SLN_ALGO_FMT "/" SLN_HASH_FMT "%n", algo, hash, &len);
 	if(!algo[0] || !hash[0]) return -1;
-//	if('/' == URI[len]) len++;
 	if('\0' != URI[len] && '?' != URI[len]) return -1;
 
 	// TODO
@@ -151,7 +149,6 @@ static int POST_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 	int len = 0;
 	sscanf(URI, "/sln/file%n", &len);
 	if(!len) return -1;
-//	if('/' == URI[len]) len++;
 	if('\0' != URI[len] && '?' != URI[len]) return -1;
 
 	strarg_t const type = HTTPHeadersGet(headers, "Content-Type");
