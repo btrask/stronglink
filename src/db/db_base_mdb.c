@@ -6,8 +6,10 @@
 #include "db_base.h"
 #include "../../deps/lsmdb/liblmdb/lmdb.h"
 
+// MDB private definition but seems unlikely to change.
+// We double check it at run time and return an error if it's different.
 #define MDB_MAIN_DBI 1
-
+w
 struct DB_txn {
 	MDB_txn *txn;
 	unsigned flags;
@@ -30,7 +32,7 @@ int db_env_open(DB_env *const env, char const *const name, unsigned const flags,
 	rc = mdb_dbi_open(txn, NULL, 0, &dbi);
 	mdb_txn_abort(txn);
 	if(MDB_SUCCESS != rc) return rc;
-	if(MDB_MAIN_DBI != dbi) return -1; /* Private API but seems unlikely to change. */
+	if(MDB_MAIN_DBI != dbi) return DB_PANIC;
 	return DB_SUCCESS;
 }
 void db_env_close(DB_env *const env) {

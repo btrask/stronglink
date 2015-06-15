@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h> /* For unlink(2) */
+#include <unistd.h> // For unlink(2)
 #include <sys/resource.h>
 
 #include <leveldb/c.h>
@@ -65,7 +65,7 @@ struct DB_cursor {
 };
 
 
-/* DEBUG */
+// DEBUG
 static char *tohex(MDB_val const *const x) {
 	char const *const map = "0123456789abcdef";
 	char const *const buf = x->mv_data;

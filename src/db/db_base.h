@@ -7,16 +7,19 @@
 #include <errno.h>
 #include <sys/types.h>
 
+// Equivalent to MDB constants.
+// More may be exposed here in the future.
 #define DB_NOSYNC 0x10000
 
 #define DB_RDWR 0
 #define DB_RDONLY 0x20000
 
-#define DB_NOOVERWRITE 0x10 /* May be expensive for LSM-tree back-ends. */
+#define DB_NOOVERWRITE 0x10 // May be expensive for LSM-tree back-ends.
 
 #define DB_SUCCESS 0
 #define DB_NOTFOUND (-30798)
 #define DB_KEYEXIST (-30799)
+#define DB_PANIC (-30795)
 #define DB_VERSION_MISMATCH (-30794)
 #define DB_ENOENT ENOENT
 #define DB_EIO EIO
@@ -26,7 +29,7 @@
 #define DB_EINVAL EINVAL
 #define DB_ENOSPC ENOSPC
 
-
+// Equivalent to MDB_val.
 typedef struct {
 	size_t size;
 	void *data;
@@ -48,7 +51,13 @@ void db_txn_reset(DB_txn *const txn);
 int db_txn_renew(DB_txn *const txn);
 int db_txn_get_flags(DB_txn *const txn, unsigned *const flags);
 int db_txn_cmp(DB_txn *const txn, DB_val const *const a, DB_val const *const b);
-int db_txn_cursor(DB_txn *const txn, DB_cursor **const out); /* A shared cursor for cases where you just need one for one or two ops. Warning: Not re-entrant. If you're using this cursor, you can't call any other function that might also use it, including functions that call db_get/put. It belongs to the transaction, so don't close it when you're done. */
+
+// A shared cursor for cases where you just need one for one or two ops.
+// Warning: Not re-entrant. If you're using this cursor, you can't call any
+// other function that might also use it, including functions that call
+// db_get/put. It belongs to the transaction, so don't close it when
+// you're done.
+int db_txn_cursor(DB_txn *const txn, DB_cursor **const out);
 
 int db_cursor_open(DB_txn *const txn, DB_cursor **const out);
 void db_cursor_close(DB_cursor *const cursor);
