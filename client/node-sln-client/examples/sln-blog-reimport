@@ -1,0 +1,56 @@
+#!/usr/bin/env node
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
+var http = require("http");
+var crypto = require("crypto");
+var urimodule = require("url");
+
+var sln = require("../sln-client");
+var repo = sln.mainRepo();
+
+if(process.argv.length <= 3) {
+	console.debug("Usage: sln-blog-reimport <dst-url> <session>");
+	process.exit(1);
+}
+
+var uri = urimodule.parse(process.argv[2]);
+var session = process.argv[3];
+var boundary = "----------"+crypto.randomBytes(16).toString("hex");
+
+var stream = repo.createQueryStream("", { wait: false });
+stream.on("data", function(URI) {
+	stream.pause();
+	console.log(URI);
+	var req1 = repo.createFileRequest(URI, {});
+	req1.on("response", function(res1) {
+		if(200 !== res1.statusCode) throw new Error("HTTP status "+res1.statusCode);
+		var req2 = http.request({
+			method: "POST",
+			hostname: uri.hostname,
+			port: uri.port,
+			path: urimodule.resolve(uri.pathname, "./post"),
+			headers: {
+				"Cookie": "s="+session,
+				"Content-Type": "multipart/form-data; boundary="+boundary,
+			},
+		});
+		req2.write("--"+boundary+"\r\n", "utf8");
+		req2.write("Content-Disposition: form-data; name=\"file\""+"\r\n", "utf8");
+		req2.write("Content-Type: "+res1.headers["content-type"]+"\r\n", "utf8");
+		req2.write("\r\n", "utf8");
+		res1.pipe(req2, { end: false });
+		res1.on("end", function() {
+			req2.write("\r\n", "utf8");
+			req2.write("--"+boundary+"--", "utf8");
+			req2.end();
+		});
+		req2.on("response", function(res2) {
+			if(303 !== res2.statusCode) throw new Error("HTTP status "+res2.statusCode);
+			// TODO: We can't tell between success and auth redirects...
+			res2.resume(); // drain
+			stream.resume();
+		});
+	});
+});
+
