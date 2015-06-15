@@ -127,8 +127,6 @@ int SLNSubmissionEnd(SLNSubmissionRef const sub) {
 	if(!sub->URIs || !sub->internalHash) return UV_ENOMEM;
 
 	str_t *internalPath = NULL;
-	bool worker = false;
-	uv_file dir = -1;
 	int rc = 0;
 
 	SLNRepoRef const repo = SLNSubmissionGetRepo(sub);
@@ -136,34 +134,16 @@ int SLNSubmissionEnd(SLNSubmissionRef const sub) {
 	if(!internalPath) rc = UV_ENOMEM;
 	if(rc < 0) goto cleanup;
 
-	async_pool_enter(NULL); worker = true;
-
-	// TODO: Apparently fdatasync(2) is broken on some versions of
-	// Linux 3.x when the file size grows. Make sure that either libuv
-	// takes care of it or that it doesn't affect us. Cf. MDB changelog.
 	rc = async_fs_fdatasync(sub->tmpfile);
 	if(rc < 0) goto cleanup;
 
-	rc = async_fs_link_mkdirp(sub->tmppath, internalPath);
-	if(UV_EEXIST == rc) {
-		rc = 0;
-		goto cleanup;
-	}
+	rc = async_fs_link_mkdirp(sub->tmppath, internalPath); // fsyncs the dir
+	if(UV_EEXIST == rc) rc = 0;
 	if(rc < 0) {
 		fprintf(stderr, "SLNSubmission couldn't move '%s' to '%s' (%s)\n", sub->tmppath, internalPath, uv_strerror(rc));
-		goto cleanup;
 	}
 
-	rc = async_fs_open_dirname(internalPath, O_RDONLY, 0000);
-	if(rc < 0) goto cleanup;
-	dir = rc;
-
-	rc = async_fs_fdatasync(dir);
-	if(rc < 0) goto cleanup;
-
 cleanup:
-	if(dir >= 0) { async_fs_close(dir); dir = -1; }
-	if(worker) { async_pool_leave(NULL); worker = false; }
 	FREE(&internalPath);
 
 	async_fs_unlink(sub->tmppath);

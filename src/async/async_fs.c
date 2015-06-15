@@ -68,9 +68,12 @@ int async_fs_fsync(uv_file file) {
 	ASYNC_FS_WRAP(fsync, file)
 }
 int async_fs_fdatasync(uv_file file) {
+	// TODO: Apparently fdatasync(2) is broken on some versions of
+	// Linux 3.x when the file size grows. Make sure that either libuv
+	// takes care of it or that it doesn't affect us. Cf. MDB changelog.
 	ASYNC_FS_WRAP(fdatasync, file)
 }
-int async_fs_mkdir(const char* path, int mode) {
+int async_fs_mkdir_nosync(const char* path, int mode) {
 	ASYNC_FS_WRAP(mkdir, path, mode)
 }
 int async_fs_ftruncate(uv_file file, int64_t offset) {
@@ -117,26 +120,46 @@ int async_fs_stat_mode(const char* path, uv_fs_t *const req) {
 	return err;
 }
 
-
-/* Example paths:
-- /asdf -> /
-- / - > (error)
-- "" -> (error)
-- /asdf/ -> /
-- /asdf/asdf -> /asdf
-- asdf/asdf -> asdf
-Doesn't handle "./" or "/./"
-TODO: Unit tests
-TODO: Windows pathnames
-*/
+// Example paths:
+// - /asdf -> /
+// - / - > (error)
+// - "" -> (error)
+//- /asdf/ -> /
+// - /asdf/asdf -> /asdf
+// - asdf/asdf -> asdf
+// Doesn't handle "./" or "/./"
+// TODO: Unit tests
+// TODO: Windows pathnames
 static ssize_t dirlen(char const *const path, size_t const len) {
-	if(!len) return -1;
 	size_t i = len;
-	if(0 == i--) return -1; // Ignore trailing slash.
+	if(i < 1) return UV_ENOENT;
+	i--; // The last character cannot be a "real" path separator.
 	while(i--) if('/' == path[i]) return i;
-	return -1;
+	return UV_ENOENT;
 }
-int async_fs_mkdirp_fast(char *const path, size_t const len, int const mode) {
+int async_fs_open_dirname(const char* path, int flags, int mode) {
+	ssize_t dlen = dirlen(path, strlen(path));
+	if(dlen < 0) return (int)dlen;
+	char *mutable = strndup(path, dlen);
+	int rc = async_fs_open(mutable, flags, mode);
+	free(mutable); mutable = NULL;
+	return rc;
+}
+int async_fs_mkdir_sync(const char* path, int mode) {
+	async_pool_enter(NULL);
+	int rc = async_fs_mkdir_nosync(path, mode);
+	if(rc < 0) goto cleanup;
+	rc = async_fs_open_dirname(path, O_RDONLY, 0000);
+	if(rc < 0) goto cleanup;
+	uv_file parent = rc;
+	rc = async_fs_fdatasync(parent);
+	async_fs_close(parent); parent = -1;
+cleanup:
+	async_pool_leave(NULL);
+	return rc;
+}
+
+static int mkdirp_internal(char *const path, size_t const len, int const mode) {
 	if(0 == len) return 0;
 	if(1 == len) {
 		if('/' == path[0]) return 0;
@@ -145,16 +168,16 @@ int async_fs_mkdirp_fast(char *const path, size_t const len, int const mode) {
 	int result;
 	char const old = path[len]; // Generally should be '/' or '\0'.
 	path[len] = '\0';
-	result = async_fs_mkdir(path, mode);
+	result = async_fs_mkdir_sync(path, mode);
 	path[len] = old;
 	if(result >= 0) return 0;
 	if(UV_EEXIST == result) return 0;
 	if(UV_ENOENT != result) return -1;
 	ssize_t const dlen = dirlen(path, len);
-	if(dlen < 0) return -1;
-	if(async_fs_mkdirp_fast(path, dlen, mode) < 0) return -1;
+	if(dlen < 0) return (int)dlen;
+	if(mkdirp_internal(path, dlen, mode) < 0) return -1;
 	path[len] = '\0';
-	result = async_fs_mkdir(path, mode);
+	result = async_fs_mkdir_sync(path, mode);
 	path[len] = old;
 	if(result < 0) return -1;
 	return 0;
@@ -162,15 +185,15 @@ int async_fs_mkdirp_fast(char *const path, size_t const len, int const mode) {
 int async_fs_mkdirp(char const *const path, int const mode) {
 	size_t const len = strlen(path);
 	char *mutable = strndup(path, len);
-	int const err = async_fs_mkdirp_fast(mutable, len, mode);
+	int const err = mkdirp_internal(mutable, len, mode);
 	free(mutable); mutable = NULL;
 	return err;
 }
 int async_fs_mkdirp_dirname(char const *const path, int const mode) {
 	ssize_t dlen = dirlen(path, strlen(path));
-	if(dlen < 0) return dlen;
+	if(dlen < 0) return (int)dlen;
 	char *mutable = strndup(path, dlen);
-	int const err = async_fs_mkdirp_fast(mutable, dlen, mode);
+	int const err = mkdirp_internal(mutable, dlen, mode);
 	free(mutable); mutable = NULL;
 	return err;
 }
@@ -185,15 +208,6 @@ int async_fs_link_mkdirp(const char* path, const char* new_path) {
 	if(UV_ENOENT != rc) return rc;
 	async_fs_mkdirp_dirname(new_path, 0700);
 	return async_fs_link(path, new_path);
-}
-
-int async_fs_open_dirname(const  char* path, int flags, int mode) {
-	ssize_t dlen = dirlen(path, strlen(path));
-	if(dlen < 0) return dlen;
-	char *mutable = strndup(path, dlen);
-	int rc = async_fs_open(mutable, flags, mode);
-	free(mutable); mutable = NULL;
-	return rc;
 }
 
 // TODO: Put this somewhere.

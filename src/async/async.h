@@ -71,7 +71,7 @@ int async_fs_unlink(const char* path);
 int async_fs_link(const char* path, const char* new_path);
 int async_fs_fsync(uv_file file);
 int async_fs_fdatasync(uv_file file);
-int async_fs_mkdir(const char* path, int mode);
+int async_fs_mkdir_nosync(const char* path, int mode); // Warning: unsafe!
 int async_fs_ftruncate(uv_file file, int64_t offset);
 
 int async_fs_symlink(const char* path, const char* new_path, int flags);
@@ -81,13 +81,14 @@ int async_fs_writeall(uv_file const file, uv_buf_t bufs[], unsigned int const nb
 int async_fs_fstat(uv_file file, uv_fs_t *const req);
 int async_fs_stat(const char* path, uv_fs_t *const req);
 
-int async_fs_mkdirp_fast(char *const path, size_t const len, int const mode);
+int async_fs_open_dirname(const char* path, int flags, int mode);
+int async_fs_mkdir_sync(const char* path, int mode);
+
+// All of these use mkdir_sync.
 int async_fs_mkdirp(char const *const path, int const mode);
 int async_fs_mkdirp_dirname(char const *const path, int const mode);
 uv_file async_fs_open_mkdirp(const char* path, int flags, int mode);
 int async_fs_link_mkdirp(const char* path, const char* new_path);
-
-int async_fs_open_dirname(const  char* path, int flags, int mode);
 
 char *async_fs_tempnam(char const *dir, char const *prefix);
 
