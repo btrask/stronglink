@@ -84,15 +84,38 @@ int async_fs_symlink(const char* path, const char* new_path, int flags) {
 	ASYNC_FS_WRAP(symlink, path, new_path, flags);
 }
 
+ssize_t async_fs_readall_simple(uv_file const file, uv_buf_t const *const buf) {
+	async_pool_enter(NULL);
+	size_t pos = 0;
+	ssize_t rc;
+	for(;;) {
+		uv_buf_t b2 = uv_buf_init(buf->base+pos, buf->len-pos);
+		rc = async_fs_read(file, &b2, 1, -1);
+		if(rc < 0) break;
+		if(0 == rc) { rc = pos; break; }
+		pos += rc;
+		if(pos >= buf->len) { rc = pos; break; }
+	}
+	async_pool_leave(NULL);
+	return rc;
+}
 int async_fs_writeall(uv_file const file, uv_buf_t bufs[], unsigned int const nbufs, int64_t const offset) {
+	async_pool_enter(NULL);
 	int64_t pos = offset;
 	unsigned used = 0;
+	int rc = 0;
 	for(;;) {
 		ssize_t len = async_fs_write(file, bufs+used, nbufs-used, pos);
-		if(len < 0) return (int)len;
+		if(len < 0) {
+			rc = len;
+			goto cleanup;
+		}
 		if(pos >= 0) pos += len;
 		for(;;) {
-			if(used >= nbufs) return 0;
+			if(used >= nbufs) {
+				rc = 0;
+				goto cleanup;
+			}
 			size_t const x = len < bufs[used].len ? len : bufs[used].len;
 			bufs[used].base += x;
 			bufs[used].len -= x;
@@ -101,6 +124,9 @@ int async_fs_writeall(uv_file const file, uv_buf_t bufs[], unsigned int const nb
 			used++;
 		}
 	}
+cleanup:
+	async_pool_leave(NULL);
+	return rc;
 }
 
 int async_fs_fstat(uv_file file, uv_fs_t *const req) {

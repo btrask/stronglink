@@ -14,24 +14,6 @@ enum {
 
 static http_parser_settings const settings;
 
-static ssize_t readall(uv_file const file, uv_buf_t const *const buf) {
-	async_pool_enter(NULL);
-	size_t pos = 0;
-	ssize_t rc;
-	for(;;) {
-		uv_buf_t b2 = uv_buf_init(buf->base+pos, buf->len-pos);
-		rc = async_fs_read(file, &b2, 1, -1);
-		if(rc < 0) break;
-		if(0 == rc) { rc = pos; break; }
-		pos += rc;
-		if(pos >= buf->len) { rc = pos; break; }
-	}
-	async_pool_leave(NULL);
-	return rc;
-}
-
-
-
 struct HTTPConnection {
 	uv_tcp_t stream[1];
 	http_parser parser[1];
@@ -463,7 +445,7 @@ int HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file) {
 	if(!buf) return UV_ENOMEM;
 	uv_buf_t const info = uv_buf_init((char *)buf, BUFFER_SIZE);
 	for(;;) {
-		ssize_t const len = readall(file, &info);
+		ssize_t const len = async_fs_readall_simple(file, &info);
 		if(0 == len) break;
 		if(len < 0) {
 			FREE(&buf);
@@ -513,7 +495,7 @@ int HTTPConnectionWriteChunkFile(HTTPConnectionRef const conn, strarg_t const pa
 	if(rc < 0) goto cleanup;
 
 	uv_buf_t const chunk = uv_buf_init((char *)buf, BUFFER_SIZE);
-	ssize_t len = readall(file, &chunk);
+	ssize_t len = async_fs_readall_simple(file, &chunk);
 	if(len < 0) rc = len;
 	if(rc < 0) goto cleanup;
 

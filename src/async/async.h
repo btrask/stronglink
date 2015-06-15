@@ -76,6 +76,7 @@ int async_fs_ftruncate(uv_file file, int64_t offset);
 
 int async_fs_symlink(const char* path, const char* new_path, int flags);
 
+ssize_t async_fs_readall_simple(uv_file const file, uv_buf_t const *const buf);
 int async_fs_writeall(uv_file const file, uv_buf_t bufs[], unsigned int const nbufs, int64_t const offset);
 
 int async_fs_fstat(uv_file file, uv_fs_t *const req);
