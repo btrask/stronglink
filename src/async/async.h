@@ -82,6 +82,7 @@ int async_fs_fstat(uv_file file, uv_fs_t *const req);
 int async_fs_stat(const char* path, uv_fs_t *const req);
 
 int async_fs_open_dirname(const char* path, int flags, int mode);
+int async_fs_sync_dirname(const char* path);
 int async_fs_mkdir_sync(const char* path, int mode);
 
 // All of these use mkdir_sync.

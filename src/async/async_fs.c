@@ -145,16 +145,23 @@ int async_fs_open_dirname(const char* path, int flags, int mode) {
 	free(mutable); mutable = NULL;
 	return rc;
 }
+int async_fs_sync_dirname(const char* path) {
+	async_pool_enter(NULL);
+	int rc = async_fs_open_dirname(path, O_RDONLY, 0000);
+	if(rc >= 0) {
+		uv_file parent = rc;
+		rc = async_fs_fdatasync(parent);
+		async_fs_close(parent); parent = -1;
+	}
+	async_pool_leave(NULL);
+	return rc;
+}
 int async_fs_mkdir_sync(const char* path, int mode) {
 	async_pool_enter(NULL);
 	int rc = async_fs_mkdir_nosync(path, mode);
-	if(rc < 0) goto cleanup;
-	rc = async_fs_open_dirname(path, O_RDONLY, 0000);
-	if(rc < 0) goto cleanup;
-	uv_file parent = rc;
-	rc = async_fs_fdatasync(parent);
-	async_fs_close(parent); parent = -1;
-cleanup:
+	if(rc >= 0) {
+		rc = async_fs_sync_dirname(path);
+	}
 	async_pool_leave(NULL);
 	return rc;
 }

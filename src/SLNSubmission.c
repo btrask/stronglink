@@ -127,6 +127,7 @@ int SLNSubmissionEnd(SLNSubmissionRef const sub) {
 	if(!sub->URIs || !sub->internalHash) return UV_ENOMEM;
 
 	str_t *internalPath = NULL;
+	bool worker = false;
 	int rc = 0;
 
 	SLNRepoRef const repo = SLNSubmissionGetRepo(sub);
@@ -134,16 +135,25 @@ int SLNSubmissionEnd(SLNSubmissionRef const sub) {
 	if(!internalPath) rc = UV_ENOMEM;
 	if(rc < 0) goto cleanup;
 
+	async_pool_enter(NULL); worker = true;
+
 	rc = async_fs_fdatasync(sub->tmpfile);
 	if(rc < 0) goto cleanup;
 
-	rc = async_fs_link_mkdirp(sub->tmppath, internalPath); // fsyncs the dir
-	if(UV_EEXIST == rc) rc = 0;
+	rc = async_fs_link_mkdirp(sub->tmppath, internalPath);
+	if(UV_EEXIST == rc) {
+		rc = 0;
+		goto cleanup;
+	}
 	if(rc < 0) {
 		fprintf(stderr, "SLNSubmission couldn't move '%s' to '%s' (%s)\n", sub->tmppath, internalPath, uv_strerror(rc));
+		goto cleanup;
 	}
 
+	rc = async_fs_sync_dirname(internalPath);
+
 cleanup:
+	if(worker) { async_pool_leave(NULL); worker = false; }
 	FREE(&internalPath);
 
 	async_fs_unlink(sub->tmppath);
