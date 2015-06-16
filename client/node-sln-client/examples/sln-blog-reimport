@@ -10,7 +10,7 @@ var sln = require("../sln-client");
 var dst = sln.mainRepo();
 
 if(process.argv.length <= 3) {
-	console.debug("Usage: sln-blog-reimport <dst-url> <session>");
+	console.debug("Usage: sln-blog-reimport <src-url> <session>");
 	process.exit(1);
 }
 
