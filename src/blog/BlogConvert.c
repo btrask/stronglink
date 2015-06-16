@@ -200,8 +200,9 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 			double base = 1.0;
 			strarg_t const units[] = { "B", "KB", "MB", "GB", "TB" };
 			size_t i = 0;
-			for(; size/base > 1024.0 && i < numberof(units); i++) base *= 1024.0;
-			snprintf(buf, sizeof(buf), "%.1f %s", size/base, units[i]);
+			for(; base * 1024.0 <= size && i < numberof(units); i++) base *= 1024.0;
+			strarg_t const fmt = (0 == i ? "%.0f %s" : "%.1f %s");
+			snprintf(buf, sizeof(buf), fmt, size/base, units[i]);
 			unsafe = buf;
 			// P.S. Fuck scientific prefixes.
 		}
