@@ -51,17 +51,28 @@ function parsedates(body) {
 	}
 	return results;
 }
+function parsephonenumbers(body) {
+	var results = [];
+	var phone = /(?:\b(?:1-)?\d\d\d-|\(\d\d\d\) )\d\d\d-\d\d\d\d\b/g; // US only
+	var x;
+	for(;;) {
+		x = phone.exec(body);
+		if(!x) break;
+		results.push(x[0]);
+	}
+	return results;
+}
 
 function extract(body) {
 	var hashtag = /(?:^|[\s(])#([\w\d_-]{3,})\b/g;
 	var keywords = /\bKeywords: ([^\r\n]*)\b/g;
 	var keyword = /([^,]{3,})(, )?/g;
-	var meta = {
-		hashtag: [],
-		keyword: [],
-		topic: parsetopic(body),
-		date: parsedates(body),
-	};
+	var meta = {};
+	meta.hashtag = [];
+	meta.keyword = [];
+	meta.topic = parsetopic(body);
+	meta.date = parsedates(body);
+	meta.phone = parsephonenumbers(body);
 	var x, y;
 	for(;;) {
 		x = hashtag.exec(body);
@@ -77,6 +88,20 @@ function extract(body) {
 			y = keyword.exec(x[1]);
 			if(!y) break;
 			meta.keyword.push(y[1]);
+		}
+	}
+	// TODO: We shouldn't expose my personal publication logic like this.
+	if("StrongLink" === meta.topic ||
+	   "EarthFS" === meta.topic ||
+	   "EarthFS TODO" === meta.topic ||
+	   -1 !== meta.hashtag.indexOf("earthfs") ||
+	   -1 !== meta.hashtag.indexOf("notetaking"))
+	{
+		if(-1 === meta.keyword.indexOf("private") &&
+		   -1 === meta.hashtag.indexOf("private") &&
+		   0 === meta.phone.length)
+		{
+			meta.visibility = "public";
 		}
 	}
 	return meta;
