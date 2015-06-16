@@ -69,7 +69,7 @@ function Repo(url, session) {
 	var obj = urlmodule.parse(url);
 	this.hostname = obj.hostname;
 	this.port = obj.port;
-	this.path = obj.path;
+	this.path = obj.pathname; // pathname excludes query string
 	this.session = session;
 	this.client = http; // TODO
 

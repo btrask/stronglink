@@ -7,31 +7,30 @@ var crypto = require("crypto");
 var urimodule = require("url");
 
 var sln = require("../sln-client");
-var repo = sln.mainRepo();
+var dst = sln.mainRepo();
 
 if(process.argv.length <= 3) {
 	console.debug("Usage: sln-blog-reimport <dst-url> <session>");
 	process.exit(1);
 }
 
-var uri = urimodule.parse(process.argv[2]);
-var session = process.argv[3];
+var src = sln.createRepo(process.argv[2], process.argv[3]);
 var boundary = "----------"+crypto.randomBytes(16).toString("hex");
 
-var stream = repo.createQueryStream("", { wait: false });
+var stream = src.createQueryStream("", { wait: false });
 stream.on("data", function(URI) {
 	stream.pause();
 	console.log(URI);
-	var req1 = repo.createFileRequest(URI, {});
+	var req1 = src.createFileRequest(URI, {});
 	req1.on("response", function(res1) {
 		if(200 !== res1.statusCode) throw new Error("HTTP status "+res1.statusCode);
 		var req2 = http.request({
 			method: "POST",
-			hostname: uri.hostname,
-			port: uri.port,
-			path: urimodule.resolve(uri.pathname, "./post"),
+			hostname: dst.hostname,
+			port: dst.port,
+			path: dst.path+"/post",
 			headers: {
-				"Cookie": "s="+session,
+				"Cookie": "s="+dst.session,
 				"Content-Type": "multipart/form-data; boundary="+boundary,
 			},
 		});
