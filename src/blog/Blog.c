@@ -257,8 +257,10 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		SLNFileInfo info[1];
 		rc = SLNSessionGetFileInfo(session, primaryURI, info);
 		if(DB_SUCCESS == rc) {
+			str_t *preferredURI = SLNFormatURI(SLN_INTERNAL_ALGO, info->hash);
 			str_t *previewPath = BlogCopyPreviewPath(blog, info->hash);
-			send_preview(blog, conn, session, primaryURI, previewPath);
+			send_preview(blog, conn, session, preferredURI, previewPath);
+			FREE(&preferredURI);
 			FREE(&previewPath);
 			if(count) TemplateWriteHTTPChunk(blog->backlinks, &TemplateStaticCBs, args, conn);
 			SLNFileInfoCleanup(info);
