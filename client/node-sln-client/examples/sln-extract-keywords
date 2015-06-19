@@ -99,6 +99,7 @@ function extract(body) {
 	{
 		if(-1 === meta.keyword.indexOf("private") &&
 		   -1 === meta.hashtag.indexOf("private") &&
+		   -1 === meta.hashtag.indexOf("personal_journal") &&
 		   0 === meta.phone.length)
 		{
 			meta.visibility = "public";
