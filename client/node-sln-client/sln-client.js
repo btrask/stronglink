@@ -297,6 +297,29 @@ var util = require("util");
 var TransformStream = require("stream").Transform;
 var StringDecoder = require('string_decoder').StringDecoder;
 
+// opts: { meta: bool }
+// TODO: Code duplication.
+sln.parseURIList = function(str, opts) {
+	var result = [];
+	var rest = str;
+	var x;
+	for(;;) {
+		x = /^([^\r\n]*)[\r\n]/.exec(rest);
+		if(!x) break;
+		rest = rest.slice(x[0].length);
+		if(!x[1].length) continue;
+		if('#' === x[1][0]) continue; // Comment line.
+		if(!opts || !has(opts, "meta") || !opts._meta) {
+			result.push(x[1]);
+		} else {
+			x = /^(.*)\s*->\s*(.*)$/.exec(x[1]);
+			if(!x) return cb(new Error("Parse error"));
+			result.push({ uri: x[1], target: uri[2] });
+		}
+	}
+	return result;
+};
+
 // opts: { meta: bool, req: http.ClientRequest }
 function URIListStream(opts) {
 	var stream = this;

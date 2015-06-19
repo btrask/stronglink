@@ -2,9 +2,27 @@
 // Copyright 2014-2015 Ben Trask
 // MIT licensed (see LICENSE for details)
 
+var fs = require("fs");
+var pathmodule = require("path");
 var sln = require("../sln-client");
 var repo = sln.mainRepo();
 
+if(process.argv[2] && "-" === process.argv[2][0]) {
+	console.debug("Usage: sln-extract-keywords [blacklist] [whitelist]");
+	process.exit(1);
+}
+
+var blacklist = readURIListSync(process.argv[2]);
+var whitelist = readURIListSync(process.argv[3]);
+
+function readURIListSync(path) {
+	if(!path || "" === path) return {};
+	var text = fs.readFileSync(pathmodule.resolve(path), "utf8");
+	var list = sln.parseURIList(text);
+	var map = {}, i;
+	for(i = 0; i < list.length; i++) map[list[i]] = 1;
+	return map;
+}
 function texttype(type) {
 	if("text/plain" === type) return true;
 	if("text/plain; charset=utf-8" === type) return true;
@@ -63,7 +81,7 @@ function parsephonenumbers(body) {
 	return results;
 }
 
-function extract(body) {
+function extract(URI, body) {
 	var hashtag = /(?:^|[\s(])#([\w\d_-]{3,})\b/g;
 	var keywords = /\bKeywords: ([^\r\n]*)\b/g;
 	var keyword = /([^,]{3,})(, )?/g;
@@ -95,12 +113,14 @@ function extract(body) {
 	   "EarthFS" === meta.topic ||
 	   "EarthFS TODO" === meta.topic ||
 	   -1 !== meta.hashtag.indexOf("earthfs") ||
-	   -1 !== meta.hashtag.indexOf("notetaking"))
+	   -1 !== meta.hashtag.indexOf("notetaking") ||
+	   whitelist[URI])
 	{
 		if(-1 === meta.keyword.indexOf("private") &&
 		   -1 === meta.hashtag.indexOf("private") &&
 		   -1 === meta.hashtag.indexOf("personal_journal") &&
-		   0 === meta.phone.length)
+		   0 === meta.phone.length &&
+		   !blacklist[URI])
 		{
 			meta.visibility = "public";
 		}
@@ -152,7 +172,7 @@ stream.on("data", function(URI) {
 				console.log("\n"+URI);
 			//	console.log("\n"+body);
 			//	console.log("\n");
-				console.log(fakemeta(body) || extract(body));
+				console.log(fakemeta(body) || extract(URI, body));
 			}*/
 
 			var obj = fakemeta(body);
@@ -166,7 +186,7 @@ stream.on("data", function(URI) {
 				});
 				return;
 			}
-			obj = extract(body);
+			obj = extract(URI, body);
 			repo.submitMeta(URI, obj, {}, function(err) {
 				if(err) throw err;
 				stream.resume();
