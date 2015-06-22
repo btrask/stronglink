@@ -154,6 +154,7 @@ int SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, bool const me
 		uint64_t f;
 		strarg_t target = NULL;
 		SLNMetaFileByIDValUnpack(val, txn, &f, &target);
+		db_assert(target);
 		URI = aasprintf("hash://%s/%s -> %s", SLN_INTERNAL_ALGO, hash, target);
 		if(!URI) return DB_ENOMEM;
 	}
