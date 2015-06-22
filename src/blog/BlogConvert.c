@@ -195,7 +195,7 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 		// we got the URI in the first place.
 		SLNFileInfo info[1];
 		rc = SLNSessionGetFileInfo(state->session, state->fileURI, info);
-		if(DB_SUCCESS == rc) {
+		if(rc >= 0) {
 			double const size = info->size;
 			double base = 1.0;
 			strarg_t const units[] = { "B", "KB", "MB", "GB", "TB" };
@@ -212,7 +212,7 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 
 	str_t value[1024 * 4];
 	rc = SLNSessionGetValueForField(state->session, value, sizeof(value), state->fileURI, var);
-	if(DB_SUCCESS == rc && '\0' != value[0]) unsafe = value;
+	if(rc >= 0 && '\0' != value[0]) unsafe = value;
 
 	if(!unsafe) {
 		if(0 == strcmp(var, "thumbnailURI")) unsafe = "/file.png";

@@ -84,7 +84,7 @@ static void init(void *const unused) {
 	}
 	int rc = HTTPServerListen(server, NULL, "8000"); // TODO
 	if(rc < 0) {
-		fprintf(stderr, "Unable to start server (%d, %s)", rc, uv_strerror(rc));
+		fprintf(stderr, "Unable to start server (%d, %s)", rc, sln_strerror(rc));
 		return;
 	}
 	fprintf(stderr, "StrongLink server running at http://localhost:8000/\n");

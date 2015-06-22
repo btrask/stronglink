@@ -67,7 +67,7 @@ static SLNFilterRef parse_term(strarg_t *const query) {
 	if(sizeof("and")-1 == len && 0 == strncasecmp("and", *query, len)) return NULL;
 	SLNFilterRef filter = createfilter(SLNFulltextFilterType);
 	int rc = SLNFilterAddStringArg(filter, *query, len);
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		SLNFilterFree(&filter);
 		return NULL;
 	}
@@ -182,7 +182,7 @@ int SLNUserFilterParse(SLNSessionRef const session, strarg_t const query, SLNFil
 		filter = createfilter(SLNAllFilterType);
 		if(!filter) return DB_ENOMEM;
 		*out = filter;
-		return DB_SUCCESS;
+		return 0;
 	}
 	strarg_t q = query;
 	filter = parse_and(&q);
@@ -193,6 +193,6 @@ int SLNUserFilterParse(SLNSessionRef const session, strarg_t const query, SLNFil
 		return DB_EINVAL;
 	}
 	*out = filter;
-	return DB_SUCCESS;
+	return 0;
 }
 

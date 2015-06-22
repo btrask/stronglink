@@ -137,7 +137,7 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 	SLNRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
 	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		SLNRepoDBClose(repo, &db);
 		return rc;
 	}
@@ -145,7 +145,7 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 	DB_val username_key[1], userID_val[1];
 	SLNUserIDByNameKeyPack(username_key, txn, username);
 	rc = db_get(txn, username_key, userID_val);
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		db_txn_abort(txn); txn = NULL;
 		SLNRepoDBClose(repo, &db);
 		return rc;
@@ -156,7 +156,7 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 	DB_val userID_key[1], user_val[1];
 	SLNUserByIDKeyPack(userID_key, txn, userID);
 	rc = db_get(txn, userID_key, user_val);
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		db_txn_abort(txn); txn = NULL;
 		SLNRepoDBClose(repo, &db);
 		return rc;
@@ -194,14 +194,14 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 
 	SLNRepoDBOpen(repo, &db);
 	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 
 	uint64_t const sessionID = db_next_id(SLNSessionByID, txn);
 	DB_val sessionID_key[1], session_val[1];
 	SLNSessionByIDKeyPack(sessionID_key, txn, sessionID);
 	SLNSessionByIDValPack(session_val, txn, userID, key_str);
 	rc = db_put(txn, sessionID_key, session_val, DB_NOOVERWRITE_FAST);
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		db_txn_abort(txn); txn = NULL;
 		SLNRepoDBClose(repo, &db);
 		return rc;
@@ -209,14 +209,14 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 
 	rc = db_txn_commit(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 
 
 	SLNSessionRef session = SLNSessionCreateInternal(cache, sessionID, key_raw, key_enc, userID, mode, username);
 	if(!session) return DB_ENOMEM;
 	session_cache(cache, session);
 	*out = session;
-	return DB_SUCCESS;
+	return 0;
 }
 
 
@@ -234,7 +234,7 @@ static int cookie_parse(strarg_t const cookie, uint64_t *const sessionID, byte_t
 	byte_t key_enc[SHA256_DIGEST_LENGTH];
 	SHA256(key_raw, SESSION_KEY_LEN, key_enc);
 	memcpy(sessionKey, key_enc, SESSION_KEY_LEN);
-	return DB_SUCCESS;
+	return 0;
 }
 static int session_lookup(SLNSessionCacheRef const cache, uint64_t const id, byte_t const key[SESSION_KEY_LEN], SLNSessionRef *const out) {
 	uint16_t const pos = session_pos(cache, id);
@@ -245,7 +245,7 @@ static int session_lookup(SLNSessionCacheRef const cache, uint64_t const id, byt
 		SLNSessionRef const s = cache->sessions[x];
 		if(0 != SLNSessionKeyCmp(s, key)) return DB_EACCES;
 		*out = SLNSessionRetain(s);
-		return DB_SUCCESS;
+		return 0;
 	}
 	return DB_NOTFOUND;
 }
@@ -255,13 +255,13 @@ static int session_load(SLNSessionCacheRef const cache, uint64_t const id, byte_
 	SLNRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
 	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 
 	DB_val sessionID_key[1];
 	SLNSessionByIDKeyPack(sessionID_key, txn, id);
 	DB_val session_val[1];
 	rc = db_get(txn, sessionID_key, session_val);
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		db_txn_abort(txn); txn = NULL;
 		SLNRepoDBClose(repo, &db);
 		return rc;
@@ -276,7 +276,7 @@ static int session_load(SLNSessionCacheRef const cache, uint64_t const id, byte_
 	SLNUserByIDKeyPack(userID_key, txn, userID);
 	DB_val user_val[1];
 	rc = db_get(txn, userID_key, user_val);
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		db_txn_abort(txn); txn = NULL;
 		SLNRepoDBClose(repo, &db);
 		return rc;
@@ -312,7 +312,7 @@ static int session_load(SLNSessionCacheRef const cache, uint64_t const id, byte_
 	session_cache(cache, session);
 
 	*out = session;
-	return DB_SUCCESS;
+	return 0;
 }
 SLNSessionRef SLNSessionCacheCopyActiveSession(SLNSessionCacheRef const cache, strarg_t const cookie) {
 	if(!cache) return NULL;
@@ -321,15 +321,15 @@ SLNSessionRef SLNSessionCacheCopyActiveSession(SLNSessionCacheRef const cache, s
 	uint64_t sessionID;
 	byte_t sessionKey[SESSION_KEY_LEN];
 	int rc = cookie_parse(cookie, &sessionID, sessionKey);
-	if(DB_SUCCESS != rc) return SLNSessionRetain(cache->public);
+	if(rc < 0) return SLNSessionRetain(cache->public);
 
 	SLNSessionRef session;
 	rc = session_lookup(cache, sessionID, sessionKey, &session);
-	if(DB_SUCCESS == rc) return session;
+	if(rc >= 0) return session;
 	if(DB_EACCES == rc) return SLNSessionRetain(cache->public);
 	if(DB_NOTFOUND != rc) return NULL;
 	rc = session_load(cache, sessionID, sessionKey, &session);
-	if(DB_SUCCESS == rc) return session;
+	if(rc >= 0) return session;
 	if(DB_EACCES == rc) return SLNSessionRetain(cache->public);
 	if(DB_NOTFOUND == rc) return SLNSessionRetain(cache->public);
 	return NULL;

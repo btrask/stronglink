@@ -40,6 +40,13 @@ typedef struct SLNFilter* SLNFilterRef;
 typedef struct SLNJSONFilterParser* SLNJSONFilterParserRef;
 typedef struct SLNPull* SLNPullRef;
 
+static strarg_t sln_strerror(int const rc) {
+	if(rc >= 0) return "No error";
+	strarg_t x = db_strerror(rc);
+	if(!x) x = uv_strerror(rc);
+	return x;
+}
+
 SLNRepoRef SLNRepoCreate(strarg_t const dir, strarg_t const name);
 void SLNRepoFree(SLNRepoRef *const repoptr);
 strarg_t SLNRepoGetDir(SLNRepoRef const repo);

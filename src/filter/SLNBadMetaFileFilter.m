@@ -119,12 +119,12 @@
 	SLNMetaFileByIDKeyPack(metaFileID_key, curtxn, sortID);
 	DB_val metaFile_val[1];
 	int rc = db_cursor_seekr(metafiles, range, metaFileID_key, metaFile_val, dir);
-	assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
+	assertf(rc >= 0 || DB_NOTFOUND == rc, "Database error %s", sln_strerror(rc));
 }
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
 	DB_val metaFileID_key[1], metaFile_val[1];
 	int rc = db_cursor_current(metafiles, metaFileID_key, metaFile_val);
-	if(DB_SUCCESS == rc) {
+	if(rc >= 0) {
 		uint64_t const table = db_read_uint64(metaFileID_key);
 		assert(SLNMetaFileByID == table);
 		if(sortID) *sortID = db_read_uint64(metaFileID_key);
@@ -139,7 +139,7 @@
 	SLNMetaFileByIDRange0(range, curtxn);
 	DB_val ignore[1];
 	int rc = db_cursor_nextr(metafiles, range, ignore, NULL, dir);
-	assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
+	assertf(rc >= 0 || DB_NOTFOUND == rc, "Database error %s", sln_strerror(rc));
 }
 - (SLNAgeRange)fullAge:(uint64_t const)fileID {
 	assert(subfilter);
@@ -151,7 +151,7 @@
 	SLNMetaFileByIDKeyPack(metaFileID_key, curtxn, metaFileID);
 	DB_val metaFile_val[1];
 	rc = db_cursor_seek(age_uri, metaFileID_key, metaFile_val, 0);
-	if(DB_SUCCESS != rc) return (SLNAgeRange){ UINT64_MAX, UINT64_MAX };
+	if(rc < 0) return (SLNAgeRange){ UINT64_MAX, UINT64_MAX };
 	uint64_t const f2 = db_read_uint64(metaFile_val);
 	assert(fileID == f2);
 	strarg_t const targetURI = db_read_string(metaFile_val, curtxn);
@@ -160,8 +160,8 @@
 	SLNURIAndFileIDRange1(targetFileIDs, curtxn, targetURI);
 	DB_val targetFileID_key[1];
 	rc = db_cursor_firstr(age_files, targetFileIDs, targetFileID_key, NULL, +1);
-	assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
-	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(age_files, targetFileIDs, targetFileID_key, NULL, +1)) {
+	assertf(rc >= 0 || DB_NOTFOUND == rc, "Database error %s", sln_strerror(rc));
+	for(; rc >= 0; rc = db_cursor_nextr(age_files, targetFileIDs, targetFileID_key, NULL, +1)) {
 		strarg_t u;
 		uint64_t targetFileID;
 		SLNURIAndFileIDKeyUnpack(targetFileID_key, curtxn, &u, &targetFileID);

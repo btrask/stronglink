@@ -48,7 +48,7 @@ bool URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs) {
 	int rc = SLNSessionCacheCreateSession(cache, values[0], values[1], &s);
 	QSValuesCleanup(values, numberof(values));
 
-	if(DB_SUCCESS != rc) return 403;
+	if(rc < 0) return 403;
 
 	str_t *cookie = SLNSessionCopyCookie(s);
 	SLNSessionRelease(&s);
@@ -84,7 +84,7 @@ static int GET_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 	rc = SLNSessionGetFileInfo(session, fileURI, info);
 	if(DB_EACCES == rc) return 403;
 	if(DB_NOTFOUND == rc) return 404;
-	if(DB_SUCCESS != rc) return 500;
+	if(rc < 0) return 500;
 
 	uv_file file = async_fs_open(info->path, O_RDONLY, 0000);
 	if(UV_ENOENT == file) {
@@ -168,7 +168,6 @@ static int POST_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 	rc = SLNSubmissionEnd(sub);
 	if(rc < 0) goto cleanup;
 	rc = SLNSubmissionStoreBatch(&sub, 1);
-	if(DB_SUCCESS != rc) rc = -1; // TODO: Better way to handle db/uv errors.
 	if(rc < 0) goto cleanup;
 	strarg_t const location = SLNSubmissionGetPrimaryURI(sub);
 	if(!location) rc = UV_ENOMEM;
@@ -193,7 +192,7 @@ static int sendURIBatch(SLNSessionRef const session, SLNFilterRef const filter, 
 	str_t *URIs[QUERY_BATCH_SIZE];
 	opts->count = QUERY_BATCH_SIZE;
 	int rc = SLNSessionCopyFilteredURIs(session, filter, opts, URIs, &count);
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 	if(0 == count) return DB_NOTFOUND;
 	rc = 0;
 	for(size_t i = 0; i < count; i++) {
@@ -206,7 +205,7 @@ static int sendURIBatch(SLNSessionRef const session, SLNFilterRef const filter, 
 	}
 	for(size_t i = 0; i < count; i++) FREE(&URIs[i]);
 	if(rc < 0) return DB_EIO;
-	return DB_SUCCESS;
+	return 0;
 }
 static bool parse_wait(strarg_t const str) {
 	if(!str) return true;
@@ -250,8 +249,8 @@ static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, 
 	for(;;) {
 		rc = sendURIBatch(session, filter, opts, conn);
 		if(DB_NOTFOUND == rc) break;
-		if(DB_SUCCESS == rc) continue;
-		fprintf(stderr, "Query error: %s\n", db_strerror(rc));
+		if(rc >= 0) continue;
+		fprintf(stderr, "Query error: %s\n", sln_strerror(rc));
 		goto cleanup;
 	}
 
@@ -272,8 +271,8 @@ static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, 
 		for(;;) {
 			rc = sendURIBatch(session, filter, opts, conn);
 			if(DB_NOTFOUND == rc) break;
-			if(DB_SUCCESS == rc) continue;
-			fprintf(stderr, "Query error: %s\n", db_strerror(rc));
+			if(rc >= 0) continue;
+			fprintf(stderr, "Query error: %s\n", sln_strerror(rc));
 			goto cleanup;
 		}
 	}
@@ -288,7 +287,7 @@ static int parseFilter(SLNSessionRef const session, HTTPConnectionRef const conn
 	// TODO: Check Content-Type header for JSON.
 	SLNJSONFilterParserRef parser;
 	int rc = SLNJSONFilterParserCreate(session, &parser);
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 	for(;;) {
 		uv_buf_t buf[1];
 		rc = HTTPConnectionReadBody(conn, buf);
@@ -303,7 +302,7 @@ static int parseFilter(SLNSessionRef const session, HTTPConnectionRef const conn
 	*out = SLNJSONFilterParserEnd(parser);
 	SLNJSONFilterParserFree(&parser);
 	if(!*out) return DB_ENOMEM;
-	return DB_SUCCESS;
+	return 0;
 }
 static int GET_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
@@ -320,7 +319,7 @@ static int GET_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 	QSValuesCleanup(values, numberof(values));
 	if(DB_EINVAL == rc) rc = SLNFilterCreate(session, SLNVisibleFilterType, &filter);
 	if(DB_EACCES == rc) return 403;
-	if(DB_SUCCESS != rc) return 500;
+	if(rc < 0) return 500;
 
 	sendURIList(session, filter, qs, conn);
 	SLNFilterFree(&filter);
@@ -334,7 +333,7 @@ static int POST_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPCo
 	SLNFilterRef filter;
 	int rc = parseFilter(session, conn, method, headers, &filter);
 	if(DB_EACCES == rc) return 403;
-	if(DB_SUCCESS != rc) return 500;
+	if(rc < 0) return 500;
 	sendURIList(session, filter, qs, conn);
 	SLNFilterFree(&filter);
 	return 0;
@@ -347,7 +346,7 @@ static int GET_metafiles(SLNRepoRef const repo, SLNSessionRef const session, HTT
 	SLNFilterRef filter;
 	int rc = SLNFilterCreate(session, SLNMetaFileFilterType, &filter);
 	if(DB_EACCES == rc) return 403;
-	if(DB_SUCCESS != rc) return 500;
+	if(rc < 0) return 500;
 	sendURIList(session, filter, qs, conn); // TODO: Use "meta -> file" format
 	SLNFilterFree(&filter);
 	return 0;
@@ -361,7 +360,7 @@ static int GET_query_obsolete(SLNRepoRef const repo, SLNSessionRef const session
 	SLNFilterRef filter, subfilter;
 	int rc = SLNFilterCreate(session, SLNBadMetaFileFilterType, &filter);
 	if(DB_EACCES == rc) return 403;
-	if(DB_SUCCESS != rc) return 500;
+	if(rc < 0) return 500;
 
 	static strarg_t const fields[] = { "q" };
 	str_t *values[numberof(fields)] = {};
@@ -369,7 +368,7 @@ static int GET_query_obsolete(SLNRepoRef const repo, SLNSessionRef const session
 	rc = SLNUserFilterParse(session, values[0], &subfilter);
 	QSValuesCleanup(values, numberof(values));
 	if(DB_EINVAL == rc) rc = SLNFilterCreate(session, SLNVisibleFilterType, &subfilter);
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		SLNFilterFree(&filter);
 		return 500;
 	}

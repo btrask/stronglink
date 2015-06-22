@@ -147,15 +147,15 @@ int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn,
 	SLNUserIDByNameKeyPack(username_key, txn, username);
 	SLNUserIDByNameValPack(userID_val, txn, userID);
 	int rc = db_put(txn, username_key, userID_val, DB_NOOVERWRITE);
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 
 	DB_val userID_key[1], user_val[1];
 	SLNUserByIDKeyPack(userID_key, txn, userID);
 	SLNUserByIDValPack(user_val, txn, username, passhash, NULL, mode, parent, time);
 	rc = db_put(txn, userID_key, user_val, DB_NOOVERWRITE);
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 
-	return DB_SUCCESS;
+	return 0;
 }
 
 int SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const filter, SLNFilterOpts *const opts, str_t *out[], size_t *const outcount) {
@@ -164,27 +164,27 @@ int SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const f
 	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
 	if(0 == opts->dir) return DB_EINVAL;
 	if(0 == opts->outdir) return DB_EINVAL;
-	if(opts->count <= 0) return DB_SUCCESS;
+	if(opts->count <= 0) return 0;
 
 	DB_env *db = NULL;
 	DB_txn *txn = NULL;
-	int rc = DB_SUCCESS;
+	int rc = 0;
 
 	SLNRepoRef const repo = SLNSessionGetRepo(session);
 	SLNRepoDBOpen(repo, &db);
 	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	if(DB_SUCCESS != rc) goto cleanup;
+	if(rc < 0) goto cleanup;
 
 	rc = SLNFilterPrepare(filter, txn);
-	if(DB_SUCCESS != rc) goto cleanup;
+	if(rc < 0) goto cleanup;
 
 	if(opts->URI) {
 		rc = SLNFilterSeekURI(filter, opts->dir, opts->URI, txn);
 	} else {
 		SLNFilterSeek(filter, opts->dir, opts->sortID, opts->fileID);
-		rc = DB_SUCCESS;
+		rc = 0;
 	}
-	if(DB_SUCCESS != rc) goto cleanup;
+	if(rc < 0) goto cleanup;
 
 	int const dir = opts->dir * opts->outdir;
 	size_t i = 0;
@@ -219,7 +219,7 @@ int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFi
 	SLNRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
 	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		SLNRepoDBClose(repo, &db);
 		return rc;
 	}
@@ -233,7 +233,7 @@ int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFi
 	DB_val URIAndFileID_key[1];
 	rc = db_cursor_firstr(cursor, fileIDs, URIAndFileID_key, NULL, +1);
 	DB_val file_val[1];
-	if(DB_SUCCESS == rc) {
+	if(rc >= 0) {
 		strarg_t URI2;
 		uint64_t fileID;
 		SLNURIAndFileIDKeyUnpack(URIAndFileID_key, txn, &URI2, &fileID);
@@ -244,7 +244,7 @@ int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFi
 			rc = db_get(txn, fileID_key, file_val);
 		}
 	}
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		db_txn_abort(txn); txn = NULL;
 		SLNRepoDBClose(repo, &db);
 		return rc;
@@ -268,7 +268,7 @@ int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFi
 
 	db_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
-	return DB_SUCCESS;
+	return 0;
 }
 void SLNFileInfoCleanup(SLNFileInfo *const info) {
 	if(!info) return;
@@ -285,7 +285,7 @@ int SLNSessionGetValueForField(SLNSessionRef const session, str_t value[], size_
 	if(!field) return DB_EINVAL;
 
 	if(max) value[0] = '\0';
-	int rc = DB_SUCCESS;
+	int rc = 0;
 	DB_cursor *metafiles = NULL;
 	DB_cursor *values = NULL;
 
@@ -294,19 +294,19 @@ int SLNSessionGetValueForField(SLNSessionRef const session, str_t value[], size_
 	SLNRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
 	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	if(DB_SUCCESS != rc) goto done;
+	if(rc < 0) goto done;
 
 	rc = db_cursor_open(txn, &metafiles);
-	if(DB_SUCCESS != rc) goto done;
+	if(rc < 0) goto done;
 	rc = db_cursor_open(txn, &values);
-	if(DB_SUCCESS != rc) goto done;
+	if(rc < 0) goto done;
 
 	DB_range metaFileIDs[1];
 	SLNTargetURIAndMetaFileIDRange1(metaFileIDs, txn, fileURI);
 	DB_val metaFileID_key[1];
 	rc = db_cursor_firstr(metafiles, metaFileIDs, metaFileID_key, NULL, +1);
-	if(DB_SUCCESS != rc && DB_NOTFOUND != rc) goto done;
-	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(metafiles, metaFileIDs, metaFileID_key, NULL, +1)) {
+	if(rc < 0 && DB_NOTFOUND != rc) goto done;
+	for(; rc >= 0; rc = db_cursor_nextr(metafiles, metaFileIDs, metaFileID_key, NULL, +1)) {
 		strarg_t u;
 		uint64_t metaFileID;
 		SLNTargetURIAndMetaFileIDKeyUnpack(metaFileID_key, txn, &u, &metaFileID);
@@ -315,8 +315,8 @@ int SLNSessionGetValueForField(SLNSessionRef const session, str_t value[], size_
 		SLNMetaFileIDFieldAndValueRange2(vrange, txn, metaFileID, field);
 		DB_val value_val[1];
 		rc = db_cursor_firstr(values, vrange, value_val, NULL, +1);
-		if(DB_SUCCESS != rc && DB_NOTFOUND != rc) goto done;
-		for(; DB_SUCCESS == rc; rc = db_cursor_nextr(values, vrange, value_val, NULL, +1)) {
+		if(rc < 0 && DB_NOTFOUND != rc) goto done;
+		for(; rc >= 0; rc = db_cursor_nextr(values, vrange, value_val, NULL, +1)) {
 			uint64_t m;
 			strarg_t f, v;
 			SLNMetaFileIDFieldAndValueKeyUnpack(value_val, txn, &m, &f, &v);

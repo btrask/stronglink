@@ -24,7 +24,7 @@
 	// Once we support mutable filters with multiple ranges, this will
 	// no longer be a problem.
 	subfilter = filter;
-	return DB_SUCCESS;
+	return 0;
 }
 - (void)print:(size_t const)depth {
 	indent(depth);
@@ -42,7 +42,7 @@
 
 - (int)prepare:(DB_txn *const)txn {
 	int rc = [super prepare:txn];
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 	return [subfilter prepare:txn];
 }
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {}

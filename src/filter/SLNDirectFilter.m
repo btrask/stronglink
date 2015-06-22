@@ -25,7 +25,7 @@
 - (int)addStringArg:(strarg_t const)str :(size_t const)len {
 	if(!URI) {
 		URI = strndup(str, len);
-		return DB_SUCCESS;
+		return 0;
 	}
 	return DB_EINVAL;
 }
@@ -39,11 +39,11 @@
 
 - (int)prepare:(DB_txn *const)txn {
 	int rc = [super prepare:txn];
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 	db_cursor_renew(txn, &files); // SLNURIAndFileID
 	db_cursor_renew(txn, &age); // SLNURIAndFileID
 	curtxn = txn;
-	return DB_SUCCESS;
+	return 0;
 }
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
 	uint64_t x = sortID;
@@ -55,7 +55,7 @@
 	SLNURIAndFileIDRange1(range, curtxn, URI);
 	SLNURIAndFileIDKeyPack(key, curtxn, URI, x);
 	int rc = db_cursor_seekr(files, range, key, NULL, dir);
-	db_assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
+	db_assertf(rc >= 0 || DB_NOTFOUND == rc, "Database error %s", sln_strerror(rc));
 
 	// TODO: Skip files without any meta-files. The content of the
 	// meta-file doesn't matter.
@@ -63,7 +63,7 @@
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
 	DB_val key[1];
 	int rc = db_cursor_current(files, key, NULL);
-	if(DB_SUCCESS == rc) {
+	if(rc >= 0) {
 		strarg_t u;
 		uint64_t x;
 		SLNURIAndFileIDKeyUnpack(key, curtxn, &u, &x);
@@ -78,7 +78,7 @@
 	DB_range range[1];
 	SLNURIAndFileIDRange1(range, curtxn, URI);
 	int rc = db_cursor_nextr(files, range, NULL, NULL, dir);
-	db_assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
+	db_assertf(rc >= 0 || DB_NOTFOUND == rc, "Database error %s", sln_strerror(rc));
 
 	// TODO: Skip files without meta-files.
 }
@@ -87,7 +87,7 @@
 	SLNURIAndFileIDKeyPack(key, curtxn, URI, fileID);
 	int rc = db_cursor_seek(age, key, NULL, 0);
 	if(DB_NOTFOUND == rc) return (SLNAgeRange){UINT64_MAX, UINT64_MAX};
-	db_assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
+	db_assertf(rc >= 0, "Database error %s", sln_strerror(rc));
 	return (SLNAgeRange){fileID, UINT64_MAX};
 }
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {
@@ -114,7 +114,7 @@
 - (int)addStringArg:(strarg_t const)str :(size_t const)len {
 	if(!targetURI) {
 		targetURI = strndup(str, len);
-		return DB_SUCCESS;
+		return 0;
 	}
 	return DB_EINVAL;
 }
@@ -131,11 +131,11 @@
 
 - (int)prepare:(DB_txn *const)txn {
 	int rc = [super prepare:txn];
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 	db_cursor_renew(txn, &metafiles); // SLNTargetURIAndMetaFileID
 	db_cursor_renew(txn, &age); // SLNTargetURIAndMetaFileID
 	curtxn = txn;
-	return DB_SUCCESS;
+	return 0;
 }
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
 	// TODO: Copy and paste from SLNURIFilter.
@@ -148,12 +148,12 @@
 	SLNTargetURIAndMetaFileIDRange1(range, curtxn, targetURI);
 	SLNTargetURIAndMetaFileIDKeyPack(key, curtxn, targetURI, x);
 	int rc = db_cursor_seekr(metafiles, range, key, NULL, dir);
-	db_assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
+	db_assertf(rc >= 0 || DB_NOTFOUND == rc, "Database error %s", sln_strerror(rc));
 }
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
 	DB_val key[1];
 	int rc = db_cursor_current(metafiles, key, NULL);
-	if(DB_SUCCESS == rc) {
+	if(rc >= 0) {
 		strarg_t URI = NULL;
 		uint64_t x = 0;
 		SLNTargetURIAndMetaFileIDKeyUnpack(key, curtxn, &URI, &x);
@@ -169,14 +169,14 @@
 	DB_range range[1];
 	SLNTargetURIAndMetaFileIDRange1(range, curtxn, targetURI);
 	int rc = db_cursor_nextr(metafiles, range, NULL, NULL, dir);
-	db_assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
+	db_assertf(rc >= 0 || DB_NOTFOUND == rc, "Database error %s", sln_strerror(rc));
 }
 - (SLNAgeRange)fullAge:(uint64_t const)fileID {
 	DB_val key[1];
 	SLNTargetURIAndMetaFileIDKeyPack(key, curtxn, targetURI, fileID);
 	int rc = db_cursor_seek(age, key, NULL, 0);
 	if(DB_NOTFOUND == rc) return (SLNAgeRange){UINT64_MAX, UINT64_MAX};
-	db_assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
+	db_assertf(rc >= 0, "Database error %s", sln_strerror(rc));
 	return (SLNAgeRange){fileID, UINT64_MAX};
 }
 - (uint64_t)fastAge:(uint64_t const)fileID :(uint64_t const)sortID {
@@ -203,9 +203,9 @@
 
 - (int)prepare:(DB_txn *const)txn {
 	int rc = [super prepare:txn];
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 	db_cursor_renew(txn, &files); // SLNFileByID
-	return DB_SUCCESS;
+	return 0;
 }
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
 	// TODO: Copy and paste from SLNURIFilter.
@@ -218,12 +218,12 @@
 	SLNFileByIDRange0(range, curtxn);
 	SLNFileByIDKeyPack(key, curtxn, x);
 	int rc = db_cursor_seekr(files, range, key, NULL, dir);
-	db_assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
+	db_assertf(rc >= 0 || DB_NOTFOUND == rc, "Database error %s", sln_strerror(rc));
 }
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
 	DB_val key[1];
 	int rc = db_cursor_current(files, key, NULL);
-	if(DB_SUCCESS == rc) {
+	if(rc >= 0) {
 		dbid_t const table = db_read_uint64(key);
 		assert(SLNFileByID == table);
 		uint64_t const x = db_read_uint64(key);
@@ -238,7 +238,7 @@
 	DB_range range[1];
 	SLNFileByIDRange0(range, curtxn);
 	int rc = db_cursor_nextr(files, range, NULL, NULL, dir);
-	db_assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
+	db_assertf(rc >= 0 || DB_NOTFOUND == rc, "Database error %s", sln_strerror(rc));
 }
 - (SLNAgeRange)fullAge:(uint64_t const)fileID {
 	return (SLNAgeRange){fileID, UINT64_MAX};

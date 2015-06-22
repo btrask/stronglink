@@ -26,9 +26,9 @@
 
 - (int)prepare:(DB_txn *const)txn {
 	int rc = [super prepare:txn];
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 	db_cursor_renew(txn, &metafiles); // SLNMetaFileByID
-	return DB_SUCCESS;
+	return 0;
 }
 
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
@@ -38,7 +38,7 @@
 	SLNMetaFileByIDKeyPack(key, NULL, sortID);
 	int rc = db_cursor_seekr(metafiles, range, key, val, dir);
 	if(DB_NOTFOUND == rc) return;
-	db_assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
+	db_assertf(rc >= 0, "Database error %s", sln_strerror(rc));
 
 	uint64_t actualSortID, actualFileID;
 	SLNMetaFileByIDKeyUnpack(key, NULL, &actualSortID);
@@ -52,7 +52,7 @@
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
 	DB_val key[1], val[1];
 	int rc = db_cursor_current(metafiles, key, val);
-	if(DB_SUCCESS == rc) {
+	if(rc >= 0) {
 		uint64_t s;
 		SLNMetaFileByIDKeyUnpack(key, NULL, &s);
 		uint64_t f;
@@ -70,7 +70,7 @@
 	DB_range range[1];
 	SLNMetaFileByIDRange0(range, NULL);
 	int rc = db_cursor_nextr(metafiles, range, NULL, NULL, dir);
-	db_assertf(DB_SUCCESS == rc || DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
+	db_assertf(rc >= 0 || DB_NOTFOUND == rc, "Database error %s", sln_strerror(rc));
 }
 - (SLNAgeRange)fullAge:(uint64_t const)fileID {
 	// TODO: Check that fileID is a meta-file.

@@ -5,6 +5,7 @@
 #define DB_BASE_H
 
 #include <errno.h>
+#include <stdlib.h>
 #include <sys/types.h>
 
 // Equivalent to MDB constants.
@@ -16,18 +17,20 @@
 
 #define DB_NOOVERWRITE 0x10 // May be expensive for LSM-tree back-ends.
 
-#define DB_SUCCESS 0
-#define DB_NOTFOUND (-30798)
 #define DB_KEYEXIST (-30799)
+#define DB_NOTFOUND (-30798)
 #define DB_PANIC (-30795)
 #define DB_VERSION_MISMATCH (-30794)
-#define DB_ENOENT ENOENT
-#define DB_EIO EIO
-#define DB_ENOMEM ENOMEM
-#define DB_EACCES EACCES
-#define DB_EBUSY EBUSY
-#define DB_EINVAL EINVAL
-#define DB_ENOSPC ENOSPC
+#define DB_BAD_DBI (-30780)
+#define DB_LAST_ERRCODE DB_BAD_DBI
+
+#define DB_ENOENT (-ENOENT)
+#define DB_EIO (-EIO)
+#define DB_ENOMEM (-ENOMEM)
+#define DB_EACCES (-EACCES)
+#define DB_EBUSY (-EBUSY)
+#define DB_EINVAL (-EINVAL)
+#define DB_ENOSPC (-ENOSPC)
 
 // Equivalent to MDB_val.
 typedef struct {
@@ -74,6 +77,24 @@ int db_cursor_next(DB_cursor *const cursor, DB_val *const key, DB_val *const dat
 int db_cursor_put(DB_cursor *const cursor, DB_val *const key, DB_val *const data, unsigned const flags);
 int db_cursor_del(DB_cursor *const cursor);
 
-char const *db_strerror(int const err);
+static char const *db_strerror(int const rc) {
+	switch(rc) {
+		case DB_KEYEXIST: return "Database item already exists";
+		case DB_NOTFOUND: return "Database item not found";
+		case DB_PANIC: return "Database panic";
+		case DB_VERSION_MISMATCH: return "Database version mismatch";
+		case DB_BAD_DBI: return "Database bad DBI";
+
+		case DB_ENOENT: return "No entity";
+		case DB_EIO: return "IO";
+		case DB_ENOMEM: return "No memory";
+		case DB_EACCES: return "Access";
+		case DB_EBUSY: return "Busy";
+		case DB_EINVAL: return "Invalid";
+		case DB_ENOSPC: return "No space";
+
+		default: return NULL;
+	}
+}
 
 #endif

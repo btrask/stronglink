@@ -107,7 +107,7 @@ int SLNSubmissionWrite(SLNSubmissionRef const sub, byte_t const *const buf, size
 	uv_buf_t parts[] = { uv_buf_init((char *)buf, len) };
 	int rc = async_fs_writeall(sub->tmpfile, parts, numberof(parts), -1);
 	if(rc < 0) {
-		fprintf(stderr, "SLNSubmission write error %s\n", uv_strerror(rc));
+		fprintf(stderr, "SLNSubmission write error %s\n", sln_strerror(rc));
 		return rc;
 	}
 
@@ -146,7 +146,7 @@ int SLNSubmissionEnd(SLNSubmissionRef const sub) {
 		goto cleanup;
 	}
 	if(rc < 0) {
-		fprintf(stderr, "SLNSubmission couldn't move '%s' to '%s' (%s)\n", sub->tmppath, internalPath, uv_strerror(rc));
+		fprintf(stderr, "SLNSubmission couldn't move '%s' to '%s' (%s)\n", sub->tmppath, internalPath, sln_strerror(rc));
 		goto cleanup;
 	}
 
@@ -209,13 +209,13 @@ int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn) {
 	DB_val fileInfo_key[1];
 	SLNFileIDByInfoKeyPack(fileInfo_key, txn, sub->internalHash, sub->type);
 	rc = db_put(txn, fileInfo_key, dupFileID_val, DB_NOOVERWRITE);
-	if(DB_SUCCESS == rc) {
+	if(rc >= 0) {
 		DB_val fileID_key[1];
 		SLNFileByIDKeyPack(fileID_key, txn, fileID);
 		DB_val file_val[1];
 		SLNFileByIDValPack(file_val, txn, sub->internalHash, sub->type, sub->size);
 		rc = db_put(txn, fileID_key, file_val, DB_NOOVERWRITE_FAST);
-		if(DB_SUCCESS != rc) return rc;
+		if(rc < 0) return rc;
 	} else if(DB_KEYEXIST == rc) {
 		fileID = db_read_uint64(dupFileID_val);
 	} else return rc;
@@ -227,24 +227,24 @@ int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn) {
 		DB_val fwd[1];
 		SLNFileIDAndURIKeyPack(fwd, txn, fileID, URI);
 		rc = db_put(txn, fwd, &null, DB_NOOVERWRITE_FAST);
-		if(DB_SUCCESS != rc && DB_KEYEXIST != rc) return rc;
+		if(rc < 0 && DB_KEYEXIST != rc) return rc;
 
 		DB_val rev[1];
 		SLNURIAndFileIDKeyPack(rev, txn, URI, fileID);
 		rc = db_put(txn, rev, &null, DB_NOOVERWRITE_FAST);
-		if(DB_SUCCESS != rc && DB_KEYEXIST != rc) return rc;
+		if(rc < 0 && DB_KEYEXIST != rc) return rc;
 	}
 
 	rc = SLNSubmissionParseMetaFile(sub, fileID, txn, &sub->metaFileID);
-	if(DB_SUCCESS != rc) {
-		fprintf(stderr, "Submission meta-file error %s\n", db_strerror(rc));
+	if(rc < 0) {
+		fprintf(stderr, "Submission meta-file error %s\n", sln_strerror(rc));
 		return rc;
 	}
 
 	return 0;
 }
 int SLNSubmissionStoreBatch(SLNSubmissionRef const *const list, size_t const count) {
-	if(!count) return DB_SUCCESS;
+	if(!count) return 0;
 	// Session permissions were already checked when the sub was created.
 
 	SLNRepoRef const repo = SLNSessionGetRepo(list[0]->session);
@@ -252,7 +252,7 @@ int SLNSubmissionStoreBatch(SLNSubmissionRef const *const list, size_t const cou
 	SLNRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
 	int rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		SLNRepoDBClose(repo, &db);
 		return rc;
 	}
@@ -262,17 +262,17 @@ int SLNSubmissionStoreBatch(SLNSubmissionRef const *const list, size_t const cou
 		if(!list[i]) continue;
 		assert(repo == SLNSessionGetRepo(list[i]->session));
 		rc = SLNSubmissionStore(list[i], txn);
-		if(DB_SUCCESS != rc) break;
+		if(rc < 0) break;
 		uint64_t const metaFileID = list[i]->metaFileID;
 		if(metaFileID > sortID) sortID = metaFileID;
 	}
-	if(DB_SUCCESS == rc) {
+	if(rc >= 0) {
 		rc = db_txn_commit(txn); txn = NULL;
 	} else {
 		db_txn_abort(txn); txn = NULL;
 	}
 	SLNRepoDBClose(repo, &db);
-	if(DB_SUCCESS == rc) SLNRepoSubmissionEmit(repo, sortID);
+	if(rc >= 0) SLNRepoSubmissionEmit(repo, sortID);
 	return rc;
 }
 

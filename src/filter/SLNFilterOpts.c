@@ -46,7 +46,7 @@ int SLNFilterOptsParse(strarg_t const qs, int const defaultdir, size_t const max
 	opts->outdir = parse_dir(values[1], defaultdir);
 	opts->count = parse_count(values[2], max);
 	QSValuesCleanup(values, numberof(values));
-	return DB_SUCCESS;
+	return 0;
 }
 void SLNFilterOptsCleanup(SLNFilterOpts *const opts) {
 	assert(opts);

@@ -45,18 +45,18 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 		assert(filters); // TODO
 	}
 	filters[count++] = filter;
-	return DB_SUCCESS;
+	return 0;
 }
 
 - (int)prepare:(DB_txn *const)txn {
 	int rc = [super prepare:txn];
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 	for(size_t i = 0; i < count; i++) {
 		rc = [filters[i] prepare:txn];
-		if(DB_SUCCESS != rc) return rc;
+		if(rc < 0) return rc;
 	}
 	sort = 0;
-	return DB_SUCCESS;
+	return 0;
 }
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
 	assert(count);

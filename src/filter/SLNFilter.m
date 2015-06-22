@@ -30,7 +30,7 @@
 	return DB_EINVAL;
 }
 - (int)prepare:(DB_txn *const)txn {
-	return DB_SUCCESS;
+	return 0;
 }
 @end
 
@@ -39,7 +39,7 @@ int SLNFilterCreate(SLNSessionRef const session, SLNFilterType const type, SLNFi
 	SLNFilterRef const filter = SLNFilterCreateInternal(type);
 	if(!filter) return DB_ENOMEM;
 	*out = filter;
-	return DB_SUCCESS;
+	return 0;
 }
 SLNFilterRef SLNFilterCreateInternal(SLNFilterType const type) {
 	switch(type) {
@@ -127,7 +127,7 @@ int SLNFilterSeekURI(SLNFilterRef const filter, int const dir, strarg_t const UR
 
 	DB_cursor *cursor = NULL;
 	int rc = db_txn_cursor(txn, &cursor);
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 
 	// URIs passed to this function are assumed to be unique
 	// (i.e. using the repo's internal algo), thus we can just
@@ -138,7 +138,7 @@ int SLNFilterSeekURI(SLNFilterRef const filter, int const dir, strarg_t const UR
 	DB_val key[1];
 	SLNURIAndFileIDRange1(range, txn, URI);
 	rc = db_cursor_firstr(cursor, range, key, NULL, +1);
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 	strarg_t u;
 	uint64_t fileID;
 	SLNURIAndFileIDKeyUnpack(key, txn, &u, &fileID);
@@ -153,7 +153,7 @@ int SLNFilterSeekURI(SLNFilterRef const filter, int const dir, strarg_t const UR
 	// TODO: Stepping is almost assuredly wrong if the URI doesn't match
 	// the filter. We should check if our seek was a direct hit, and
 	// only step if it was.
-	return DB_SUCCESS;
+	return 0;
 }
 str_t *SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, DB_txn *const txn) {
 	uint64_t sortID, fileID;
@@ -170,7 +170,7 @@ str_t *SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, DB_txn *co
 	DB_val fileID_key[1], file_val[1];
 	SLNFileByIDKeyPack(fileID_key, txn, fileID);
 	int rc = db_get(txn, fileID_key, file_val);
-	db_assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc)); // TODO
+	db_assertf(rc >= 0, "Database error %s", sln_strerror(rc)); // TODO
 
 	strarg_t const hash = db_read_string(file_val, txn);
 	assert(hash); // TODO

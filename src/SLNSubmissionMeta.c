@@ -40,16 +40,16 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	if(!txn) return DB_EINVAL;
 
 	strarg_t const type = SLNSubmissionGetType(sub);
-	if(!type) return DB_SUCCESS;
+	if(!type) return 0;
 	if(0 != strcasecmp(SLN_META_TYPE, type) &&
 	   0 != strcasecmp("text/x-sln-meta+json; charset=utf-8", type) &&
-	   0 != strcasecmp("text/efs-meta+json; charset=utf-8", type)) return DB_SUCCESS;
+	   0 != strcasecmp("text/efs-meta+json; charset=utf-8", type)) return 0;
 	// TODO: Get rid of these obsolete types.
 
 	uv_file const fd = SLNSubmissionGetFile(sub);
 	if(fd < 0) return DB_EINVAL;
 
-	int rc = DB_SUCCESS;
+	int rc = 0;
 	uv_buf_t buf[1] = {};
 	DB_txn *subtxn = NULL;
 	parser_t ctx[1] = {};
@@ -62,7 +62,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	int64_t pos = 0;
 	ssize_t len = async_fs_read(fd, buf, 1, pos);
 	if(len < 0) {
-		fprintf(stderr, "Submission meta-file read error (%s)\n", uv_strerror(len));
+		fprintf(stderr, "Submission meta-file read error (%s)\n", sln_strerror(len));
 		rc = DB_EIO;
 		goto cleanup;
 	}
@@ -86,7 +86,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	// TODO: Support sub-transactions in LevelDB backend.
 	// TODO: db_txn_begin should support NULL env.
 //	rc = db_txn_begin(NULL, txn, DB_RDWR, &subtxn);
-//	if(DB_SUCCESS != rc) goto cleanup;
+//	if(rc < 0) goto cleanup;
 	subtxn = txn;
 
 	uint64_t const metaFileID = add_metafile(subtxn, fileID, targetURI);
@@ -101,7 +101,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	ctx->field = NULL;
 	parser = yajl_alloc(&callbacks, NULL, ctx);
 	if(!parser) rc = DB_ENOMEM;
-	if(DB_SUCCESS != rc) goto cleanup;
+	if(rc < 0) goto cleanup;
 	yajl_config(parser, yajl_allow_partial_values, (int)true);
 
 	yajl_status status = yajl_status_ok;
@@ -110,7 +110,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 		if(!buf->len) break;
 		len = async_fs_read(fd, buf, 1, pos);
 		if(len < 0) {
-			fprintf(stderr, "Submission meta-file read error (%s)\n", uv_strerror(len));
+			fprintf(stderr, "Submission meta-file read error (%s)\n", sln_strerror(len));
 			rc = DB_EIO;
 			goto cleanup;
 		}
@@ -129,7 +129,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	}
 
 //	rc = db_txn_commit(subtxn); subtxn = NULL;
-	if(DB_SUCCESS != rc) goto cleanup;
+	if(rc < 0) goto cleanup;
 
 	*out = metaFileID;
 
@@ -262,30 +262,30 @@ static uint64_t add_metafile(DB_txn *const txn, uint64_t const fileID, strarg_t 
 	DB_val null = { 0, NULL };
 	DB_cursor *cursor = NULL;
 	int rc = db_txn_cursor(txn, &cursor);
-	assert(DB_SUCCESS == rc);
+	assert(rc >= 0);
 
 	DB_val metaFileID_key[1];
 	SLNMetaFileByIDKeyPack(metaFileID_key, txn, metaFileID);
 	DB_val metaFile_val[1];
 	SLNMetaFileByIDValPack(metaFile_val, txn, fileID, targetURI);
 	rc = db_put(txn, metaFileID_key, metaFile_val, DB_NOOVERWRITE_FAST);
-	assert(DB_SUCCESS == rc);
+	assert(rc >= 0);
 
 	DB_range alts[1];
 	SLNTargetURIAndMetaFileIDRange1(alts, txn, targetURI);
 	rc = db_cursor_firstr(cursor, alts, NULL, NULL, +1);
-	assert(DB_SUCCESS == rc || DB_NOTFOUND == rc);
+	assert(rc >= 0 || DB_NOTFOUND == rc);
 	if(DB_NOTFOUND == rc) {
 		DB_val unique[1];
 		SLNFirstUniqueMetaFileIDKeyPack(unique, txn, metaFileID);
 		rc = db_put(txn, unique, &null, DB_NOOVERWRITE_FAST);
-		assert(DB_SUCCESS == rc);
+		assert(rc >= 0);
 	}
 
 	DB_val targetURI_key[1];
 	SLNTargetURIAndMetaFileIDKeyPack(targetURI_key, txn, targetURI, metaFileID);
 	rc = db_put(txn, targetURI_key, &null, DB_NOOVERWRITE_FAST);
-	assert(DB_SUCCESS == rc);
+	assert(rc >= 0);
 
 	return metaFileID;
 }
@@ -296,12 +296,12 @@ static void add_metadata(DB_txn *const txn, uint64_t const metaFileID, strarg_t 
 	DB_val fwd[1];
 	SLNMetaFileIDFieldAndValueKeyPack(fwd, txn, metaFileID, field, value);
 	rc = db_put(txn, fwd, &null, DB_NOOVERWRITE_FAST);
-	assertf(DB_SUCCESS == rc || DB_KEYEXIST == rc, "Database error %s", db_strerror(rc));
+	assertf(rc >= 0 || DB_KEYEXIST == rc, "Database error %s", sln_strerror(rc));
 
 	DB_val rev[1];
 	SLNFieldValueAndMetaFileIDKeyPack(rev, txn, field, value, metaFileID);
 	rc = db_put(txn, rev, &null, DB_NOOVERWRITE_FAST);
-	assertf(DB_SUCCESS == rc || DB_KEYEXIST == rc, "Database error %s", db_strerror(rc));
+	assertf(rc >= 0 || DB_KEYEXIST == rc, "Database error %s", sln_strerror(rc));
 }
 static void add_fulltext(DB_txn *const txn, uint64_t const metaFileID, strarg_t const str, size_t const len) {
 	int rc;
@@ -316,7 +316,7 @@ static void add_fulltext(DB_txn *const txn, uint64_t const metaFileID, strarg_t 
 
 	DB_cursor *cursor = NULL;
 	rc = db_cursor_open(txn, &cursor);
-	assert(DB_SUCCESS == rc);
+	assert(rc >= 0);
 
 	for(;;) {
 		strarg_t token;
@@ -332,7 +332,7 @@ static void add_fulltext(DB_txn *const txn, uint64_t const metaFileID, strarg_t 
 		// TODO: Record tpos. Requires changes to SLNFulltextFilter so that each document only gets returned once, no matter how many times the token appears within it.
 		DB_val null = { 0, NULL };
 		rc = db_cursor_put(cursor, token_val, &null, DB_NOOVERWRITE_FAST);
-		assert(DB_SUCCESS == rc || DB_KEYEXIST == rc);
+		assert(rc >= 0 || DB_KEYEXIST == rc);
 	}
 
 	db_cursor_close(cursor); cursor = NULL;

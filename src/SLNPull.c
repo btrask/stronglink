@@ -171,7 +171,7 @@ static void writer(SLNPullRef const pull) {
 		for(;;) {
 			int rc = SLNSubmissionStoreBatch(queue, count);
 			if(rc >= 0) break;
-			fprintf(stderr, "Submission error %s / %s (%d)\n", uv_strerror(rc), db_strerror(rc), rc);
+			fprintf(stderr, "Submission error %s (%d)\n", sln_strerror(rc), rc);
 			async_sleep(1000 * 5);
 		}
 		for(size_t i = 0; i < count; ++i) {
@@ -242,7 +242,7 @@ static int reconnect(SLNPullRef const pull) {
 
 	rc = HTTPConnectionCreateOutgoing(pull->host, 0, &pull->conn);
 	if(rc < 0) {
-		fprintf(stderr, "Pull couldn't connect to %s (%s)\n", pull->host, uv_strerror(rc));
+		fprintf(stderr, "Pull couldn't connect to %s (%s)\n", pull->host, sln_strerror(rc));
 		return rc;
 	}
 
@@ -261,12 +261,12 @@ static int reconnect(SLNPullRef const pull) {
 	HTTPConnectionBeginBody(pull->conn);
 	rc = HTTPConnectionEnd(pull->conn);
 	if(rc < 0) {
-		fprintf(stderr, "Pull couldn't connect to %s (%s)\n", pull->host, uv_strerror(rc));
+		fprintf(stderr, "Pull couldn't connect to %s (%s)\n", pull->host, sln_strerror(rc));
 		return rc;
 	}
 	int const status = HTTPConnectionReadResponseStatus(pull->conn);
 	if(status < 0) {
-		fprintf(stderr, "Pull connection error %s\n", uv_strerror(status));
+		fprintf(stderr, "Pull connection error %s\n", sln_strerror(status));
 		return status;
 	}
 	if(403 == status) {
@@ -286,7 +286,7 @@ static int reconnect(SLNPullRef const pull) {
 	HTTPHeadersFree(&headers);
 /*	rc = HTTPConnectionReadHeaders(pull->conn, NULL, NULL, 0);
 	if(rc < 0) {
-		fprintf(stderr, "Pull connection error %s\n", uv_strerror(rc));
+		fprintf(stderr, "Pull connection error %s\n", sln_strerror(rc));
 		return rc;
 	}*/
 
@@ -308,8 +308,8 @@ static int import(SLNPullRef const pull, strarg_t const URI, size_t const pos, H
 	if(SLNParseURI(URI, algo, hash) < 0) goto enqueue;
 
 	int rc = SLNSessionGetFileInfo(pull->session, URI, NULL);
-	if(DB_SUCCESS == rc) goto enqueue;
-	db_assertf(DB_NOTFOUND == rc, "Database error %s", db_strerror(rc));
+	if(rc >= 0) goto enqueue;
+	db_assertf(DB_NOTFOUND == rc, "Database error %s", sln_strerror(rc));
 
 	// TODO: We're logging out of order when we do it like this...
 //	fprintf(stderr, "Pulling %s\n", URI);
@@ -317,7 +317,7 @@ static int import(SLNPullRef const pull, strarg_t const URI, size_t const pos, H
 	if(!*conn) {
 		rc = HTTPConnectionCreateOutgoing(pull->host, 0, conn);
 		if(rc < 0) {
-			fprintf(stderr, "Pull import connection error %s\n", uv_strerror(rc));
+			fprintf(stderr, "Pull import connection error %s\n", sln_strerror(rc));
 			goto fail;
 		}
 	}
@@ -335,12 +335,12 @@ static int import(SLNPullRef const pull, strarg_t const URI, size_t const pos, H
 	HTTPConnectionBeginBody(*conn);
 	rc = HTTPConnectionEnd(*conn);
 	if(rc < 0) {
-		fprintf(stderr, "Pull import request error %s\n", uv_strerror(rc));
+		fprintf(stderr, "Pull import request error %s\n", sln_strerror(rc));
 		goto fail;
 	}
 	int const status = HTTPConnectionReadResponseStatus(*conn);
 	if(status < 0) {
-		fprintf(stderr, "Pull import response error %s\n", uv_strerror(status));
+		fprintf(stderr, "Pull import response error %s\n", sln_strerror(status));
 		goto fail;
 	}
 	if(status < 200 || status >= 300) {
@@ -351,7 +351,7 @@ static int import(SLNPullRef const pull, strarg_t const URI, size_t const pos, H
 	rc = HTTPHeadersCreateFromConnection(*conn, &headers);
 	assert(rc >= 0); // TODO
 /*	if(rc < 0) {
-		fprintf(stderr, "Pull import headers error %s\n", uv_strerror(rc));
+		fprintf(stderr, "Pull import headers error %s\n", sln_strerror(rc));
 		goto fail;
 	}*/
 	strarg_t const type = HTTPHeadersGet(headers, "content-type");
@@ -366,7 +366,7 @@ static int import(SLNPullRef const pull, strarg_t const URI, size_t const pos, H
 		uv_buf_t buf[1] = {};
 		rc = HTTPConnectionReadBody(*conn, buf);
 		if(rc < 0) {
-			fprintf(stderr, "Pull download error %s\n", uv_strerror(rc));
+			fprintf(stderr, "Pull download error %s\n", sln_strerror(rc));
 			goto fail;
 		}
 		if(0 == buf->len) break;
@@ -378,7 +378,7 @@ static int import(SLNPullRef const pull, strarg_t const URI, size_t const pos, H
 	}
 	rc = SLNSubmissionEnd(sub);
 	if(rc < 0) {
-		fprintf(stderr, "Pull submission error %s\n", uv_strerror(rc));
+		fprintf(stderr, "Pull submission error %s\n", sln_strerror(rc));
 		goto fail;
 	}
 

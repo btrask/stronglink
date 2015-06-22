@@ -23,7 +23,7 @@ int SLNJSONFilterParserCreate(SLNSessionRef const session, SLNJSONFilterParserRe
 	parser->JSONParser = yajl_alloc(&callbacks, NULL, parser);
 	parser->depth = -1;
 	*out = parser;
-	return DB_SUCCESS;
+	return 0;
 }
 void SLNJSONFilterParserFree(SLNJSONFilterParserRef *const parserptr) {
 	SLNJSONFilterParserRef parser = *parserptr;
@@ -74,14 +74,14 @@ static int yajl_string(SLNJSONFilterParserRef const parser, strarg_t const  str,
 	SLNFilterRef filter = parser->stack[depth];
 	if(filter) {
 		int rc = SLNFilterAddStringArg(filter, str, len);
-		if(DB_SUCCESS != rc) return false;
+		if(rc < 0) return false;
 	} else {
 		int rc = SLNFilterCreate(parser->session, SLNFilterTypeFromString(str, len), &filter);
-		if(DB_SUCCESS != rc) return false;
+		if(rc < 0) return false;
 		parser->stack[depth] = filter;
 		if(depth) {
 			rc = SLNFilterAddFilterArg(parser->stack[depth-1], filter);
-			if(DB_SUCCESS != rc) return false;
+			if(rc < 0) return false;
 		}
 	}
 	return true;

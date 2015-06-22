@@ -89,19 +89,22 @@ static int compare_default(MDB_val const *const a, MDB_val const *const b) {
 }
 
 
+static int mdberr(int const rc) {
+	return rc <= 0 ? rc : -rc;
+}
 static int mdb_cursor_seek(MDB_cursor *const cursor, MDB_val *const key, MDB_val *const data, int const dir) {
 	if(!key) return EINVAL;
 	MDB_val const orig = *key;
 	MDB_cursor_op const op = 0 == dir ? MDB_SET : MDB_SET_RANGE;
-	int rc = mdb_cursor_get(cursor, key, data, op);
+	int rc = mdberr(mdb_cursor_get(cursor, key, data, op));
 	if(dir >= 0) return rc;
-	if(MDB_SUCCESS == rc) {
+	if(rc >= 0) {
 		MDB_txn *const txn = mdb_cursor_txn(cursor);
 		MDB_dbi const dbi = mdb_cursor_dbi(cursor);
 		if(0 == mdb_cmp(txn, dbi, &orig, key)) return rc;
-		return mdb_cursor_get(cursor, key, data, MDB_PREV);
-	} else if(MDB_NOTFOUND == rc) {
-		return mdb_cursor_get(cursor, key, data, MDB_LAST);
+		return mdberr(mdb_cursor_get(cursor, key, data, MDB_PREV));
+	} else if(DB_NOTFOUND == rc) {
+		return mdberr(mdb_cursor_get(cursor, key, data, MDB_LAST));
 	} else return rc;
 }
 
@@ -130,7 +133,7 @@ static int ldb_cursor_open(leveldb_t *const db, leveldb_readoptions_t *const rop
 		return DB_ENOMEM;
 	}
 	*out = cursor;
-	return DB_SUCCESS;
+	return 0;
 }
 static void ldb_cursor_close(LDB_cursor *const cursor) {
 	if(!cursor) return;
@@ -147,7 +150,7 @@ static void ldb_cursor_close(LDB_cursor *const cursor) {
 static int ldb_cursor_clear(LDB_cursor *const cursor) {
 	if(!cursor) return DB_EINVAL;
 	cursor->valid = 0;
-	return DB_SUCCESS;
+	return 0;
 }
 static int ldb_cursor_renew(leveldb_t *const db, leveldb_readoptions_t *const ropts, MDB_cmp_func *const cmp, LDB_cursor **const out) {
 	if(!out) return DB_EINVAL;
@@ -159,7 +162,7 @@ static int ldb_cursor_renew(leveldb_t *const db, leveldb_readoptions_t *const ro
 	cursor->cmp = cmp;
 	cursor->valid = 0;
 	cursor->offset = 0;
-	return DB_SUCCESS;
+	return 0;
 }
 static int ldb_cursor_current(LDB_cursor *const cursor, MDB_val *const key, MDB_val *const val) {
 	if(!cursor) return DB_EINVAL;
@@ -192,7 +195,7 @@ static int ldb_cursor_current(LDB_cursor *const cursor, MDB_val *const key, MDB_
 		val->mv_data = y;
 		cursor->offset = (cursor->offset + 1) % LDB_BUF_RECALL;
 	}
-	return DB_SUCCESS;
+	return 0;
 }
 static int ldb_cursor_seek(LDB_cursor *const cursor, MDB_val *const key, MDB_val *const val, int const dir) {
 	if(!cursor) return DB_EINVAL;
@@ -203,7 +206,7 @@ static int ldb_cursor_seek(LDB_cursor *const cursor, MDB_val *const key, MDB_val
 	int rc = ldb_cursor_current(cursor, key, val);
 	if(dir > 0) return rc;
 	if(dir < 0) {
-		if(DB_SUCCESS != rc) {
+		if(rc < 0) {
 			leveldb_iter_seek_to_last(cursor->iter);
 		} else if(0 != cursor->cmp(key, &orig)) {
 			leveldb_iter_prev(cursor->iter);
@@ -211,7 +214,7 @@ static int ldb_cursor_seek(LDB_cursor *const cursor, MDB_val *const key, MDB_val
 		cursor->valid = !!leveldb_iter_valid(cursor->iter);
 		return ldb_cursor_current(cursor, key, val);
 	}
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 	if(0 == cursor->cmp(key, &orig)) return rc;
 	cursor->valid = 0;
 	return DB_NOTFOUND;
@@ -263,8 +266,8 @@ int db_env_create(DB_env **const out) {
 	}
 	leveldb_options_set_filter_policy(env->opts, env->filterpolicy);
 
-	int rc = mdb_env_create(&env->tmpenv);
-	if(MDB_SUCCESS != rc) {
+	int rc = mdberr(mdb_env_create(&env->tmpenv));
+	if(rc < 0) {
 		db_env_close(env);
 		return rc;
 	}
@@ -278,45 +281,45 @@ int db_env_create(DB_env **const out) {
 
 	env->cmp = compare_default;
 	*out = env;
-	return DB_SUCCESS;
+	return 0;
 }
 int db_env_set_mapsize(DB_env *const env, size_t const size) {
-	return DB_SUCCESS;
+	return 0;
 }
 int db_env_open(DB_env *const env, char const *const name, unsigned const flags, unsigned const mode) {
 	if(!env) return DB_EINVAL;
 	char *err = NULL;
 	env->db = leveldb_open(env->opts, name, &err);
 	leveldb_free(err);
-	if(!env->db || err) return -1;
+	if(!env->db || err) return -1; // TODO: Parse error string?
 
 
 	char tmppath[512]; // TODO
 	if(snprintf(tmppath, sizeof(tmppath), "%s/tmp.mdb", name) < 0) return -1;
-	int rc = mdb_env_open(env->tmpenv, tmppath, MDB_NOSUBDIR | MDB_WRITEMAP, 0600);
-	if(MDB_SUCCESS != rc) return rc;
+	int rc = mdberr(mdb_env_open(env->tmpenv, tmppath, MDB_NOSUBDIR | MDB_WRITEMAP, 0600));
+	if(rc < 0) return rc;
 	(void)unlink(tmppath);
 
 	MDB_txn *tmptxn;
-	rc = mdb_txn_begin(env->tmpenv, NULL, MDB_RDWR, &tmptxn);
-	if(MDB_SUCCESS != rc) return rc;
+	rc = mdberr(mdb_txn_begin(env->tmpenv, NULL, MDB_RDWR, &tmptxn));
+	if(rc < 0) return rc;
 	MDB_dbi dbi;
-	rc = mdb_dbi_open(tmptxn, NULL, 0, &dbi);
-	if(MDB_SUCCESS != rc) {
+	rc = mdberr(mdb_dbi_open(tmptxn, NULL, 0, &dbi));
+	if(rc < 0) {
 		mdb_txn_abort(tmptxn);
 		return rc;
 	}
 	if(MDB_MAIN_DBI != dbi) {
 		// Should never happen.
 		mdb_txn_abort(tmptxn);
-		return -1;
+		return DB_PANIC;
 	}
-	rc = mdb_txn_commit(tmptxn);
-	if(MDB_SUCCESS != rc) return rc;
+	rc = mdberr(mdb_txn_commit(tmptxn));
+	if(rc < 0) return rc;
 
 
 	leveldb_writeoptions_set_sync(env->wopts, !(DB_NOSYNC & flags));
-	return DB_SUCCESS;
+	return 0;
 }
 void db_env_close(DB_env *const env) {
 	if(!env) return;
@@ -337,8 +340,8 @@ int db_txn_begin(DB_env *const env, DB_txn *const parent, unsigned const flags, 
 	MDB_txn *tmptxn = NULL;
 	if(!(DB_RDONLY & flags)) {
 		MDB_txn *p = parent ? parent->tmptxn : NULL;
-		int rc = mdb_txn_begin(env->tmpenv, p, flags, &tmptxn);
-		if(MDB_SUCCESS != rc) return rc;
+		int rc = mdberr(mdb_txn_begin(env->tmpenv, p, flags, &tmptxn));
+		if(rc < 0) return rc;
 	}
 
 	DB_txn *txn = calloc(1, sizeof(struct DB_txn));
@@ -358,7 +361,7 @@ int db_txn_begin(DB_env *const env, DB_txn *const parent, unsigned const flags, 
 	}
 	if(DB_RDONLY & flags) {
 		int rc = db_txn_renew(txn);
-		if(DB_SUCCESS != rc) {
+		if(rc < 0) {
 			db_txn_abort(txn);
 			return rc;
 		}
@@ -366,13 +369,13 @@ int db_txn_begin(DB_env *const env, DB_txn *const parent, unsigned const flags, 
 		txn->tmptxn = tmptxn;
 	}
 	*out = txn;
-	return DB_SUCCESS;
+	return 0;
 }
 int db_txn_commit(DB_txn *const txn) {
 	if(!txn) return DB_EINVAL;
 	if(DB_RDONLY & txn->flags) {
 		db_txn_abort(txn);
-		return DB_SUCCESS;
+		return 0;
 	}
 
 	if(txn->parent) {
@@ -386,14 +389,14 @@ int db_txn_commit(DB_txn *const txn) {
 	}
 	assert(txn->tmptxn);
 	MDB_cursor *cursor = NULL;
-	int rc = mdb_cursor_open(txn->tmptxn, MDB_MAIN_DBI, &cursor);
-	if(MDB_SUCCESS != rc) {
+	int rc = mdberr(mdb_cursor_open(txn->tmptxn, MDB_MAIN_DBI, &cursor));
+	if(rc < 0) {
 		db_txn_abort(txn);
 		return rc;
 	}
 	MDB_val key[1], data[1];
-	rc = mdb_cursor_get(cursor, key, data, MDB_FIRST);
-	for(; MDB_SUCCESS == rc; rc = mdb_cursor_get(cursor, key, data, MDB_NEXT)) {
+	rc = mdberr(mdb_cursor_get(cursor, key, data, MDB_FIRST));
+	for(; rc >= 0; rc = mdberr(mdb_cursor_get(cursor, key, data, MDB_NEXT))) {
 		leveldb_writebatch_put(batch,
 			key->mv_data, key->mv_size,
 			data->mv_data, data->mv_size);
@@ -406,10 +409,10 @@ int db_txn_commit(DB_txn *const txn) {
 	leveldb_writebatch_destroy(batch);
 	if(err) {
 		db_txn_abort(txn);
-		return -1;
+		return -1; // TODO
 	}
 	db_txn_abort(txn);
-	return DB_SUCCESS;
+	return 0;
 }
 void db_txn_abort(DB_txn *const txn) {
 	if(!txn) return;
@@ -442,25 +445,25 @@ int db_txn_renew(DB_txn *const txn) {
 	txn->snapshot = leveldb_create_snapshot(txn->env->db);
 	if(!txn->snapshot) return DB_ENOMEM;
 	leveldb_readoptions_set_snapshot(txn->ropts, txn->snapshot);
-	return DB_SUCCESS;
+	return 0;
 }
 int db_txn_get_flags(DB_txn *const txn, unsigned *const flags) {
 	if(!txn) return DB_EINVAL;
 	if(flags) *flags = txn->flags;
-	return DB_SUCCESS;
+	return 0;
 }
 int db_txn_cmp(DB_txn *const txn, DB_val const *const a, DB_val const *const b) {
-	if(!txn) return DB_EINVAL;
+	assert(txn); // We can't report an error from this function.
 	return txn->env->cmp((MDB_val *)a, (MDB_val *)b);
 }
 int db_txn_cursor(DB_txn *const txn, DB_cursor **const out) {
 	if(!txn) return DB_EINVAL;
 	if(!txn->cursor) {
 		int rc = db_cursor_open(txn, &txn->cursor);
-		if(DB_SUCCESS != rc) return rc;
+		if(rc < 0) return rc;
 	}
 	if(out) *out = txn->cursor;
-	return DB_SUCCESS;
+	return 0;
 }
 
 int db_cursor_open(DB_txn *const txn, DB_cursor **const out) {
@@ -469,8 +472,8 @@ int db_cursor_open(DB_txn *const txn, DB_cursor **const out) {
 	DB_cursor *cursor = calloc(1, sizeof(struct DB_cursor));
 	if(!cursor) return DB_ENOMEM;
 	if(txn->tmptxn) {
-		int rc = mdb_cursor_open(txn->tmptxn, MDB_MAIN_DBI, &cursor->pending);
-		if(MDB_SUCCESS != rc) {
+		int rc = mdberr(mdb_cursor_open(txn->tmptxn, MDB_MAIN_DBI, &cursor->pending));
+		if(rc < 0) {
 			db_cursor_close(cursor);
 			return rc;
 		}
@@ -498,8 +501,8 @@ int db_cursor_renew(DB_txn *const txn, DB_cursor **const out) {
 	cursor->txn = txn;
 	cursor->state = S_INVALID;
 	int rc = ldb_cursor_renew(txn->env->db, txn->ropts, txn->env->cmp, &cursor->persist);
-	if(DB_SUCCESS != rc) return rc;
-	return DB_SUCCESS;
+	if(rc < 0) return rc;
+	return 0;
 }
 int db_cursor_clear(DB_cursor *const cursor) {
 	if(!cursor) return DB_EINVAL;
@@ -507,7 +510,7 @@ int db_cursor_clear(DB_cursor *const cursor) {
 		return ldb_cursor_clear(cursor->persist);
 	} else {
 		cursor->state = S_INVALID;
-		return DB_SUCCESS;
+		return 0;
 	}
 }
 int db_cursor_cmp(DB_cursor *const cursor, DB_val const *const a, DB_val const *const b) {
@@ -523,12 +526,12 @@ static int db_cursor_update(DB_cursor *const cursor, int const rc1, MDB_val cons
 		return rc2;
 	}
 	cursor->state = S_INVALID;
-	if(MDB_SUCCESS != rc1 && MDB_NOTFOUND != rc1) return rc1;
-	if(MDB_SUCCESS != rc2 && MDB_NOTFOUND != rc2) return rc2;
-	if(MDB_NOTFOUND == rc1 && MDB_NOTFOUND == rc2) return MDB_NOTFOUND;
+	if(rc1 < 0 && DB_NOTFOUND != rc1) return rc1;
+	if(rc2 < 0 && DB_NOTFOUND != rc2) return rc2;
+	if(DB_NOTFOUND == rc1 && DB_NOTFOUND == rc2) return DB_NOTFOUND;
 	int x = 0;
-	if(MDB_NOTFOUND == rc1) x = +1;
-	if(MDB_NOTFOUND == rc2) x = -1;
+	if(DB_NOTFOUND == rc1) x = +1;
+	if(DB_NOTFOUND == rc2) x = -1;
 	if(0 == x) x = cursor->txn->env->cmp(k1, k2) * (dir ? dir : 1);
 	if(x <= 0) {
 		cursor->state = 0 == x ? S_EQUAL : S_PENDING;
@@ -539,14 +542,14 @@ static int db_cursor_update(DB_cursor *const cursor, int const rc1, MDB_val cons
 		if(key) *key = *(DB_val *)k2;
 		if(data) *data = *(DB_val *)d2;
 	}
-	return MDB_SUCCESS;
+	return 0;
 }
 int db_cursor_current(DB_cursor *const cursor, DB_val *const key, DB_val *const data) {
 	if(!cursor) return DB_EINVAL;
 	if(!cursor->pending || S_PERSIST == cursor->state) {
 		return ldb_cursor_current(cursor->persist, (MDB_val *)key, (MDB_val *)data);
 	} else if(S_EQUAL == cursor->state || S_PENDING == cursor->state) {
-		int rc = mdb_cursor_get(cursor->pending, (MDB_val *)key, (MDB_val *)data, MDB_GET_CURRENT);
+		int rc = mdberr(mdb_cursor_get(cursor->pending, (MDB_val *)key, (MDB_val *)data, MDB_GET_CURRENT));
 		if(DB_EINVAL == rc) return DB_NOTFOUND;
 		return rc;
 	} else if(S_INVALID == cursor->state) {
@@ -560,8 +563,8 @@ int db_cursor_seek(DB_cursor *const cursor, DB_val *const key, DB_val *const dat
 	if(!cursor) return DB_EINVAL;
 	MDB_val k1 = *(MDB_val *)key, d1;
 	MDB_val k2 = *(MDB_val *)key, d2;
-	int rc1 = mdb_cursor_seek(cursor->pending, &k1, &d1, dir);
-	int rc2 = ldb_cursor_seek(cursor->persist, &k2, &d2, dir);
+	int rc1 = mdberr(mdb_cursor_seek(cursor->pending, &k1, &d1, dir));
+	int rc2 =        ldb_cursor_seek(cursor->persist, &k2, &d2, dir);
 	return db_cursor_update(cursor, rc1, &k1, &d1, rc2, &k2, &d2, dir, key, data);
 }
 int db_cursor_first(DB_cursor *const cursor, DB_val *const key, DB_val *const data, int const dir) {
@@ -569,8 +572,8 @@ int db_cursor_first(DB_cursor *const cursor, DB_val *const key, DB_val *const da
 	if(0 == dir) return DB_EINVAL;
 	MDB_val k1, d1, k2, d2;
 	MDB_cursor_op const op = dir < 0 ? MDB_LAST : MDB_FIRST;
-	int rc1 = mdb_cursor_get(cursor->pending, &k1, &d1, op);
-	int rc2 = ldb_cursor_first(cursor->persist, &k2, &d2, dir);
+	int rc1 = mdberr(mdb_cursor_get(cursor->pending, &k1, &d1, op));
+	int rc2 =        ldb_cursor_first(cursor->persist, &k2, &d2, dir);
 	return db_cursor_update(cursor, rc1, &k1, &d1, rc2, &k2, &d2, dir, key, data);
 }
 int db_cursor_next(DB_cursor *const cursor, DB_val *const key, DB_val *const data, int const dir) {
@@ -580,9 +583,9 @@ int db_cursor_next(DB_cursor *const cursor, DB_val *const key, DB_val *const dat
 	MDB_val k1, d1, k2, d2;
 	if(S_PERSIST != cursor->state) {
 		MDB_cursor_op const op = dir < 0 ? MDB_PREV : MDB_NEXT;
-		rc1 = mdb_cursor_get(cursor->pending, &k1, &d1, op);
+		rc1 = mdberr(mdb_cursor_get(cursor->pending, &k1, &d1, op));
 	} else {
-		rc1 = mdb_cursor_get(cursor->pending, &k1, &d1, MDB_GET_CURRENT);
+		rc1 = mdberr(mdb_cursor_get(cursor->pending, &k1, &d1, MDB_GET_CURRENT));
 		if(DB_EINVAL == rc1) rc1 = DB_NOTFOUND;
 	}
 	if(S_PENDING != cursor->state) {
@@ -599,7 +602,7 @@ int db_cursor_put(DB_cursor *const cursor, DB_val *const key, DB_val *const data
 	if(DB_NOOVERWRITE & flags) {
 		DB_val k = *key, d;
 		int rc = db_cursor_seek(cursor, &k, &d, 0);
-		if(DB_SUCCESS == rc) {
+		if(rc >= 0) {
 			*key = k;
 			*data = d;
 			return DB_KEYEXIST;
@@ -608,13 +611,9 @@ int db_cursor_put(DB_cursor *const cursor, DB_val *const key, DB_val *const data
 	}
 	cursor->state = S_INVALID;
 	assert(cursor->pending);
-	return mdb_cursor_put(cursor->pending, (MDB_val *)key, (MDB_val *)data, 0);
+	return mdberr(mdb_cursor_put(cursor->pending, (MDB_val *)key, (MDB_val *)data, 0));
 }
 int db_cursor_del(DB_cursor *const cursor) {
 	return DB_EINVAL; // TODO
-}
-
-char const *db_strerror(int const err) {
-	return mdb_strerror(err);
 }
 

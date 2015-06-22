@@ -63,7 +63,7 @@ static void gen_preview(BlogRef const blog, SLNSessionRef const session, strarg_
 
 	SLNFileInfo src[1];
 	int rc = SLNSessionGetFileInfo(session, URI, src);
-	if(DB_SUCCESS == rc) {
+	if(rc >= 0) {
 		rc = -1;
 		rc = rc >= 0 ? rc : BlogConvert(blog, session, path, NULL, URI, src);
 		rc = rc >= 0 ? rc : BlogGeneric(blog, session, path, URI, src);
@@ -135,7 +135,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		return 403;
 	}
 	if(DB_EINVAL == rc) rc = SLNFilterCreate(session, SLNVisibleFilterType, &filter);
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		FREE(&query);
 		FREE(&query_HTMLSafe);
 		return 500;
@@ -151,7 +151,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	if(SLNURIFilterType == SLNFilterGetType(core)) {
 		SLNFilterRef alt;
 		rc = SLNFilterCreate(session, SLNMetadataFilterType, &alt);
-		assert(DB_SUCCESS == rc); // TODO
+		assert(rc >= 0); // TODO
 		SLNFilterAddStringArg(alt, STR_LEN("link"));
 		SLNFilterAddStringArg(alt, SLNFilterGetStringArg(core, 0), -1);
 		SLNFilterFree(&filter);
@@ -163,7 +163,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	SLNFilterOpts opts[1];
 	rc = SLNFilterOptsParse(qs, -1, RESULTS_MAX, opts);
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		FREE(&query);
 		FREE(&query_HTMLSafe);
 		SLNFilterFree(&filter);
@@ -177,7 +177,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	str_t *URIs[RESULTS_MAX];
 	rc = SLNSessionCopyFilteredURIs(session, filter, opts, URIs, &count);
 	SLNFilterOptsCleanup(opts);
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		FREE(&query);
 		FREE(&query_HTMLSafe);
 		SLNFilterFree(&filter);
@@ -256,7 +256,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	if(primaryURI) {
 		SLNFileInfo info[1];
 		rc = SLNSessionGetFileInfo(session, primaryURI, info);
-		if(DB_SUCCESS == rc) {
+		if(rc >= 0) {
 			str_t *preferredURI = SLNFormatURI(SLN_INTERNAL_ALGO, info->hash);
 			str_t *previewPath = BlogCopyPreviewPath(blog, info->hash);
 			send_preview(blog, conn, session, preferredURI, previewPath);
@@ -538,7 +538,6 @@ static int POST_post(BlogRef const blog,
 
 	SLNSubmissionRef subs[] = { sub, meta, extra };
 	rc = SLNSubmissionStoreBatch(subs, numberof(subs));
-	if(DB_SUCCESS != rc) rc = UV_EIO;
 
 
 cleanup:
@@ -616,7 +615,7 @@ static int POST_auth(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	int rc = SLNSessionCacheCreateSession(cache, values[2], values[3], &s); // TODO
 	QSValuesCleanup(values, numberof(values));
 
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		HTTPConnectionWriteResponse(conn, 303, "See Other");
 		HTTPConnectionWriteHeader(conn, "Location", "/account?err=1");
 		HTTPConnectionWriteContentLength(conn, 0);

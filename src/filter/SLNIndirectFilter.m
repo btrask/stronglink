@@ -16,13 +16,13 @@
 
 - (int)prepare:(DB_txn *const)txn {
 	int rc = [super prepare:txn];
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 	db_cursor_renew(txn, &step_target); // SLNMetaFileByID
 	db_cursor_renew(txn, &step_files); // SLNURIAndFileID
 	db_cursor_renew(txn, &age_uris); // SLNFileIDAndURI
 	db_cursor_renew(txn, &age_metafiles); // SLNTargetURIAndMetaFileID
 	curtxn = txn;
-	return DB_SUCCESS;
+	return 0;
 }
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
 	int rc;
@@ -38,7 +38,7 @@
 		SLNMetaFileByIDKeyPack(metaFileID_key, curtxn, actualSortID);
 		DB_val metaFile_val[1];
 		rc = db_cursor_seek(step_target, metaFileID_key, metaFile_val, 0);
-		assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
+		assertf(rc >= 0, "Database error %s", sln_strerror(rc));
 		uint64_t f;
 		strarg_t targetURI;
 		SLNMetaFileByIDValUnpack(metaFile_val, curtxn, &f, &targetURI);
@@ -53,14 +53,14 @@
 			DB_val fileID_key[1];
 			rc = db_cursor_firstr(step_files, fileIDs, NULL, NULL, dir);
 		}
-		if(DB_SUCCESS != rc) continue;
+		if(rc < 0) continue;
 		return;
 	}
 }
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
 	DB_val fileID_key[1];
 	int rc = db_cursor_current(step_files, fileID_key, NULL);
-	if(DB_SUCCESS == rc) {
+	if(rc >= 0) {
 		strarg_t targetURI;
 		uint64_t _fileID;
 		SLNURIAndFileIDKeyUnpack(fileID_key, curtxn, &targetURI, &_fileID);
@@ -75,14 +75,14 @@
 	int rc;
 	DB_val fileID_key[1];
 	rc = db_cursor_current(step_files, fileID_key, NULL);
-	if(DB_SUCCESS == rc) {
+	if(rc >= 0) {
 		strarg_t targetURI;
 		uint64_t fileID;
 		SLNURIAndFileIDKeyUnpack(fileID_key, curtxn, &targetURI, &fileID);
 		DB_range fileIDs[1];
 		SLNURIAndFileIDRange1(fileIDs, curtxn, targetURI);
 		rc = db_cursor_nextr(step_files, fileIDs, fileID_key, NULL, dir);
-		if(DB_SUCCESS == rc) return;
+		if(rc >= 0) return;
 	}
 
 	uint64_t sortID = [self stepMeta:dir];
@@ -91,7 +91,7 @@
 		SLNMetaFileByIDKeyPack(metaFileID_key, curtxn, sortID);
 		DB_val metaFile_val[1];
 		rc = db_cursor_seek(step_target, metaFileID_key, metaFile_val, 0);
-		assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
+		assertf(rc >= 0, "Database error %s", sln_strerror(rc));
 		uint64_t f;
 		strarg_t targetURI;
 		SLNMetaFileByIDValUnpack(metaFile_val, curtxn, &f, &targetURI);
@@ -99,7 +99,7 @@
 		DB_range fileIDs[1];
 		SLNURIAndFileIDRange1(fileIDs, curtxn, targetURI);
 		rc = db_cursor_firstr(step_files, fileIDs, NULL, NULL, +1);
-		if(DB_SUCCESS != rc) continue;
+		if(rc < 0) continue;
 		return;
 	}
 }
@@ -114,9 +114,9 @@
 	DB_val URI_key[1];
 	SLNFileIDAndURIRange1(URIs, txn, fileID);
 	rc = db_cursor_firstr(age_uris, URIs, URI_key, NULL, +1);
-	assert(DB_SUCCESS == rc || DB_NOTFOUND == rc);
+	assert(rc >= 0 || DB_NOTFOUND == rc);
 
-	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(age_uris, URIs, URI_key, NULL, +1)) {
+	for(; rc >= 0; rc = db_cursor_nextr(age_uris, URIs, URI_key, NULL, +1)) {
 		uint64_t f;
 		strarg_t targetURI;
 		SLNFileIDAndURIKeyUnpack(URI_key, curtxn, &f, &targetURI);
@@ -126,8 +126,8 @@
 		DB_val metaFileID_key[1];
 		SLNTargetURIAndMetaFileIDRange1(metafiles, curtxn, targetURI);
 		rc = db_cursor_firstr(age_metafiles, metafiles, metaFileID_key, NULL, +1);
-		assert(DB_SUCCESS == rc || DB_NOTFOUND == rc);
-		for(; DB_SUCCESS == rc; rc = db_cursor_nextr(age_metafiles, metafiles, metaFileID_key, NULL, +1)) {
+		assert(rc >= 0 || DB_NOTFOUND == rc);
+		for(; rc >= 0; rc = db_cursor_nextr(age_metafiles, metafiles, metaFileID_key, NULL, +1)) {
 			strarg_t u;
 			uint64_t metaFileID;
 			SLNTargetURIAndMetaFileIDKeyUnpack(metaFileID_key, curtxn, &u, &metaFileID);
@@ -163,9 +163,9 @@
 
 - (int)prepare:(DB_txn *const)txn {
 	int rc = [super prepare:txn];
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 	db_cursor_renew(txn, &metafiles); // SLNFirstUniqueMetaFileID
-	return DB_SUCCESS;
+	return 0;
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
@@ -174,7 +174,7 @@
 	DB_val sortID_key[1];
 	SLNFirstUniqueMetaFileIDKeyPack(sortID_key, curtxn, sortID);
 	int rc = db_cursor_seekr(metafiles, range, sortID_key, NULL, dir);
-	if(DB_SUCCESS != rc) return invalid(dir);
+	if(rc < 0) return invalid(dir);
 	uint64_t actualSortID;
 	SLNFirstUniqueMetaFileIDKeyUnpack(sortID_key, curtxn, &actualSortID);
 	return actualSortID;
@@ -182,7 +182,7 @@
 - (uint64_t)currentMeta:(int const)dir {
 	DB_val sortID_key[1];
 	int rc = db_cursor_current(metafiles, sortID_key, NULL);
-	if(DB_SUCCESS != rc) return invalid(dir);
+	if(rc < 0) return invalid(dir);
 	uint64_t sortID;
 	SLNFirstUniqueMetaFileIDKeyUnpack(sortID_key, curtxn, &sortID);
 	return sortID;
@@ -192,7 +192,7 @@
 	SLNFirstUniqueMetaFileIDRange0(range, curtxn);
 	DB_val sortID_key[1];
 	int rc = db_cursor_nextr(metafiles, range, sortID_key, NULL, dir);
-	if(DB_SUCCESS != rc) return invalid(dir);
+	if(rc < 0) return invalid(dir);
 	uint64_t sortID;
 	SLNFirstUniqueMetaFileIDKeyUnpack(sortID_key, curtxn, &sortID);
 	return sortID;
@@ -257,7 +257,7 @@
 	fts->xClose(tcur);
 
 	if(!count) return DB_EINVAL;
-	return DB_SUCCESS;
+	return 0;
 }
 - (void)print:(size_t const)depth {
 	indent(depth);
@@ -269,10 +269,10 @@
 
 - (int)prepare:(DB_txn *const)txn {
 	int rc = [super prepare:txn];
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 	db_cursor_renew(txn, &metafiles);
 	db_cursor_renew(txn, &match);
-	return DB_SUCCESS;
+	return 0;
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
@@ -283,7 +283,7 @@
 	SLNTermMetaFileIDAndPositionKeyPack(sortID_key, curtxn, tokens[0].str, sortID, 0);
 	// TODO: In order to handle seeking backwards over document with several matching positions, we need to use sortID+1... But sortID might be UINT64_MAX, so be careful.
 	int rc = db_cursor_seekr(metafiles, range, sortID_key, NULL, dir);
-	if(DB_SUCCESS != rc) return invalid(dir);
+	if(rc < 0) return invalid(dir);
 	strarg_t token;
 	uint64_t actualSortID, position;
 	SLNTermMetaFileIDAndPositionKeyUnpack(sortID_key, curtxn, &token, &actualSortID, &position);
@@ -294,7 +294,7 @@
 	assert(count);
 	DB_val sortID_key[1];
 	int rc = db_cursor_current(metafiles, sortID_key, NULL);
-	if(DB_SUCCESS != rc) return invalid(dir);
+	if(rc < 0) return invalid(dir);
 	strarg_t token;
 	uint64_t sortID, position;
 	SLNTermMetaFileIDAndPositionKeyUnpack(sortID_key, curtxn, &token, &sortID, &position);
@@ -307,7 +307,7 @@
 	SLNTermMetaFileIDAndPositionRange1(range, curtxn, tokens[0].str);
 	DB_val sortID_key[1];
 	int rc = db_cursor_nextr(metafiles, range, sortID_key, NULL, dir);
-	if(DB_SUCCESS != rc) return invalid(dir);
+	if(rc < 0) return invalid(dir);
 	strarg_t token;
 	uint64_t sortID, position;
 	SLNTermMetaFileIDAndPositionKeyUnpack(sortID_key, curtxn, &token, &sortID, &position);
@@ -320,9 +320,9 @@
 	SLNTermMetaFileIDAndPositionRange2(range, curtxn, tokens[0].str, metaFileID);
 	DB_val sortID_key[1];
 	int rc = db_cursor_firstr(match, range, sortID_key, NULL, +1);
-	if(DB_SUCCESS == rc) return true;
+	if(rc >= 0) return true;
 	if(DB_NOTFOUND == rc) return false;
-	assertf(0, "Database error %s", db_strerror(rc));
+	assertf(0, "Database error %s", sln_strerror(rc));
 }
 @end
 
@@ -348,11 +348,11 @@
 - (int)addStringArg:(strarg_t const)str :(size_t const)len {
 	if(!field) {
 		field = strndup(str, len);
-		return DB_SUCCESS;
+		return 0;
 	}
 	if(!value) {
 		value = strndup(str, len);
-		return DB_SUCCESS;
+		return 0;
 	}
 	return DB_EINVAL;
 }
@@ -370,11 +370,11 @@
 
 - (int)prepare:(DB_txn *const)txn {
 	int rc = [super prepare:txn];
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 	if(!field || !value) return DB_EINVAL;
 	db_cursor_renew(txn, &metafiles); // SLNFieldValueAndMetaFileID
 	db_cursor_renew(txn, &match); // SLNFieldValueAndMetaFileID
-	return DB_SUCCESS;
+	return 0;
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
@@ -383,7 +383,7 @@
 	DB_val metadata_key[1];
 	SLNFieldValueAndMetaFileIDKeyPack(metadata_key, curtxn, field, value, sortID);
 	int rc = db_cursor_seekr(metafiles, range, metadata_key, NULL, dir);
-	if(DB_SUCCESS != rc) return invalid(dir);
+	if(rc < 0) return invalid(dir);
 	strarg_t f, v;
 	uint64_t actualSortID;
 	SLNFieldValueAndMetaFileIDKeyUnpack(metadata_key, curtxn, &f, &v, &actualSortID);
@@ -392,7 +392,7 @@
 - (uint64_t)currentMeta:(int const)dir {
 	DB_val metadata_key[1];
 	int rc = db_cursor_current(metafiles, metadata_key, NULL);
-	if(DB_SUCCESS != rc) return invalid(dir);
+	if(rc < 0) return invalid(dir);
 	strarg_t f, v;
 	uint64_t sortID;
 	SLNFieldValueAndMetaFileIDKeyUnpack(metadata_key, curtxn, &f, &v, &sortID);
@@ -403,7 +403,7 @@
 	SLNFieldValueAndMetaFileIDRange2(range, curtxn, field, value);
 	DB_val metadata_key[1];
 	int rc = db_cursor_nextr(metafiles, range, metadata_key, NULL, dir);
-	if(DB_SUCCESS != rc) return invalid(dir);
+	if(rc < 0) return invalid(dir);
 	strarg_t f, v;
 	uint64_t sortID;
 	SLNFieldValueAndMetaFileIDKeyUnpack(metadata_key, curtxn, &f, &v, &sortID);
@@ -413,9 +413,9 @@
 	DB_val metadata_key[1];
 	SLNFieldValueAndMetaFileIDKeyPack(metadata_key, curtxn, field, value, metaFileID);
 	int rc = db_cursor_seek(match, metadata_key, NULL, 0);
-	if(DB_SUCCESS == rc) return true;
+	if(rc >= 0) return true;
 	if(DB_NOTFOUND == rc) return false;
-	assertf(0, "Database error %s", db_strerror(rc));
+	assertf(0, "Database error %s", sln_strerror(rc));
 }
 @end
 

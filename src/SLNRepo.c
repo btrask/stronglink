@@ -68,7 +68,7 @@ SLNRepoRef SLNRepoCreate(strarg_t const dir, strarg_t const name) {
 	}
 
 	int rc = createDBConnection(repo);
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		SLNRepoFree(&repo);
 		return NULL;
 	}
@@ -227,26 +227,26 @@ static int create_admin(SLNRepoRef const repo, DB_txn *const txn) {
 	password[PASS_LEN] = '\0';
 
 	rc = SLNSessionCreateUserInternal(root, txn, username, password, SLN_ROOT);
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 
 	fprintf(stdout, "ACCOUNT CREATED\n");
 	fprintf(stdout, "  Username: %s\n", username);
 	fprintf(stdout, "  Password: %s\n", password);
 	fprintf(stdout, "  Please change your password after logging in\n");
 
-	return DB_SUCCESS;
+	return 0;
 }
 static int createDBConnection(SLNRepoRef const repo) {
 	assert(repo);
 	int rc = db_env_create(&repo->db);
-	rc = DB_SUCCESS != rc ? rc : db_env_set_mapsize(repo->db, 1024 * 1024 * 256);
-	if(DB_SUCCESS != rc) {
-		fprintf(stderr, "Database setup error (%s)\n", db_strerror(rc));
+	rc = rc < 0 ? rc : db_env_set_mapsize(repo->db, 1024 * 1024 * 256);
+	if(rc < 0) {
+		fprintf(stderr, "Database setup error (%s)\n", sln_strerror(rc));
 		return rc;
 	}
 	rc = db_env_open(repo->db, repo->DBPath, 0, 0600);
-	if(DB_SUCCESS != rc) {
-		fprintf(stderr, "Database open error (%s)\n", db_strerror(rc));
+	if(rc < 0) {
+		fprintf(stderr, "Database open error (%s)\n", sln_strerror(rc));
 		return rc;
 	}
 
@@ -254,9 +254,9 @@ static int createDBConnection(SLNRepoRef const repo) {
 	SLNRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
 	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		SLNRepoDBClose(repo, &db);
-		fprintf(stderr, "Database transaction error (%s)\n", db_strerror(rc));
+		fprintf(stderr, "Database transaction error (%s)\n", sln_strerror(rc));
 		return rc;
 	}
 
@@ -267,10 +267,10 @@ static int createDBConnection(SLNRepoRef const repo) {
 		fprintf(stderr, "Database incompatible with this software version\n");
 		return rc;
 	}
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		db_txn_abort(txn); txn = NULL;
 		SLNRepoDBClose(repo, &db);
-		fprintf(stderr, "Database schema layer error (%s)\n", db_strerror(rc));
+		fprintf(stderr, "Database schema layer error (%s)\n", sln_strerror(rc));
 		return rc;
 	}
 
@@ -278,10 +278,10 @@ static int createDBConnection(SLNRepoRef const repo) {
 
 	DB_cursor *cursor = NULL;
 	rc = db_txn_cursor(txn, &cursor);
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		db_txn_abort(txn); txn = NULL;
 		SLNRepoDBClose(repo, &db);
-		fprintf(stderr, "Database cursor error (%s)\n", db_strerror(rc));
+		fprintf(stderr, "Database cursor error (%s)\n", sln_strerror(rc));
 		return rc;
 	}
 
@@ -291,20 +291,20 @@ static int createDBConnection(SLNRepoRef const repo) {
 	if(DB_NOTFOUND == rc) {
 		rc = create_admin(repo, txn);
 	}
-	if(DB_SUCCESS != rc) {
+	if(rc < 0) {
 		db_txn_abort(txn); txn = NULL;
 		SLNRepoDBClose(repo, &db);
-		fprintf(stderr, "Database user error (%s)\n", db_strerror(rc));
+		fprintf(stderr, "Database user error (%s)\n", sln_strerror(rc));
 		return rc;
 	}
 
 	rc = db_txn_commit(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
-	if(DB_SUCCESS != rc) {
-		fprintf(stderr, "Database commit error (%s)\n", db_strerror(rc));
+	if(rc < 0) {
+		fprintf(stderr, "Database commit error (%s)\n", sln_strerror(rc));
 		return rc;
 	}
-	return DB_SUCCESS;
+	return 0;
 }
 static void loadPulls(SLNRepoRef const repo) {
 	assert(repo);
@@ -312,18 +312,18 @@ static void loadPulls(SLNRepoRef const repo) {
 	SLNRepoDBOpen(repo, &db);
 	DB_txn *txn = NULL;
 	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	assert(DB_SUCCESS == rc);
+	assert(rc >= 0);
 
 	DB_cursor *cur = NULL;
 	rc = db_cursor_open(txn, &cur);
-	assertf(DB_SUCCESS == rc, "Database error %s\n", db_strerror(rc));
+	assertf(rc >= 0, "Database error %s\n", sln_strerror(rc));
 
 	DB_range pulls[1];
 	SLNPullByIDRange0(pulls, txn);
 	DB_val pullID_key[1];
 	DB_val pull_val[1];
 	rc = db_cursor_firstr(cur, pulls, pullID_key, pull_val, +1);
-	for(; DB_SUCCESS == rc; rc = db_cursor_nextr(cur, pulls, pullID_key, pull_val, +1)) {
+	for(; rc >= 0; rc = db_cursor_nextr(cur, pulls, pullID_key, pull_val, +1)) {
 		uint64_t pullID;
 		SLNPullByIDKeyUnpack(pullID_key, txn, &pullID);
 		uint64_t userID;

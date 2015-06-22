@@ -63,25 +63,25 @@ int db_schema_verify(DB_txn *const txn) {
 
 	DB_cursor *cur;
 	int rc = db_txn_cursor(txn, &cur);
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 	rc = db_cursor_first(cur, NULL, NULL, +1);
-	if(DB_SUCCESS != rc && DB_NOTFOUND != rc) return rc;
+	if(rc < 0 && DB_NOTFOUND != rc) return rc;
 
 	// If the database is completely empty
 	// we can assume it's ours to play with
 	if(DB_NOTFOUND == rc) {
 		*val = (DB_val){ len, (char *)magic };
 		rc = db_put(txn, key, val, 0);
-		if(DB_SUCCESS != rc) return rc;
-		return DB_SUCCESS;
+		if(rc < 0) return rc;
+		return 0;
 	}
 
 	rc = db_get(txn, key, val);
 	if(DB_NOTFOUND == rc) return DB_VERSION_MISMATCH;
-	if(DB_SUCCESS != rc) return rc;
+	if(rc < 0) return rc;
 	if(len != val->size) return DB_VERSION_MISMATCH;
 	if(0 != memcmp(val->data, magic, len)) return DB_VERSION_MISMATCH;
-	return DB_SUCCESS;
+	return 0;
 }
 
 
@@ -104,7 +104,7 @@ void db_bind_uint64(DB_val *const val, uint64_t const x) {
 
 uint64_t db_next_id(dbid_t const table, DB_txn *const txn) {
 	DB_cursor *cur = NULL;
-	if(DB_SUCCESS != db_txn_cursor(txn, &cur)) return 0;
+	if(db_txn_cursor(txn, &cur) < 0) return 0;
 	DB_range range[1];
 	DB_RANGE_STORAGE(range, DB_VARINT_MAX);
 	db_bind_uint64(range->min, table+0);
@@ -112,7 +112,7 @@ uint64_t db_next_id(dbid_t const table, DB_txn *const txn) {
 	DB_val prev[1];
 	int rc = db_cursor_firstr(cur, range, prev, NULL, -1);
 	if(DB_NOTFOUND == rc) return 1;
-	if(DB_SUCCESS != rc) return 0;
+	if(rc < 0) return 0;
 	uint64_t const t = db_read_uint64(prev);
 	assert(table == t);
 	return db_read_uint64(prev)+1;
@@ -158,7 +158,7 @@ char const *db_read_string(DB_val *const val, DB_txn *const txn) {
 	DB_val key = { DB_INLINE_MAX, (char *)str };
 	DB_val full[1];
 	int rc = db_get(txn, &key, full);
-	db_assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
+	db_assertf(rc >= 0, "Database error %s", db_strerror(rc));
 	char const *const fstr = full->data;
 	db_assert('\0' == fstr[full->size-1]);
 	return fstr;
@@ -203,7 +203,7 @@ void db_bind_string_len(DB_val *const val, char const *const str, size_t const l
 	if(!txn) return;
 	unsigned flags = 0;
 	rc = db_txn_get_flags(txn, &flags);
-	db_assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
+	db_assertf(rc >= 0, "Database error %s", db_strerror(rc));
 	if(flags & DB_RDONLY) return;
 
 	DB_val key = { DB_INLINE_MAX, out+val->size-DB_INLINE_MAX };
@@ -213,7 +213,7 @@ void db_bind_string_len(DB_val *const val, char const *const str, size_t const l
 	rc = db_put(txn, &key, &full, 0);
 	if(!nulterm) free(str2);
 	str2 = NULL;
-	db_assertf(DB_SUCCESS == rc, "Database error %s", db_strerror(rc));
+	db_assertf(rc >= 0, "Database error %s", db_strerror(rc));
 }
 
 
