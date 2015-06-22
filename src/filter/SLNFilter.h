@@ -8,11 +8,6 @@
 #include "../SLNDB.h"
 #include "../../deps/openbsd-compat/includes.h"
 
-typedef struct {
-	uint64_t min;
-	uint64_t max;
-} SLNAgeRange;
-
 @interface SLNObject
 {
 	Class isa;

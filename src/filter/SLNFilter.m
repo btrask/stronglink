@@ -117,66 +117,12 @@ void SLNFilterStep(SLNFilterRef const filter, int const dir) {
 	assert(dir);
 	[(SLNFilter *)filter step:dir];
 }
-uint64_t SLNFilterAge(SLNFilterRef const filter, uint64_t const fileID, uint64_t const sortID) {
+SLNAgeRange SLNFilterFullAge(SLNFilterRef const filter, uint64_t const fileID) {
+	assert(filter);
+	return [(SLNFilter *)filter fullAge:fileID];
+}
+uint64_t SLNFilterFastAge(SLNFilterRef const filter, uint64_t const fileID, uint64_t const sortID) {
 	assert(filter);
 	return [(SLNFilter *)filter fastAge:fileID :sortID];
-}
-
-int SLNFilterSeekURI(SLNFilterRef const filter, int const dir, strarg_t const URI, DB_txn *const txn) {
-	if(!URI) return DB_NOTFOUND;
-
-	DB_cursor *cursor = NULL;
-	int rc = db_txn_cursor(txn, &cursor);
-	if(rc < 0) return rc;
-
-	// URIs passed to this function are assumed to be unique
-	// (i.e. using the repo's internal algo), thus we can just
-	// use the first file found. If you pass a URI with
-	// collisions, we may seek to the wrong place or fail
-	// entirely.
-	DB_range range[1];
-	DB_val key[1];
-	SLNURIAndFileIDRange1(range, txn, URI);
-	rc = db_cursor_firstr(cursor, range, key, NULL, +1);
-	if(rc < 0) return rc;
-	strarg_t u;
-	uint64_t fileID;
-	SLNURIAndFileIDKeyUnpack(key, txn, &u, &fileID);
-	assert(0 == strcmp(URI, u));
-
-	SLNAgeRange const ages = [(SLNFilter *)filter fullAge:fileID];
-	if(!valid(ages.min) || ages.min > ages.max) return DB_NOTFOUND;
-	uint64_t const sortID = ages.min;
-
-	[(SLNFilter *)filter seek:dir :sortID :fileID];
-	[(SLNFilter *)filter step:dir]; // Start just before/after the URI.
-	// TODO: Stepping is almost assuredly wrong if the URI doesn't match
-	// the filter. We should check if our seek was a direct hit, and
-	// only step if it was.
-	return 0;
-}
-str_t *SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, DB_txn *const txn) {
-	uint64_t sortID, fileID;
-	for(;;) {
-		SLNFilterCurrent(filter, dir, &sortID, &fileID);
-		if(!valid(fileID)) return NULL;
-
-		uint64_t const age = SLNFilterAge(filter, fileID, sortID);
-//		fprintf(stderr, "step: {%llu, %llu} -> %llu\n", (unsigned long long)sortID, (unsigned long long)fileID, (unsigned long long)age);
-		if(age == sortID) break;
-		SLNFilterStep(filter, dir);
-	}
-
-	DB_val fileID_key[1], file_val[1];
-	SLNFileByIDKeyPack(fileID_key, txn, fileID);
-	int rc = db_get(txn, fileID_key, file_val);
-	db_assertf(rc >= 0, "Database error %s", sln_strerror(rc)); // TODO
-
-	strarg_t const hash = db_read_string(file_val, txn);
-	assert(hash); // TODO
-	str_t *const URI = SLNFormatURI(SLN_INTERNAL_ALGO, hash);
-	assert(URI);
-	SLNFilterStep(filter, dir);
-	return URI;
 }
 

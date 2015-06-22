@@ -100,7 +100,6 @@ strarg_t SLNSessionGetUsername(SLNSessionRef const session);
 str_t *SLNSessionCopyCookie(SLNSessionRef const session);
 int SLNSessionCreateUser(SLNSessionRef const session, DB_txn *const txn, strarg_t const username, strarg_t const password);
 int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn, strarg_t const username, strarg_t const password, SLNMode const mode_unsafe);
-int SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const filter, SLNFilterOpts *const opts, str_t *out[], size_t *const outcount);
 int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFileInfo *const info);
 void SLNFileInfoCleanup(SLNFileInfo *const info);
 int SLNSessionGetValueForField(SLNSessionRef const session, str_t value[], size_t const max, strarg_t const fileURI, strarg_t const field);
@@ -125,6 +124,7 @@ int SLNHasherWrite(SLNHasherRef const hasher, byte_t const *const buf, size_t co
 str_t **SLNHasherEnd(SLNHasherRef const hasher);
 strarg_t SLNHasherGetInternalHash(SLNHasherRef const hasher);
 
+
 typedef enum {
 	SLNFilterTypeInvalid = 0,
 	SLNAllFilterType,
@@ -142,6 +142,11 @@ typedef enum {
 	SLNBadMetaFileFilterType, // TODO: Deprecated
 } SLNFilterType;
 
+typedef struct {
+	uint64_t min;
+	uint64_t max;
+} SLNAgeRange;
+
 int SLNFilterCreate(SLNSessionRef const session, SLNFilterType const type, SLNFilterRef *const out);
 SLNFilterRef SLNFilterCreateInternal(SLNFilterType const type);
 void SLNFilterFree(SLNFilterRef *const filterptr);
@@ -156,13 +161,30 @@ int SLNFilterPrepare(SLNFilterRef const filter, DB_txn *const txn);
 void SLNFilterSeek(SLNFilterRef const filter, int const dir, uint64_t const sortID, uint64_t const fileID);
 void SLNFilterCurrent(SLNFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID);
 void SLNFilterStep(SLNFilterRef const filter, int const dir);
-uint64_t SLNFilterAge(SLNFilterRef const filter, uint64_t const fileID, uint64_t const sortID);
+SLNAgeRange SLNFilterFullAge(SLNFilterRef const filter, uint64_t const fileID);
+uint64_t SLNFilterFastAge(SLNFilterRef const filter, uint64_t const fileID, uint64_t const sortID);
 
-int SLNFilterSeekURI(SLNFilterRef const filter, int const dir, strarg_t const URI, DB_txn *const txn);
-str_t *SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, DB_txn *const txn);
 
-int SLNFilterOptsParse(strarg_t const qs, int const defaultdir, size_t const max, SLNFilterOpts *const opts);
-void SLNFilterOptsCleanup(SLNFilterOpts *const opts);
+typedef struct {
+	int dir;
+	str_t *URI;
+	uint64_t sortID;
+	uint64_t fileID;
+} SLNFilterPosition;
+
+typedef int (*SLNFilterWriteCB)(void *ctx, uv_buf_t const parts[], unsigned int const count);
+
+void SLNFilterParseOptions(strarg_t const qs, SLNFilterPosition *const start, uint64_t *const count, int *const dir, bool *const wait);
+void SLNFilterPositionCleanup(SLNFilterPosition *const pos);
+
+int SLNFilterSeekToPosition(SLNFilterRef const filter, SLNFilterPosition const *const pos, DB_txn *const txn);
+int SLNFilterGetPosition(SLNFilterRef const filter, SLNFilterPosition *const pos, DB_txn *const txn);
+int SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, bool const meta, DB_txn *const txn, str_t **const out);
+
+ssize_t SLNFilterCopyURIs(SLNFilterRef const filter, SLNSessionRef const session, SLNFilterPosition *const pos, int const dir, bool const meta, str_t *URIs[], size_t const max);
+ssize_t SLNFilterWriteURIBatch(SLNFilterRef const filter, SLNSessionRef const session, SLNFilterPosition *const pos, bool const meta, uint64_t const max, SLNFilterWriteCB const writecb, void *ctx);
+int SLNFilterWriteURIs(SLNFilterRef const filter, SLNSessionRef const session, SLNFilterPosition *const pos, bool const meta, uint64_t const max, bool const wait, SLNFilterWriteCB const writecb, void *ctx);
+
 
 int SLNJSONFilterParserCreate(SLNSessionRef const session, SLNJSONFilterParserRef *const out);
 void SLNJSONFilterParserFree(SLNJSONFilterParserRef *const parserptr);

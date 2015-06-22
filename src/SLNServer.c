@@ -187,48 +187,13 @@ cleanup:
 	return 0;
 }
 
-static int sendURIBatch(SLNSessionRef const session, SLNFilterRef const filter, SLNFilterOpts *const opts, HTTPConnectionRef const conn) {
-	size_t count;
-	str_t *URIs[QUERY_BATCH_SIZE];
-	opts->count = QUERY_BATCH_SIZE;
-	int rc = SLNSessionCopyFilteredURIs(session, filter, opts, URIs, &count);
-	if(rc < 0) return rc;
-	if(0 == count) return DB_NOTFOUND;
-	rc = 0;
-	for(size_t i = 0; i < count; i++) {
-		uv_buf_t const parts[] = {
-			uv_buf_init((char *)URIs[i], strlen(URIs[i])),
-			uv_buf_init((char *)STR_LEN("\r\n")),
-		};
-		rc = HTTPConnectionWriteChunkv(conn, parts, numberof(parts));
-		if(rc < 0) break;
-	}
-	for(size_t i = 0; i < count; i++) FREE(&URIs[i]);
-	if(rc < 0) return DB_EIO;
-	return 0;
-}
-static bool parse_wait(strarg_t const str) {
-	if(!str) return true;
-	if(0 == strcasecmp(str, "")) return false;
-	if(0 == strcasecmp(str, "0")) return false;
-	if(0 == strcasecmp(str, "false")) return false;
-	return true;
-}
 static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, strarg_t const qs, HTTPConnectionRef const conn) {
-	SLNFilterOpts opts[1];
-	SLNFilterOptsParse(qs, +1, 0, opts);
-	// TODO: We should accept `count` and treat it as the total number of
-	// items to be returned (instead of just for one batch).
-
-	// We're sending a series of batches, so reversing one batch
-	// doesn't make sense.
-	opts->outdir = opts->dir;
-
-	static strarg_t const fields[] = { "wait" };
-	str_t *values[numberof(fields)] = {};
-	QSValuesParse(qs, values, fields, numberof(fields));
-	bool const wait = parse_wait(values[0]);
-	QSValuesCleanup(values, numberof(values));
+	SLNFilterPosition pos[1];
+	pos->dir = +1;
+	pos->URI = NULL;
+	uint64_t count = UINT64_MAX;
+	bool wait = true;
+	SLNFilterParseOptions(qs, pos, &count, NULL, &wait);
 
 	// I'm aware that we're abusing HTTP for sending real-time push data.
 	// I'd also like to support WebSocket at some point, but this is simpler
@@ -244,43 +209,15 @@ static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, 
 	HTTPConnectionWriteHeader(conn, "Cache-Control", "no-store");
 	HTTPConnectionWriteHeader(conn, "Vary", "*");
 	HTTPConnectionBeginBody(conn);
-	int rc;
 
-	for(;;) {
-		rc = sendURIBatch(session, filter, opts, conn);
-		if(DB_NOTFOUND == rc) break;
-		if(rc >= 0) continue;
-		fprintf(stderr, "Query error: %s\n", sln_strerror(rc));
-		goto cleanup;
+	int rc = SLNFilterWriteURIs(filter, session, pos, false, count, wait, (SLNFilterWriteCB)HTTPConnectionWriteChunkv, conn);
+	if(rc < 0) {
+		fprintf(stderr, "Query response error %s\n", sln_strerror(rc));
 	}
 
-	if(!wait || opts->dir < 0) goto cleanup;
-
-	SLNRepoRef const repo = SLNSessionGetRepo(session);
-	for(;;) {
-		uint64_t const timeout = uv_now(async_loop)+(1000 * 30);
-		rc = SLNRepoSubmissionWait(repo, opts->sortID, timeout);
-		if(UV_ETIMEDOUT == rc) {
-			uv_buf_t const parts[] = { uv_buf_init((char *)STR_LEN("\r\n")) };
-			rc = HTTPConnectionWriteChunkv(conn, parts, numberof(parts));
-			if(rc < 0) break;
-			continue;
-		}
-		assert(rc >= 0); // TODO: Handle cancellation?
-
-		for(;;) {
-			rc = sendURIBatch(session, filter, opts, conn);
-			if(DB_NOTFOUND == rc) break;
-			if(rc >= 0) continue;
-			fprintf(stderr, "Query error: %s\n", sln_strerror(rc));
-			goto cleanup;
-		}
-	}
-
-cleanup:
 	HTTPConnectionWriteChunkEnd(conn);
 	HTTPConnectionEnd(conn);
-	SLNFilterOptsCleanup(opts);
+	SLNFilterPositionCleanup(pos);
 }
 static int parseFilter(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, HTTPHeadersRef const headers, SLNFilterRef *const out) {
 	assert(HTTP_POST == method);

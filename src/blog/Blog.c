@@ -161,27 +161,24 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 //	SLNFilterPrint(filter, 0); // DEBUG
 
-	SLNFilterOpts opts[1];
-	rc = SLNFilterOptsParse(qs, -1, RESULTS_MAX, opts);
-	if(rc < 0) {
-		FREE(&query);
-		FREE(&query_HTMLSafe);
-		SLNFilterFree(&filter);
-		return 500;
-	}
-	int const outdir = opts->outdir;
+	SLNFilterPosition pos[1];
+	pos->dir = -1;
+	pos->URI = NULL;
+	uint64_t max = RESULTS_MAX;
+	int outdir = -1;
+	SLNFilterParseOptions(qs, pos, &max, &outdir, NULL);
+	if(max < 1) max = 1;
+	if(max > RESULTS_MAX) max = RESULTS_MAX;
 
 	uint64_t const t1 = uv_hrtime();
 
-	size_t count;
 	str_t *URIs[RESULTS_MAX];
-	rc = SLNSessionCopyFilteredURIs(session, filter, opts, URIs, &count);
-	SLNFilterOptsCleanup(opts);
-	if(rc < 0) {
+	ssize_t const count = SLNFilterCopyURIs(filter, session, pos, outdir, false, URIs, (size_t)max);
+	SLNFilterPositionCleanup(pos);
+	if(count < 0) {
 		FREE(&query);
 		FREE(&query_HTMLSafe);
 		SLNFilterFree(&filter);
-		if(DB_NOTFOUND == rc) return 404;
 		return 500;
 	}
 

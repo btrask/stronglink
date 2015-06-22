@@ -158,58 +158,6 @@ int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn,
 	return 0;
 }
 
-int SLNSessionCopyFilteredURIs(SLNSessionRef const session, SLNFilterRef const filter, SLNFilterOpts *const opts, str_t *out[], size_t *const outcount) {
-	assert(out);
-	assert(outcount);
-	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
-	if(0 == opts->dir) return DB_EINVAL;
-	if(0 == opts->outdir) return DB_EINVAL;
-	if(opts->count <= 0) return 0;
-
-	DB_env *db = NULL;
-	DB_txn *txn = NULL;
-	int rc = 0;
-
-	SLNRepoRef const repo = SLNSessionGetRepo(session);
-	SLNRepoDBOpen(repo, &db);
-	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	if(rc < 0) goto cleanup;
-
-	rc = SLNFilterPrepare(filter, txn);
-	if(rc < 0) goto cleanup;
-
-	if(opts->URI) {
-		rc = SLNFilterSeekURI(filter, opts->dir, opts->URI, txn);
-	} else {
-		SLNFilterSeek(filter, opts->dir, opts->sortID, opts->fileID);
-		rc = 0;
-	}
-	if(rc < 0) goto cleanup;
-
-	int const dir = opts->dir * opts->outdir;
-	size_t i = 0;
-	for(; i < opts->count; i++) {
-		size_t const pos = dir > 0 ? i : opts->count-1-i;
-		out[pos] = SLNFilterCopyNextURI(filter, opts->dir, txn);
-		if(!out[pos]) break;
-	}
-
-	*outcount = i;
-	FREE(&opts->URI);
-	SLNFilterCurrent(filter, opts->dir, &opts->sortID, &opts->fileID);
-
-	// The results should always be in the first `i` slots, even when
-	// filling them in reverse order.
-	if(dir < 0) {
-		memmove(out+0, out+(opts->count-i), sizeof(*out) * i);
-	}
-
-cleanup:
-	db_txn_abort(txn); txn = NULL;
-	SLNRepoDBClose(repo, &db);
-
-	return rc;
-}
 int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFileInfo *const info) {
 	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
 	if(!URI) return DB_EINVAL;

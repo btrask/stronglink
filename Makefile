@@ -97,13 +97,13 @@ OBJECTS := \
 	$(BUILD_DIR)/SLNPull.o \
 	$(BUILD_DIR)/SLNServer.o \
 	$(BUILD_DIR)/filter/SLNFilter.o \
+	$(BUILD_DIR)/filter/SLNFilterExt.o \
 	$(BUILD_DIR)/filter/SLNIndirectFilter.o \
 	$(BUILD_DIR)/filter/SLNDirectFilter.o \
 	$(BUILD_DIR)/filter/SLNCollectionFilter.o \
 	$(BUILD_DIR)/filter/SLNNegationFilter.o \
 	$(BUILD_DIR)/filter/SLNMetaFileFilter.o \
 	$(BUILD_DIR)/filter/SLNBadMetaFileFilter.o \
-	$(BUILD_DIR)/filter/SLNFilterOpts.o \
 	$(BUILD_DIR)/filter/SLNJSONFilterParser.o \
 	$(BUILD_DIR)/filter/SLNUserFilterParser.o \
 	$(BUILD_DIR)/async/async.o \
