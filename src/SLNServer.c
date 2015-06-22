@@ -187,7 +187,7 @@ cleanup:
 	return 0;
 }
 
-static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, strarg_t const qs, HTTPConnectionRef const conn) {
+static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, strarg_t const qs, bool const meta, HTTPConnectionRef const conn) {
 	SLNFilterPosition pos[1];
 	pos->dir = +1;
 	pos->URI = NULL;
@@ -210,7 +210,7 @@ static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, 
 	HTTPConnectionWriteHeader(conn, "Vary", "*");
 	HTTPConnectionBeginBody(conn);
 
-	int rc = SLNFilterWriteURIs(filter, session, pos, false, count, wait, (SLNFilterWriteCB)HTTPConnectionWriteChunkv, conn);
+	int rc = SLNFilterWriteURIs(filter, session, pos, meta, count, wait, (SLNFilterWriteCB)HTTPConnectionWriteChunkv, conn);
 	if(rc < 0) {
 		fprintf(stderr, "Query response error %s\n", sln_strerror(rc));
 	}
@@ -258,7 +258,7 @@ static int GET_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 	if(DB_EACCES == rc) return 403;
 	if(rc < 0) return 500;
 
-	sendURIList(session, filter, qs, conn);
+	sendURIList(session, filter, qs, false, conn);
 	SLNFilterFree(&filter);
 	return 0;
 }
@@ -271,7 +271,7 @@ static int POST_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPCo
 	int rc = parseFilter(session, conn, method, headers, &filter);
 	if(DB_EACCES == rc) return 403;
 	if(rc < 0) return 500;
-	sendURIList(session, filter, qs, conn);
+	sendURIList(session, filter, qs, false, conn);
 	SLNFilterFree(&filter);
 	return 0;
 }
@@ -284,7 +284,7 @@ static int GET_metafiles(SLNRepoRef const repo, SLNSessionRef const session, HTT
 	int rc = SLNFilterCreate(session, SLNMetaFileFilterType, &filter);
 	if(DB_EACCES == rc) return 403;
 	if(rc < 0) return 500;
-	sendURIList(session, filter, qs, conn); // TODO: Use "meta -> file" format
+	sendURIList(session, filter, qs, true, conn);
 	SLNFilterFree(&filter);
 	return 0;
 }
@@ -317,7 +317,7 @@ static int GET_query_obsolete(SLNRepoRef const repo, SLNSessionRef const session
 		return 500;
 	}
 
-	sendURIList(session, filter, qs, conn);
+	sendURIList(session, filter, qs, false, conn);
 	SLNFilterFree(&filter);
 	return 0;
 }

@@ -141,11 +141,22 @@ int SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, bool const me
 
 	strarg_t const hash = db_read_string(file_val, txn);
 	db_assert(hash);
-	str_t *URI = SLNFormatURI(SLN_INTERNAL_ALGO, hash);
-	if(!URI) return DB_ENOMEM;
 
-	assert(!meta);
-	// TODO: If `meta`, look up target and output both.
+	str_t *URI = NULL;
+	if(!meta) {
+		URI = SLNFormatURI(SLN_INTERNAL_ALGO, hash);
+		if(!URI) return DB_ENOMEM;
+	} else {
+		DB_val key[1], val[1];
+		SLNMetaFileByIDKeyPack(key, txn, fileID);
+		rc = db_get(txn, key, val);
+		if(rc < 0) return rc;
+		uint64_t f;
+		strarg_t target = NULL;
+		SLNMetaFileByIDValUnpack(val, txn, &f, &target);
+		URI = aasprintf("hash://%s/%s -> %s", SLN_INTERNAL_ALGO, hash, target);
+		if(!URI) return DB_ENOMEM;
+	}
 
 	SLNFilterStep(filter, dir);
 	*out = URI; URI = NULL;
