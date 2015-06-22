@@ -40,6 +40,7 @@ Practices in use (pro tip: contributing guidelines):
 - Use `goto` tastefully to simplify error handling and cleanup when appropriate
 - Use `reallocarray`
 - Use standard, secure string functions like `strlcat` instead of rolling our own (where possible)
+- Define string length constants as `(N+1)` to make nul termination explicit
 - Use established HTML sanitization instead of DIY
 - Use assertions to assert obvious invariants
 - Ship with assertions on
