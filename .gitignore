@@ -4,6 +4,12 @@ perf.data.old
 deps/uv/uv.xcodeproj
 *~
 
+# Exclude these from GitHub language statistics
+# https://help.github.com/articles/my-repository-is-marked-as-the-wrong-language/
+# https://github.com/github/linguist#readme
+/res/experiments linguist-documentation
+res/async_sqlite.c linguist-documentation
+
 /deps/lsmdb/liblmdb/mdb_dump
 /deps/lsmdb/liblmdb/mdb_load
 
