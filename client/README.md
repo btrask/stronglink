@@ -19,6 +19,13 @@ Submits a file (meta-file or regular file). Responds with 201 Created on success
 
 Implementation status: working
 
+**PUT /sln/file/[algo]/[hash]**  
+Like `POST /sln/file` above except that the intended algorithm and hash are stated up front. This allows work to be skipped if the file is already known, and allows the file to be verified by the server before it is added. If the hash doesn't match, the file isn't added and an error is returned (TODO: which error?).
+
+You should generally prefer this version if it's possible to generate the hash in advance.
+
+Implementation status: not implemented
+
 **GET /sln/query**  
 Returns a URI list of files that match a given query.
 
