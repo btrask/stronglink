@@ -130,6 +130,9 @@ static int verify(SLNSubmissionRef const sub) {
 		// Note: this comparison assumes knownURI is normalized.
 		if(0 == strcmp(sub->knownURI, sub->URIs[i])) return 0;
 	}
+	// TODO: In the event where we do not have the hash algorithm
+	// available, we should probably pass verification, although
+	// it's a little questionable.
 	return UV_EIO; // TODO: EFAULT? Something else?
 }
 int SLNSubmissionEnd(SLNSubmissionRef const sub) {
