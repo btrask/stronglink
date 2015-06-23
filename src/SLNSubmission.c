@@ -9,6 +9,7 @@
 
 struct SLNSubmission {
 	SLNSessionRef session;
+	str_t *knownURI;
 	str_t *type;
 
 	str_t *tmppath;
@@ -24,7 +25,8 @@ struct SLNSubmission {
 
 int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID, DB_txn *const txn, uint64_t *const out);
 
-int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const type, SLNSubmissionRef *const out) {
+int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const knownURI, strarg_t const type, SLNSubmissionRef *const out) {
+	assert(out);
 	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return UV_EACCES;
 	if(!type) return UV_EINVAL;
 
@@ -33,6 +35,11 @@ int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const type, SLNSub
 	int rc = 0;
 
 	sub->session = session;
+	if(knownURI) {
+		sub->knownURI = strdup(knownURI);
+		if(!sub->knownURI) rc = UV_ENOMEM;
+		if(rc < 0) goto cleanup;
+	}
 	sub->type = strdup(type);
 	if(!sub->type) rc = UV_ENOMEM;
 	if(rc < 0) goto cleanup;
@@ -56,8 +63,8 @@ cleanup:
 	SLNSubmissionFree(&sub);
 	return rc;
 }
-int SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, SLNSubmissionRef *const out) {
-	int rc = SLNSubmissionCreate(session, type, out);
+int SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const knownURI, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, SLNSubmissionRef *const out) {
+	int rc = SLNSubmissionCreate(session, knownURI, type, out);
 	if(rc < 0) return rc;
 	rc = SLNSubmissionWriteFrom(*out, read, context);
 	if(rc < 0) SLNSubmissionFree(out);
@@ -68,6 +75,7 @@ void SLNSubmissionFree(SLNSubmissionRef *const subptr) {
 	if(!sub) return;
 
 	sub->session = NULL;
+	FREE(&sub->knownURI);
 	FREE(&sub->type);
 
 	if(sub->tmppath) async_fs_unlink(sub->tmppath);
@@ -115,6 +123,15 @@ int SLNSubmissionWrite(SLNSubmissionRef const sub, byte_t const *const buf, size
 	SLNHasherWrite(sub->hasher, buf, len);
 	return 0;
 }
+static int verify(SLNSubmissionRef const sub) {
+	assert(sub->URIs);
+	if(!sub->knownURI) return 0;
+	for(size_t i = 0; sub->URIs[i]; i++) {
+		// Note: this comparison assumes knownURI is normalized.
+		if(0 == strcmp(sub->knownURI, sub->URIs[i])) return 0;
+	}
+	return UV_EIO; // TODO: EFAULT? Something else?
+}
 int SLNSubmissionEnd(SLNSubmissionRef const sub) {
 	if(!sub) return 0;
 	if(sub->size <= 0) return UV_EINVAL;
@@ -126,11 +143,14 @@ int SLNSubmissionEnd(SLNSubmissionRef const sub) {
 	SLNHasherFree(&sub->hasher);
 	if(!sub->URIs || !sub->internalHash) return UV_ENOMEM;
 
+	SLNRepoRef const repo = SLNSubmissionGetRepo(sub);
 	str_t *internalPath = NULL;
 	bool worker = false;
 	int rc = 0;
 
-	SLNRepoRef const repo = SLNSubmissionGetRepo(sub);
+	rc = verify(sub);
+	if(rc < 0) goto cleanup;
+
 	internalPath = SLNRepoCopyInternalPath(repo, sub->internalHash);
 	if(!internalPath) rc = UV_ENOMEM;
 	if(rc < 0) goto cleanup;

@@ -155,7 +155,7 @@ static int POST_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 	if(!type) return 400;
 
 	SLNSubmissionRef sub = NULL;
-	int rc = SLNSubmissionCreate(session, type, &sub);
+	int rc = SLNSubmissionCreate(session, NULL, type, &sub);
 	if(rc < 0) goto cleanup;
 	for(;;) {
 		uv_buf_t buf[1] = {};

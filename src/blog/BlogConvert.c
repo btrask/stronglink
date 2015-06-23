@@ -72,7 +72,7 @@ static int convert(BlogRef const blog,
 
 	async_fs_close(file); file = -1;
 
-	rc = SLNSubmissionCreate(session, SLN_META_TYPE, &meta);
+	rc = SLNSubmissionCreate(session, NULL, SLN_META_TYPE, &meta);
 	if(rc < 0) goto cleanup;
 
 	SLNSubmissionWrite(meta, (byte_t const *)URI, strlen(URI));

@@ -397,7 +397,7 @@ static int parse_file(BlogRef const blog,
 		for(size_t i = 0; i < numberof(v); i++) FREE(&v[i]);
 	}
 
-	rc = SLNSubmissionCreate(session, type, &file);
+	rc = SLNSubmissionCreate(session, NULL, type, &file);
 	if(rc < 0) goto cleanup;
 	for(;;) {
 		uv_buf_t buf[1];
@@ -471,7 +471,7 @@ static int POST_post(BlogRef const blog,
 
 	SLNSubmissionRef extra = NULL;
 	yajl_gen json = NULL;
-	rc = SLNSubmissionCreate(session, SLN_META_TYPE, &extra);
+	rc = SLNSubmissionCreate(session, NULL, SLN_META_TYPE, &extra);
 	if(rc < 0) goto cleanup;
 
 	strarg_t const target = SLNSubmissionGetPrimaryURI(sub);

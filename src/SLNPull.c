@@ -356,7 +356,7 @@ static int import(SLNPullRef const pull, strarg_t const URI, size_t const pos, H
 	}*/
 	strarg_t const type = HTTPHeadersGet(headers, "content-type");
 
-	rc = SLNSubmissionCreate(pull->session, type, &sub);
+	rc = SLNSubmissionCreate(pull->session, URI, type, &sub);
 	if(rc < 0) {
 		fprintf(stderr, "Pull submission error\n");
 		goto fail;
