@@ -71,7 +71,7 @@ function submitfile(path, cb) {
 			"title": title,
 			"creation-time": stats.birthtime.toISOString(), // WTF is birthtime?
 			"modification-time": stats.mtime.toISOString(),
-			"source-uri": "file://"+path,
+			"source-path": path,
 			//"submitter-name": username,
 			//"submitter-repo": reponame,
 			//"submission-time": (new Date).toISOString(),
@@ -115,7 +115,7 @@ if(!root) {
 	console.error("Usage: sln-import-dir <dir>");
 	process.exit(1);
 }
-submitdir(pathmodule.resolve(root), function(err, uris) {
+submitdir(root, function(err, uris) {
 	console.log("done", err);
 });
 
