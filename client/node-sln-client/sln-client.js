@@ -3,9 +3,11 @@
 
 var sln = exports;
 
+var crypto = require("crypto");
 var fs = require("fs");
 var http = require("http");
 var qs = require("querystring");
+
 var PassThroughStream = require("stream").PassThrough;
 var urlmodule = require("url");
 
@@ -15,6 +17,7 @@ function has(obj, prop) {
 
 // returns: { algo: string, hash: string, query: string, fragment: string }
 sln.parseURI = function(uri) {
+	if("string" !== typeof uri) throw new TypeError("Invalid URI");
 	var x = /hash:\/\/([\w\d.-]+)\/([\w\d_-]+)(\?[\w\d%=_-]*)?(#[\w\d_-])?/.exec(uri);
 	if(!x) return null;
 	return {
@@ -34,6 +37,8 @@ sln.formatURI = function(obj) {
 		(obj.query||"")+
 		(obj.fragment||"");
 };
+
+// TODO
 //sln.createHasher = function() {};
 //sln.Hasher = Hasher;
 
@@ -224,29 +229,65 @@ Repo.prototype.getMeta = function(uri, cb) {
 	});*/
 };
 
-// opts: (none)
+// opts: { uri: string }
 Repo.prototype.submitFile = function(buf, type, opts, cb) {
 	var repo = this;
-	var stream;
-	try { stream = repo.createSubmissionStream(type, opts); }
-	catch(err) { process.nextTick(function() { cb(err, null); }); }
-	stream.on("submission", function(obj) {
-		cb(null, obj);
+	var uri;
+	if(opts && has(opts, "uri")) {
+		uri = sln.parseURI(opts.uri);
+	} else {
+		var sha256 = crypto.createHash("sha256");
+		sha256.end(buf);
+		uri = {
+			algo: "sha256",
+			hash: sha256.read().toString("hex"),
+		};
+	}
+	var req = repo.client.request({
+		method: "PUT",
+		hostname: repo.hostname,
+		port: repo.port,
+		path: repo.path+"/sln/file/"+uri.algo+"/"+uri.hash,
+		headers: {
+			"Cookie": "s="+repo.session,
+			"Content-Type": type,
+		},
 	});
-	stream.on("error", function(err) {
+	req.end(buf);
+	req.on("error", function(err) {
 		cb(err, null);
 	});
-	stream.end(buf);
+	req.on("response", function(res) {
+		if(201 == res.statusCode) {
+			cb(null, {
+				location: res.headers["x-location"],
+			});
+		} else {
+			var err = new Error("Status code "+res.statusCode);
+			err.code = res.statusCode;
+			cb(err, null);
+		}
+		res.resume(); // Drain
+	});
 };
-// opts: (none)
+// opts: { uri: string }
 // returns: stream.Writable (emits "submission": { location: string })
 Repo.prototype.createSubmissionStream = function(type, opts) {
 	var repo = this;
+	var uri, method, path;
+	if(opts && has(opts, "uri")) {
+		uri = sln.parseURI(opts.uri);
+		method = "PUT";
+		path = "/sln/file/"+uri.algo+"/"+uri.hash;
+	} else {
+		method = "POST";
+		path = "/sln/file";
+	}
 	var req = repo.client.request({
-		method: "POST",
+		method: method,
 		hostname: repo.hostname,
 		port: repo.port,
-		path: repo.path+"/sln/file",
+		path: repo.path+path,
 		headers: {
 			"Cookie": "s="+repo.session,
 			"Content-Type": type,
@@ -254,6 +295,9 @@ Repo.prototype.createSubmissionStream = function(type, opts) {
 	});
 	var stream = new PassThroughStream();
 	stream.pipe(req);
+	req.on("error", function(err) {
+		stream.emit("error", err);
+	});
 	req.on("response", function(res) {
 		if(201 == res.statusCode) {
 			stream.emit("submission", {
@@ -266,9 +310,6 @@ Repo.prototype.createSubmissionStream = function(type, opts) {
 		}
 		res.resume(); // Drain
 	});
-	req.on("error", function(err) {
-		stream.emit("error", err);
-	});
 	return stream;
 };
 // opts: (none)
@@ -277,17 +318,9 @@ Repo.prototype.submitMeta = function(uri, meta, opts, cb) {
 	if(0 === uri.length) throw new Error("Invalid URI");
 	// TODO: Validate `meta`
 	var repo = this;
+	var buf = new Buffer(uri+"\n\n"+JSON.stringify(meta, null, "    "), "utf8");
 	var type = "application/vnd.stronglink.meta";
-	var stream;
-	try { stream = repo.createSubmissionStream(type, opts); }
-	catch(err) { process.nextTick(function() { cb(err, null); }); }
-	stream.end(uri+"\n\n"+JSON.stringify(meta, null, "    "), "utf8");
-	stream.on("submission", function(obj) {
-		cb(null, obj);
-	});
-	stream.on("error", function(err) {
-		cb(err, null);
-	});
+	repo.submitFile(buf, type, {}, cb);
 };
 
 
