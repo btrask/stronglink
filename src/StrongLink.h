@@ -40,8 +40,16 @@ typedef struct SLNFilter* SLNFilterRef;
 typedef struct SLNJSONFilterParser* SLNJSONFilterParserRef;
 typedef struct SLNPull* SLNPullRef;
 
+// BerkeleyDB uses -30800 to -30999
+// MDB uses -30600 to -30799?
+#define SLN_HASHMISMATCH (-30599)
+#define SLN_LAST_ERRCODE SLN_HASHMISMATCH
+
 static strarg_t sln_strerror(int const rc) {
 	if(rc >= 0) return "No error";
+	switch(rc) {
+		case SLN_HASHMISMATCH: return "Hash mismatch";
+	}
 	strarg_t x = db_strerror(rc);
 	if(!x) x = uv_strerror(rc);
 	return x;

@@ -133,7 +133,7 @@ static int verify(SLNSubmissionRef const sub) {
 	// TODO: In the event where we do not have the hash algorithm
 	// available, we should probably pass verification, although
 	// it's a little questionable.
-	return UV_EIO; // TODO: EFAULT? Something else?
+	return SLN_HASHMISMATCH;
 }
 int SLNSubmissionEnd(SLNSubmissionRef const sub) {
 	if(!sub) return 0;

@@ -143,19 +143,21 @@ static int GET_meta(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 	// TODO
 	return 501; // Not Implemented
 }
-static int POST_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
-	if(HTTP_POST != method) return -1;
 
-	int len = 0;
-	sscanf(URI, "/sln/file%n", &len);
-	if(!len) return -1;
-	if('\0' != URI[len] && '?' != URI[len]) return -1;
-
+static void created(strarg_t const URI, HTTPConnectionRef const conn) {
+	HTTPConnectionWriteResponse(conn, 201, "Created");
+	HTTPConnectionWriteHeader(conn, "X-Location", URI);
+	// TODO: X-Content-Address or something? Or X-Name?
+	HTTPConnectionWriteContentLength(conn, 0);
+	HTTPConnectionBeginBody(conn);
+	HTTPConnectionEnd(conn);
+}
+static int accept_sub(SLNSessionRef const session, strarg_t const knownURI, HTTPConnectionRef const conn, HTTPHeadersRef const headers) {
 	strarg_t const type = HTTPHeadersGet(headers, "Content-Type");
-	if(!type) return 400;
+	if(!type) return 415; // Unsupported Media Type
 
 	SLNSubmissionRef sub = NULL;
-	int rc = SLNSubmissionCreate(session, NULL, type, &sub);
+	int rc = SLNSubmissionCreate(session, knownURI, type, &sub);
 	if(rc < 0) goto cleanup;
 	for(;;) {
 		uv_buf_t buf[1] = {};
@@ -173,18 +175,53 @@ static int POST_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 	if(!location) rc = UV_ENOMEM;
 	if(rc < 0) goto cleanup;
 
-	HTTPConnectionWriteResponse(conn, 201, "Created");
-	HTTPConnectionWriteHeader(conn, "X-Location", location);
-	// TODO: X-Content-Address or something? Or X-Name?
-	HTTPConnectionWriteContentLength(conn, 0);
-	HTTPConnectionBeginBody(conn);
-	HTTPConnectionEnd(conn);
+	created(location, conn);
 
 cleanup:
 	SLNSubmissionFree(&sub);
 	if(UV_EACCES == rc) return 403;
+	if(SLN_HASHMISMATCH == rc) return 409; // Conflict
 	if(rc < 0) return 500;
 	return 0;
+}
+static int POST_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+	if(HTTP_POST != method) return -1;
+	int len = 0;
+	sscanf(URI, "/sln/file%n", &len);
+	if(!len) return -1;
+	if('\0' != URI[len] && '?' != URI[len]) return -1;
+
+	return accept_sub(session, NULL, conn, headers);
+}
+static int PUT_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+	// TODO: This is pretty much copy and pasted from above.
+	if(HTTP_PUT != method) return -1;
+	int len = 0;
+	str_t algo[SLN_ALGO_SIZE];
+	str_t hash[SLN_HASH_SIZE];
+	algo[0] = '\0';
+	hash[0] = '\0';
+	sscanf(URI, "/sln/file/" SLN_ALGO_FMT "/" SLN_HASH_FMT "%n", algo, hash, &len);
+	if(!algo[0] || !hash[0]) return -1;
+	if('\0' != URI[len] && '?' != URI[len]) return -1;
+
+	str_t *knownURI = SLNFormatURI(algo, hash);
+	if(!knownURI) return 500;
+
+	int rc = SLNSessionGetFileInfo(session, knownURI, NULL);
+	if(rc >= 0) {
+		created(knownURI, conn); // TODO: Don't return 201 if the file already exists?
+		FREE(&knownURI);
+		return 0;
+	}
+	if(DB_NOTFOUND != rc) {
+		FREE(&knownURI);
+		return 500;
+	}
+
+	rc = accept_sub(session, knownURI, conn, headers);
+	FREE(&knownURI);
+	return rc;
 }
 
 static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, strarg_t const qs, bool const meta, HTTPConnectionRef const conn) {
@@ -329,6 +366,7 @@ int SLNServerDispatch(SLNRepoRef const repo, SLNSessionRef const session, HTTPCo
 	rc = rc >= 0 ? rc : GET_file(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_meta(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_file(repo, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : PUT_file(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_query(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_query(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_metafiles(repo, session, conn, method, URI, headers);
