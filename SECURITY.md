@@ -54,9 +54,8 @@ Planned (pro tip: places bugs might be hiding):
 - Check with other static analyzers
 - Use guard pages around sensitive memory? (e.g. cookie cache)
 - Support client-side encryption for remote backups
-- Check all uses of `malloc` to see whether they should be replaced with `calloc`
-- Check all variable declarations to make sure they're properly initialized
-- Check all math operations for possible overflow
+- Enable `-Wuninitialized`
+- Check all math operations for possible overflow (possibly using compiler intrinsics)
 - Perform fuzz testing on inputs
 - Support socket activation
 - Create some sort of high level test suite
