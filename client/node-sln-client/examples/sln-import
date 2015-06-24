@@ -75,7 +75,7 @@ function submitfile(path, cb) {
 			//"submitter-name": username,
 			//"submitter-repo": reponame,
 			//"submission-time": (new Date).toISOString(),
-			"submission-software": "sln-import-dir",
+			"submission-software": "sln-import",
 			"fulltext": fulltext,
 		};
 		repo.submitMeta(fileinfo.location, meta, {}, function(err, metainfo) {
@@ -112,7 +112,7 @@ function submitdir(path, cb) {
 
 var root = process.argv[2];
 if(!root) {
-	console.error("Usage: sln-import-dir <dir>");
+	console.error("Usage: sln-import <path>");
 	process.exit(1);
 }
 submitdir(root, function(err, uris) {
