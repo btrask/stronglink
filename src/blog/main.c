@@ -23,22 +23,21 @@ static int sig = 0;
 static void listener(void *ctx, HTTPConnectionRef const conn) {
 	HTTPMethod method;
 	str_t URI[URI_MAX];
-	ssize_t rc = HTTPConnectionReadRequest(conn, &method, URI, sizeof(URI));
-	if(UV_EMSGSIZE == rc) return (void)HTTPConnectionSendStatus(conn, 414); // Request-URI Too Large
-	if(rc < 0) return (void)HTTPConnectionSendStatus(conn, 500);
+	ssize_t len = HTTPConnectionReadRequest(conn, &method, URI, sizeof(URI));
+	if(UV_EMSGSIZE == len) return (void)HTTPConnectionSendStatus(conn, 414); // Request-URI Too Large
+	if(len < 0) return (void)HTTPConnectionSendStatus(conn, 500);
 
 	HTTPHeadersRef headers;
-	rc = HTTPHeadersCreateFromConnection(conn, &headers);
+	int rc = HTTPHeadersCreateFromConnection(conn, &headers);
 	if(UV_EMSGSIZE == rc) return (void)HTTPConnectionSendStatus(conn, 431); // Request Header Fields Too Large
 	if(rc < 0) return (void)HTTPConnectionSendStatus(conn, 500);
 
 	strarg_t const cookie = HTTPHeadersGet(headers, "cookie");
 	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);
-	SLNSessionRef session = SLNSessionCacheCopyActiveSession(cache, cookie);
-	// TODO: We can't distinguish whether session is NULL
-	// because of permissions or because of out-of-memory.
-	// But I think using NULL to reflect zero permissions
-	// is still a good idea (relatively fail-safe).
+	SLNSessionRef session = NULL;
+	rc = SLNSessionCacheCopyActiveSession(cache, cookie, &session);
+	if(rc < 0) return (void)HTTPConnectionSendStatus(conn, 500);
+	// Note: null session is valid (zero permissions).
 
 	rc = -1;
 	rc = rc >= 0 ? rc : SLNServerDispatch(repo, session, conn, method, URI, headers);

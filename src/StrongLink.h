@@ -84,7 +84,7 @@ SLNSessionCacheRef SLNSessionCacheCreate(SLNRepoRef const repo, uint16_t const s
 void SLNSessionCacheFree(SLNSessionCacheRef *const cacheptr);
 SLNRepoRef SLNSessionCacheGetRepo(SLNSessionCacheRef const cache);
 int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const username, strarg_t const password, SLNSessionRef *const out);
-SLNSessionRef SLNSessionCacheCopyActiveSession(SLNSessionCacheRef const cache, strarg_t const cookie);
+int SLNSessionCacheCopyActiveSession(SLNSessionCacheRef const cache, strarg_t const cookie, SLNSessionRef *const out);
 
 
 typedef struct {

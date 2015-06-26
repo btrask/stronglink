@@ -314,24 +314,50 @@ static int session_load(SLNSessionCacheRef const cache, uint64_t const id, byte_
 	*out = session;
 	return 0;
 }
-SLNSessionRef SLNSessionCacheCopyActiveSession(SLNSessionCacheRef const cache, strarg_t const cookie) {
-	if(!cache) return NULL;
-	if(!cookie) return SLNSessionRetain(cache->public);
+int SLNSessionCacheCopyActiveSession(SLNSessionCacheRef const cache, strarg_t const cookie, SLNSessionRef *const out) {
+	assert(out);
+	if(!cache) {
+		*out = NULL;
+		return UV_EINVAL;
+	}
+	if(!cookie) {
+		*out = SLNSessionRetain(cache->public);
+		return 0;
+	}
 
 	uint64_t sessionID;
 	byte_t sessionKey[SESSION_KEY_LEN];
 	int rc = cookie_parse(cookie, &sessionID, sessionKey);
-	if(rc < 0) return SLNSessionRetain(cache->public);
+	if(rc < 0) {
+		*out = SLNSessionRetain(cache->public);
+		return 0;
+	}
 
-	SLNSessionRef session;
+	SLNSessionRef session = NULL;
 	rc = session_lookup(cache, sessionID, sessionKey, &session);
-	if(rc >= 0) return session;
-	if(DB_EACCES == rc) return SLNSessionRetain(cache->public);
-	if(DB_NOTFOUND != rc) return NULL;
+	if(rc >= 0) {
+		*out = session;
+		return 0;
+	}
+	if(DB_EACCES == rc) {
+		*out = SLNSessionRetain(cache->public);
+		return 0;
+	}
+	if(DB_NOTFOUND != rc) {
+		*out = NULL;
+		return rc;
+	}
+
 	rc = session_load(cache, sessionID, sessionKey, &session);
-	if(rc >= 0) return session;
-	if(DB_EACCES == rc) return SLNSessionRetain(cache->public);
-	if(DB_NOTFOUND == rc) return SLNSessionRetain(cache->public);
-	return NULL;
+	if(rc >= 0) {
+		*out = session;
+		return 0;
+	}
+	if(DB_EACCES == rc || DB_NOTFOUND == rc) {
+		*out = SLNSessionRetain(cache->public);
+		return 0;
+	}
+	*out = NULL;
+	return rc;
 }
 
