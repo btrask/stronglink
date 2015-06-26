@@ -168,7 +168,7 @@ void HTTPConnectionPop(HTTPConnectionRef const conn, size_t const len) {
 }
 
 
-int HTTPConnectionReadRequest(HTTPConnectionRef const conn, HTTPMethod *const method, str_t *const out, size_t const max) {
+ssize_t HTTPConnectionReadRequest(HTTPConnectionRef const conn, HTTPMethod *const method, str_t *const out, size_t const max) {
 	if(!conn) return UV_EINVAL;
 	if(!max) return UV_EINVAL;
 	uv_buf_t buf[1];
@@ -195,7 +195,7 @@ int HTTPConnectionReadRequest(HTTPConnectionRef const conn, HTTPMethod *const me
 		out[len] = '\0';
 	}
 	*method = conn->parser->method;
-	return 0;
+	return (ssize_t)len;
 }
 int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn) {
 	if(!conn) return UV_EINVAL;
@@ -215,12 +215,13 @@ int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn) {
 	return conn->parser->status_code;
 }
 
-int HTTPConnectionReadHeaderField(HTTPConnectionRef const conn, str_t field[], size_t const max) {
+ssize_t HTTPConnectionReadHeaderField(HTTPConnectionRef const conn, str_t out[], size_t const max) {
 	if(!conn) return UV_EINVAL;
 	uv_buf_t buf[1];
 	int rc;
 	HTTPEvent type;
-	if(max > 0) field[0] = '\0';
+	size_t len = 0;
+	if(max > 0) out[0] = '\0';
 	for(;;) {
 		rc = HTTPConnectionPeek(conn, &type, buf);
 		if(rc < 0) return rc;
@@ -231,16 +232,20 @@ int HTTPConnectionReadHeaderField(HTTPConnectionRef const conn, str_t field[], s
 			assertf(0, "Unexpected HTTP event %d", type);
 			return UV_UNKNOWN;
 		}
-		append_buf_to_string(field, max, buf->base, buf->len);
+		if(len+buf->len+1 > max) return UV_EMSGSIZE;
+		memcpy(out+len, buf->base, buf->len);
+		len += buf->len;
+		out[len] = '\0';
 	}
-	return 0;
+	return (ssize_t)len;
 }
-int HTTPConnectionReadHeaderValue(HTTPConnectionRef const conn, str_t value[], size_t const max) {
+ssize_t HTTPConnectionReadHeaderValue(HTTPConnectionRef const conn, str_t out[], size_t const max) {
 	if(!conn) return UV_EINVAL;
 	uv_buf_t buf[1];
 	int rc;
 	HTTPEvent type;
-	if(max > 0) value[0] = '\0';
+	size_t len = 0;
+	if(max > 0) out[0] = '\0';
 	for(;;) {
 		rc = HTTPConnectionPeek(conn, &type, buf);
 		if(rc < 0) return rc;
@@ -251,9 +256,12 @@ int HTTPConnectionReadHeaderValue(HTTPConnectionRef const conn, str_t value[], s
 			assertf(0, "Unexpected HTTP event %d", type);
 			return UV_UNKNOWN;
 		}
-		append_buf_to_string(value, max, buf->base, buf->len);
+		if(len+buf->len+1 > max) return UV_EMSGSIZE;
+		memcpy(out+len, buf->base, buf->len);
+		len += buf->len;
+		out[len] = '\0';
 	}
-	return 0;
+	return (ssize_t)len;
 }
 int HTTPConnectionReadBody(HTTPConnectionRef const conn, uv_buf_t *const buf) {
 	if(!conn) return UV_EINVAL;

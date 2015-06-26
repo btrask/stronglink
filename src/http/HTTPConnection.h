@@ -29,10 +29,10 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 void HTTPConnectionPop(HTTPConnectionRef const conn, size_t const len);
 
 // Reading
-int HTTPConnectionReadRequest(HTTPConnectionRef const conn, HTTPMethod *const method, str_t *const out, size_t const max);
+ssize_t HTTPConnectionReadRequest(HTTPConnectionRef const conn, HTTPMethod *const method, str_t *const out, size_t const max);
 int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn);
-int HTTPConnectionReadHeaderField(HTTPConnectionRef const conn, str_t field[], size_t const max);
-int HTTPConnectionReadHeaderValue(HTTPConnectionRef const conn, str_t value[], size_t const max);
+ssize_t HTTPConnectionReadHeaderField(HTTPConnectionRef const conn, str_t out[], size_t const max);
+ssize_t HTTPConnectionReadHeaderValue(HTTPConnectionRef const conn, str_t out[], size_t const max);
 int HTTPConnectionReadBody(HTTPConnectionRef const conn, uv_buf_t *const buf);
 int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t out[], size_t const max);
 ssize_t HTTPConnectionReadBodyStatic(HTTPConnectionRef const conn, byte_t *const out, size_t const max);
@@ -61,9 +61,7 @@ int HTTPConnectionSendStatus(HTTPConnectionRef const conn, uint16_t const status
 int HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path, strarg_t const type, int64_t size);
 
 
-// Note: We can't use strlcat because the new string
-// isn't necessarily nul-terminated.
-// The buffer might include embedded nuls but we don't care.
+// TODO: Get rid of this.
 static size_t append_buf_to_string(str_t *const dst, size_t const dsize, strarg_t const src, size_t const slen) {
 	if(!dsize) return 0;
 	size_t const olen = strlen(dst);
