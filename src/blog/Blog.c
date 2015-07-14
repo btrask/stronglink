@@ -264,7 +264,6 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 			FREE(&previewPath);
 			SLNFileInfoCleanup(info);
 		} else if(DB_NOTFOUND == rc) {
-			// TODO
 			TemplateWriteHTTPChunk(blog->notfound, &TemplateStaticCBs, args, conn);
 		}
 		if(count) {
