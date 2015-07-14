@@ -31,12 +31,13 @@ Returns a URI list of files that match a given query.
 
 Parameters:
 - `q`: the query string
-- `lang`: language of the query string (not implemented)
+- `lang`: language of the query string
 - `wait`: use long-polling to notify of new submissions (default `true`)
 - `start`: starting URI for pagination (prefix with `-` for paging backwards)
-- `count`: maximum number of results (not implemented)
+- `count`: maximum number of results
+- `dir`: `a` (ascending) or `z` (descending) direction (default `a`)
 
-Implementation status: working but incomplete
+Implementation status: working
 
 **POST /sln/query**  
 Returns a URI list of files that match a given query. Large queries are accepted via request body in "simple" or JSON format. Use the request `Content-Type` header to indicate the query type/language.
@@ -51,16 +52,21 @@ Returns a list of all meta-files.
 Return syntax: `[meta-file URI] -> [target file URI]` each line
 
 Parameters:
-- `wait`: use long-polling to notify of new submissions (not implemented, default true)
+- `wait`: use long-polling to notify of new submissions (default `true`)
 - `start`: starting URI for pagination (prefix with `-` for paging backwards)
-- `count`: maximum number of results (not implemented)
+- `count`: maximum number of results
+- `dir`: `a` (ascending) or `z` (descending) direction (default `a`)
 
 Note: No query is accepted. Clients are expected to filter the results based on target URI.
 
-Implementation status: incomplete (wrong syntax)
+Implementation status: working
 
 **GET /sln/query-obsolete**  
 DEPRECATED
+
+## Query Languages
+
+TODO
 
 ## URI Lists
 

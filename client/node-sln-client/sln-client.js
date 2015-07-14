@@ -109,7 +109,7 @@ Repo.prototype.query = function(query, opts, cb) {
 		cb(err, null);
 	});
 };
-// opts: { lang: string, start: string, count: number, wait: bool, agent: http.Agent }
+// opts: { lang: string, start: string, count: number, wait: bool, dir: string, agent: http.Agent }
 // returns: stream.Readable (object mode, emits uri: string)
 Repo.prototype.createQueryStream = function(query, opts) {
 	var repo = this;
@@ -123,6 +123,7 @@ Repo.prototype.createQueryStream = function(query, opts) {
 			"start": opts ? opts.start : "",
 			"count": opts ? opts.count : "",
 			"wait": !opts || false !== opts.wait ? "1" : "0",
+			"dir": opts ? opts.dir : "",
 		}),
 		headers: {
 			"Cookie": "s="+repo.session,
@@ -132,7 +133,7 @@ Repo.prototype.createQueryStream = function(query, opts) {
 	});
 	return new URIListStream({ meta: false, req: req });
 };
-// opts: { start: string, count: number, wait: bool, agent: http.Agent }
+// opts: { start: string, count: number, wait: bool, dir: string, agent: http.Agent }
 // returns: stream.Readable (object mode, emits { uri: string, target: string })
 Repo.prototype.createMetafilesStream = function(opts) {
 	var repo = this;
@@ -143,6 +144,7 @@ Repo.prototype.createMetafilesStream = function(opts) {
 			"start": opts ? opts.start : "",
 			"count": opts ? opts.count : "",
 			"wait": !opts || false !== opts.wait ? "1" : "0",
+			"dir": opts ? opts.dir : "",
 		}),
 		headers: {
 			"Cookie": "s="+repo.session,
