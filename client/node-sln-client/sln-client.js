@@ -91,7 +91,7 @@ Repo.prototype.info = function(cb) {
 };
 
 // opts: { lang: string, start: string, count: number, wait: bool, agent: http.Agent }
-// cb: err: Error, uri: string
+// cb: err: Error, URIs: array
 Repo.prototype.query = function(query, opts, cb) {
 	if(!opts) opts = {};
 	if(!has(opts, "count")) opts.count = 50;
@@ -127,6 +127,7 @@ Repo.prototype.createQueryStream = function(query, opts) {
 		headers: {
 			"Cookie": "s="+repo.session,
 		},
+		// TODO: If opts.wait is false, allow the default agent?
 		agent: opts && has(opts, "agent") ? opts.agent : false,
 	});
 	return new URIListStream({ meta: false, req: req });
