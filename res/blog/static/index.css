@@ -13,7 +13,7 @@
 .light { color: #555; }
 .small { font-size: small; }
 .block { display: block; }
-.wrapper { line-height: 1em; }
+.wrapper { line-height: 16px; }
 .wrapper > input { width: 100%; }
 .border { border-color: #999; border-style: solid; }
 h1, h2 { font-weight: initial; }
@@ -38,14 +38,14 @@ body, input {
 	font-family: Helvetica, sans-serif;
 }
 body, textarea {
-	line-height: 1.5em;
+	line-height: 24px;
 }
 input {
 	padding: 2px 4px;
 }
 
 .margin {
-	margin: 14px;
+	margin: 16px;
 }
 .search > .query {
 }
@@ -59,7 +59,7 @@ input {
 .search > .parsed {
 	color: #777;
 	font-size: small;
-	margin-left: 1em;
+	margin-left: 16px;
 }
 .footer {
 	text-align: center;
@@ -76,17 +76,17 @@ input {
 	box-shadow: 0 1px 2px;
 }
 .entry > .title {
-	padding: 7px 14px;
+	padding: 8px 16px;
 	background: #eee;
 }
 
 .separator {
-	margin-top: 2em;
+	margin-top: 32px;
 }
 
 article {
-	padding-left: 1em;
-	padding-right: 1em;
+	padding-left: 16px;
+	padding-right: 16px;
 }
 article blockquote,
 article ul,
@@ -100,8 +100,8 @@ article h5,
 article h6,
 article > div,
 article > pre {
-	margin-top: 1em;
-	margin-bottom: 1em;
+	margin-top: 16px;
+	margin-bottom: 16px;
 }
 article blockquote {
 	margin-left: 7px;
