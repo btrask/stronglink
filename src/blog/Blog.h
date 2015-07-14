@@ -28,6 +28,8 @@ struct Blog {
 	TemplateRef compose;
 	TemplateRef upload;
 	TemplateRef login;
+	TemplateRef notfound;
+	TemplateRef noresults;
 
 	async_mutex_t pending_mutex[1];
 	async_cond_t pending_cond[1];

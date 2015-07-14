@@ -259,11 +259,19 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 			send_preview(blog, conn, session, preferredURI, previewPath);
 			FREE(&preferredURI);
 			FREE(&previewPath);
-			if(count) TemplateWriteHTTPChunk(blog->backlinks, &TemplateStaticCBs, args, conn);
 			SLNFileInfoCleanup(info);
+		} else if(DB_NOTFOUND == rc) {
+			// TODO
+			TemplateWriteHTTPChunk(blog->notfound, &TemplateStaticCBs, args, conn);
+		}
+		if(count) {
+			TemplateWriteHTTPChunk(blog->backlinks, &TemplateStaticCBs, args, conn);
 		}
 	}
 
+	if(!primaryURI && !count) {
+		TemplateWriteHTTPChunk(blog->noresults, &TemplateStaticCBs, args, conn);
+	}
 	for(size_t i = 0; i < count; i++) {
 		str_t algo[SLN_ALGO_SIZE]; // SLN_INTERNAL_ALGO
 		str_t hash[SLN_HASH_SIZE];
@@ -681,7 +689,9 @@ BlogRef BlogCreate(SLNRepoRef const repo) {
 		!load_template(blog, "empty.html", &blog->empty) ||
 		!load_template(blog, "compose.html", &blog->compose) ||
 		!load_template(blog, "upload.html", &blog->upload) ||
-		!load_template(blog, "login.html", &blog->login)
+		!load_template(blog, "login.html", &blog->login) ||
+		!load_template(blog, "notfound.html", &blog->notfound) ||
+		!load_template(blog, "noresults.html", &blog->noresults)
 	) {
 		BlogFree(&blog);
 		return NULL;
@@ -712,6 +722,8 @@ void BlogFree(BlogRef *const blogptr) {
 	TemplateFree(&blog->compose);
 	TemplateFree(&blog->upload);
 	TemplateFree(&blog->login);
+	TemplateFree(&blog->notfound);
+	TemplateFree(&blog->noresults);
 
 	async_mutex_destroy(blog->pending_mutex);
 	async_cond_destroy(blog->pending_cond);
