@@ -42,7 +42,6 @@ function getmetadata(uri, cb) {
 	var stream = repo.createQueryStream("target='"+uri+"'", { wait: false });
 	var dst = {};
 	stream.on("data", function(metaURI) {
-		stream.pause(); // Needed to enforce ordering.
 		repo.getFile(metaURI, opts, function(err, obj) {
 			// TODO: If the result is Not Acceptable, just continue.
 			if(err) return cb(err, null); // TODO: drain stream
@@ -62,7 +61,6 @@ function getmetadata(uri, cb) {
 					dst[field][src[field]] = {};
 				}
 			}
-			stream.resume();
 		});
 	});
 	stream.on("end", function() {
