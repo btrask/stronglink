@@ -69,7 +69,7 @@ function submitfile(path, cb) {
 		var stats = fs.statSync(path);
 		var meta = {
 			"title": title,
-			"creation-time": stats.birthtime.toISOString(), // WTF is birthtime?
+			//"creation-time": stats.birthtime.toISOString(),
 			"modification-time": stats.mtime.toISOString(),
 			"source-path": path,
 			//"submitter-name": username,

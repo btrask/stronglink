@@ -1,0 +1,104 @@
+#!/usr/bin/env node
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
+var fs = require("fs");
+var pathmodule = require("path");
+
+var sln = require("../sln-client");
+var mime = require("./mime"); // TODO: Unused so far.
+
+var repo = sln.mainRepo();
+
+function has(obj, prop) {
+	return Object.prototype.hasOwnProperty.call(obj, prop);
+}
+function earliest(obj) {
+	if(!obj) return null;
+	return Object.keys(obj).sort()[0] || null;
+}
+function mkdirp_dirname(path, mode, cb) {
+	var dir = pathmodule.dirname(path);
+	fs.mkdir(dir, mode, function(err) {
+		if(!err) return cb(null);
+		if("EEXIST" === err.code) return cb(null);
+		if("ENOENT" !== err.code) return cb(err);
+		mkdirp_dirname(dir, mode, function(err) {
+			if(err) return cb(err);
+			fs.mkdir(dir, mode, cb);
+		});
+	});
+}
+
+// TODO: HACK
+// Until we have real meta-data querying support...
+function getmetadata(uri, cb) {
+	var opts = {
+		"accept": "application/vnd.stronglink.meta",
+		"encoding": "utf8",
+	};
+	// TODO: We shouldn't be munging strings in the user query language.
+	// Use the JSON language instead, once it's properly supported.
+	var stream = repo.createQueryStream("target='"+uri+"'", { wait: false });
+	var dst = {};
+	stream.on("data", function(metaURI) {
+		stream.pause(); // Needed to enforce ordering.
+		repo.getFile(metaURI, opts, function(err, obj) {
+			// TODO: If the result is Not Acceptable, just continue.
+			if(err) return cb(err, null); // TODO: drain stream
+			var json = /[\r\n][^]*$/.exec(obj.data)[0]; // TODO?
+			var src = JSON.parse(json);
+			// TODO: Now we want to change our meta-file format...
+			// Note that the output is in the "new" format.
+			for(var field in src) if(has(src, field)) {
+				if(!has(dst, field)) dst[field] = {};
+				if(Array.isArray(src[field])) {
+					for(var i = 0; i < src[field].length; i++) {
+						if(-1 === dst[field].indexOf(src[field][i])) {
+							dst[field][src[field][i]] = {};
+						}
+					}
+				} else {
+					dst[field][src[field]] = {};
+				}
+			}
+			stream.resume();
+		});
+	});
+	stream.on("end", function() {
+		cb(null, dst);
+	});
+}
+
+var q = process.argv[2] || "";
+
+var stream = repo.createQueryStream(q, { wait: false });
+stream.on("data", function(URI) {
+	stream.pause();
+	getmetadata(URI, function(err, metadata) {
+		if(err) throw err;
+		var path = earliest(metadata["source-path"]);
+		if(!path) {
+			var title = earliest(metadata["title"]);
+			if(!title) {
+				title = sln.parseURI(URI).hash;
+			}
+			// TODO: Make sure path extension makes sense.
+			path = "./unknown/"+title;
+		}
+		// TODO: Verify that path does not escape the cwd.
+		console.log(path);
+		mkdirp_dirname(path, 0777, function(err) {
+			if(err) throw err;
+			var req = repo.createFileRequest(URI, {});
+			req.on("response", function(res) {
+				var dst = fs.createWriteStream(path);
+				res.pipe(dst);
+				res.on("end", function() {
+					stream.resume();
+				});
+			});
+		});
+	});
+});
+
