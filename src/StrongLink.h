@@ -22,15 +22,6 @@ enum {
 	SLN_ROOT = 0xFF,
 };
 
-typedef struct {
-	str_t *URI;
-	uint64_t sortID;
-	uint64_t fileID;
-	int dir;
-	int outdir;
-	size_t count;
-} SLNFilterOpts;
-
 typedef struct SLNRepo* SLNRepoRef;
 typedef struct SLNSessionCache* SLNSessionCacheRef;
 typedef struct SLNSession* SLNSessionRef;
