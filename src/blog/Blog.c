@@ -147,8 +147,9 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	str_t *parsed_HTMLSafe = htmlenc(tmp);
 
 	strarg_t primaryURI = NULL;
-	SLNFilterRef const core = SLNFilterUnwrap(filter);
-	if(SLNURIFilterType == SLNFilterGetType(core)) {
+	SLNFilterRef core = SLNFilterUnwrap(filter);
+	SLNFilterType const filtertype = SLNFilterGetType(core);
+	if(SLNURIFilterType == filtertype) {
 		SLNFilterRef alt;
 		rc = SLNFilterCreate(session, SLNMetadataFilterType, &alt);
 		assert(rc >= 0); // TODO
@@ -158,6 +159,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		filter = alt; alt = NULL;
 		primaryURI = SLNFilterGetStringArg(filter, 1);
 	}
+	core = NULL;
 
 //	SLNFilterPrint(filter, 0); // DEBUG
 
@@ -181,6 +183,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		SLNFilterFree(&filter);
 		return 500;
 	}
+	SLNFilterFree(&filter);
 
 	uint64_t const t2 = uv_hrtime();
 
@@ -269,7 +272,10 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		}
 	}
 
-	if(!primaryURI && !count) {
+	bool const broadest_possible_filter =
+		SLNVisibleFilterType == filtertype ||
+		SLNAllFilterType == filtertype;
+	if(0 == count && !primaryURI && !broadest_possible_filter) {
 		TemplateWriteHTTPChunk(blog->noresults, &TemplateStaticCBs, args, conn);
 	}
 	for(size_t i = 0; i < count; i++) {
@@ -298,7 +304,6 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	for(size_t i = 0; i < count; i++) FREE(&URIs[i]);
 	assert_zeroed(URIs, count);
-	SLNFilterFree(&filter);
 	return 0;
 }
 
