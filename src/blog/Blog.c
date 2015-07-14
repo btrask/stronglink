@@ -146,7 +146,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	SLNFilterToUserFilterString(filter, tmp, sizeof(tmp), 0);
 	str_t *parsed_HTMLSafe = htmlenc(tmp);
 
-	strarg_t primaryURI = NULL;
+	str_t *primaryURI = NULL;
 	SLNFilterRef core = SLNFilterUnwrap(filter);
 	SLNFilterType const filtertype = SLNFilterGetType(core);
 	if(SLNURIFilterType == filtertype) {
@@ -157,7 +157,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		SLNFilterAddStringArg(alt, SLNFilterGetStringArg(core, 0), -1);
 		SLNFilterFree(&filter);
 		filter = alt; alt = NULL;
-		primaryURI = SLNFilterGetStringArg(filter, 1);
+		primaryURI = strdup(SLNFilterGetStringArg(filter, 1));
 	}
 	core = NULL;
 
@@ -286,6 +286,8 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		FREE(&previewPath);
 		if(rc < 0) break;
 	}
+
+	FREE(&primaryURI);
 
 	TemplateWriteHTTPChunk(blog->footer, &TemplateStaticCBs, args, conn);
 	FREE(&reponame_HTMLSafe);
