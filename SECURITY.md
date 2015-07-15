@@ -16,6 +16,7 @@ Practices in use (pro tip: contributing guidelines):
 	- Don't use SQL (for performance, but no chance of SQLi)
 	- Use established parsing libraries like http\_parser and YAJL
 	- Use bcrypt for passwords
+	- Use constant-time string comparison when necessary (currently nowhere)
 	- Use 128 bits of entropy and SHA-256 for session cookies
 	- Use purely random tokens for session cookies, rather than some sort of meaningful data
 	- Don't require cloud storage for backup or syncing
