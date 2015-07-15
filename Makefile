@@ -57,7 +57,7 @@ WARNINGS += -Wno-sign-compare
 
 ifdef RELEASE
 CFLAGS += -O2
-CFLAGS += -DNDEBUG
+#CFLAGS += -DNDEBUG
 else
 CFLAGS += -O2
 #CFLAGS += -O0
