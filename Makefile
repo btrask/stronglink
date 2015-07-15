@@ -20,7 +20,10 @@ CFLAGS += -g -fno-omit-frame-pointer
 CFLAGS += -DLIBCO_MP
 CFLAGS += -DINSTALL_PREFIX=\"$(PREFIX)\"
 
-WARNINGS := -Werror -Wall -Wextra -Wshadow -Wwrite-strings
+WARNINGS := -Werror -Wall -Wextra -Wshadow -Wwrite-strings -Wuninitialized
+
+# Useful with GCC but Clang doesn't like it.
+#WARNINGS += -Wmaybe-uninitialized
 
 # Dead code can sometimes indicate bugs, but these are just too noisy and
 # putting an UNUSED() macro everywhere would probably mask any problems
