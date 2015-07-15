@@ -352,7 +352,7 @@ static void debug_data(DB_env *const db) {
 	assert(!rc);
 	assert(txn);
 
-	DB_val pullID_key[1];
+/*	DB_val pullID_key[1];
 	SLNPullByIDKeyPack(pullID_key, txn, 1);
 	uint64_t const userID = 1;
 	char const *const host = "localhost:8009";
@@ -362,7 +362,7 @@ static void debug_data(DB_env *const db) {
 	SLNPullByIDValPack(pull_val, txn, userID, host, sessionid, query);
 
 	rc = db_put(txn, pullID_key, pull_val, 0);
-	assert(!rc);
+	assert(!rc);*/
 
 	rc = db_txn_commit(txn); txn = NULL;
 	assert(!rc);

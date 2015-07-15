@@ -1,0 +1,118 @@
+#!/usr/bin/env node
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
+var sln = require("../sln-client");
+var mime = require("./mime"); // TODO: Unused so far.
+
+function has(obj, prop) {
+	return Object.prototype.hasOwnProperty.call(obj, prop);
+}
+
+if(process.argv.length <= 3) {
+	console.debug("Usage: sln-pipe <dst-host> <dst-key> [query]");
+	process.exit(1);
+}
+
+var src = sln.mainRepo();
+var dst = sln.createRepo(process.argv[2], process.argv[3]);
+var query = process.argv[4] || "";
+
+
+// This code demonstrates the basic intended sync algorithm.
+//   - Files and meta-files are pulled independently, but meta-files
+//     block on the files they target.
+//   - Because state is kept in memory (the `files` and `metas` variables),
+//     this script must always run "from the beginning" (without using the
+//     `start` parameter on the source side). If this data were stored
+//     to disk properly (ACID), fast resuming would be possible.
+//   - Meta-files are only pulled for files from the same source. This is
+//     to avoid leaking info about what other files the destination has.
+//   - Dependency resolution is not currently supported. After receiving a
+//     meta-file from the source, it should be checked for unmet
+//     dependencies. Depended-upon files need to be pulled (including
+//     meta-files, recursively) before normal processing is resumed.
+
+// Note that this code is a third-party intermediary between src and dst,
+// meaning it isn't a push or a pull. There's also the possibility of
+// a thundering herd problem (race condition) even if we attempt to check
+// for duplicates before uploading. It isn't dangerous, just potentially
+// wasteful.
+
+// A native (internal) implementation would be much faster because it can
+// transfer multiple files in parallel and batch database transactions. It
+// could also atomically check that it needs a file and begin transferring
+// it (to avoid the thundering herd).
+
+
+var files = {}; // URI -> 1
+var metas = {}; // target -> [meta-URIs]
+
+function pipeone(URI, cb) {
+	var req = src.createFileRequest(URI, {});
+	req.on("response", function(res) {
+		var type = res.headers["content-type"];
+		var size = res.headers["content-length"];
+		// TODO: repo.createSubmissionStream() should accept an
+		// optional size/length parameter.
+		// TODO: If size is large, we should do a HEAD request to
+		// confirm the file is needed before uploading it.
+		var out = dst.createSubmissionStream(type, { uri: URI });
+		res.pipe(out);
+		res.on("end", function() {
+			cb(null);
+		});
+		res.on("error", function(err) {
+			cb(err);
+		});
+	});
+	req.on("error", function(err) {
+		cb(err);
+	});
+}
+
+var metastream = src.createMetafilesStream({ wait: true });
+metastream.on("data", function(obj) {
+	metastream.pause();
+	var uri = obj.uri;
+	var target = obj.target;
+	// lock
+	if(has(files, target)) {
+		if(has(metas, target)) throw new Error("Meta set after file loaded");
+		// unlock
+		pipeone(uri, function(err) {
+			if(err) throw err;
+			metastream.resume();
+		});
+	} else {
+		if(!has(metas, target)) metas[target] = [];
+		metas[target].push(uri);
+		// unlock
+		metastream.resume();
+	}
+});
+
+var filestream = src.createQueryStream(query, { wait: true });
+filestream.on("data", function(URI) {
+	filestream.pause();
+	pipeone(URI, function(err) {
+		if(err) throw err;
+		function next() {
+			// lock
+			if(!has(metas, URI) || !metas[URI].length) {
+				files[URI] = 1;
+				delete metas[URI];
+				// unlock
+				filestream.resume();
+				return;
+			}
+			// unlock
+			pipeone(metas[URI].shift(), function(err) {
+				if(err) throw err;
+				next();
+			});
+		}
+		next();
+	});
+});
+

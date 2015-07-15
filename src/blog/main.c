@@ -88,7 +88,7 @@ static void init(void *const unused) {
 		return;
 	}
 	fprintf(stderr, "StrongLink server running at http://localhost:8000/\n");
-	SLNRepoPullsStart(repo);
+//	SLNRepoPullsStart(repo);
 
 	uv_signal_init(async_loop, sigint);
 	uv_signal_start(sigint, stop, SIGINT);
