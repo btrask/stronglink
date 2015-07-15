@@ -52,11 +52,11 @@ function pipeone(URI, cb) {
 	req.on("response", function(res) {
 		var type = res.headers["content-type"];
 		var size = res.headers["content-length"];
-		// TODO: repo.createSubmissionStream() should accept an
-		// optional size/length parameter.
+		var opts = { uri: URI };
+		if(size) opts.size = size;
 		// TODO: If size is large, we should do a HEAD request to
 		// confirm the file is needed before uploading it.
-		var out = dst.createSubmissionStream(type, { uri: URI });
+		var out = dst.createSubmissionStream(type, opts);
 		res.pipe(out);
 		res.on("end", function() {
 			cb(null);
