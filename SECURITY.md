@@ -58,8 +58,7 @@ Planned (pro tip: places bugs might be hiding):
 - Check all math operations for possible overflow (possibly using compiler intrinsics)
 - Perform fuzz testing on inputs
 - Support socket activation
-- Create some sort of high level test suite
-- Automated unit testing (maybe, mixed feelings)
+- Create some sort of high level test suite (mostly end-to-end tests rather than unit tests)
 - Support Markdown parsing in a separate process with sandboxing
 - Do thorough error checking everywhere (currently only in some places)
 - Do parsing through a safe string wrapper/library (something like Nom...)
