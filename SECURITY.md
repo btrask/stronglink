@@ -10,43 +10,45 @@ Please remember this project as a whole is still very young. One goal of releasi
 
 Practices in use (pro tip: contributing guidelines):
 
-- Zero pointers on free and check that freed memory is zeroed
-- Read the man pages/docs before using functions
-- Never use dynamic format strings
-- Know which functions accept format strings and don't pass arbitrary strings by mistake
-- Use explicit lengths in format string specifiers
-- Use `snprintf` instead of `sprintf`
-- Use custom allocating printf function (designed for ease of use)
-- Use `-Wwrite-strings` to have the compiler mark all strings as constant
-- Use `-Werror -Wall -Wextra` strict compiler warnings
-- Don't use SQL (for performance, but no chance of SQLi)
-- Use established parsing libraries like http\_parser and YAJL
-- Use bcrypt for passwords
-- Use 128 bits of entropy and SHA-256 for session cookies
-- Use purely random tokens for session cookies, rather than some sort of meaningful data
-- Don't require cloud storage for backup or syncing
-- Use simple memory layouts without any custom allocators
-- Perform privileged user operations through objects that manage their own access
-- Generally prefer `calloc` over `malloc`
-- Declare things `const` when possible
-- Use `const` to control whether pointers can be freed (thus indicating ownership)
-- Use mainly single-threaded code, with very clean abstractions for threaded sections
-- Keep the whole project small and auditable
-- Use "Yoda expressions" with the constant on the left to avoid accidental assignment
-- Use appropriate `open(2)` args to control access and avoid race conditions
-- Use read-only access when possible
-- For "confusing" functions like `strcmp`, explicitly compare them to zero instead of using `!`
-- Never split conditional statements onto multiple lines without braces
-- Use `goto` tastefully to simplify error handling and cleanup when appropriate
-- Use `reallocarray`
-- Use standard, secure string functions like `strlcat` instead of rolling our own (where possible)
-- Define string length constants as `(N+1)` to make nul termination explicit
-- Use established HTML sanitization instead of DIY
-- Use assertions to assert obvious invariants
-- Ship with assertions on
-- Test under Valgrind
-- Test under Clang static analyzer
-- Test under [Facebook Infer](http://fbinfer.com/) static analyzer
+- High level
+	- Read the man pages/docs before using functions
+	- Know which functions accept format strings and don't pass arbitrary strings by mistake
+	- Don't use SQL (for performance, but no chance of SQLi)
+	- Use established parsing libraries like http\_parser and YAJL
+	- Use bcrypt for passwords
+	- Use 128 bits of entropy and SHA-256 for session cookies
+	- Use purely random tokens for session cookies, rather than some sort of meaningful data
+	- Don't require cloud storage for backup or syncing
+	- Perform privileged user operations through objects that manage their own access
+	- Use mainly single-threaded code, with very clean abstractions for threaded sections
+	- Keep the whole project small and auditable
+	- Use appropriate `open(2)` args to control access and avoid race conditions
+	- Use read-only access when possible
+	- Use established HTML sanitization instead of DIY
+	- Use assertions to assert obvious invariants
+	- Ship with assertions on
+	- Test under Valgrind
+	- Test under Clang static analyzer
+	- Test under [Facebook Infer](http://fbinfer.com/) static analyzer
+- Low level ("C-specific")
+	- Zero pointers on free and check that freed memory is zeroed
+	- Never use dynamic format strings
+	- Use explicit lengths in format string specifiers
+	- Use `snprintf` instead of `sprintf`
+	- Use custom allocating printf function (designed for ease of use)
+	- Use `-Werror -Wall -Wextra -Wshadow -Wuninitialized` strict compiler warnings
+	- Use `-Wwrite-strings` to have the compiler mark all strings as constant
+	- Use simple memory layouts without any custom allocators
+	- Generally prefer `calloc` over `malloc`
+	- Declare things `const` when possible (practically everywhere)
+	- Use `const` to control whether pointers can be freed (thus indicating ownership)
+	- Use "Yoda expressions" with the constant on the left to avoid accidental assignment
+	- For "confusing" functions like `strcmp`, explicitly compare them to zero instead of using `!`
+	- Never split conditional statements onto multiple lines without braces
+	- Use `goto` tastefully to simplify error handling and cleanup when appropriate
+	- Use `reallocarray`
+	- Use standard, secure string functions like `strlcat` instead of rolling our own (where possible)
+	- Define string length constants as `(N+1)` to make nul termination explicit
 
 Planned (pro tip: places bugs might be hiding):
 
@@ -54,7 +56,6 @@ Planned (pro tip: places bugs might be hiding):
 - Check with other static analyzers
 - Use guard pages around sensitive memory? (e.g. cookie cache)
 - Support client-side encryption for remote backups
-- Enable `-Wuninitialized`
 - Check all math operations for possible overflow (possibly using compiler intrinsics)
 - Perform fuzz testing on inputs
 - Support socket activation

@@ -20,7 +20,12 @@ CFLAGS += -g -fno-omit-frame-pointer
 CFLAGS += -DLIBCO_MP
 CFLAGS += -DINSTALL_PREFIX=\"$(PREFIX)\"
 
-WARNINGS := -Werror -Wall -Wextra -Wshadow -Wwrite-strings -Wuninitialized
+WARNINGS := -Werror -Wall -Wextra -Wshadow -Wuninitialized
+
+# Causes all string literals to be marked const.
+# This would be way too annoying if we don't use const everywhere already.
+# The only problem is uv_buf_t, which is const sometimes and not others.
+WARNINGS += -Wwrite-strings
 
 # Useful with GCC but Clang doesn't like it.
 #WARNINGS += -Wmaybe-uninitialized
