@@ -135,7 +135,7 @@ In the event of a dispute, my decision is NOT final. You can take me to court fo
 Critical vulnerability reporting
 --------------------------------
 
-Standard vulnerabilities should be reported through GitHub issues.
+Standard vulnerabilities should be reported through GitHub issues. Remember to set the "security" label.
 
 If you're an established security researcher, contact me privately and I'll give you my personal cell phone number so you can report "critical" vulnerabilities ASAP. (If you're not established, sorry, but just find and report some bugs first.)
 
@@ -157,5 +157,5 @@ Reverse chronological order by date fixed (bugs that aren't fixed yet should als
 - 2015-05-18: Read beyond string termination in user query parser (not exploitable; fixed in f9291586fbef19e85f30c32c502bbd5eacd777e3)
 - 2015-04-08: Single quotes weren't being escaped in HTML output (not exploitable; fixed in c5acc7ec665dfd46967b8012c1021630c462d099)
 
-[TODO] There are some older ones I'm sure.
+Please see the GitHub Issues "security" label for the most up-to-date and exhaustive list.
 
