@@ -71,9 +71,9 @@ Hopefully, yes. The plan is to build a mutable interface layer on top of the imm
 File deletion support is also planned, but deletions will only apply to the current device (they won't sync).
 
 **What about typos?**  
-Mutability or semantic hashes (TBA) should eventually give some options for correcting typos. Right now, think of it like writing in ink.
+The long term solution is mutability (see above). Semantic hashes (TBA) might also be interesting. Right now, think of it like writing in ink.
 
-You can always submit a new file with any changes you want.
+You can of course submit a new file with any changes you want.
 
 **Is it secure?**  
 Just like the vast majority of software you probably use every day, StrongLink is grossly insecure.
