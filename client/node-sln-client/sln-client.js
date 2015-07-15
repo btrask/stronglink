@@ -273,7 +273,7 @@ Repo.prototype.submitFile = function(buf, type, opts, cb) {
 		res.resume(); // Drain
 	});
 };
-// opts: { uri: string }
+// opts: { uri: string, size: number }
 // returns: stream.Writable (emits "submission": { location: string })
 Repo.prototype.createSubmissionStream = function(type, opts) {
 	var repo = this;
@@ -286,15 +286,17 @@ Repo.prototype.createSubmissionStream = function(type, opts) {
 		method = "POST";
 		path = "/sln/file";
 	}
+	var headers = {
+		"Cookie": "s="+repo.session,
+		"Content-Type": type,
+	};
+	if(opts && has(opts, "size")) headers["Content-Length"] = size;
 	var req = repo.client.request({
 		method: method,
 		hostname: repo.hostname,
 		port: repo.port,
 		path: repo.path+path,
-		headers: {
-			"Cookie": "s="+repo.session,
-			"Content-Type": type,
-		},
+		headers: headers,
 	});
 	var stream = new PassThroughStream();
 	stream.pipe(req);
