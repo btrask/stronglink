@@ -122,7 +122,7 @@ Only libraries that StrongLink "bundles" count. Currently those libraries are:
 - libuv
 - yajl
 
-libc and other system libraries (including OpenSSL) are NOT included. libcoro is excluded because it is only used for debugging under Valgrind.
+libc and other system libraries (including OpenSSL) are NOT included. libcoro is excluded because it is only used for debugging under Valgrind. lsmdb is included despite not being used by default (because I wrote it).
 
 Payments will be made via PayPal.
 
