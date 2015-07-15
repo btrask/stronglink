@@ -148,7 +148,7 @@ Reverse chronological order by date fixed (bugs that aren't fixed yet should als
 - Unfixed: HTTPS is not supported
 - Unfixed: Digital signatures (e.g. GPG or [OpenBSD's Signify](http://www.openbsd.org/papers/bsdcan-signify.html)) are not supported
 - Unfixed: DOM-based template parsing is not used
-- Unfixed: The user query parser and content-disposition parser use lots of raw pointer manipulation
+- Unfixed: The custom parsers (user queries, content dispositions and query strings) use lots of raw pointer manipulation
 - Unfixed: Potentially untrusted raw files are hosted within the same origin as the rest of the site and API
 - 2015-05-30: Confused UV errors with DB errors in upload handler (not exploitable; fixed in 0065f969845981781bf2d3eab330a74a070dd079)
 - 2015-05-21: Always ensure filter representation is nul-terminated (probably not exploitable; fixed in c9bd941573e124f06274ed9a9e24a8d115902b09)
