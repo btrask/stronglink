@@ -228,10 +228,12 @@ static int PUT_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 }
 
 static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, strarg_t const qs, bool const meta, HTTPConnectionRef const conn) {
-	SLNFilterPosition pos = { .dir = +1 };
+	SLNFilterPosition pos[1];
+	memset(pos, 0, sizeof(*pos)); // Clear padding for assert_zeroed later.
+	pos->dir = +1;
 	uint64_t count = UINT64_MAX;
 	bool wait = true;
-	SLNFilterParseOptions(qs, &pos, &count, NULL, &wait);
+	SLNFilterParseOptions(qs, pos, &count, NULL, &wait);
 
 	// I'm aware that we're abusing HTTP for sending real-time push data.
 	// I'd also like to support WebSocket at some point, but this is simpler
@@ -248,14 +250,14 @@ static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, 
 	HTTPConnectionWriteHeader(conn, "Vary", "*");
 	HTTPConnectionBeginBody(conn);
 
-	int rc = SLNFilterWriteURIs(filter, session, &pos, meta, count, wait, (SLNFilterWriteCB)HTTPConnectionWriteChunkv, conn);
+	int rc = SLNFilterWriteURIs(filter, session, pos, meta, count, wait, (SLNFilterWriteCB)HTTPConnectionWriteChunkv, conn);
 	if(rc < 0) {
 		fprintf(stderr, "Query response error %s\n", sln_strerror(rc));
 	}
 
 	HTTPConnectionWriteChunkEnd(conn);
 	HTTPConnectionEnd(conn);
-	SLNFilterPositionCleanup(&pos);
+	SLNFilterPositionCleanup(pos);
 }
 static int parseFilter(SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, HTTPHeadersRef const headers, SLNFilterRef *const out) {
 	assert(HTTP_POST == method);
