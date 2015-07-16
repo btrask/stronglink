@@ -75,6 +75,7 @@ metastream.on("data", function(obj) {
 	metastream.pause();
 	var uri = obj.uri;
 	var target = obj.target;
+	console.log("~"+uri);
 	// lock
 	if(has(files, target)) {
 		if(has(metas, target)) throw new Error("Meta set after file loaded");
