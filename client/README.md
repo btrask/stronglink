@@ -117,6 +117,8 @@ Additionally, some standard fields are:
 - `submitter-repo`: the name of the repository where the file was submitted
 - `submission-time`: an ISO 8601 time-stamp in UTC (e.g. "2015-05-13T10:02:47Z")
 - `submission-software`: the name of the application that submitted the file
+- `source-path`: the local path where the file was imported from
+- `source-uri`: the URI where the file was imported from
 
 Applications are free to define their own fields. Please consider whether a field name should be considered "global" or "application-specific," and prefix application-specific fields with the name of the application. The `sln.` prefix is reserved for future use.
 
