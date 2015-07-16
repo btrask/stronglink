@@ -217,11 +217,14 @@ static int PUT_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 		FREE(&knownURI);
 		return rc;
 	}
+	if(rc < 0) goto cleanup;
 
+	created(knownURI, conn);
+
+cleanup:
 	FREE(&knownURI);
 	if(UV_EACCES == rc) return 403;
 	if(rc < 0) return 500;
-	created(knownURI, conn);
 	return 0;
 }
 
