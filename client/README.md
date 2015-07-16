@@ -69,7 +69,7 @@ TODO - should return information about the repository, current user, and current
 
 ## Query Languages
 
-TODO
+TODO - currently just a single, human-friendly syntax
 
 ## URI Lists
 
