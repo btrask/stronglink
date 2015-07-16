@@ -64,6 +64,9 @@ Implementation status: working
 **GET /sln/query-obsolete**  
 DEPRECATED
 
+**GET /sln/info**  
+TODO - should return information about the repository, current user, and current session.
+
 ## Query Languages
 
 TODO
@@ -124,4 +127,31 @@ Although fields can contain multiple values, it's strongly recommended that appl
 Currently meta-data values are append-only. In the future this format will be extended to indicate values to be removed.
 
 Meta-files are always excoded as UTF-8. Line endings are recommended to be LF-only, since that's what most JSON libraries use.
+
+## The default repository and authorization
+
+It's generally expected that the user have a default repository configured, and tools should use it when appropriate. All APIs accept an optional session key for authorization (and without it, you might not be able to do anything, depending on configuration).
+
+These are specified by a config file in JSON:
+
+```json
+{
+	"uri": "http://localhost:8000/",
+	"session": "[...]"
+}
+```
+
+On Unix-like systems this file is located at `~/.config/stronglink/client.json`. On Windows its location is TBD.
+
+The URI path is significant. For example, if the path is `/`, the API end-point is `/sln/`. If the path is `/example/`, the end-point is `/example/sln/`. This allows more flexibility in hosting.
+
+The session key should be sent via the HTTP `Cookie` header:
+
+```
+Cookie: s=[...]
+```
+
+There currently is no convenient way for users or applications to generate session keys. This is a known issue. Applications should avoid asking for usernames and passwords. Something like OAuth will eventually be implemented.
+
+Sessions can have different permission levels, including read-only and read-write. This functionality is currently quite limited.
 
