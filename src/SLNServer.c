@@ -212,23 +212,17 @@ static int PUT_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 	if(!knownURI) return 500;
 
 	int rc = SLNSessionGetFileInfo(session, knownURI, NULL);
-	if(rc >= 0) {
-		created(knownURI, conn); // TODO: Don't return 201 if the file already exists?
+	if(DB_NOTFOUND == rc) {
+		rc = accept_sub(session, knownURI, conn, headers);
 		FREE(&knownURI);
-		return 0;
-	}
-	if(UV_EACCES == rc) {
-		FREE(&knownURI);
-		return 403;
-	}
-	if(DB_NOTFOUND != rc) {
-		FREE(&knownURI);
-		return 500;
+		return rc;
 	}
 
-	rc = accept_sub(session, knownURI, conn, headers);
 	FREE(&knownURI);
-	return rc;
+	if(UV_EACCES == rc) return 403;
+	if(rc < 0) return 500;
+	created(knownURI, conn);
+	return 0;
 }
 
 static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, strarg_t const qs, bool const meta, HTTPConnectionRef const conn) {
