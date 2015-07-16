@@ -104,7 +104,7 @@ function extract(URI, body) {
 	meta.hashtag = {};
 	meta.keyword = {};
 	meta.topic = {};
-	meta.topic[topic] = {};
+	if(topic) meta.topic[topic] = {};
 	meta.date = array2obj(parsedates(body));
 	meta.phone = array2obj(parsephonenumbers(body));
 	var x, y;
