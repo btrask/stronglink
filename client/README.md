@@ -3,6 +3,8 @@
 **GET /sln/file/[algo]/[hash]**  
 Returns the data of a given file. Clients should be aware this is arbitrary user data and potentially malicious.
 
+As much caching as possible should be enabled for these URIs because their content is immutable. For example, StrongLink always sends an ETag of "1".
+
 Planned features: content negotiation, range requests
 
 Implementation status: working but incomplete
