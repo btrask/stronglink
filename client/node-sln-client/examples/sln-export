@@ -34,7 +34,7 @@ function mkdirp_dirname(path, mode, cb) {
 // Until we have real meta-data querying support...
 function getmetadata(uri, cb) {
 	var opts = {
-		"accept": "application/vnd.stronglink.meta",
+		"accept": sln.metatype,
 		"encoding": "utf8",
 	};
 	// TODO: We shouldn't be munging strings in the user query language.
@@ -47,25 +47,23 @@ function getmetadata(uri, cb) {
 			if(err) return cb(err, null); // TODO: drain stream
 			var json = /[\r\n][^]*$/.exec(obj.data)[0]; // TODO?
 			var src = JSON.parse(json);
-			// TODO: Now we want to change our meta-file format...
-			// Note that the output is in the "new" format.
-			for(var field in src) if(has(src, field)) {
-				if(!has(dst, field)) dst[field] = {};
-				if(Array.isArray(src[field])) {
-					for(var i = 0; i < src[field].length; i++) {
-						if(-1 === dst[field].indexOf(src[field][i])) {
-							dst[field][src[field][i]] = {};
-						}
-					}
-				} else {
-					dst[field][src[field]] = {};
-				}
-			}
+			merge(src, dst);
 		});
 	});
 	stream.on("end", function() {
 		cb(null, dst);
 	});
+
+}
+function merge(src, dst) {
+	for(var x in src) if(has(src, x)) {
+		if(!has(dst, x)) dst[x] = {};
+		if("string" === typeof src[x]) {
+			dst[x][src[x]] = {};
+		} else {
+			merge(src[x], dst[x]);
+		}
+	}
 }
 
 var q = process.argv[2] || "";

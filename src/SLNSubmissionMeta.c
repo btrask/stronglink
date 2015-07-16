@@ -9,20 +9,15 @@
 #define BUF_LEN (1024 * 8)
 #define PARSE_MAX (1024 * 1024 * 1)
 
-typedef enum {
-	s_start = 0,
-	s_top,
-		s_field_value,
-		s_field_array,
-	s_end,
-} parser_state;
+#define DEPTH_MAX 1 // TODO
+#define IGNORE_MAX 1023 // Just to prevent overflow.
 
 typedef struct {
 	DB_txn *txn;
 	int64_t metaFileID;
 	strarg_t targetURI;
-	parser_state state;
-	str_t *field;
+	str_t *fields[DEPTH_MAX];
+	int depth;
 } parser_t;
 
 static yajl_callbacks const callbacks;
@@ -97,8 +92,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	ctx->txn = subtxn;
 	ctx->metaFileID = metaFileID;
 	ctx->targetURI = targetURI;
-	ctx->state = s_start;
-	ctx->field = NULL;
+	ctx->depth = -1;
 	parser = yajl_alloc(&callbacks, NULL, ctx);
 	if(!parser) rc = DB_ENOMEM;
 	if(rc < 0) goto cleanup;
@@ -128,6 +122,8 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 		goto cleanup;
 	}
 
+	assert(-1 == ctx->depth);
+
 //	rc = db_txn_commit(subtxn); subtxn = NULL;
 	if(rc < 0) goto cleanup;
 
@@ -137,26 +133,60 @@ cleanup:
 //	db_txn_abort(subtxn); subtxn = NULL;
 	FREE(&buf->base);
 	if(parser) yajl_free(parser); parser = NULL;
-	FREE(&ctx->field);
+	assert_zeroed(ctx->fields, DEPTH_MAX);
 	return rc;
 }
 
 
 
 
-// TODO: Improve style, error handling.
+// TODO: Better error handling. Use errno?
 
-static int yajl_null(parser_t *const ctx) {
-	switch(ctx->state) {
-	case s_field_value:
-		FREE(&ctx->field);
-		ctx->state = s_top;
-		return true;
-	case s_field_array:
-		return true;
-	default:
-		return false;
+static int yajl_start_map(parser_t *const ctx) {
+	if(ctx->depth >= IGNORE_MAX) return false;
+	ctx->depth++;
+	return true;
+}
+static int yajl_map_key(parser_t *const ctx, strarg_t const key, size_t const len) {
+	if(1 == ctx->depth) { // TODO
+		strarg_t const field = ctx->fields[ctx->depth-1];
+		assert(field);
+		if(0 == strcmp("fulltext", field)) {
+			add_fulltext(ctx->txn, ctx->metaFileID, key, len);
+		} else {
+			str_t *x = strndup(key, len);
+			if(!x) return false;
+			add_metadata(ctx->txn, ctx->metaFileID, field, x);
+			FREE(&x);
+		}
 	}
+	if(ctx->depth < DEPTH_MAX) {
+		assert(!ctx->fields[ctx->depth]);
+		str_t *x = strndup(key, len);
+		if(!x) return false;
+		ctx->fields[ctx->depth] = x; x = NULL;
+	}
+	return true;
+}
+static int yajl_end_map(parser_t *const ctx) {
+	if(ctx->depth < 0) return false;
+	ctx->depth--;
+	if(ctx->depth >= 0 && ctx->depth < DEPTH_MAX) {
+		FREE(&ctx->fields[ctx->depth]);
+	}
+	return true;
+}
+static int yajl_string(parser_t *const ctx, strarg_t const str, size_t const len) {
+	int x = true;
+	x = !x ? x : yajl_start_map(ctx);
+	x = !x ? x : yajl_map_key(ctx, str, len);
+	x = !x ? x : yajl_start_map(ctx);
+	x = !x ? x : yajl_end_map(ctx);
+	x = !x ? x : yajl_end_map(ctx);
+	return x;
+}
+static int yajl_null(parser_t *const ctx) {
+	return false;
 }
 static int yajl_boolean(parser_t *const ctx, int const flag) {
 	return false;
@@ -164,80 +194,11 @@ static int yajl_boolean(parser_t *const ctx, int const flag) {
 static int yajl_number(parser_t *const ctx, strarg_t const str, size_t const len) {
 	return false;
 }
-static int yajl_string(parser_t *const ctx, strarg_t const str, size_t const len) {
-	switch(ctx->state) {
-	case s_field_value:
-	case s_field_array: {
-		if(len) {
-			if(0 == strcmp("fulltext", ctx->field)) {
-				add_fulltext(ctx->txn, ctx->metaFileID, str, len);
-			} else {
-				str_t *dup = strndup(str, len);
-				assert(dup); // TODO
-				add_metadata(ctx->txn, ctx->metaFileID, ctx->field, dup);
-				FREE(&dup);
-			}
-		}
-		if(s_field_value == ctx->state) {
-			FREE(&ctx->field);
-			ctx->state = s_top;
-		}
-		return true;
-	}
-	default:
-		return false;
-	}
-}
-static int yajl_start_map(parser_t *const ctx) {
-	switch(ctx->state) {
-	case s_start:
-		ctx->state = s_top;
-		return true;
-	default:
-		return false;
-	}
-}
-static int yajl_map_key(parser_t *const ctx, strarg_t const key, size_t const len) {
-	switch(ctx->state) {
-	case s_top:
-		assertf(!ctx->field, "Already parsing field");
-		ctx->field = strndup(key, len);
-		ctx->state = s_field_value;
-		return true;
-	default:
-		assertf(0, "Unexpected map key in state %d", ctx->state);
-		return false;
-	}
-}
-static int yajl_end_map(parser_t *const ctx) {
-	switch(ctx->state) {
-	case s_top:
-		ctx->state = s_end;
-		return true;
-	default:
-		assertf(0, "Unexpected map end in state %d", ctx->state);
-		return false;
-	}
-}
 static int yajl_start_array(parser_t *const ctx) {
-	switch(ctx->state) {
-	case s_field_value:
-		ctx->state = s_field_array;
-		return true;
-	default:
-		return false;
-	}
+	return false;
 }
 static int yajl_end_array(parser_t *const ctx) {
-	switch(ctx->state) {
-	case s_field_array:
-		FREE(&ctx->field);
-		ctx->state = s_top;
-		return true;
-	default:
-		assertf(0, "Unexpected array end in state %d", ctx->state);
-		return false;
-	}
+	return false;
 }
 static yajl_callbacks const callbacks = {
 	.yajl_null = (int (*)())yajl_null,
@@ -290,6 +251,10 @@ static uint64_t add_metafile(DB_txn *const txn, uint64_t const fileID, strarg_t 
 	return metaFileID;
 }
 static void add_metadata(DB_txn *const txn, uint64_t const metaFileID, strarg_t const field, strarg_t const value) {
+	assert(field);
+	assert(value);
+	if('\0' == value[0]) return;
+
 	DB_val null = { 0, NULL };
 	int rc;
 
@@ -304,6 +269,9 @@ static void add_metadata(DB_txn *const txn, uint64_t const metaFileID, strarg_t 
 	assertf(rc >= 0 || DB_KEYEXIST == rc, "Database error %s", sln_strerror(rc));
 }
 static void add_fulltext(DB_txn *const txn, uint64_t const metaFileID, strarg_t const str, size_t const len) {
+	if(0 == len) return;
+	assert(str);
+
 	int rc;
 
 	sqlite3_tokenizer_module const *fts = NULL;

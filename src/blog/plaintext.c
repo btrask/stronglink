@@ -13,7 +13,7 @@ CONVERTER(plaintext) {
 	if(size > LIMIT_DEFAULT) return UV_EFBIG;
 
 	yajl_gen_string(json, (unsigned char const *)STR_LEN("link"));
-	yajl_gen_array_open(json);
+	yajl_gen_map_open(json);
 
 	regex_t linkify[1];
 	int rc = regcomp(linkify, LINKIFY_RE, REG_ICASE | REG_EXTENDED);
@@ -34,6 +34,8 @@ CONVERTER(plaintext) {
 		if(rc < 0) goto cleanup;
 
 		yajl_gen_string(json, (unsigned char const *)pos+loc, len);
+		yajl_gen_map_open(json);
+		yajl_gen_map_close(json);
 
 		pos += loc+len;
 	}
@@ -42,7 +44,7 @@ CONVERTER(plaintext) {
 	rc = write_html(html, STR_LEN("</pre>"));
 	if(rc < 0) goto cleanup;
 
-	yajl_gen_array_close(json);
+	yajl_gen_map_close(json);
 
 	yajl_gen_string(json, (unsigned char const *)STR_LEN("fulltext"));
 	yajl_gen_string(json, (unsigned char const *)buf, size);

@@ -56,11 +56,10 @@ WARNINGS += -Wno-type-limits
 WARNINGS += -Wno-sign-compare
 
 ifdef RELEASE
-CFLAGS += -O2
+CFLAGS += -O0
 #CFLAGS += -DNDEBUG
 else
-CFLAGS += -O2
-#CFLAGS += -O0
+CFLAGS += -O0
 CFLAGS += -DHTTP_PARSER_DEBUG
 endif
 

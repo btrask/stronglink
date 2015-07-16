@@ -179,6 +179,8 @@ static void write_urls(yajl_gen const json, cmark_iter *const iter, cmark_node_t
 		char const *const URL = cmark_node_get_url(node);
 		if(!URL) continue;
 		yajl_gen_string(json, (unsigned char const *)URL, strlen(URL));
+		yajl_gen_map_open(json);
+		yajl_gen_map_close(json);
 	}
 }
 
@@ -222,17 +224,17 @@ CONVERTER(markdown) {
 	iter = cmark_iter_new(node);
 	assert(iter);
 	yajl_gen_string(json, (unsigned char const *)STR_LEN("link"));
-	yajl_gen_array_open(json);
+	yajl_gen_map_open(json);
 	write_urls(json, iter, CMARK_NODE_LINK);
-	yajl_gen_array_close(json);
+	yajl_gen_map_close(json);
 	cmark_iter_free(iter); iter = NULL;
 
 	iter = cmark_iter_new(node);
 	assert(iter);
 	yajl_gen_string(json, (unsigned char const *)STR_LEN("embed"));
-	yajl_gen_array_open(json);
+	yajl_gen_map_open(json);
 	write_urls(json, iter, CMARK_NODE_IMAGE);
-	yajl_gen_array_close(json);
+	yajl_gen_map_close(json);
 	cmark_iter_free(iter); iter = NULL;
 
 

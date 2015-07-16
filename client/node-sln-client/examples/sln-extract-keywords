@@ -15,6 +15,13 @@ if(process.argv[2] && "-" === process.argv[2][0]) {
 var blacklist = readURIListSync(process.argv[2]);
 var whitelist = readURIListSync(process.argv[3]);
 
+function has(obj, prop) {
+	return Object.prototype.hasOwnProperty.call(obj, prop);
+}
+function any(obj) {
+	for(var x in obj) if(has(obj, x)) return obj[x];
+	return null;
+}
 function readURIListSync(path) {
 	if(!path || "" === path) return {};
 	var text = fs.readFileSync(pathmodule.resolve(path), "utf8");
@@ -31,6 +38,13 @@ function texttype(type) {
 	if("text/x-markdown" === type) return true;
 	if("text/x-markdown; charset=utf-8" === type) return true;
 	return false;
+}
+function array2obj(array) {
+	var obj = {};
+	for(var i = 0; i < array.length; i++) {
+		obj[array[i]] = {};
+	}
+	return obj;
 }
 
 
@@ -85,18 +99,20 @@ function extract(URI, body) {
 	var hashtag = /(?:^|[\s(])#([\w\d_-]{3,})\b/g;
 	var keywords = /\bKeywords: ([^\r\n]*)\b/g;
 	var keyword = /([^,]{3,})(, )?/g;
+	var topic = parsetopic(body);
 	var meta = {};
-	meta.hashtag = [];
-	meta.keyword = [];
-	meta.topic = parsetopic(body);
-	meta.date = parsedates(body);
-	meta.phone = parsephonenumbers(body);
+	meta.hashtag = {};
+	meta.keyword = {};
+	meta.topic = {};
+	meta.topic[topic] = {};
+	meta.date = array2obj(parsedates(body));
+	meta.phone = array2obj(parsephonenumbers(body));
 	var x, y;
 	for(;;) {
 		x = hashtag.exec(body);
 		if(!x) break;
 		if(/^\d*$/.test(x[1])) continue; // Exclude e.g. GitHub issue IDs #560
-		meta.hashtag.push(x[1]);
+		meta.hashtag[x[1]] = {};
 	}
 	for(;;) {
 		x = keywords.exec(body);
@@ -105,21 +121,21 @@ function extract(URI, body) {
 		for(;;) {
 			y = keyword.exec(x[1]);
 			if(!y) break;
-			meta.keyword.push(y[1]);
+			meta.keyword[y[1]] = {};
 		}
 	}
 	// TODO: We shouldn't expose my personal publication logic like this.
-	if("StrongLink" === meta.topic ||
-	   "EarthFS" === meta.topic ||
-	   "EarthFS TODO" === meta.topic ||
-	   -1 !== meta.hashtag.indexOf("earthfs") ||
-	   -1 !== meta.hashtag.indexOf("notetaking") ||
+	if("StrongLink" === topic ||
+	   "EarthFS" === topic ||
+	   "EarthFS TODO" === topic ||
+	   has(meta.hashtag, "earthfs") ||
+	   has(meta.hashtag, "notetaking") ||
 	   whitelist[URI])
 	{
-		if(-1 === meta.keyword.indexOf("private") &&
-		   -1 === meta.hashtag.indexOf("private") &&
-		   -1 === meta.hashtag.indexOf("personal_journal") &&
-		   0 === meta.phone.length &&
+		if(!has(meta.keyword, "private") &&
+		   !has(meta.hashtag, "private") &&
+		   !has(meta.hashtag, "personal_journal") &&
+		   !any(meta.phone) &&
 		   !blacklist[URI])
 		{
 			meta.visibility = "public";
@@ -134,13 +150,13 @@ function fakemeta(body) {
 	if(!x) return null;
 	var target = x[1];
 	var meta = {
-		hashtag: [],
+		hashtag: {},
 	};
 	change.lastIndex = target.length;
 	for(;;) {
 		x = change.exec(body);
 		if(!x) break;
-		if("+" === x[1]) meta.hashtag.push(x[2]); // ignore removals
+		if("+" === x[1]) meta.hashtag[x[2]] = {}; // ignore removals
 	}
 	return { target: target, meta: meta };
 }

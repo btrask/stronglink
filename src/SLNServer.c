@@ -118,6 +118,9 @@ static int GET_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 //	HTTPConnectionWriteHeader(conn, "Accept-Ranges", "bytes"); // TODO
 	HTTPConnectionWriteHeader(conn, "Content-Security-Policy", "'none'");
 	HTTPConnectionWriteHeader(conn, "X-Content-Type-Options", "nosniff");
+//	HTTPConnectionWriteHeader(conn, "Vary", "Accept, Accept-Ranges");
+	// TODO: Double check Vary header syntax.
+	// Also do we need to change the ETag?
 	HTTPConnectionBeginBody(conn);
 	if(HTTP_HEAD != method) {
 		HTTPConnectionWriteFile(conn, file);

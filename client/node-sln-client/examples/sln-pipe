@@ -47,8 +47,8 @@ var query = process.argv[4] || "";
 var files = {}; // URI -> 1
 var metas = {}; // target -> [meta-URIs]
 
-function pipeone(URI, cb) {
-	var req = src.createFileRequest(URI, {});
+function pipeone(URI, opts, cb) {
+	var req = src.createFileRequest(URI, opts);
 	req.on("response", function(res) {
 		var type = res.headers["content-type"];
 		var size = res.headers["content-length"];
@@ -79,7 +79,7 @@ metastream.on("data", function(obj) {
 	if(has(files, target)) {
 		if(has(metas, target)) throw new Error("Meta set after file loaded");
 		// unlock
-		pipeone(uri, function(err) {
+		pipeone(uri, { "accept": sln.metatype }, function(err) {
 			if(err) throw err;
 			metastream.resume();
 		});
@@ -94,7 +94,7 @@ metastream.on("data", function(obj) {
 var filestream = src.createQueryStream(query, { wait: true });
 filestream.on("data", function(URI) {
 	filestream.pause();
-	pipeone(URI, function(err) {
+	pipeone(URI, {}, function(err) {
 		if(err) throw err;
 		function next() {
 			// lock
@@ -106,7 +106,7 @@ filestream.on("data", function(URI) {
 				return;
 			}
 			// unlock
-			pipeone(metas[URI].shift(), function(err) {
+			pipeone(metas[URI].shift(), {}, function(err) {
 				if(err) throw err;
 				next();
 			});

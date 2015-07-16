@@ -15,6 +15,8 @@ function has(obj, prop) {
 	return Object.prototype.hasOwnProperty.call(obj, prop);
 }
 
+sln.metatype = "application/vnd.stronglink.meta";
+
 // returns: { algo: string, hash: string, query: string, fragment: string }
 sln.parseURI = function(uri) {
 	if("string" !== typeof uri) throw new TypeError("Invalid URI");
@@ -195,7 +197,9 @@ Repo.prototype.createFileRequest = function(uri, opts) {
 	});
 	return req;
 };
-Repo.prototype.getMeta = function(uri, cb) {
+// opts: (none)
+// cb: err: Error, obj: Object
+Repo.prototype.getMeta = function(uri, opts, cb) {
 	throw new Error("Not implemented");
 
 	// TODO: This is just completely wrong.
@@ -324,8 +328,7 @@ Repo.prototype.submitMeta = function(uri, meta, opts, cb) {
 	// TODO: Validate `meta`
 	var repo = this;
 	var buf = new Buffer(uri+"\n\n"+JSON.stringify(meta, null, "    "), "utf8");
-	var type = "application/vnd.stronglink.meta";
-	repo.submitFile(buf, type, {}, cb);
+	repo.submitFile(buf, sln.metatype, {}, cb);
 };
 
 

@@ -165,10 +165,10 @@ uint64_t SLNFilterFastAge(SLNFilterRef const filter, uint64_t const fileID, uint
 
 
 typedef struct {
-	int dir;
 	str_t *URI;
 	uint64_t sortID;
 	uint64_t fileID;
+	int dir;
 } SLNFilterPosition;
 
 typedef int (*SLNFilterWriteCB)(void *ctx, uv_buf_t const parts[], unsigned int const count);

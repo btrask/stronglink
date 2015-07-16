@@ -48,10 +48,10 @@ typedef str_t const *strarg_t; // A string that belongs to someone else.
 	} \
 })
 #define assert_zeroed(buf, count) ({ \
-	for(size_t i = 0; i < sizeof(*(buf)) * (count); ++i) { \
-		if(0 == ((byte_t const *)(buf))[i]) continue; \
+	for(size_t __i = 0; __i < sizeof(*(buf)) * (count); ++__i) { \
+		if(0 == ((byte_t const *)(buf))[__i]) continue; \
 		fprintf(stderr, "%s:%d Buffer at %p not zeroed (%ld)\n", \
-			__FILE__, __LINE__, (buf), i); \
+			__FILE__, __LINE__, (buf), __i); \
 		abort(); \
 	} \
 })
