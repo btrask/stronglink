@@ -217,6 +217,10 @@ static int PUT_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 		FREE(&knownURI);
 		return 0;
 	}
+	if(UV_EACCES == rc) {
+		FREE(&knownURI);
+		return 403;
+	}
 	if(DB_NOTFOUND != rc) {
 		FREE(&knownURI);
 		return 500;
