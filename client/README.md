@@ -155,3 +155,5 @@ There currently is no convenient way for users or applications to generate sessi
 
 Sessions can have different permission levels, including read-only and read-write. This functionality is currently quite limited.
 
+An additional CSRF token will eventually be required.
+
