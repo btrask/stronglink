@@ -30,48 +30,12 @@ function mkdirp_dirname(path, mode, cb) {
 	});
 }
 
-// TODO: HACK
-// Until we have real meta-data querying support...
-function getmetadata(uri, cb) {
-	var opts = {
-		"accept": sln.metatype,
-		"encoding": "utf8",
-	};
-	// TODO: We shouldn't be munging strings in the user query language.
-	// Use the JSON language instead, once it's properly supported.
-	var stream = repo.createQueryStream("target='"+uri+"'", { wait: false });
-	var dst = {};
-	stream.on("data", function(metaURI) {
-		repo.getFile(metaURI, opts, function(err, obj) {
-			// TODO: If the result is Not Acceptable, just continue.
-			if(err) return cb(err, null); // TODO: drain stream
-			var json = /[\r\n][^]*$/.exec(obj.data)[0]; // TODO?
-			var src = JSON.parse(json);
-			merge(src, dst);
-		});
-	});
-	stream.on("end", function() {
-		cb(null, dst);
-	});
-
-}
-function merge(src, dst) {
-	for(var x in src) if(has(src, x)) {
-		if(!has(dst, x)) dst[x] = {};
-		if("string" === typeof src[x]) {
-			dst[x][src[x]] = {};
-		} else {
-			merge(src[x], dst[x]);
-		}
-	}
-}
-
 var q = process.argv[2] || "";
 
 var stream = repo.createQueryStream(q, { wait: false });
 stream.on("data", function(URI) {
 	stream.pause();
-	getmetadata(URI, function(err, metadata) {
+	repo.getMeta(URI, {}, function(err, metadata) {
 		if(err) throw err;
 		var path = earliest(metadata["source-path"]);
 		if(!path) {

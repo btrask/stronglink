@@ -200,40 +200,48 @@ Repo.prototype.createFileRequest = function(uri, opts) {
 // opts: (none)
 // cb: err: Error, obj: Object
 Repo.prototype.getMeta = function(uri, opts, cb) {
-	throw new Error("Not implemented");
+	// TODO: This implementation is a hack until server-side
+	// support for `GET /sln/meta/[algo]/[hash]` is added.
+	var repo = this;
+	var reqopts = {
+		"accept": sln.metatype,
+		"encoding": "utf8",
+	};
+	// TODO: We shouldn't be munging strings in the user query language.
+	// Use the JSON language instead, once it's properly supported.
+	var stream = repo.createQueryStream("target='"+uri+"'", { wait: false });
+	var dst = {};
+	stream.on("data", function(metaURI) {
 
-	// TODO: This is just completely wrong.
-	// 1. We should expose a reusable meta-file parser
-	// 2. /sln/meta/* returns meta-data in JSON, not an individual meta-file
+		// This ordering is not strictly necessary (since CRDTs can be
+		// combined in any order), but it lets us ensure "end" is
+		// emitted after all of the work is done, and it keeps us from
+		// flooding the agent pool.
+		stream.pause();
 
-/*	var repo = this;
-	var req = repo.client.get({
-		hostname: repo.hostname,
-		port: repo.port,
-		path: repo.path+"/sln/meta/"+obj.algo+"/"+obj.hash,
-		headers: {
-			"Cookie": "s="+repo.session,
-		},
-	});
-	req.on("response", function(res) {
-		var str = "";
-		res.setEncoding("utf8");
-		res.on("readable", function() {
-			str += res.read();
-		});
-		res.on("end", function() {
-			var x = /^([^\r\n]*)[\r\n]/.exec(str);
-			if(!x) return cb(new Error("Invalid meta-file"), null);
-			if(!x[1].length) return cb(new Error("Invalid meta-file"), null);
-			var obj;
-			try { obj = JSON.parse(str.slice(x[0].length)); }
-			catch(err) { cb(err, null); }
-			cb(null, obj);
+		repo.getFile(metaURI, reqopts, function(err, obj) {
+			// TODO: If the result is Not Acceptable, just continue.
+			if(err) return cb(err, null); // TODO: drain stream
+			var json = /[\r\n][^]*$/.exec(obj.data)[0]; // TODO?
+			var src = JSON.parse(json);
+			delete src["fulltext"]; // Not supported by this API.
+			merge(src, dst);
+			stream.resume();
 		});
 	});
-	req.on("error", function(err) {
-		cb(err, null);
-	});*/
+	stream.on("end", function() {
+		cb(null, dst);
+	});
+	function merge(src, dst) {
+		for(var x in src) if(has(src, x)) {
+			if(!has(dst, x)) dst[x] = {};
+			if("string" === typeof src[x]) {
+				dst[x][src[x]] = {};
+			} else {
+				merge(src[x], dst[x]);
+			}
+		}
+	}
 };
 
 // opts: { uri: string }
