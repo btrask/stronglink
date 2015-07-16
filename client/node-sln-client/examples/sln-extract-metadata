@@ -8,7 +8,7 @@ var sln = require("../sln-client");
 var repo = sln.mainRepo();
 
 if(process.argv[2] && "-" === process.argv[2][0]) {
-	console.debug("Usage: sln-extract-keywords [blacklist] [whitelist]");
+	console.debug("Usage: sln-extract-metadata [blacklist] [whitelist]");
 	process.exit(1);
 }
 
