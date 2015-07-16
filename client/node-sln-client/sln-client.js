@@ -302,7 +302,7 @@ Repo.prototype.createSubmissionStream = function(type, opts) {
 		"Cookie": "s="+repo.session,
 		"Content-Type": type,
 	};
-	if(opts && has(opts, "size")) headers["Content-Length"] = size;
+	if(opts && has(opts, "size")) headers["Content-Length"] = opts.size;
 	var req = repo.client.request({
 		method: method,
 		hostname: repo.hostname,
@@ -409,7 +409,7 @@ URIListStream.prototype._transform = function(chunk, encoding, cb) {
 		} else {
 			x = /^(.*)\s*->\s*(.*)$/.exec(x[1]);
 			if(!x) return cb(new Error("Parse error"));
-			this.push({ uri: x[1], target: uri[2] });
+			this.push({ uri: x[1], target: x[2] });
 		}
 	}
 	cb(null);

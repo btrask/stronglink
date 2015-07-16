@@ -228,11 +228,12 @@ static int PUT_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 }
 
 static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, strarg_t const qs, bool const meta, HTTPConnectionRef const conn) {
-	SLNFilterPosition pos[1];
-	pos->dir = +1;
-	pos->URI = NULL;
-	uint64_t count = UINT64_MAX;
-	bool wait = true;
+	SLNFilterPosition pos[1] = {
+		.dir = +1,
+		.URI = NULL,
+		.count = UINT64_MAX,
+		.wait = true,
+	};
 	SLNFilterParseOptions(qs, pos, &count, NULL, &wait);
 
 	// I'm aware that we're abusing HTTP for sending real-time push data.
