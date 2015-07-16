@@ -94,6 +94,7 @@ metastream.on("data", function(obj) {
 var filestream = src.createQueryStream(query, { wait: true });
 filestream.on("data", function(URI) {
 	filestream.pause();
+	console.log(URI);
 	pipeone(URI, {}, function(err) {
 		if(err) throw err;
 		function next() {
