@@ -84,23 +84,33 @@ By default, long-polling APIs will send a blank line every minute or less during
 MIME type: `application/vnd.stronglink.meta` (pending registration)
 Encoding: always UTF-8
 
-The first line is the URI of the meta-file's target. Only hash links are recognized. The URI is followed by two line breaks (a blank line).
+The first line is the URI of the meta-file's target. Only hash links are recognized. The URI is followed by two line breaks (a blank line). LF is recommended (it's the most common for JSON) but CRLF and CR are also recognized. By putting this field first, more efficient single-pass parsing is possible during syncing.
 
-Then follows a JSON body describing the meta-data. Each field accepts an _array_ of values. If only one value is set, it can be a single item instead of an array. For each value, currently only strings and nulls are accepted (nulls are simply ignored).
+Then follows a JSON body describing the meta-data. Arbitrary keys are accepted. Values must be strings or objects (`{}`). _A string is equivalent to an object with the string as its only key, and an empty object as its only value._ This allows meta-files to operate as [CRDTs](https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type). The current state of the meta-data of a file is the merged "sum" of all of its meta-files.
 
 ```
 hash://[algo]/[hash]
 
 {
-	"random attribute": "single value",
-	"another attribute": [
-		"multiple",
-		"values"
-	]
+	"field 1": "single value",
+	"field 2": {
+		"equivalent syntax": {}
+	},
+	"title": {
+		"almost any field can have": {},
+		"multiple values": {},
+		"even the file's title": {}
+	},
+	"fulltext": "fulltext is the only exception (must be a single string)",
+	"nesting test": {
+		"first level of nesting - ok": {
+			"deeper nesting - not supported yet": {}
+		}
+	}
 }
 ```
 
-The reason for storing the target URI outside of the JSON object is to enable single-pass parsing without additional buffering. During sync, StrongLink can be required to parse thousands of meta-files (or more) while the user waits, so parse performance is a high priority.
+Note: currently only one level of nesting is supported. A nesting limit of at least 8 levels (and possibly much more) is planned. Deeper values are persisted but ignored and cannot be queried on.
 
 The following special fields are recognized:
 
@@ -120,15 +130,17 @@ Additionally, some standard fields are:
 - `source-path`: the local path where the file was imported from
 - `source-uri`: the URI where the file was imported from
 
-Applications are free to define their own fields. Please consider whether a field name should be considered "global" or "application-specific," and prefix application-specific fields with the name of the application. The `sln.` prefix is reserved for future use.
+Applications are free to define their own fields. Please consider whether a field name should be considered "global" or "application-specific," and prefix application-specific fields with the name of the application. The `sln` top-level field is reserved for future use.
 
 Values from multiple meta-files with the same target are combined. Applications should be aware that any field can have zero or more values. (As mentioned above, `fulltext` is currently the sole exception, in that it can only have one value per meta-file. It can still have multiple values from independent meta-files.)
 
 Although fields can contain multiple values, it's strongly recommended that applications define field names as singular terms (e.g. "hashtag" rather than "hashtags"). This is so that queries make more sense (e.g. `hashtag=[tag]` rather than `hashtags=[tag]`).
 
-Currently meta-data values are append-only. In the future this format will be extended to indicate values to be removed.
+Meta-data values are append-only. Mutability can be built on top using [CRDT](https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type) structures.
 
 Meta-files are always excoded as UTF-8. Line endings are recommended to be LF-only, since that's what most JSON libraries use.
+
+Currently the maximum meta-file size is capped at 1MB. Data after that point will be preserved but ignored and cannot be be queried on. This may be made a configurable setting.
 
 ## The default repository and authorization
 
