@@ -163,9 +163,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 //	SLNFilterPrint(filter, 0); // DEBUG
 
-	SLNFilterPosition pos[1];
-	pos->dir = -1;
-	pos->URI = NULL;
+	SLNFilterPosition pos[1] = {{ .dir = -1 }};
 	uint64_t max = RESULTS_MAX;
 	int outdir = -1;
 	SLNFilterParseOptions(qs, pos, &max, &outdir, NULL);

@@ -228,9 +228,7 @@ static int PUT_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 }
 
 static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, strarg_t const qs, bool const meta, HTTPConnectionRef const conn) {
-	SLNFilterPosition pos[1];
-	memset(pos, 0, sizeof(*pos)); // Clear padding for assert_zeroed later.
-	pos->dir = +1;
+	SLNFilterPosition pos[1] = {{ .dir = +1 }};
 	uint64_t count = UINT64_MAX;
 	bool wait = true;
 	SLNFilterParseOptions(qs, pos, &count, NULL, &wait);

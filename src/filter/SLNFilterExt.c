@@ -70,10 +70,10 @@ void SLNFilterParseOptions(strarg_t const qs, SLNFilterPosition *const start, ui
 }
 void SLNFilterPositionCleanup(SLNFilterPosition *const pos) {
 	assert(pos);
+	pos->dir = 0;
 	FREE(&pos->URI);
 	pos->sortID = 0;
 	pos->fileID = 0;
-	pos->dir = 0;
 	assert_zeroed(pos, 1);
 }
 
