@@ -26,6 +26,7 @@ Practices in use (pro tip: contributing guidelines):
 	- Use appropriate `open(2)` args to control access and avoid race conditions
 	- Use read-only access when possible
 	- Use established HTML sanitization instead of DIY
+	- Times are stored in UTC to avoid inadvertently leaking time zone information
 	- Use assertions to assert obvious invariants
 	- Ship with assertions on
 	- Test under Valgrind
