@@ -64,6 +64,7 @@ Planned (pro tip: places bugs might be hiding):
 - Support Markdown parsing in a separate process with sandboxing
 - Do thorough error checking everywhere (currently only in some places)
 - Do parsing through a safe string wrapper/library (something like Nom...)
+- Write a simple new template system based on [Google's Gumbo HTML parser](https://github.com/google/gumbo-parser)
 - Release a set of contributing guidelines (more than just the above)
 - Contribute some new compiler warnings to Clang and/or GCC
 
