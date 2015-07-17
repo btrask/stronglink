@@ -52,6 +52,7 @@ Practices in use (pro tip: contributing guidelines):
 	- Use `reallocarray`
 	- Use standard, secure string functions like `strlcat` instead of rolling our own (where possible)
 	- Define string length constants as `(N+1)` to make nul termination explicit
+	- `byte_t` (`unsigned char`) is used for binary data, as opposed to `str_t`/`strarg_t` (plain `char`) for string data
 
 Planned (pro tip: places bugs might be hiding):
 
