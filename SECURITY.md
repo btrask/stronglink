@@ -162,5 +162,5 @@ Reverse chronological order by date fixed (bugs that aren't fixed yet should als
 - 2015-05-18: Read beyond string termination in user query parser (not exploitable; fixed in f9291586fbef19e85f30c32c502bbd5eacd777e3)
 - 2015-04-08: Single quotes weren't being escaped in HTML output (not exploitable; fixed in c5acc7ec665dfd46967b8012c1021630c462d099)
 
-Please see the GitHub Issues "security" label for the most up-to-date and exhaustive list.
+Please see the [GitHub Issues "security" label](https://github.com/btrask/stronglink/issues?q=is%3Aissue+label%3Asecurity) for the most up-to-date and exhaustive list.
 

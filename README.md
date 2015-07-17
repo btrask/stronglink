@@ -16,7 +16,7 @@ Content addresses are unique in that they are _statically_ assigned by a _decent
 
 With StrongLink, you resolve hash links using your own repository, which you can run locally (or wherever you want: mobile, desktop or server).
 
-StrongLink is currently in alpha. Features are missing and some things may be broken. Check the open issues, where most of the major problems are documented.
+StrongLink is currently in alpha. Features are missing and some things may be broken. Check the [open issues](https://github.com/btrask/stronglink/issues), where most of the major problems are documented.
 
 It currently takes some work to set up, but the goal is to be as easy to run as Notepad or WordPress.
 
