@@ -58,10 +58,10 @@ function pipeone(URI, opts, cb) {
 		// confirm the file is needed before uploading it.
 		var out = dst.createSubmissionStream(type, opts);
 		res.pipe(out);
-		res.on("end", function() {
+		out.on("submission", function(info) {
 			cb(null);
 		});
-		res.on("error", function(err) {
+		out.on("error", function(err) {
 			cb(err);
 		});
 	});
