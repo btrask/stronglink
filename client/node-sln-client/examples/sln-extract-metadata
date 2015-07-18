@@ -79,7 +79,7 @@ function parsedates(body) {
 		var SS = +x[6]||0;
 		if(x[7]) HH %= 12;
 		if(/PM/i.test(x[7])) HH += 12;
-		results.push(new Date(yyyy, mm-1, dd, HH, MM, SS).toISOString());
+		results.push(new Date(Date.UTC(yyyy, mm-1, dd, HH, MM, SS)).toISOString());
 	}
 	return results;
 }
