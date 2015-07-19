@@ -129,6 +129,9 @@ function extract(URI, body) {
 	   "EarthFS" === topic ||
 	   "EarthFS TODO" === topic ||
 	   "StrongLink (EarthFS)" === topic ||
+	   "LSMDB" === topic ||
+	   "EarthFS and LSMDB" === topic ||
+	   "Databases" === topic ||
 	   has(meta.hashtag, "earthfs") ||
 	   has(meta.hashtag, "notetaking") ||
 	   whitelist[URI])
