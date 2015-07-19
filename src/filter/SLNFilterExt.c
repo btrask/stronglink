@@ -23,12 +23,13 @@ static void parse_start(strarg_t const str, SLNFilterPosition *const start) {
 	assert(0 != start->dir);
 	if(!str) {
 		// Do nothing.
-	} else if('-' == str[0]) {
-		start->URI = '\0' == str[1] ? NULL : strdup(str+1);
-		start->dir = -start->dir;
-	} else {
+	} else if('-' != str[0]) {
+		// TODO: Check strdup failures.
 		start->URI = '\0' == str[0] ? NULL : strdup(str+0);
-		start->dir = +start->dir;
+		start->dir *= +1;
+	} else {
+		start->URI = '\0' == str[1] ? NULL : strdup(str+1);
+		start->dir *= -1;
 	}
 	start->sortID = invalid(-start->dir);
 	start->fileID = invalid(-start->dir);
@@ -80,6 +81,7 @@ void SLNFilterPositionCleanup(SLNFilterPosition *const pos) {
 int SLNFilterSeekToPosition(SLNFilterRef const filter, SLNFilterPosition const *const pos, DB_txn *const txn) {
 	if(!pos->URI) {
 		SLNFilterSeek(filter, pos->dir, pos->sortID, pos->fileID);
+		if(valid(pos->fileID)) SLNFilterStep(filter, pos->dir);
 		return 0;
 	}
 
@@ -118,22 +120,22 @@ int SLNFilterSeekToPosition(SLNFilterRef const filter, SLNFilterPosition const *
 	return 0;
 }
 int SLNFilterGetPosition(SLNFilterRef const filter, SLNFilterPosition *const pos, DB_txn *const txn) {
-	FREE(&pos->URI);
-	SLNFilterCurrent(filter, pos->dir, &pos->sortID, &pos->fileID);
-	return 0;
-}
-int SLNFilterCopyURI(SLNFilterRef const filter, int const dir, bool const meta, DB_txn *const txn, str_t **const out) {
 	uint64_t sortID, fileID;
 	for(;;) {
-		SLNFilterCurrent(filter, dir, &sortID, &fileID);
+		SLNFilterCurrent(filter, pos->dir, &sortID, &fileID);
 		if(!valid(fileID)) return DB_NOTFOUND;
 
 		uint64_t const age = SLNFilterFastAge(filter, fileID, sortID);
 //		fprintf(stderr, "step: {%llu, %llu} -> %llu\n", (unsigned long long)sortID, (unsigned long long)fileID, (unsigned long long)age);
 		if(age == sortID) break;
-		SLNFilterStep(filter, dir);
+		SLNFilterStep(filter, pos->dir);
 	}
-
+	FREE(&pos->URI);
+	pos->sortID = sortID;
+	pos->fileID = fileID;
+	return 0;
+}
+int SLNFilterCopyURI(SLNFilterRef const filter, uint64_t const fileID, bool const meta, DB_txn *const txn, str_t **const out) {
 	DB_val fileID_key[1], file_val[1];
 	SLNFileByIDKeyPack(fileID_key, txn, fileID);
 	int rc = db_get(txn, fileID_key, file_val);
@@ -188,22 +190,25 @@ ssize_t SLNFilterCopyURIs(SLNFilterRef const filter, SLNSessionRef const session
 	size_t i = 0;
 	for(; i < max; i++) {
 		size_t const x = stepdir > 0 ? i : max-1-i;
-		rc = SLNFilterCopyURI(filter, pos->dir, meta, txn, &URIs[x]);
-		if(DB_NOTFOUND == rc) break;
+		rc = SLNFilterGetPosition(filter, pos, txn);
+		if(DB_NOTFOUND == rc) {
+			rc = 0;
+			break;
+		}
+		rc = SLNFilterCopyURI(filter, pos->fileID, meta, txn, &URIs[x]);
 		if(rc < 0) goto cleanup;
 		assert(URIs[x]);
-		SLNFilterStep(filter, dir);
+		SLNFilterStep(filter, pos->dir);
 	}
-
-	rc = SLNFilterGetPosition(filter, pos, txn);
-	if(rc < 0) goto cleanup;
-	rc = i;
 
 	// The results should always be in the first `i` slots, even when
 	// filling them in reverse order.
 	if(stepdir < 0) {
 		memmove(URIs+0, URIs+(max-i), sizeof(*URIs) * i);
 	}
+
+	assert(rc >= 0);
+	rc = i;
 
 cleanup:
 	db_txn_abort(txn); txn = NULL;
