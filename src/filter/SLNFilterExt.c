@@ -122,7 +122,7 @@ int SLNFilterGetPosition(SLNFilterRef const filter, SLNFilterPosition *const pos
 	SLNFilterCurrent(filter, pos->dir, &pos->sortID, &pos->fileID);
 	return 0;
 }
-int SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, bool const meta, DB_txn *const txn, str_t **const out) {
+int SLNFilterCopyURI(SLNFilterRef const filter, int const dir, bool const meta, DB_txn *const txn, str_t **const out) {
 	uint64_t sortID, fileID;
 	for(;;) {
 		SLNFilterCurrent(filter, dir, &sortID, &fileID);
@@ -159,7 +159,6 @@ int SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, bool const me
 		if(!URI) return DB_ENOMEM;
 	}
 
-	SLNFilterStep(filter, dir);
 	*out = URI; URI = NULL;
 	return 0;
 }
@@ -189,10 +188,11 @@ ssize_t SLNFilterCopyURIs(SLNFilterRef const filter, SLNSessionRef const session
 	size_t i = 0;
 	for(; i < max; i++) {
 		size_t const x = stepdir > 0 ? i : max-1-i;
-		rc = SLNFilterCopyNextURI(filter, pos->dir, meta, txn, &URIs[x]);
+		rc = SLNFilterCopyURI(filter, pos->dir, meta, txn, &URIs[x]);
 		if(DB_NOTFOUND == rc) break;
 		if(rc < 0) goto cleanup;
 		assert(URIs[x]);
+		SLNFilterStep(filter, dir);
 	}
 
 	rc = SLNFilterGetPosition(filter, pos, txn);
