@@ -107,6 +107,7 @@ OBJECTS := \
 	$(BUILD_DIR)/filter/SLNFilterExt.o \
 	$(BUILD_DIR)/filter/SLNIndirectFilter.o \
 	$(BUILD_DIR)/filter/SLNDirectFilter.o \
+	$(BUILD_DIR)/filter/SLNLinksToFilter.o \
 	$(BUILD_DIR)/filter/SLNCollectionFilter.o \
 	$(BUILD_DIR)/filter/SLNNegationFilter.o \
 	$(BUILD_DIR)/filter/SLNMetaFileFilter.o \

@@ -63,6 +63,8 @@ SLNFilterRef SLNFilterCreateInternal(SLNFilterType const type) {
 			return (SLNFilterRef)[[SLNTargetURIFilter alloc] init];
 		case SLNMetaFileFilterType:
 			return (SLNFilterRef)[[SLNMetaFileFilter alloc] init];
+		case SLNLinksToFilterType:
+			return (SLNFilterRef)[[SLNLinksToFilter alloc] init];
 		case SLNBadMetaFileFilterType:
 			return (SLNFilterRef)[[SLNBadMetaFileFilter alloc] init];
 		default:

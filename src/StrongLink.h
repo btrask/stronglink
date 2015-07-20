@@ -124,22 +124,40 @@ str_t **SLNHasherEnd(SLNHasherRef const hasher);
 strarg_t SLNHasherGetInternalHash(SLNHasherRef const hasher);
 
 
-typedef enum {
+typedef unsigned SLNFilterType;
+enum {
 	SLNFilterTypeInvalid = 0,
-	SLNAllFilterType,
-	SLNVisibleFilterType,
-	SLNFileTypeFilterType,
-	SLNIntersectionFilterType,
-	SLNUnionFilterType,
-	SLNNegationFilterType,
-	SLNURIFilterType,
-	SLNTargetURIFilterType,
-	SLNFulltextFilterType,
-	SLNMetadataFilterType,
-//	SLNLinkedFromFilterType, // TODO: Forward links?
-	SLNMetaFileFilterType,
-	SLNBadMetaFileFilterType, // TODO: Deprecated
-} SLNFilterType;
+
+	// All files and meta-files
+	SLNAllFilterType = 1,
+	// All meta-files
+	SLNMetaFileFilterType = 2,
+	// All files that are targeted by at least one meta-file
+	SLNVisibleFilterType = 3,
+	// Files with a given MIME type
+//	SLNFileTypeFilterType = 4, // TODO
+	// AND operation
+	SLNIntersectionFilterType = 5,
+	// OR operation
+	SLNUnionFilterType = 6,
+	// NOT operation (Note: does not add results, only removes)
+	SLNNegationFilterType = 7,
+	// Direct lookup
+	SLNURIFilterType = 8,
+	// Meta-files with a given target
+	SLNTargetURIFilterType = 9,
+	// Full-text search // TODO: Phrase search
+	SLNFulltextFilterType = 10,
+	// Exact meta-data field and value // TODO: Case-insensitivity
+	SLNMetadataFilterType = 11,
+	// Backlinks to file(s) with given URI
+	SLNLinksToFilterType = 12,
+	// Forward links (everything linked from file(s) with given URI)
+//	SLNLinkedFromFilterType = 13, // TODO
+
+	// Meta-files matching a given filter, does not work
+	SLNBadMetaFileFilterType = 666, // TODO: Deprecated
+};
 
 typedef struct {
 	uint64_t min;

@@ -150,14 +150,14 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	SLNFilterRef core = SLNFilterUnwrap(filter);
 	SLNFilterType const filtertype = SLNFilterGetType(core);
 	if(SLNURIFilterType == filtertype) {
+		primaryURI = strdup(SLNFilterGetStringArg(core, 0));
+		assert(primaryURI); // TODO
 		SLNFilterRef alt;
-		rc = SLNFilterCreate(session, SLNMetadataFilterType, &alt);
+		rc = SLNFilterCreate(session, SLNLinksToFilterType, &alt);
 		assert(rc >= 0); // TODO
-		SLNFilterAddStringArg(alt, STR_LEN("link"));
-		SLNFilterAddStringArg(alt, SLNFilterGetStringArg(core, 0), -1);
+		SLNFilterAddStringArg(alt, primaryURI, -1);
 		SLNFilterFree(&filter);
 		filter = alt; alt = NULL;
-		primaryURI = strdup(SLNFilterGetStringArg(filter, 1));
 	}
 	core = NULL;
 
@@ -176,6 +176,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	ssize_t const count = SLNFilterCopyURIs(filter, session, pos, outdir, false, URIs, (size_t)max);
 	SLNFilterPositionCleanup(pos);
 	if(count < 0) {
+		fprintf(stderr, "Filter error: %s\n", sln_strerror(count));
 		FREE(&query);
 		FREE(&query_HTMLSafe);
 		SLNFilterFree(&filter);

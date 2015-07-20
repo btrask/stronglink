@@ -162,6 +162,15 @@ struct token {
 }
 @end
 
+// SLNLinksToFilter.m
+@interface SLNLinksToFilter : SLNFilter
+{
+	str_t *URI;
+	SLNUnionFilter *filter;
+}
+@end
+
+
 static bool valid(uint64_t const x) {
 	return 0 != x && UINT64_MAX != x;
 }
