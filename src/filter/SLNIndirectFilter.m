@@ -251,7 +251,9 @@
 			tokens = reallocarray(tokens, asize, sizeof(tokens[0]));
 			assert(tokens); // TODO
 		}
-		tokens[count++].str = strndup(token, tlen);
+		tokens[count].str = strndup(token, tlen);
+		assert(tokens[count].str); // TODO
+		count++;
 	}
 
 	fts->xClose(tcur);
@@ -348,10 +350,12 @@
 - (int)addStringArg:(strarg_t const)str :(size_t const)len {
 	if(!field) {
 		field = strndup(str, len);
+		if(!field) return DB_ENOMEM;
 		return 0;
 	}
 	if(!value) {
 		value = strndup(str, len);
+		if(!value) return DB_ENOMEM;
 		return 0;
 	}
 	return DB_EINVAL;

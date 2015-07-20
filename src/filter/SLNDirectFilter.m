@@ -25,6 +25,7 @@
 - (int)addStringArg:(strarg_t const)str :(size_t const)len {
 	if(!URI) {
 		URI = strndup(str, len);
+		if(!URI) return DB_ENOMEM;
 		return 0;
 	}
 	return DB_EINVAL;
@@ -114,6 +115,7 @@
 - (int)addStringArg:(strarg_t const)str :(size_t const)len {
 	if(!targetURI) {
 		targetURI = strndup(str, len);
+		if(!targetURI) return DB_ENOMEM;
 		return 0;
 	}
 	return DB_EINVAL;
