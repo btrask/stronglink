@@ -5,15 +5,15 @@
 var fs = require("fs");
 var pathmodule = require("path");
 var sln = require("../sln-client");
-var repo = sln.mainRepo();
 
-if(process.argv[2] && "-" === process.argv[2][0]) {
-	console.debug("Usage: sln-extract-metadata [blacklist] [whitelist]");
+if(process.argv.length <= 4) {
+	console.error("Usage: sln-extract-metadata <repository> <blacklist> <whitelist>");
+	console.error("\t"+"Use dash (-) to omit blacklist or whitelist");
 	process.exit(1);
 }
-
-var blacklist = readURIListSync(process.argv[2]);
-var whitelist = readURIListSync(process.argv[3]);
+var repo = sln.repoForName(process.argv[2]);
+var blacklist = readURIListSync(process.argv[3]);
+var whitelist = readURIListSync(process.argv[4]);
 
 function has(obj, prop) {
 	return Object.prototype.hasOwnProperty.call(obj, prop);
@@ -23,7 +23,7 @@ function any(obj) {
 	return null;
 }
 function readURIListSync(path) {
-	if(!path || "" === path) return {};
+	if(!path || "" === path || "-" === path) return {};
 	var text = fs.readFileSync(pathmodule.resolve(path), "utf8");
 	var list = sln.parseURIList(text);
 	var map = {}, i;

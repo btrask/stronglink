@@ -152,8 +152,12 @@ These are specified by a config file in JSON:
 
 ```json
 {
-	"uri": "http://localhost:8000/",
-	"session": "[...]"
+	"repos": {
+		"main": {
+			"uri": "http://localhost:8000/",
+			"session": "[...]"
+		}
+	}
 }
 ```
 

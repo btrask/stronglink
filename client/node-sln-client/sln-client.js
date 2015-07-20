@@ -44,28 +44,41 @@ sln.formatURI = function(obj) {
 //sln.createHasher = function() {};
 //sln.Hasher = Hasher;
 
-var mainRepo = undefined;
-sln.mainRepoOptional = function() {
-	if(undefined === mainRepo) {
-		try {
-			// TODO: Suitable config location depending on platform.
-			var config = "~/.config/stronglink/client.json".replace(/^~/, process.env.HOME);
-			var info = JSON.parse(fs.readFileSync(config, "utf8"));
-			if("string" !== typeof info.url) throw new Error("Invalid URL");
-			if("string" !== typeof info.session) throw new Error("Invalid session");
-			mainRepo = new Repo(info.url, info.session);
-		} catch(e) {
-			mainRepo = null;
-		}
-	}
-	return mainRepo;
+var CONFIG = null;
+var REPOS = {};
+sln.loadConfig = function() {
+	var path = "~/.config/stronglink/client.json".replace(/^~/, process.env.HOME);
+	CONFIG = JSON.parse(fs.readFileSync(path, "utf8"));
+	REPOS = {};
 };
-sln.mainRepo = function() {
-	var repo = sln.mainRepoOptional();
-	if(repo) return repo;
-	console.error("Error: no StrongLink repository configured");
-	// TODO: We should have a simple script that the user can run.
-	process.exit(1);
+sln.repoForNameOptional = function(name) {
+	if(!name) return null;
+	if(has(REPOS, name)) return REPOS[name];
+	REPOS[name] = null;
+	if(!CONFIG) {
+		try { sln.loadConfig(); }
+		catch(e) { return null; }
+	}
+	if(!has(CONFIG, "repos")) return null;
+	if(!has(CONFIG["repos"], name)) return null;
+	var obj = CONFIG["repos"][name];
+	if("string" !== typeof obj["url"]) return null;
+	if("string" !== typeof obj["session"]) return null;
+	REPOS[name] = new Repo(obj["url"], obj["session"]);
+	return REPOS[name];
+};
+sln.repoForName = function(name) {
+	if(!name) {
+		console.error("Error: no repository name specified");
+		process.exit(1);
+	}
+	var repo = sln.repoForNameOptional(name);
+	if(!repo) {
+		console.error("Error: no StrongLink repository configured for '"+name+"'");
+		// TODO: We should have a simple script that the user can run.
+		process.exit(1);
+	}
+	return repo;
 };
 sln.createRepo = function(url, session) {
 	return new sln.Repo(url, session);

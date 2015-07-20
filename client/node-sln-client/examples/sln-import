@@ -8,7 +8,12 @@ var pathmodule = require("path");
 var sln = require("../sln-client");
 var mime = require("./mime");
 
-var repo = sln.mainRepo();
+if(process.argv.length <= 3) {
+	console.error("Usage: sln-import <repository> <path>");
+	process.exit(1);
+}
+var repo = sln.repoForName(process.argv[2]);
+var root = process.argv[3];
 
 function has(obj, prop) {
 	return Object.prototype.hasOwnProperty.call(obj, prop);
@@ -110,11 +115,6 @@ function submitdir(path, cb) {
 }
 
 
-var root = process.argv[2];
-if(!root) {
-	console.error("Usage: sln-import <path>");
-	process.exit(1);
-}
 submitdir(root, function(err, uris) {
 	console.log("done", err);
 });

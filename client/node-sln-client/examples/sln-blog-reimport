@@ -7,14 +7,14 @@ var crypto = require("crypto");
 var urimodule = require("url");
 
 var sln = require("../sln-client");
-var dst = sln.mainRepo();
 
 if(process.argv.length <= 3) {
-	console.debug("Usage: sln-blog-reimport <src-url> <session>");
+	console.debug("Usage: sln-blog-reimport <dst> <src>");
 	process.exit(1);
 }
+var dst = sln.repoForName(process.argv[2]);
+var src = sln.repoForName(process.argv[3]);
 
-var src = sln.createRepo(process.argv[2], process.argv[3]);
 var boundary = "----------"+crypto.randomBytes(16).toString("hex");
 
 var stream = src.createQueryStream("", { wait: false });

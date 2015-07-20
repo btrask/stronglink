@@ -3,7 +3,14 @@
 // MIT licensed (see LICENSE for details)
 
 var sln = require("../sln-client");
-var repo = sln.mainRepo();
+
+if(process.argv.length <= 4) {
+	console.error("Usage: sln-add-tags <repository> <tag> [...] <query>");
+	process.exit(1);
+}
+var repo = sln.repoForName(process.argv[2]);
+var tags = process.argv.slice(3, -1);
+var query = process.argv.slice(-1)[0];
 
 function array2obj(array) {
 	var obj = {};
@@ -13,13 +20,8 @@ function array2obj(array) {
 	return obj;
 }
 
-if(process.argv.length < 3) {
-	console.error("Usage: "+process.argv[1]+" <tag> [...] <query>");
-	process.exit(1);
-}
-var query = process.argv.slice(-1)[0];
 var meta = {
-	"tag": array2obj(process.argv.slice(2, -1)),
+	"tag": array2obj(tags),
 };
 
 var stream = repo.createQueryStream(query, { wait: false });

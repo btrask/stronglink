@@ -9,12 +9,11 @@ function has(obj, prop) {
 }
 
 if(process.argv.length <= 3) {
-	console.debug("Usage: sln-pipe <src-host> <src-key> [query]");
+	console.debug("Usage: sln-pipe <dst> <src> [query]");
 	process.exit(1);
 }
-
-var src = sln.createRepo(process.argv[2], process.argv[3]);
-var dst = sln.mainRepo();
+var src = sln.repoForName(process.argv[2]);
+var dst = sln.repoForName(process.argv[3]);
 var query = process.argv[4] || "";
 
 
