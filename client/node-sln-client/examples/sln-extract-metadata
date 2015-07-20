@@ -168,6 +168,7 @@ function fakemeta(body) {
 var stream = repo.createQueryStream("", { wait: false });
 stream.on("data", function(URI) {
 	stream.pause();
+	console.log(URI);
 	var req = repo.createFileRequest(URI, {});
 	req.on("response", function(res) {
 		if(200 != res.statusCode) throw new Error("Status "+res.statusCode);
