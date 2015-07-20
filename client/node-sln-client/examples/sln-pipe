@@ -9,7 +9,7 @@ function has(obj, prop) {
 }
 
 if(process.argv.length <= 3) {
-	console.error("Usage: sln-pipe <dst> <src> [query]");
+	console.error("Usage: sln-pipe <src> <dst> [query]");
 	process.exit(1);
 }
 var src = sln.repoForName(process.argv[2]);
