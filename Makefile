@@ -314,11 +314,16 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.[cm] $(HEADERS)
 #	@- mkdir -p $(dir $@)
 #	$(CC) -c $(CFLAGS) $(WARNINGS) -DMARKDOWN_STANDALONE $< -o $@
 
+ifeq ($(platform),linux)
+SETCAP := setcap "CAP_NET_BIND_SERVICE=+ep" $(DESTDIR)$(PREFIX)/bin/stronglink
+endif
+
 .PHONY: install
 install: all
 	install -d $(DESTDIR)$(PREFIX)/bin
 	install -d $(DESTDIR)$(PREFIX)/share/stronglink
 	install $(BUILD_DIR)/stronglink $(DESTDIR)$(PREFIX)/bin
+	$(SETCAP)
 	#install $(BUILD_DIR)/sln-markdown $(DESTDIR)$(PREFIX)/bin
 	cp -r $(ROOT_DIR)/res/blog $(DESTDIR)$(PREFIX)/share/stronglink
 	chmod -R u=rwX,go=rX $(DESTDIR)$(PREFIX)/share/stronglink
