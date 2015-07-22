@@ -25,13 +25,21 @@ h1, h2 { font-weight: initial; }
 
 a:link {
 	text-decoration: none;
+	color: #0000ee;
 }
 a:hover {
 	text-decoration: underline;
 }
+a:visited {
+	color: #551a8b;
+}
+a:active {
+	color: #ee0000;
+}
 
 body {
 	background: #eee;
+	color: #000;
 	word-wrap: break-word;
 }
 body, input {
