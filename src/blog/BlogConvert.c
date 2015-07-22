@@ -72,8 +72,10 @@ static int convert(BlogRef const blog,
 
 	async_fs_close(file); file = -1;
 
-	rc = SLNSubmissionCreate(session, NULL, SLN_META_TYPE, &meta);
-	if(rc < 0) goto cleanup;
+	if(outmeta) {
+		rc = SLNSubmissionCreate(session, NULL, SLN_META_TYPE, &meta);
+		if(rc < 0) goto cleanup;
+	}
 
 	SLNSubmissionWrite(meta, (byte_t const *)URI, strlen(URI));
 	SLNSubmissionWrite(meta, (byte_t const *)STR_LEN("\n\n"));
@@ -100,7 +102,9 @@ static int convert(BlogRef const blog,
 	rc = SLNSubmissionEnd(meta);
 	if(rc < 0) goto cleanup;
 
-	*outmeta = meta; meta = NULL;
+	if(outmeta) {
+		*outmeta = meta; meta = NULL;
+	}
 
 cleanup:
 	async_fs_unlink(tmp); FREE(&tmp);
@@ -121,11 +125,8 @@ int BlogConvert(BlogRef const blog,
                 SLNFileInfo const *const src)
 {
 	int rc = -1;
-	SLNSubmissionRef meta = NULL;
-	rc=rc>=0?rc: convert(blog, session, html, &meta, URI, src, CONVERTER(markdown));
-	rc=rc>=0?rc: convert(blog, session, html, &meta, URI, src, CONVERTER(plaintext));
-	if(outmeta) { *outmeta = meta; meta = NULL; }
-	SLNSubmissionFree(&meta);
+	rc=rc>=0?rc: convert(blog, session, html, outmeta, URI, src, CONVERTER(markdown));
+	rc=rc>=0?rc: convert(blog, session, html, outmeta, URI, src, CONVERTER(plaintext));
 	return rc;
 }
 int BlogGeneric(BlogRef const blog,
