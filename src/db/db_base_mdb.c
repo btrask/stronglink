@@ -9,7 +9,7 @@
 // MDB private definition but seems unlikely to change.
 // We double check it at run time and return an error if it's different.
 #define MDB_MAIN_DBI 1
-w
+
 struct DB_txn {
 	MDB_txn *txn;
 	unsigned flags;
