@@ -239,7 +239,7 @@ static int create_admin(SLNRepoRef const repo, DB_txn *const txn) {
 static int createDBConnection(SLNRepoRef const repo) {
 	assert(repo);
 	int rc = db_env_create(&repo->db);
-	rc = rc < 0 ? rc : db_env_set_mapsize(repo->db, 1024 * 1024 * 256);
+	rc = rc < 0 ? rc : db_env_set_mapsize(repo->db, 1024 * 1024 * 1024 * 1);
 	if(rc < 0) {
 		fprintf(stderr, "Database setup error (%s)\n", sln_strerror(rc));
 		return rc;
