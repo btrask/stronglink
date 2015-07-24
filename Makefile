@@ -187,10 +187,13 @@ LIBS += -lrt
 endif
 
 ifeq ($(DB),rocksdb)
+  CFLAGS += -DUSE_ROCKSDB
   STATIC_LIBS += $(DEPS_DIR)/snappy/.libs/libsnappy.a
   LIBS += -lrocksdb
+  LIBS += -lz
   LIBS += -lstdc++
-  OBJECTS += $(BUILD_DIR)/db/db_base_rocksdb.o
+  OBJECTS += $(BUILD_DIR)/db/db_base_leveldb.o
+  HEADERS += $(SRC_DIR)/db/rocks_wrapper.h
 else ifeq ($(DB),hyper)
   STATIC_LIBS += $(DEPS_DIR)/snappy/.libs/libsnappy.a
   LIBS += -lhyperleveldb

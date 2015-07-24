@@ -8,7 +8,12 @@
 #include <unistd.h> // For unlink(2)
 #include <sys/resource.h>
 
+#ifdef USE_ROCKSDB
+#include "rocks_wrapper.h"
+#else
 #include <leveldb/c.h>
+#endif
+
 #include "../../deps/lsmdb/liblmdb/lmdb.h"
 #include "db_base.h"
 
@@ -290,6 +295,7 @@ int db_env_open(DB_env *const env, char const *const name, unsigned const flags,
 	if(!env) return DB_EINVAL;
 	char *err = NULL;
 	env->db = leveldb_open(env->opts, name, &err);
+	if(err) fprintf(stderr, "Database error %s\n", err);
 	leveldb_free(err);
 	if(!env->db || err) return -1; // TODO: Parse error string?
 
@@ -323,11 +329,19 @@ int db_env_open(DB_env *const env, char const *const name, unsigned const flags,
 }
 void db_env_close(DB_env *const env) {
 	if(!env) return;
-	leveldb_options_destroy(env->opts); env->opts = NULL;
-	leveldb_filterpolicy_destroy(env->filterpolicy); env->filterpolicy = NULL;
-	leveldb_close(env->db); env->db = NULL;
+	if(env->opts) {
+		leveldb_options_destroy(env->opts); env->opts = NULL;
+	}
+	if(env->filterpolicy) {
+		leveldb_filterpolicy_destroy(env->filterpolicy); env->filterpolicy = NULL;
+	}
+	if(env->db) {
+		leveldb_close(env->db); env->db = NULL;
+	}
 	mdb_env_close(env->tmpenv); env->tmpenv = NULL;
-	leveldb_writeoptions_destroy(env->wopts); env->wopts = NULL;
+	if(env->wopts) {
+		leveldb_writeoptions_destroy(env->wopts); env->wopts = NULL;
+	}
 	env->cmp = NULL;
 	assert_zeroed(env, 1);
 	free(env);
