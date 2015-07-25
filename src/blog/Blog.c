@@ -611,6 +611,8 @@ static int POST_auth(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	if(HTTP_POST != method) return -1;
 	if(!URIPath(URI, "/auth", NULL)) return -1;
 
+	// TODO: Check that Content-Type is application/x-www-form-urlencoded.
+
 	str_t formdata[AUTH_FORM_MAX];
 	ssize_t len = HTTPConnectionReadBodyStatic(conn, (byte_t *)formdata, sizeof(formdata)-1);
 	if(UV_EMSGSIZE == len) return 413; // Request Entity Too Large
