@@ -227,6 +227,7 @@ ssize_t SLNFilterWriteURIBatch(SLNFilterRef const filter, SLNSessionRef const se
 	}
 	int rc = writecb(ctx, parts, count*2);
 	for(size_t i = 0; i < count; i++) FREE(&URIs[i]);
+	assert_zeroed(URIs, count);
 	if(rc < 0) return rc;
 	return count;
 }
