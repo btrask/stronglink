@@ -84,6 +84,12 @@ Computer security is currently in a catch-22. Security researchers and cryptogra
 
 Please see the [StrongLink Security Information page](https://github.com/btrask/stronglink/blob/master/SECURITY.md) for more information.
 
+**As a programmer, are there any lessons I can take home?**  
+In the process of developing StrongLink, I've learned two things I can say with confidence:
+
+1. Strongly consider using content addresses over UUIDs or GUIDs in almost all cases. This is especially useful for distributed systems.
+2. With hashing, less is more. Don't hash meaningless data or your concept of identity will be meaningless.
+
 **My question isn't answered here...**  
 Please search [my notes and development log](http://bentrask.com/). Most questions have been answered and most suggestions have been considered.
 
