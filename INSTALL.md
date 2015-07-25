@@ -16,6 +16,8 @@ Fedora / RedHat: `sudo yum install gcc gcc-c++ gcc-objc cmake automake autoconf 
 
 OS X: Install the developer tools from the App Store and cmake from Homebrew. [TODO]
 
+Windows: untested, probably needs work
+
 Basic Installation
 ------------------
 

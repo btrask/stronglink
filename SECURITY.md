@@ -1,8 +1,8 @@
 StrongLink Security Information
 ===============================
 
-StrongLink's security practices
--------------------------------
+Security practices
+------------------
 
 The long-term plan for StrongLink security is to follow the basic model of [qmail](http://cr.yp.to/qmail/qmailsec-20071101.pdf): avoid bloat and clamp down on unnecessary churn while trying to make the code obvious and going over everything with a fine-tooth comb.
 
