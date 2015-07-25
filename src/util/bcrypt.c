@@ -12,12 +12,14 @@
 #define BCRYPT_SALT_LEN 16
 
 bool checkpass(char const *const pass, char const *const hash) {
+	async_pool_enter(NULL);
 	int size = 0;
 	void *data = NULL;
 	char const *attempt = crypt_ra(pass, hash, &data, &size);
 	bool const success = (attempt && 0 == strcmp(attempt, hash));
 	attempt = NULL;
 	free(data); data = NULL;
+	async_pool_leave(NULL);
 	return success;
 }
 char *hashpass(char const *const pass) {
