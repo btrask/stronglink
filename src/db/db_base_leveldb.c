@@ -18,14 +18,14 @@
 #include "db_base.h"
 
 // TODO
-#define assert_zeroed(buf, count) ({ \
+#define assert_zeroed(buf, count) do { \
 	for(size_t i = 0; i < sizeof(*(buf)) * (count); ++i) { \
 		if(0 == ((char const *)(buf))[i]) continue; \
 		fprintf(stderr, "%s:%d Buffer at %p not zeroed (%ld)\n", \
 			__FILE__, __LINE__, (buf), i); \
 		abort(); \
 	} \
-})
+} while(0)
 
 #define MDB_RDWR 0
 

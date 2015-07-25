@@ -38,7 +38,7 @@ typedef str_t const *strarg_t; // A string that belongs to someone else.
 #define assertf(x, fmt, ...) (void)0
 #define assert_zeroed(buf, type) (void)0
 #else
-#define assertf(x, fmt, ...) ({ \
+#define assertf(x, fmt, ...) do { \
 	if(0 == (x)) { \
 		fprintf(stderr, "%s:%d %s: assertion '%s' failed\n", \
 			__FILE__, __LINE__, __PRETTY_FUNCTION__, #x); \
@@ -46,24 +46,24 @@ typedef str_t const *strarg_t; // A string that belongs to someone else.
 		fprintf(stderr, "\n"); \
 		abort(); \
 	} \
-})
-#define assert_zeroed(buf, count) ({ \
+} while(0)
+#define assert_zeroed(buf, count) do { \
 	for(size_t __i = 0; __i < sizeof(*(buf)) * (count); ++__i) { \
 		if(0 == ((byte_t const *)(buf))[__i]) continue; \
 		fprintf(stderr, "%s:%d Buffer at %p not zeroed (%ld)\n", \
 			__FILE__, __LINE__, (buf), __i); \
 		abort(); \
 	} \
-})
+} while(0)
 #endif
 
 #define UNUSED(x) ((void)(x))
 
-#define FREE(ptrptr) ({ \
+#define FREE(ptrptr) do { \
 	__typeof__(ptrptr) const __x = (ptrptr); \
 	free(*__x); \
 	*__x = NULL; \
-})
+} while(0)
 
 // Compares nul-terminated string `a` with substring of `blen` at `b`.
 static bool substr(strarg_t const a, strarg_t const b, size_t const blen) {
