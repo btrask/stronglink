@@ -41,13 +41,13 @@ StrongLink is intended to be almost as fast and secure as a static site generato
 It doesn't have any themes or plugins yet.
 
 **How does it compare to web search engines?**  
-StrongLink is built like a miniature (but "real") search engine, although it has some different design goals.
+StrongLink is built like a search engine, although it has some different design goals.
 
-It's designed to scale, but a single repository will never be as large as the entire Web, so it can take fewer shortcuts and return more accurate results. The index is fully ACID, so there is no delay before results show up or chance of files getting "missed." Results are ordered chronologically rather than by fuzzy relevance heuristics (which is admittedly sometimes a downside). It doesn't (currently) use stopwords and stemming can be changed on a per-repository basis.
+Since it's designed to search a single repository rather than the entire web, it can take fewer shortcuts and return more accurate results. The index is fully ACID, so there is no delay before results show up or chance of files getting "missed." Results are ordered chronologically rather than by fuzzy relevance heuristics (which is admittedly sometimes a downside). It doesn't (currently) use stopwords and stemming can be changed on a per-repository basis.
 
 Your searches never leave your machine. It can index private files without exposing them to a third party.
 
-A major challenge of the design is being able to sync a large index quickly between repositories. After a lot of [blood, sweat and tears](https://github.com/btrask/lsmdb/), we have some solid sync performance, but there's still room for improvement.
+A major challenge of the design is being able to sync a large index quickly between repositories. After a lot of blood, sweat and [tears](https://github.com/btrask/lsmdb/), we have some solid sync performance, but there's still room for improvement.
 
 **How does it compare to other content addressing systems?**  
 StrongLink follows my [Principles of Content Addressing](http://bentrask.com/notes/content-addressing.html). It focuses on providing content addresses as regular links you can use between your files.
