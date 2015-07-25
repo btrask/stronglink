@@ -8,7 +8,7 @@
 #include "Blog.h"
 #include "../../deps/content-disposition/content-disposition.h"
 
-#define RESULTS_MAX 50
+#define RESULTS_MAX 10
 #define BUFFER_SIZE (1024 * 8)
 #define AUTH_FORM_MAX (1023+1)
 
