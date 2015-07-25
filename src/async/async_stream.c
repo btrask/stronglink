@@ -15,11 +15,12 @@ typedef struct {
 static void alloc_cb(uv_handle_t *const handle, size_t const suggested_size, uv_buf_t *const buf) {
 	buf->len = 1024 * 8; // suggested_size is hardcoded at 64k, which seems large
 	buf->base = malloc(buf->len);
+	assert(buf->base); // TODO
 }
 static void read_cb(uv_stream_t *const stream, ssize_t const nread, uv_buf_t const *const buf) {
 	async_state *const state = stream->data;
 	if(nread < 0) {
-		free(buf->base);
+		free(buf->base); // buf->base = NULL;
 		state->buf->base = NULL;
 		state->buf->len = 0;
 		state->status = nread;

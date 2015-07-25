@@ -121,8 +121,7 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 	rc = HTTP_PARSER_ERRNO(conn->parser);
 	if(HPE_OK != rc && HPE_PAUSED != rc) return UV_UNKNOWN;
 
-	for(;;) {
-		if(HTTPNothing != conn->type) break;
+	while(HTTPNothing == conn->type) {
 		if(!conn->raw->len) {
 			// It might seem counterintuitive to free the buffer
 			// just before we could reuse it, but the one time we
@@ -142,6 +141,10 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 		http_parser_pause(conn->parser, 0);
 		len = http_parser_execute(conn->parser, &settings, conn->raw->base, conn->raw->len);
 		rc = HTTP_PARSER_ERRNO(conn->parser);
+
+		// HACK: http_parser returns 1 when the input length is 0 (EOF).
+		if(len > conn->raw->len) len = conn->raw->len;
+
 		conn->raw->base += len;
 		conn->raw->len -= len;
 		if(HPE_OK != rc && HPE_PAUSED != rc) {

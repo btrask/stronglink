@@ -182,7 +182,8 @@ static int accept_sub(SLNSessionRef const session, strarg_t const knownURI, HTTP
 
 cleanup:
 	SLNSubmissionFree(&sub);
-	if(UV_EACCES == rc) return 403;
+	if(UV_EACCES == rc) return 403; // Forbidden
+	if(UV_UNKNOWN == rc) return 400; // Bad Request
 	if(SLN_HASHMISMATCH == rc) return 409; // Conflict
 	if(rc < 0) return 500;
 	return 0;
