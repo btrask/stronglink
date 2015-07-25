@@ -484,10 +484,19 @@ static int POST_post(BlogRef const blog,
 
 	SLNSubmissionRef extra = NULL;
 	yajl_gen json = NULL;
+	str_t *target_QSEscaped = NULL;
+	str_t *location = NULL;
+
 	rc = SLNSubmissionCreate(session, NULL, SLN_META_TYPE, &extra);
 	if(rc < 0) goto cleanup;
 
 	strarg_t const target = SLNSubmissionGetPrimaryURI(sub);
+	if(!target) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
+	target_QSEscaped = QSEscape(target, strlen(target), true);
+	if(!target_QSEscaped) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
+
 	SLNSubmissionWrite(extra, (byte_t const *)target, strlen(target));
 	SLNSubmissionWrite(extra, (byte_t const *)STR_LEN("\n\n"));
 
@@ -549,6 +558,15 @@ static int POST_post(BlogRef const blog,
 	SLNSubmissionRef subs[] = { sub, meta, extra };
 	rc = SLNSubmissionStoreBatch(subs, numberof(subs));
 
+	location = aasprintf("/?q=%s", target_QSEscaped);
+	if(!location) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
+
+	HTTPConnectionWriteResponse(conn, 303, "See Other");
+	HTTPConnectionWriteHeader(conn, "Location", location);
+	HTTPConnectionWriteContentLength(conn, 0);
+	HTTPConnectionBeginBody(conn);
+	HTTPConnectionEnd(conn);
 
 cleanup:
 	if(json) { yajl_gen_free(json); json = NULL; }
@@ -557,14 +575,10 @@ cleanup:
 	SLNSubmissionFree(&meta);
 	SLNSubmissionFree(&extra);
 	MultipartFormFree(&form);
+	FREE(&target_QSEscaped);
+	FREE(&location);
 
 	if(rc < 0) return 500;
-
-	HTTPConnectionWriteResponse(conn, 303, "See Other");
-	HTTPConnectionWriteHeader(conn, "Location", "/");
-	HTTPConnectionWriteContentLength(conn, 0);
-	HTTPConnectionBeginBody(conn);
-	HTTPConnectionEnd(conn);
 	return 0;
 }
 

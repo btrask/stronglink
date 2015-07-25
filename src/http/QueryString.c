@@ -52,7 +52,14 @@ void QSValuesCleanup(char **const values, size_t const count) {
 	}
 }
 
-// Ported from Node.js QueryString.unescapeBuffer
+
+// TODO: Escaping and unescaping are BEST CASES for C-strings, because
+// O(n)-strlen doesn't matter! Instead of demaning a length up front, we
+// should walk them and compute the real output length.
+// Another example is UTF-8 (and most other modern encodings) that
+// aren't fixed length.
+
+// Ported from Node.js QueryString.unescapeBuffer.
 char *QSUnescape(char const *const s, size_t const slen, bool const decodeSpaces) {
 	char *const out = malloc(slen+1);
 	if(!out) return NULL;
@@ -117,7 +124,7 @@ char *QSUnescape(char const *const s, size_t const slen, bool const decodeSpaces
 	return out;
 }
 
-// Ripped from V8
+// Ported from V8.
 static bool unescape(char const cc) {
       if (isalnum(cc)) return true;
       // !
