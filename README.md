@@ -23,7 +23,7 @@ It currently [takes some work to set up](https://github.com/btrask/stronglink/bl
 Demo
 ----
 
-The StrongLink development log is self-hosting. You can find thousands of notes spanning several years [here](http://bentrask.com/).
+My notes on StrongLink development are self-hosted. You can find over a thousand notes spanning several years [here](http://bentrask.com/).
 
 FAQ
 ---
