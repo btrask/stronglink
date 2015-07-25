@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <openssl/sha.h>
 #include "../deps/smhasher/MurmurHash3.h"
-#include "util/bcrypt.h"
+#include "util/pass.h"
 #include "StrongLink.h"
 #include "SLNDB.h"
 
@@ -175,7 +175,7 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 		FREE(&passhash);
 		return DB_EACCES;
 	}
-	if(!checkpass(password, passhash)) {
+	if(0 != pass_hashcmp(password, passhash)) {
 		FREE(&passhash);
 		return DB_EACCES;
 	}

@@ -5,13 +5,13 @@
 #include <string.h>
 #include "../../deps/crypt_blowfish/ow-crypt.h"
 #include "../async/async.h"
-#include "bcrypt.h"
+#include "pass.h"
 
 #define BCRYPT_PREFIX "$2b$"
 #define BCRYPT_ROUNDS 13
 #define BCRYPT_SALT_LEN 16
 
-bool checkpass(char const *const pass, char const *const hash) {
+int pass_hashcmp(char const *const pass, char const *const hash) {
 	async_pool_enter(NULL);
 	int size = 0;
 	void *data = NULL;
@@ -20,9 +20,10 @@ bool checkpass(char const *const pass, char const *const hash) {
 	attempt = NULL;
 	free(data); data = NULL;
 	async_pool_leave(NULL);
-	return success;
+	if(!success) return -1;
+	return 0;
 }
-char *hashpass(char const *const pass) {
+char *pass_hash(char const *const pass) {
 	// TODO: async_random isn't currently parallel or thread-safe
 //	async_pool_enter(NULL);
 	char input[BCRYPT_SALT_LEN];

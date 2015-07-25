@@ -2,7 +2,7 @@
 // MIT licensed (see LICENSE for details)
 
 #include <openssl/sha.h>
-#include "util/bcrypt.h"
+#include "util/pass.h"
 #include "StrongLink.h"
 #include "SLNDB.h"
 
@@ -140,7 +140,7 @@ int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn,
 
 	uint64_t const userID = db_next_id(SLNUserByID, txn);
 	if(!userID) return DB_EACCES;
-	str_t *passhash = hashpass(password);
+	str_t *passhash = pass_hash(password);
 	if(!passhash) return DB_ENOMEM;
 
 	DB_val username_key[1], userID_val[1];
