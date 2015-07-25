@@ -28,6 +28,7 @@ Practices in use (pro tip: contributing guidelines):
 	- Use established HTML sanitization instead of DIY
 	- Variables holding sanitized data are given suffixed names to make it very obvious
 	- Times are stored in UTC to avoid inadvertently leaking time zone information
+	- Hash tables are randomly salted on startup
 	- Use assertions to assert obvious invariants
 	- Ship with assertions on
 	- Test under Valgrind
