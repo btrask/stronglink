@@ -18,6 +18,8 @@ OS X: Install the developer tools from the App Store and cmake from Homebrew. [T
 
 Windows: untested, probably needs work
 
+You can substitute Clang for GCC if you prefer.
+
 Basic Installation
 ------------------
 
