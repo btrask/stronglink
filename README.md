@@ -18,7 +18,7 @@ With StrongLink, you resolve hash links using your own repository, which you can
 
 StrongLink is currently in alpha. Features are missing and some things may be broken. Check the [open issues](https://github.com/btrask/stronglink/issues), where most of the major problems are documented.
 
-It currently takes some work to set up, but the goal is to be as easy to run as Notepad or WordPress.
+It currently [takes some work to set up](https://github.com/btrask/stronglink/blob/master/INSTALL.md), but the goal is to be as easy to run as Notepad or WordPress.
 
 Demo
 ----
@@ -59,7 +59,7 @@ I'd like to thank Juan Batiz-Benet, creator of [IPFS](http://ipfs.io/), for givi
 **What is the status of the project?**  
 I've been using StrongLink (and earlier prototypes) for my own notes for years. So far I haven't lost any data.
 
-It's currently missing a large number of features. Most major problems are documented as GitHub issues.
+It's currently missing a large number of features. Most major problems are [documented as GitHub issues](https://github.com/btrask/stronglink/issues).
 
 The [client API](https://github.com/btrask/stronglink/blob/master/client/README.md) (used for syncing) will change slightly before version 1.0 is reached. There will be a way to migrate your notes.
 
