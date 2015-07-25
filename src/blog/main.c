@@ -10,6 +10,9 @@
 #include "../StrongLink.h"
 #include "Blog.h"
 
+#define SERVER_ADDRESS NULL // NULL = public, "localhost" = private
+#define SERVER_PORT "8000"
+
 int SLNServerDispatch(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
 
 static strarg_t path = NULL;
@@ -82,12 +85,12 @@ static void init(void *const unused) {
 		fprintf(stderr, "Web server could not be initialized\n");
 		return;
 	}
-	int rc = HTTPServerListen(server, NULL, "8000"); // TODO
+	int rc = HTTPServerListen(server, SERVER_ADDRESS, SERVER_PORT);
 	if(rc < 0) {
 		fprintf(stderr, "Unable to start server (%d, %s)", rc, sln_strerror(rc));
 		return;
 	}
-	fprintf(stderr, "StrongLink server running at http://localhost:8000/\n");
+	fprintf(stderr, "StrongLink server running at http://localhost:" SERVER_PORT "/\n");
 //	SLNRepoPullsStart(repo);
 
 	uv_signal_init(async_loop, sigint);
