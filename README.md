@@ -25,6 +25,8 @@ Demo
 
 My notes on StrongLink development are self-hosted. You can find over a thousand notes spanning several years [here](http://bentrask.com/).
 
+If you install StrongLink yourself (which currently is an [involved process](https://github.com/btrask/stronglink/blob/master/INSTALL.md)), you can make your own mirror by syncing from my site.
+
 FAQ
 ---
 
