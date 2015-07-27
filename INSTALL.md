@@ -20,6 +20,8 @@ Windows: untested, probably needs work
 
 You can substitute Clang for GCC if you prefer.
 
+A semi-recent version of [Node.js](https://nodejs.org/) or [io.js](https://iojs.org/) is required for the Node example scripts including `sln-pipe`.
+
 Basic Installation
 ------------------
 
