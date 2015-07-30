@@ -21,7 +21,7 @@ In the event of a hash collision, the meta-data for one single file will be retu
 Implementation status: not implemented
 
 **GET /sln/alts/[algo]/[hash]**  
-TODO - should return the list of hash URIs for a given file.
+TODO - should return a URI list of hash URIs for a given file.
 
 Implementation status: not implemented
 
@@ -58,7 +58,7 @@ Parameters: (same as above except `q` and `lang`)
 Implementation status: not implemented
 
 **GET /sln/metafiles**  
-Returns a list of all meta-files.
+Returns a URI list of all meta-files.
 
 Return syntax: `[meta-file URI] -> [target file URI]` each line
 
@@ -72,8 +72,20 @@ Note: No query is accepted. Clients are expected to filter the results based on 
 
 Implementation status: working
 
-**GET /sln/query-obsolete**  
-DEPRECATED
+**GET /sln/all**  
+Returns a URI list of all files and meta-files.
+
+The ordering between files and meta-files is undefined. It's valid to return meta-files before files, meta-files after files, or files and meta-files interleaved. It should still be consistent between requests so that the `start` parameter behaves predictably.
+
+Parameters:
+- `wait`: use long-polling to notify of new submissions (default `true`)
+- `start`: starting URI for pagination (prefix with `-` for paging backwards)
+- `count`: maximum number of results
+- `dir`: `a` (ascending) or `z` (descending) direction (default `a`)
+
+Note: No query is accepted.
+
+Implementation status: working
 
 **GET /sln/info**  
 TODO - should return information about the repository, current user, and current session.

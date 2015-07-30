@@ -9,7 +9,7 @@
 #include "http/QueryString.h"
 
 // TODO: This entire file is obsolete.
-// It implements the old sync algorithm using /sln/query-obsolete, which
+// It implements the old sync algorithm using /sln/all, which
 // mixes files and meta-files. The correct algorithm is implemented in
 // the `sln-pipe` example script. On the other hand, this version is much
 // faster because it does concurrent transfers and batching.
@@ -260,7 +260,7 @@ static int reconnect(SLNPullRef const pull) {
 //	if(pull->query) query_encoded = QSEscape(pull->query, strlen(pull->query), true);
 //	snprintf(path, sizeof(path), "/sln/query-obsolete?q=%s", query_encoded ?: "");
 //	FREE(&query_encoded);
-	HTTPConnectionWriteRequest(pull->conn, HTTP_GET, "/sln/query-obsolete", pull->host);
+	HTTPConnectionWriteRequest(pull->conn, HTTP_GET, "/sln/all", pull->host);
 	// TODO
 	// - New API /sln/query and /sln/metafiles
 	// - Pagination ?start=[last URI seen]

@@ -343,11 +343,10 @@ static int GET_metafiles(SLNRepoRef const repo, SLNSessionRef const session, HTT
 	SLNFilterFree(&filter);
 	return 0;
 }
-// TODO: Remove this once we rewrite the sync system not to need it.
-static int GET_query_obsolete(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+static int GET_all(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
 	strarg_t qs;
-	if(!URIPath(URI, "/sln/query-obsolete", &qs)) return -1;
+	if(!URIPath(URI, "/sln/all", &qs)) return -1;
 
 	SLNFilterRef filter;
 	int rc = SLNFilterCreate(session, SLNAllFilterType, &filter);
@@ -370,7 +369,7 @@ int SLNServerDispatch(SLNRepoRef const repo, SLNSessionRef const session, HTTPCo
 	rc = rc >= 0 ? rc : GET_query(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_query(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_metafiles(repo, session, conn, method, URI, headers);
-	rc = rc >= 0 ? rc : GET_query_obsolete(repo, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : GET_all(repo, session, conn, method, URI, headers);
 	if(rc >= 0) return rc;
 
 	// We "own" the /sln prefix.
