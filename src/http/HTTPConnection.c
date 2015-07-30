@@ -345,10 +345,11 @@ ssize_t HTTPConnectionReadBodyStatic(HTTPConnectionRef const conn, byte_t *const
 }
 int HTTPConnectionDrainMessage(HTTPConnectionRef const conn) {
 	if(!conn) return 0;
+	int rc = HTTP_PARSER_ERRNO(conn->parser);
+	if(HPE_OK != rc && HPE_PAUSED != rc) return UV_UNKNOWN;
 	if(HTTPStreamEOF & conn->flags) return UV_EOF;
 	if(!(HTTPMessageIncomplete & conn->flags)) return 0;
 	uv_buf_t buf[1];
-	int rc;
 	HTTPEvent type;
 	for(;;) {
 		rc = HTTPConnectionPeek(conn, &type, buf);
