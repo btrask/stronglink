@@ -8,6 +8,14 @@
 #include "http/HTTPHeaders.h"
 #include "http/QueryString.h"
 
+// TODO: This entire file is obsolete.
+// It implements the old sync algorithm using /sln/query-obsolete, which
+// mixes files and meta-files. The correct algorithm is implemented in
+// the `sln-pipe` example script. On the other hand, this version is much
+// faster because it does concurrent transfers and batching.
+// This algorithm still works fine for full mirrors, but it doesn't work
+// with queries (partial mirrors).
+
 #define READER_COUNT 64
 #define QUEUE_SIZE 64 // TODO: Find a way to lower these without sacrificing performance, and perhaps automatically adjust them somehow.
 
