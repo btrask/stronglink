@@ -399,6 +399,9 @@ function URIListStream(opts) {
 		opts.req.on("response", function(res) {
 			if(200 == res.statusCode) {
 				res.pipe(stream);
+				res.on("error", function(err) {
+					stream.emit("error", err);
+				});
 			} else {
 				var err = new Error("Status code "+res.statusCode);
 				err.statusCode = res.statusCode;
