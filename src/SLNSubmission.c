@@ -163,6 +163,9 @@ int SLNSubmissionEnd(SLNSubmissionRef const sub) {
 	rc = async_fs_fdatasync(sub->tmpfile);
 	if(rc < 0) goto cleanup;
 
+	// We use link(2) rather than rename(2) because link gives an error
+	// if there's a name collision, rather than overwriting. We want to
+	// keep the oldest file for any given hash, rather than the newest.
 	rc = async_fs_link_mkdirp(sub->tmppath, internalPath);
 	if(UV_EEXIST == rc) {
 		rc = 0;

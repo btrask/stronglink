@@ -146,6 +146,21 @@ static int GET_meta(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 	// TODO
 	return 501; // Not Implemented
 }
+static int GET_alts(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
+	// TODO: This is pretty much copy and pasted from above.
+	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
+	int len = 0;
+	str_t algo[SLN_ALGO_SIZE];
+	str_t hash[SLN_HASH_SIZE];
+	algo[0] = '\0';
+	hash[0] = '\0';
+	sscanf(URI, "/sln/alts/" SLN_ALGO_FMT "/" SLN_HASH_FMT "%n", algo, hash, &len);
+	if(!algo[0] || !hash[0]) return -1;
+	if('\0' != URI[len] && '?' != URI[len]) return -1;
+
+	// TODO
+	return 501; // Not Implemented
+}
 
 static void created(strarg_t const URI, HTTPConnectionRef const conn) {
 	HTTPConnectionWriteResponse(conn, 201, "Created");
@@ -349,6 +364,7 @@ int SLNServerDispatch(SLNRepoRef const repo, SLNSessionRef const session, HTTPCo
 //	rc = rc >= 0 ? rc : POST_auth(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_file(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_meta(repo, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : GET_alts(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : POST_file(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : PUT_file(repo, session, conn, method, URI, headers);
 	rc = rc >= 0 ? rc : GET_query(repo, session, conn, method, URI, headers);

@@ -5,6 +5,8 @@ Returns the data of a given file. Clients should be aware this is arbitrary user
 
 As much caching as possible should be enabled for these URIs because their content is immutable. For example, StrongLink always sends an ETag of "1".
 
+In the event of a hash collision, it's undefined which version will be returned. Server implementations are recommended to return the oldest matching file, to prevent existing files from being "overwritten."
+
 Planned features: content negotiation, range requests
 
 Implementation status: working but incomplete
@@ -13,6 +15,13 @@ Implementation status: working but incomplete
 Returns the current, cummulative meta-data snapshot of a given file in JSON format.
 
 Note: The result is *not* a meta-file. If you want a specific meta-file, look it up with `/sln/file/[algo]/[hash]`. If you want all of the meta-files for a given file, use a query (`target=[URI]`). Full text content is not returned.
+
+In the event of a hash collision, the meta-data for one single file will be returned, rather than the combined meta-data for all matching files. Server implementations are recommended to chose the same file as returned by `/sln/file/[algo]/[hash]`.
+
+Implementation status: not implemented
+
+**GET /sln/alts/[algo]/[hash]**  
+TODO - should return the list of hash URIs for a given file.
 
 Implementation status: not implemented
 
@@ -68,6 +77,8 @@ DEPRECATED
 
 **GET /sln/info**  
 TODO - should return information about the repository, current user, and current session.
+
+Implementation status: not implemented
 
 ## Query Languages
 
