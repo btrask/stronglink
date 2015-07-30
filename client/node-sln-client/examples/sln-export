@@ -12,7 +12,7 @@ if(process.argv.length <= 2) {
 	console.error("Usage: sln-export <repository>");
 	process.exit(1);
 }
-var repo = sln.repositoryForName(process.argv[2]);
+var repo = sln.repoForName(process.argv[2]);
 
 function has(obj, prop) {
 	return Object.prototype.hasOwnProperty.call(obj, prop);

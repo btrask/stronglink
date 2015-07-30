@@ -1,0 +1,68 @@
+#!/usr/bin/env node
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
+var crypto = require("crypto");
+
+var sln = require("../sln-client");
+
+if(process.argv.length <= 2) {
+	console.error("Usage: sln-verify <repository> [query]");
+	process.exit(1);
+}
+var repo = sln.repoForName(process.argv[2]);
+var query = process.argv[3] || "";
+
+var stats = {
+	bad: 0,
+	total: 0,
+};
+
+var stream = repo.createQueryStream(query, { wait: false });
+function report(URI, msg) {
+	stats.bad++;
+	console.log(URI);
+	console.log("\t"+msg);
+	stream.resume();
+}
+
+stream.on("data", function(URI) {
+	stream.pause();
+	stats.total++;
+
+	var req = repo.createFileRequest(URI, {});
+	req.on("response", function(res) {
+		if(200 != res.statusCode) {
+			return report(URI, "Error: "+res.statusCode+" response");
+		}
+
+		var uriobj = sln.parseURI(URI);
+		var actuallen = 0;
+		var hasher = crypto.createHash(uriobj.algo);
+		res.on("data", function(chunk) {
+			actuallen += chunk.length;
+			hasher.write(chunk);
+		});
+		res.on("end", function() {
+			var expectedhash = uriobj.hash;
+			hasher.end();
+			var actualhash = hasher.read().toString("hex");
+			if(actualhash !== expectedhash) {
+				return report(URI, "Error: bad hash "+actualhash);
+			}
+
+			// Not sure this check is worthwhile.
+			var expectedlen = +res.headers["content-length"];
+			if(actuallen !== expectedlen) {
+				return report(URI, "Error: expected "+expectedlen+" bytes but got "+actuallen+" bytes");
+			}
+
+			stream.resume();
+		});
+	});
+});
+stream.on("end", function() {
+	console.log("");
+	console.log(stats.bad+" errors out of "+stats.total+" total files");
+});
+
