@@ -14,7 +14,7 @@ Implementation status: working but incomplete
 **GET /sln/meta/[algo]/[hash]**  
 Returns the current, cummulative meta-data snapshot of a given file in JSON format.
 
-Note: The result is *not* a meta-file. If you want a specific meta-file, look it up with `/sln/file/[algo]/[hash]`. If you want all of the meta-files for a given file, use a query (`target=[URI]`). Full text content is not returned.
+Note: The result is *not* a meta-file. If you want a specific meta-file, look it up with `/sln/file/[algo]/[hash]`. If you want all of the meta-files for a given file, use a query (`target=[URI]`). Full-text content is not returned.
 
 In the event of a hash collision, the meta-data for one single file will be returned, rather than the combined meta-data for all matching files. Server implementations are recommended to chose the same file as returned by `/sln/file/[algo]/[hash]`.
 
