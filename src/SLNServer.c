@@ -334,29 +334,10 @@ static int GET_query_obsolete(SLNRepoRef const repo, SLNSessionRef const session
 	strarg_t qs;
 	if(!URIPath(URI, "/sln/query-obsolete", &qs)) return -1;
 
-	SLNFilterRef filter, subfilter;
-	int rc = SLNFilterCreate(session, SLNBadMetaFileFilterType, &filter);
+	SLNFilterRef filter;
+	int rc = SLNFilterCreate(session, SLNAllFilterType, &filter);
 	if(DB_EACCES == rc) return 403;
 	if(rc < 0) return 500;
-
-	static strarg_t const fields[] = { "q" };
-	str_t *values[numberof(fields)] = {};
-	QSValuesParse(qs, values, fields, numberof(fields));
-	rc = SLNUserFilterParse(session, values[0], &subfilter);
-	QSValuesCleanup(values, numberof(values));
-	if(DB_EINVAL == rc) rc = SLNFilterCreate(session, SLNVisibleFilterType, &subfilter);
-	if(rc < 0) {
-		SLNFilterFree(&filter);
-		return 500;
-	}
-
-	rc = SLNFilterAddFilterArg(filter, subfilter);
-	if(rc < 0) {
-		SLNFilterFree(&subfilter);
-		SLNFilterFree(&filter);
-		return 500;
-	}
-
 	sendURIList(session, filter, qs, false, conn);
 	SLNFilterFree(&filter);
 	return 0;

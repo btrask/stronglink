@@ -154,9 +154,6 @@ enum {
 	SLNLinksToFilterType = 12,
 	// Forward links (everything linked from file(s) with given URI)
 //	SLNLinkedFromFilterType = 13, // TODO
-
-	// Meta-files matching a given filter, does not work
-	SLNBadMetaFileFilterType = 666, // TODO: Deprecated
 };
 
 typedef struct {

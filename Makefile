@@ -111,7 +111,6 @@ OBJECTS := \
 	$(BUILD_DIR)/filter/SLNCollectionFilter.o \
 	$(BUILD_DIR)/filter/SLNNegationFilter.o \
 	$(BUILD_DIR)/filter/SLNMetaFileFilter.o \
-	$(BUILD_DIR)/filter/SLNBadMetaFileFilter.o \
 	$(BUILD_DIR)/filter/SLNJSONFilterParser.o \
 	$(BUILD_DIR)/filter/SLNUserFilterParser.o \
 	$(BUILD_DIR)/async/async.o \

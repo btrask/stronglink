@@ -16,7 +16,7 @@ struct SLNPull {
 	SLNSessionRef session;
 	str_t *host;
 	str_t *cookie;
-	str_t *query;
+//	str_t *query;
 
 	async_mutex_t connlock[1];
 	HTTPConnectionRef conn;
@@ -43,8 +43,9 @@ SLNPullRef SLNRepoCreatePull(SLNRepoRef const repo, uint64_t const pullID, uint6
 	pull->session = SLNSessionCreateInternal(cache, 0, NULL, NULL, userID, SLN_RDWR, NULL); // TODO: How to create this properly?
 	pull->host = strdup(host);
 	pull->cookie = aasprintf("s=%s", sessionid ? sessionid : "");
-	pull->query = strdup(query);
-	if(!pull->session || !pull->host || !pull->cookie || !pull->query) {
+//	pull->query = strdup(query);
+	assert(!query || '\0' == query[0]); // TODO
+	if(!pull->session || !pull->host || !pull->cookie) {
 		SLNPullFree(&pull);
 		return NULL;
 	}
@@ -66,7 +67,7 @@ void SLNPullFree(SLNPullRef *const pullptr) {
 	SLNSessionRelease(&pull->session);
 	FREE(&pull->host);
 	FREE(&pull->cookie);
-	FREE(&pull->query);
+//	FREE(&pull->query);
 
 	async_mutex_destroy(pull->connlock);
 	async_mutex_destroy(pull->mutex);
@@ -246,12 +247,12 @@ static int reconnect(SLNPullRef const pull) {
 		return rc;
 	}
 
-	str_t path[URI_MAX];
-	str_t *query_encoded = NULL;
-	if(pull->query) query_encoded = QSEscape(pull->query, strlen(pull->query), true);
-	snprintf(path, sizeof(path), "/sln/query-obsolete?q=%s", query_encoded ?: "");
-	FREE(&query_encoded);
-	HTTPConnectionWriteRequest(pull->conn, HTTP_GET, path, pull->host);
+//	str_t path[URI_MAX];
+//	str_t *query_encoded = NULL;
+//	if(pull->query) query_encoded = QSEscape(pull->query, strlen(pull->query), true);
+//	snprintf(path, sizeof(path), "/sln/query-obsolete?q=%s", query_encoded ?: "");
+//	FREE(&query_encoded);
+	HTTPConnectionWriteRequest(pull->conn, HTTP_GET, "/sln/query-obsolete", pull->host);
 	// TODO
 	// - New API /sln/query and /sln/metafiles
 	// - Pagination ?start=[last URI seen]
