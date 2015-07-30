@@ -154,7 +154,7 @@ These are specified by a config file in JSON:
 {
 	"repos": {
 		"main": {
-			"uri": "http://localhost:8000/",
+			"url": "http://localhost:8000/",
 			"session": "[...]"
 		}
 	}

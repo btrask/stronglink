@@ -29,8 +29,8 @@ Basic Installation
 2. `sudo make install`
 3. `stronglink /repo-dir`
 
-Configuration
--------------
+Server Configuration
+--------------------
 
 Right now there is no configuration interface whatsoever (not even a config file). That means you need to edit the code and recompile to change any settings.
 
@@ -40,4 +40,24 @@ Right now there is no configuration interface whatsoever (not even a config file
 - Repository name: uses the repository directory's basename
 - Guest access: set `repo->pub_mode` from `0` to `SLN_RDONLY` or `SLN_RDWR`
 - Number of results per page: `RESULTS_MAX` in `src/blog/Blog.c`
+
+Client Configuration
+--------------------
+
+Clients (for example the Node example scripts) are configured through a JSON file located at `~/.config/stronglink/client.json`. That config file looks something like this:
+
+```json
+{
+	"repos": {
+		"main": {
+			"url": "http://localhost:8000/",
+			"session": "[...]"
+		}
+	}
+}
+```
+
+Currently there is no interface for managing session keys. The only way to get one is by logging into the blog interface using a web browser or a tool like cURL and checking the cookie that is sent back.
+
+You can set up any number of repositories and the names (like "main" above) are up to you.
 
