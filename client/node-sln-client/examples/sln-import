@@ -9,7 +9,7 @@ var sln = require("../sln-client");
 var mime = require("./mime");
 
 if(process.argv.length <= 3) {
-	console.error("Usage: sln-import <repository> <path>");
+	console.error("Usage: sln-import repo path");
 	process.exit(1);
 }
 var repo = sln.repoForName(process.argv[2]);

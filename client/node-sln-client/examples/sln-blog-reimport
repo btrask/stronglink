@@ -9,7 +9,7 @@ var urimodule = require("url");
 var sln = require("../sln-client");
 
 if(process.argv.length <= 3) {
-	console.error("Usage: sln-blog-reimport <src> <dst>");
+	console.error("Usage: sln-blog-reimport src dst");
 	process.exit(1);
 }
 var src = sln.repoForName(process.argv[2]);

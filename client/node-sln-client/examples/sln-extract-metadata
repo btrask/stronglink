@@ -7,7 +7,7 @@ var pathmodule = require("path");
 var sln = require("../sln-client");
 
 if(process.argv.length <= 4) {
-	console.error("Usage: sln-extract-metadata <repository> <blacklist> <whitelist>");
+	console.error("Usage: sln-extract-metadata repo blacklist whitelist");
 	console.error("\t"+"Use dash (-) to omit blacklist or whitelist");
 	process.exit(1);
 }

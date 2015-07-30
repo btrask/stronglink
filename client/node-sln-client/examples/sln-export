@@ -9,7 +9,7 @@ var sln = require("../sln-client");
 var mime = require("./mime"); // TODO: Unused so far.
 
 if(process.argv.length <= 2) {
-	console.error("Usage: sln-export <repository>");
+	console.error("Usage: sln-export repo");
 	process.exit(1);
 }
 var repo = sln.repoForName(process.argv[2]);
