@@ -148,6 +148,8 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 		conn->raw->base += len;
 		conn->raw->len -= len;
 		if(HPE_OK != rc && HPE_PAUSED != rc) {
+			// TODO: We should convert HPE_* and return them
+			// instead of logging and returning UV_UNKNOWN.
 			fprintf(stderr, "HTTP parse error %s (%d)\n",
 				http_errno_name(rc),
 				HTTP_PARSER_ERRNO_LINE(conn->parser));
