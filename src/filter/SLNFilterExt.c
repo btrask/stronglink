@@ -51,6 +51,7 @@ static bool parse_wait(strarg_t const str) {
 	if(!str) return true;
 	if(0 == strcasecmp(str, "")) return false;
 	if(0 == strcasecmp(str, "0")) return false;
+	if(0 == strcasecmp(str, "no")) return false;
 	if(0 == strcasecmp(str, "false")) return false;
 	return true;
 }
