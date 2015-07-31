@@ -744,6 +744,22 @@ void BlogFree(BlogRef *const blogptr) {
 	assert_zeroed(blog, 1);
 	FREE(blogptr); blog = NULL;
 }
+
+static strarg_t exttype(strarg_t const ext) {
+	if(!ext) return NULL;
+	// TODO: Obviously this is quite a hack.
+	// I was thinking about packing extensions into integers to use
+	// them in a switch statement, but that's a little bit too crazy.
+	// The optimal solution would probably be a trie.
+	if(0 == strcasecmp(ext, ".html")) return "text/html; charset=utf-8";
+	if(0 == strcasecmp(ext, ".css")) return "text/css; charset=utf-8";
+	if(0 == strcasecmp(ext, ".js")) return "text/javascript; charset=utf-8";
+	if(0 == strcasecmp(ext, ".png")) return "image/png";
+	if(0 == strcasecmp(ext, ".jpg")) return "image/jpeg";
+	if(0 == strcasecmp(ext, ".jpeg")) return "image/jpeg";
+	if(0 == strcasecmp(ext, ".gif")) return "image/gif";
+	return NULL;
+}
 int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	int rc = -1;
 	rc = rc >= 0 ? rc : GET_query(blog, session, conn, method, URI, headers);
@@ -776,7 +792,9 @@ int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnection
 	if(rc >= sizeof(path)) return 414; // Request-URI Too Large
 	if(rc < 0) return 500;
 
-	rc = HTTPConnectionSendFile(conn, path, NULL, -1); // TODO: Determine file type.
+	strarg_t const ext = strrchr(path, '.');
+	strarg_t const type = exttype(ext);
+	rc = HTTPConnectionSendFile(conn, path, type, -1);
 	if(UV_EISDIR == rc) {
 		str_t location[URI_MAX];
 		rc = snprintf(location, sizeof(location), "%s/", URI);
