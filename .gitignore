@@ -10,8 +10,6 @@ deps/uv/uv.xcodeproj
 /res/experiments linguist-documentation
 res/async_sqlite.c linguist-documentation
 
-/deps/cmark/man/man3/cmark.3
-
 /deps/lsmdb/liblmdb/mdb_dump
 /deps/lsmdb/liblmdb/mdb_load
 
