@@ -596,7 +596,7 @@ int HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path, st
 	if(UV_ENOENT == rc) return HTTPConnectionSendStatus(conn, 404);
 	if(rc < 0) return HTTPConnectionSendStatus(conn, 400); // TODO: Error conversion.
 
-	uv_file const file = rc; rc = 0;
+	uv_file file = rc; rc = 0;
 	if(size < 0) {
 		uv_fs_t req[1];
 		rc = async_fs_fstat(file, req);
