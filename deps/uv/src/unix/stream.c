@@ -1233,8 +1233,9 @@ static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
 
   /* Ignore POLLHUP here. Even it it's set, there may still be data to read. */
   if (events & (UV__POLLIN | UV__POLLERR | UV__POLLHUP | UV__POLLRDHUP)) {
-    if (events & UV__POLLRDHUP)
-      stream->flags |= UV_STREAM_DISCONNECT;
+// HACK: This kills the run loop.
+//    if (events & UV__POLLRDHUP)
+//      stream->flags |= UV_STREAM_DISCONNECT;
     uv__read(stream);
   }
 
