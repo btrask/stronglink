@@ -562,11 +562,7 @@ static int POST_post(BlogRef const blog,
 	if(!location) rc = UV_ENOMEM;
 	if(rc < 0) goto cleanup;
 
-	HTTPConnectionWriteResponse(conn, 303, "See Other");
-	HTTPConnectionWriteHeader(conn, "Location", location);
-	HTTPConnectionWriteContentLength(conn, 0);
-	HTTPConnectionBeginBody(conn);
-	HTTPConnectionEnd(conn);
+	HTTPConnectionSendRedirect(conn, 303, location);
 
 cleanup:
 	if(json) { yajl_gen_free(json); json = NULL; }
@@ -642,11 +638,7 @@ static int POST_auth(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	QSValuesCleanup(values, numberof(values));
 
 	if(rc < 0) {
-		HTTPConnectionWriteResponse(conn, 303, "See Other");
-		HTTPConnectionWriteHeader(conn, "Location", "/account?err=1");
-		HTTPConnectionWriteContentLength(conn, 0);
-		HTTPConnectionBeginBody(conn);
-		HTTPConnectionEnd(conn);
+		HTTPConnectionSendRedirect(conn, 303, "/account?err=1");
 		return 0;
 	}
 
@@ -762,11 +754,7 @@ int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnection
 	rc = rc >= 0 ? rc : POST_auth(blog, session, conn, method, URI, headers);
 
 	if(403 == rc) {
-		HTTPConnectionWriteResponse(conn, 303, "See Other");
-		HTTPConnectionWriteContentLength(conn, 0);
-		HTTPConnectionWriteHeader(conn, "Location", "/account");
-		HTTPConnectionBeginBody(conn);
-		HTTPConnectionEnd(conn);
+		HTTPConnectionSendRedirect(conn, 303, "/account");
 		return 0;
 	}
 	if(rc >= 0) return rc; // TODO: Pretty 404 pages, etc.
