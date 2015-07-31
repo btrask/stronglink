@@ -778,19 +778,23 @@ int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnection
 	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
 
 	if(strchr(URI, '?')) return 501; // TODO: Not Implemented
-	if(strstr(URI, "..")) return 400;
 
 	str_t path[PATH_MAX];
 	size_t const len = strlen(URI);
 	if(0 == len) return 400;
+
+	str_t *URI_raw = QSUnescape(URI, len, false);
 	if('/' == URI[len-1]) {
 		str_t const index[] = "index.html";
-		rc = snprintf(path, sizeof(path), "%s/static/%s%s", blog->dir, URI, index);
+		rc = snprintf(path, sizeof(path), "%s/static/%s%s", blog->dir, URI_raw, index);
 	} else {
-		rc = snprintf(path, sizeof(path), "%s/static/%s", blog->dir, URI);
+		rc = snprintf(path, sizeof(path), "%s/static/%s", blog->dir, URI_raw);
 	}
+	FREE(&URI_raw);
 	if(rc >= sizeof(path)) return 414; // Request-URI Too Large
 	if(rc < 0) return 500;
+
+	if(strstr(path, "..")) return 403; // Security critical.
 
 	strarg_t const ext = strrchr(path, '.');
 	strarg_t const type = exttype(ext);
