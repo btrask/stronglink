@@ -38,8 +38,8 @@ typedef struct {
 } cmark_header;
 
 typedef struct {
-	unsigned char *url;
-	unsigned char *title;
+	cmark_chunk url;
+	cmark_chunk title;
 } cmark_link;
 
 struct cmark_node {
@@ -69,6 +69,7 @@ struct cmark_node {
 		cmark_code        code;
 		cmark_header      header;
 		cmark_link        link;
+		int               html_block_type;
 	} as;
 };
 

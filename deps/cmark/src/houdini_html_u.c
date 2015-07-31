@@ -5,61 +5,98 @@
 #include "buffer.h"
 #include "houdini.h"
 #include "utf8.h"
-#include "html_unescape.h"
+#include "entities.inc"
 
-size_t
-houdini_unescape_ent(cmark_strbuf *ob, const uint8_t *src, size_t size)
+/* Binary tree lookup code for entities added by JGM */
+
+static unsigned char *
+S_lookup(int i, int low, int hi, const unsigned char *s, int len)
 {
-	size_t i = 0;
+	int j;
+	int cmp = strncmp((char *)s, (char *)cmark_entities[i].entity, len);
+	if (cmp == 0 && cmark_entities[i].entity[len] == 0) {
+		return (unsigned char *)cmark_entities[i].bytes;
+	} else if (cmp < 0 && i > low) {
+		j = i - ((i - low) / 2);
+		if (j == i) j -= 1;
+		return S_lookup(j, low, i - 1, s, len);
+	} else if (cmp > 0 && i < hi) {
+		j = i + ((hi - i) / 2);
+		if (j == i) j += 1;
+		return S_lookup(j, i + 1, hi, s, len);
+	} else {
+		return NULL;
+	}
+}
 
-	if (size > 3 && src[0] == '#') {
-		int codepoint = 0;
+static unsigned char *
+S_lookup_entity(const unsigned char *s, int len)
+{
+	return S_lookup(CMARK_NUM_ENTITIES / 2, 0, CMARK_NUM_ENTITIES - 1, s, len);
+}
+
+bufsize_t
+houdini_unescape_ent(cmark_strbuf *ob, const uint8_t *src, bufsize_t size)
+{
+	bufsize_t i = 0;
+
+	if (size >= 3 && src[0] == '#') {
+		int codepoint  = 0;
+		int num_digits = 0;
 
 		if (_isdigit(src[1])) {
 			for (i = 1; i < size && _isdigit(src[i]); ++i) {
-				int cp = (codepoint * 10) + (src[i] - '0');
+				codepoint = (codepoint * 10) + (src[i] - '0');
 
-				if (cp < codepoint)
-					return 0;
-
-				codepoint = cp;
+				if (codepoint >= 0x110000) {
+					// Keep counting digits but
+					// avoid integer overflow.
+					codepoint = 0x110000;
+				}
 			}
+
+			num_digits = i - 1;
 		}
 
 		else if (src[1] == 'x' || src[1] == 'X') {
 			for (i = 2; i < size && _isxdigit(src[i]); ++i) {
-				int cp = (codepoint * 16) + ((src[i] | 32) % 39 - 9);
+				codepoint = (codepoint * 16) + ((src[i] | 32) % 39 - 9);
 
-				if (cp < codepoint)
-					return 0;
-
-				codepoint = cp;
+				if (codepoint >= 0x110000) {
+					// Keep counting digits but
+					// avoid integer overflow.
+					codepoint = 0x110000;
+				}
 			}
+
+			num_digits = i - 2;
 		}
 
-		if (i < size && src[i] == ';' && codepoint) {
+		if (num_digits >= 1 && num_digits <= 8 &&
+		    i < size && src[i] == ';') {
+			if (codepoint == 0 ||
+			    (codepoint >= 0xD800 && codepoint < 0xE000) ||
+			    codepoint >= 0x110000) {
+				codepoint = 0xFFFD;
+			}
 			utf8proc_encode_char(codepoint, ob);
 			return i + 1;
 		}
 	}
 
 	else {
-		if (size > MAX_WORD_LENGTH)
-			size = MAX_WORD_LENGTH;
+		if (size > CMARK_ENTITY_MAX_LENGTH)
+			size = CMARK_ENTITY_MAX_LENGTH;
 
-		for (i = MIN_WORD_LENGTH; i < size; ++i) {
+		for (i = CMARK_ENTITY_MIN_LENGTH; i < size; ++i) {
 			if (src[i] == ' ')
 				break;
 
 			if (src[i] == ';') {
-				const struct html_ent *entity = find_entity((char *)src, i);
+				const unsigned char *entity = S_lookup_entity(src, i);
 
 				if (entity != NULL) {
-					int len = 0;
-					while (len < 4 && entity->utf8[len] != '\0') {
-						++len;
-					}
-					cmark_strbuf_put(ob, entity->utf8, len);
+					cmark_strbuf_puts(ob, (const char *)entity);
 					return i + 1;
 				}
 
@@ -72,9 +109,9 @@ houdini_unescape_ent(cmark_strbuf *ob, const uint8_t *src, size_t size)
 }
 
 int
-houdini_unescape_html(cmark_strbuf *ob, const uint8_t *src, size_t size)
+houdini_unescape_html(cmark_strbuf *ob, const uint8_t *src, bufsize_t size)
 {
-	size_t  i = 0, org, ent;
+	bufsize_t i = 0, org, ent;
 
 	while (i < size) {
 		org = i;
@@ -109,7 +146,7 @@ houdini_unescape_html(cmark_strbuf *ob, const uint8_t *src, size_t size)
 	return 1;
 }
 
-void houdini_unescape_html_f(cmark_strbuf *ob, const uint8_t *src, size_t size)
+void houdini_unescape_html_f(cmark_strbuf *ob, const uint8_t *src, bufsize_t size)
 {
 	if (!houdini_unescape_html(ob, src, size))
 		cmark_strbuf_put(ob, src, size);

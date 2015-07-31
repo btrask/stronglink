@@ -9,14 +9,13 @@ set(HEADERS
   iterator.h
   chunk.h
   references.h
-  debug.h
   bench.h
   utf8.h
   scanners.h
   inlines.h
-  html_unescape.h
   houdini.h
   cmark_ctype.h
+  render.h
   )
 set(LIBRARY_SOURCES
   cmark.c
@@ -29,11 +28,12 @@ set(LIBRARY_SOURCES
   utf8.c
   buffer.c
   references.c
+  render.c
   man.c
   xml.c
   html.c
   commonmark.c
-  html_unescape.gperf
+  latex.c
   houdini_href_e.c
   houdini_html_e.c
   houdini_html_u.c
@@ -67,8 +67,8 @@ set_target_properties(${PROGRAM} PROPERTIES
   COMPILE_FLAGS -DCMARK_STATIC_DEFINE)
 
 # Check integrity of node structure when compiled as debug:
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -pg -DCMARK_DEBUG_NODES")
-set(CMAKE_LINKER_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -pg")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DCMARK_DEBUG_NODES")
+set(CMAKE_LINKER_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG}")
 
 set(CMAKE_C_FLAGS_PROFILE "${CMAKE_C_FLAGS_RELEASE} -pg")
 set(CMAKE_LINKER_PROFILE "${CMAKE_LINKER_FLAGS_RELEASE} -pg")
@@ -88,7 +88,8 @@ set_target_properties(${LIBRARY} PROPERTIES
   SOVERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}
   VERSION ${PROJECT_VERSION})
 set_target_properties(${STATICLIBRARY} PROPERTIES
-  COMPILE_FLAGS -DCMARK_STATIC_DEFINE)
+  COMPILE_FLAGS -DCMARK_STATIC_DEFINE
+  POSITION_INDEPENDENT_CODE ON)
 
 if (MSVC)
   set_target_properties(${STATICLIBRARY} PROPERTIES
@@ -128,6 +129,7 @@ install(FILES
 # Feature tests
 include(CheckIncludeFile)
 include(CheckCSourceCompiles)
+include(CheckCSourceRuns)
 include(CheckSymbolExists)
 CHECK_INCLUDE_FILE(stdbool.h HAVE_STDBOOL_H)
 CHECK_C_SOURCE_COMPILES(
@@ -137,7 +139,6 @@ CHECK_C_SOURCE_COMPILES("
   int f(void) __attribute__ (());
   int main() { return 0; }
 " HAVE___ATTRIBUTE__)
-CHECK_SYMBOL_EXISTS(va_copy stdarg.h HAVE_VA_COPY)
 
 CONFIGURE_FILE(
   ${CMAKE_CURRENT_SOURCE_DIR}/config.h.in
@@ -164,3 +165,7 @@ endif()
 if($ENV{TIMER})
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DTIMER=1")
 endif($ENV{TIMER})
+
+if(CMAKE_BUILD_TYPE STREQUAL "Ubsan")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined")
+endif()

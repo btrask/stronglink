@@ -1,6 +1,9 @@
 cmark
 =====
 
+[![Build Status]](https://travis-ci.org/jgm/cmark)
+[![Windows Build Status]](https://ci.appveyor.com/project/jgm/cmark)
+
 `cmark` is the C reference implementation of [CommonMark], a
 rationalized version of Markdown syntax with a [spec][the spec].
 (For the JavaScript reference implementation, see
@@ -8,7 +11,7 @@ rationalized version of Markdown syntax with a [spec][the spec].
 
 It provides a shared library (`libcmark`) with functions for parsing
 CommonMark documents to an abstract syntax tree (AST), manipulating
-the AST, and rendering the document to HTML, groff man,
+the AST, and rendering the document to HTML, groff man, LaTeX,
 CommonMark, or an XML representation of the AST.  It also provides a
 command-line program (`cmark`) for parsing and rendering CommonMark
 documents.
@@ -16,11 +19,14 @@ documents.
 Advantages of this library:
 
 - **Portable.**  The library and program are written in standard
-  C99 and have no external dependencies.  It has been tested with
+  C99 and have no external dependencies.  They have been tested with
   MSVC, gcc, tcc, and clang.
 
-- **Fast.** Performance is on par with the fastest existing
-  Markdown parser, [sundown]:  see the [benchmarks].
+- **Fast.** cmark can render a Markdown version of *War and Peace* in
+  the blink of an eye (127 milliseconds on a ten year old laptop,
+  vs. 100-400 milliseconds for an eye blink).  In our [benchmarks],
+  cmark is 10,000 times faster than the original `Markdown.pl`, and
+  on par with the very fastest available Markdown processors.
 
 - **Accurate.** The library passes all CommonMark conformance tests.
 
@@ -30,14 +36,14 @@ Advantages of this library:
   will be rendered on the server using `cmark`.
 
 - **Robust.** The library has been extensively fuzz-tested using
-  american fuzzy lop.  The test suite includes pathological cases
+  [american fuzzy lop].  The test suite includes pathological cases
   that bring many other Markdown parsers to a crawl (for example,
   thousands-deep nested bracketed text or block quotes).
 
 - **Flexible.** CommonMark input is parsed to an AST which can be
   manipulated programatically prior to rendering.
 
-- **Multiple renderers.**  Output in HTML, groff man, CommonMark,
+- **Multiple renderers.**  Output in HTML, groff man, LaTeX, CommonMark,
   and a custom XML format is supported. And it is easy to write new
   renderers to support other formats.
 
@@ -46,6 +52,12 @@ Advantages of this library:
 It is easy to use `libcmark` in python, lua, ruby, and other dynamic
 languages: see the `wrappers/` subdirectory for some simple examples.
 
+There are also libraries that wrap `libcmark` for
+[go](https://github.com/rhinoman/go-commonmark),
+[Haskell](http://hackage.haskell.org/package/cmark),
+[ruby](https://github.com/gjtorikian/commonmarker),
+[Perl](https://metacpan.org/release/CommonMark), and
+[R](http://cran.r-project.org/package=commonmark).
 
 Installing
 ----------
@@ -87,10 +99,6 @@ To run a benchmark:
 
     make bench
 
-To run a "fuzz test" against ten long randomly generated inputs:
-
-    make fuzztest
-
 To run a test for memory leaks using `valgrind`:
 
     make leakcheck
@@ -98,6 +106,14 @@ To run a test for memory leaks using `valgrind`:
 To reformat source code using `astyle`:
 
     make astyle
+
+To run a "fuzz test" against ten long randomly generated inputs:
+
+    make fuzztest
+
+To do a more systematic fuzz test with [american fuzzy lop]:
+
+    AFL_PATH=/path/to/afl_directory make afl
 
 To make a release tarball and zip archive:
 
@@ -123,11 +139,16 @@ Usage
 Instructions for the use of the command line program and library can
 be found in the man pages in the `man` subdirectory.
 
-**A note on security:**
-This library does not attempt to sanitize link attributes or
-raw HTML.  If you use it in applications that accept
-untrusted user input, you must run the output through an HTML
-sanitizer to protect against
+Security
+--------
+
+By default, the library will pass through raw HTML and potentially
+dangerous links (`javascript:`, `vbscript:`, `data:`, `file:`).
+
+It is recommended that users either disable this potentially unsafe
+feature by using the option `CMARK_OPT_SAFE` (or `--safe` with the
+command-line program), or run the output through an HTML sanitizer
+to protect against
 [XSS attacks](http://en.wikipedia.org/wiki/Cross-site_scripting).
 
 Contributing
@@ -151,10 +172,12 @@ eliminating several worst-case performance issues.
 Nick Wellnhofer contributed many improvements, including
 most of the C library's API and its test harness.
 
-[sundown]: https://github.com/vmg/sundown
 [benchmarks]: benchmarks.md
 [the spec]: http://spec.commonmark.org
 [CommonMark]: http://commonmark.org
 [cmake]: http://www.cmake.org/download/
 [re2c]: http://re2c.org
 [commonmark.js]: https://github.com/jgm/commonmark.js
+[Build Status]: https://img.shields.io/travis/jgm/cmark/master.svg?style=flat
+[Windows Build Status]: https://ci.appveyor.com/api/projects/status/32r7s2skrgm9ubva?svg=true
+[american fuzzy lop]: http://lcamtuf.coredump.cx/afl/

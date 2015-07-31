@@ -9,7 +9,7 @@ endif()
 set(PROJECT_NAME "cmark")
 
 set(PROJECT_VERSION_MAJOR 0)
-set(PROJECT_VERSION_MINOR 19)
+set(PROJECT_VERSION_MINOR 21)
 set(PROJECT_VERSION_PATCH 0)
 set(PROJECT_VERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH} )
 
@@ -21,5 +21,5 @@ add_subdirectory(test testdir)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING
-  "Choose the type of build, options are: Debug Profile Release." FORCE)
+  "Choose the type of build, options are: Debug Profile Release Asan Ubsan." FORCE)
 endif(NOT CMAKE_BUILD_TYPE)

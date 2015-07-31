@@ -55,8 +55,8 @@ test_continuation_byte(test_batch_runner *runner, const char *utf8);
 static void
 version(test_batch_runner *runner)
 {
-	INT_EQ(runner, cmark_version, CMARK_VERSION, "cmark_version");
-	STR_EQ(runner, cmark_version_string, CMARK_VERSION_STRING,
+	INT_EQ(runner, cmark_version(), CMARK_VERSION, "cmark_version");
+	STR_EQ(runner, cmark_version_string(), CMARK_VERSION_STRING,
 	       "cmark_version_string");
 }
 
@@ -643,22 +643,22 @@ test_incomplete_char(test_batch_runner *runner, const char *utf8,
 static void
 test_continuation_byte(test_batch_runner *runner, const char *utf8)
 {
-	int len = strlen(utf8);
+	size_t len = strlen(utf8);
 
-	for (int pos = 1; pos < len; ++pos) {
+	for (size_t pos = 1; pos < len; ++pos) {
 		char buf[20];
 		sprintf(buf, "((((%s))))", utf8);
 		buf[4+pos] = '\x20';
 
 		char expected[50];
 		strcpy(expected, "<p>((((" UTF8_REPL "\x20");
-		for (int i = pos + 1; i < len; ++i) {
+		for (size_t i = pos + 1; i < len; ++i) {
 			strcat(expected, UTF8_REPL);
 		}
 		strcat(expected, "))))</p>\n");
 
 		char *html = cmark_markdown_to_html(buf, strlen(buf),
-						    CMARK_OPT_DEFAULT);
+						    CMARK_OPT_VALIDATE_UTF8);
 		STR_EQ(runner, html, expected,
 		       "invalid utf8 continuation byte %d/%d", pos, len);
 		free(html);
@@ -666,11 +666,74 @@ test_continuation_byte(test_batch_runner *runner, const char *utf8)
 }
 
 static void
+line_endings(test_batch_runner *runner)
+{
+	// Test list with different line endings
+	static const char list_with_endings[] =
+		"- a\n- b\r\n- c\r- d";
+	char *html = cmark_markdown_to_html(list_with_endings,
+					    sizeof(list_with_endings) - 1,
+		                            CMARK_OPT_DEFAULT);
+	STR_EQ(runner, html, "<ul>\n<li>a</li>\n<li>b</li>\n<li>c</li>\n<li>d</li>\n</ul>\n",
+	       "list with different line endings");
+	free(html);
+}
+
+static void
+numeric_entities(test_batch_runner *runner)
+{
+	test_md_to_html(runner, "&#0;", "<p>" UTF8_REPL "</p>\n",
+			"Invalid numeric entity 0");
+	test_md_to_html(runner, "&#55295;", "<p>\xED\x9F\xBF</p>\n",
+			"Valid numeric entity 0xD7FF");
+	test_md_to_html(runner, "&#xD800;", "<p>" UTF8_REPL "</p>\n",
+			"Invalid numeric entity 0xD800");
+	test_md_to_html(runner, "&#xDFFF;", "<p>" UTF8_REPL "</p>\n",
+			"Invalid numeric entity 0xDFFF");
+	test_md_to_html(runner, "&#57344;", "<p>\xEE\x80\x80</p>\n",
+			"Valid numeric entity 0xE000");
+	test_md_to_html(runner, "&#x10FFFF;", "<p>\xF4\x8F\xBF\xBF</p>\n",
+			"Valid numeric entity 0x10FFFF");
+	test_md_to_html(runner, "&#x110000;", "<p>" UTF8_REPL "</p>\n",
+			"Invalid numeric entity 0x110000");
+	test_md_to_html(runner, "&#x80000000;", "<p>" UTF8_REPL "</p>\n",
+			"Invalid numeric entity 0x80000000");
+	test_md_to_html(runner, "&#xFFFFFFFF;", "<p>" UTF8_REPL "</p>\n",
+			"Invalid numeric entity 0xFFFFFFFF");
+	test_md_to_html(runner, "&#99999999;", "<p>" UTF8_REPL "</p>\n",
+			"Invalid numeric entity 99999999");
+
+	test_md_to_html(runner, "&#;", "<p>&amp;#;</p>\n",
+			"Min decimal entity length");
+	test_md_to_html(runner, "&#x;", "<p>&amp;#x;</p>\n",
+			"Min hexadecimal entity length");
+	test_md_to_html(runner, "&#999999999;", "<p>&amp;#999999999;</p>\n",
+			"Max decimal entity length");
+	test_md_to_html(runner, "&#x000000041;", "<p>&amp;#x000000041;</p>\n",
+			"Max hexadecimal entity length");
+}
+
+static void
+test_safe(test_batch_runner *runner)
+{
+	// Test safe mode
+	static const char raw_html[] =
+		"<div>\nhi\n</div>\n\n<a>hi</a>\n[link](JAVAscript:alert('hi'))\n![image](file:my.js)\n";
+	char *html = cmark_markdown_to_html(raw_html,
+					    sizeof(raw_html) - 1,
+		                            CMARK_OPT_DEFAULT |
+					    CMARK_OPT_SAFE);
+	STR_EQ(runner, html, "<!-- raw HTML omitted -->\n<p><!-- raw HTML omitted -->hi<!-- raw HTML omitted -->\n<a href=\"\">link</a>\n<img src=\"\" alt=\"image\" /></p>\n",
+	       "input with raw HTML and dangerous links");
+	free(html);
+}
+
+static void
 test_md_to_html(test_batch_runner *runner, const char *markdown,
 		const char *expected_html, const char *msg)
 {
 	char *html = cmark_markdown_to_html(markdown, strlen(markdown),
-					    CMARK_OPT_DEFAULT);
+					    CMARK_OPT_VALIDATE_UTF8);
 	STR_EQ(runner, html, expected_html, msg);
 	free(html);
 }
@@ -690,7 +753,10 @@ int main() {
 	parser(runner);
 	render_html(runner);
 	utf8(runner);
+	line_endings(runner);
+	numeric_entities(runner);
 	test_cplusplus(runner);
+	test_safe(runner);
 
 	test_print_summary(runner);
 	retval =  test_ok(runner) ? 0 : 1;
