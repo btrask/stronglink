@@ -581,15 +581,37 @@ int HTTPConnectionSendStatus(HTTPConnectionRef const conn, uint16_t const status
 	strarg_t const str = statusstr(status);
 	return HTTPConnectionSendMessage(conn, status, str);
 }
-int HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path, strarg_t const type, int64_t size) {
-	uv_file const file = async_fs_open(path, O_RDONLY, 0000);
-	if(UV_ENOENT == file) return HTTPConnectionSendStatus(conn, 404);
-	if(file < 0) return HTTPConnectionSendStatus(conn, 400); // TODO: Error conversion.
+int HTTPConnectionSendRedirect(HTTPConnectionRef const conn, uint16_t const status, strarg_t const location) {
 	int rc = 0;
+	strarg_t const str = statusstr(status);
+	rc = rc < 0 ? rc : HTTPConnectionWriteResponse(conn, status, str);
+	rc = rc < 0 ? rc : HTTPConnectionWriteHeader(conn, "Location", location);
+	rc = rc < 0 ? rc : HTTPConnectionWriteContentLength(conn, 0);
+	rc = rc < 0 ? rc : HTTPConnectionBeginBody(conn);
+	rc = rc < 0 ? rc : HTTPConnectionEnd(conn);
+	return rc;
+}
+int HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path, strarg_t const type, int64_t size) {
+	int rc = async_fs_open(path, O_RDONLY, 0000);
+	if(UV_ENOENT == rc) return HTTPConnectionSendStatus(conn, 404);
+	if(rc < 0) return HTTPConnectionSendStatus(conn, 400); // TODO: Error conversion.
+
+	uv_file const file = rc; rc = 0;
 	if(size < 0) {
 		uv_fs_t req[1];
 		rc = async_fs_fstat(file, req);
-		if(rc < 0) return HTTPConnectionSendStatus(conn, 400);
+		if(rc < 0) {
+			rc = HTTPConnectionSendStatus(conn, 400);
+			goto cleanup;
+		}
+		if(S_ISDIR(req->statbuf.st_mode)) {
+			rc = UV_EISDIR;
+			goto cleanup;
+		}
+		if(!S_ISREG(req->statbuf.st_mode)) {
+			rc = HTTPConnectionSendStatus(conn, 403);
+			goto cleanup;
+		}
 		size = req->statbuf.st_size;
 	}
 	rc = rc < 0 ? rc : HTTPConnectionWriteResponse(conn, 200, "OK");
@@ -599,7 +621,9 @@ int HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path, st
 	rc = rc < 0 ? rc : HTTPConnectionBeginBody(conn);
 	rc = rc < 0 ? rc : HTTPConnectionWriteFile(conn, file);
 	rc = rc < 0 ? rc : HTTPConnectionEnd(conn);
-	async_fs_close(file);
+
+cleanup:
+	async_fs_close(file); file = -1;
 	return rc;
 }
 

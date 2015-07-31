@@ -58,6 +58,7 @@ int HTTPConnectionEnd(HTTPConnectionRef const conn);
 // Convenience
 int HTTPConnectionSendString(HTTPConnectionRef const conn, uint16_t const status, strarg_t const str);
 int HTTPConnectionSendStatus(HTTPConnectionRef const conn, uint16_t const status);
+int HTTPConnectionSendRedirect(HTTPConnectionRef const conn, uint16_t const status, strarg_t const location);
 int HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path, strarg_t const type, int64_t size);
 
 

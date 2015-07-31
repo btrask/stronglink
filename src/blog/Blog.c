@@ -775,12 +775,32 @@ int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnection
 
 	if(strchr(URI, '?')) return 501; // TODO: Not Implemented
 	if(strstr(URI, "..")) return 400;
+
 	str_t path[PATH_MAX];
-	rc = snprintf(path, PATH_MAX, "%s/static/%s", blog->dir, URI);
-	if(rc >= PATH_MAX) return 414; // Request-URI Too Large
+	size_t const len = strlen(URI);
+	if(0 == len) return 400;
+	if('/' == URI[len-1]) {
+		str_t const index[] = "index.html";
+		rc = snprintf(path, sizeof(path), "%s/static/%s%s", blog->dir, URI, index);
+	} else {
+		rc = snprintf(path, sizeof(path), "%s/static/%s", blog->dir, URI);
+	}
+	if(rc >= sizeof(path)) return 414; // Request-URI Too Large
 	if(rc < 0) return 500;
 
-	HTTPConnectionSendFile(conn, path, NULL, -1); // TODO: Determine file type.
+	rc = HTTPConnectionSendFile(conn, path, NULL, -1); // TODO: Determine file type.
+	if(UV_EISDIR == rc) {
+		str_t location[URI_MAX];
+		rc = snprintf(location, sizeof(location), "%s/", URI);
+		if(rc >= sizeof(location)) return 414; // Request-URI Too Large
+		if(rc < 0) return 500;
+		HTTPConnectionSendRedirect(conn, 301, location);
+		return 0;
+	}
+	if(rc < 0) {
+		fprintf(stderr, "Error sending file %s\n", URI);
+	}
+
 	return 0;
 }
 
