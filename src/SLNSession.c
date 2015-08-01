@@ -67,7 +67,10 @@ void SLNSessionRelease(SLNSessionRef *const sessionptr) {
 	SLNSessionRef session = *sessionptr;
 	if(!session) return;
 	assert(session->refcount);
-	if(--session->refcount) return;
+	if(--session->refcount) {
+		*sessionptr = NULL;
+		return;
+	}
 	session->cache = NULL;
 	session->sessionID = 0;
 	FREE(&session->sessionKeyRaw);
