@@ -89,8 +89,9 @@ int HTTPHeadersLoad(HTTPHeadersRef const h, HTTPConnectionRef const conn) {
 			break;
 		}
 		ssize_t const flen = HTTPConnectionReadHeaderField(conn, field, sizeof(field));
-		if(flen < 0) return flen;
 		ssize_t const vlen = HTTPConnectionReadHeaderValue(conn, value, sizeof(value));
+		if(UV_EMSGSIZE == flen) continue;
+		if(flen < 0) return flen;
 		if(vlen < 0) return vlen;
 
 		if(h->count >= HEADERS_MAX) return UV_EMSGSIZE;
