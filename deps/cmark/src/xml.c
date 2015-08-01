@@ -11,9 +11,14 @@
 
 // Functions to convert cmark_nodes to XML strings.
 
-static void escape_xml(cmark_strbuf *dest, const unsigned char *source, bufsize_t length)
+static void escape_xml(cmark_strbuf *dest, const unsigned char *source, int length)
 {
-	houdini_escape_html0(dest, source, length, 0);
+	if (source != NULL) {
+		if (length < 0)
+			length = strlen((char *)source);
+
+		houdini_escape_html0(dest, source, (size_t)length, 0);
+	}
 }
 
 struct render_state {
@@ -37,20 +42,18 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 	bool literal = false;
 	cmark_delim_type delim;
 	bool entering = (ev_type == CMARK_EVENT_ENTER);
-	char buffer[100];
 
 	if (entering) {
 		indent(state);
-		cmark_strbuf_putc(xml, '<');
-		cmark_strbuf_puts(xml, cmark_node_get_type_string(node));
+		cmark_strbuf_printf(xml, "<%s",
+		                    cmark_node_get_type_string(node));
 
 		if (options & CMARK_OPT_SOURCEPOS && node->start_line != 0) {
-			sprintf(buffer, " sourcepos=\"%d:%d-%d:%d\"",
-				node->start_line,
-				node->start_column,
-				node->end_line,
-				node->end_column);
-			cmark_strbuf_puts(xml, buffer);
+			cmark_strbuf_printf(xml, " sourcepos=\"%d:%d-%d:%d\"",
+			                    node->start_line,
+			                    node->start_column,
+			                    node->end_line,
+			                    node->end_column);
 		}
 
 		literal = false;
@@ -72,9 +75,8 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			switch (cmark_node_get_list_type(node)) {
 			case CMARK_ORDERED_LIST:
 				cmark_strbuf_puts(xml, " type=\"ordered\"");
-				sprintf(buffer," start=\"%d\"",
-					cmark_node_get_list_start(node));
-				cmark_strbuf_puts(xml, buffer);
+				cmark_strbuf_printf(xml, " start=\"%d\"",
+				                    cmark_node_get_list_start(node));
 				delim = cmark_node_get_list_delim(node);
 				if (delim == CMARK_PAREN_DELIM) {
 					cmark_strbuf_puts(xml,
@@ -90,15 +92,13 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 			default:
 				break;
 			}
-			sprintf(buffer, " tight=\"%s\"",
-				(cmark_node_get_list_tight(node) ?
-				 "true" : "false"));
-			cmark_strbuf_puts(xml, buffer);
+			cmark_strbuf_printf(xml, " tight=\"%s\"",
+			                    (cmark_node_get_list_tight(node) ?
+			                     "true" : "false"));
 			break;
 		case CMARK_NODE_HEADER:
-			sprintf(buffer, " level=\"%d\"",
-				node->as.header.level);
-			cmark_strbuf_puts(xml, buffer);
+			cmark_strbuf_printf(xml, " level=\"%d\"",
+			                    node->as.header.level);
 			break;
 		case CMARK_NODE_CODE_BLOCK:
 			if (node->as.code.info.len > 0) {
@@ -119,11 +119,11 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 		case CMARK_NODE_IMAGE:
 			cmark_strbuf_puts(xml, " destination=\"");
 			escape_xml(xml, node->as.link.url.data,
-			           node->as.link.url.len);
+				   node->as.link.url.len);
 			cmark_strbuf_putc(xml, '"');
 			cmark_strbuf_puts(xml, " title=\"");
 			escape_xml(xml, node->as.link.title.data,
-			           node->as.link.title.len);
+				   node->as.link.title.len);
 			cmark_strbuf_putc(xml, '"');
 			break;
 		default:
@@ -140,9 +140,8 @@ S_render_node(cmark_node *node, cmark_event_type ev_type,
 	} else if (node->first_child) {
 		state->indent -= 2;
 		indent(state);
-		cmark_strbuf_puts(xml, "</");
-		cmark_strbuf_puts(xml, cmark_node_get_type_string(node));
-		cmark_strbuf_puts(xml, ">\n");
+		cmark_strbuf_printf(xml, "</%s>\n",
+		                    cmark_node_get_type_string(node));
 	}
 
 	return 1;

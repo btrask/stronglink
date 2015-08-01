@@ -1,8 +1,8 @@
 ---
 title: CommonMark Spec
 author: John MacFarlane
-version: 0.21
-date: 2015-07-14
+version: 0.19
+date: 2015-04-27
 license: '[CC-BY-SA 4.0](http://creativecommons.org/licenses/by-sa/4.0/)'
 ...
 
@@ -204,20 +204,20 @@ In the examples, the `→` character is used to represent tabs.
 Any sequence of [character]s is a valid CommonMark
 document.
 
-A [character](@character) is a Unicode code point.  Although some
-code points (for example, combining accents) do not correspond to
-characters in an intuitive sense, all code points count as characters
-for purposes of this spec.
-
+A [character](@character) is a unicode code point.
 This spec does not specify an encoding; it thinks of lines as composed
-of [character]s rather than bytes.  A conforming parser may be limited
+of characters rather than bytes.  A conforming parser may be limited
 to a certain encoding.
 
 A [line](@line) is a sequence of zero or more [character]s
 followed by a [line ending] or by the end of file.
 
-A [line ending](@line-ending) is a newline (`U+000A`), carriage return
-(`U+000D`), or carriage return + newline.
+A [line ending](@line-ending) is, depending on the platform, a
+newline (`U+000A`), carriage return (`U+000D`), or
+carriage return + newline.
+
+For security reasons, a conforming parser must strip or replace the
+Unicode character `U+0000`.
 
 A line containing no characters, or a line containing only spaces
 (`U+0020`) or tabs (`U+0009`), is called a [blank line](@blank-line).
@@ -231,18 +231,15 @@ form feed (`U+000C`), or carriage return (`U+000D`).
 [Whitespace](@whitespace) is a sequence of one or more [whitespace
 character]s.
 
-A [Unicode whitespace character](@unicode-whitespace-character) is
-any code point in the Unicode `Zs` class, or a tab (`U+0009`),
+A [unicode whitespace character](@unicode-whitespace-character) is
+any code point in the unicode `Zs` class, or a tab (`U+0009`),
 carriage return (`U+000D`), newline (`U+000A`), or form feed
 (`U+000C`).
 
 [Unicode whitespace](@unicode-whitespace) is a sequence of one
-or more [Unicode whitespace character]s.
+or more [unicode whitespace character]s.
 
-A [space](@space) is `U+0020`.
-
-A [non-whitespace character](@non-space-character) is any character
-that is not a [whitespace character].
+A [non-space character](@non-space-character) is anything but `U+0020`.
 
 An [ASCII punctuation character](@ascii-punctuation-character)
 is `!`, `"`, `#`, `$`, `%`, `&`, `'`, `(`, `)`,
@@ -251,26 +248,16 @@ is `!`, `"`, `#`, `$`, `%`, `&`, `'`, `(`, `)`,
 
 A [punctuation character](@punctuation-character) is an [ASCII
 punctuation character] or anything in
-the Unicode classes `Pc`, `Pd`, `Pe`, `Pf`, `Pi`, `Po`, or `Ps`.
+the unicode classes `Pc`, `Pd`, `Pe`, `Pf`, `Pi`, `Po`, or `Ps`.
 
-## Tabs
+## Tab expansion
 
-Tabs in lines are not expanded to [spaces][space].  However,
-in contexts where indentation is significant for the
-document's structure, tabs behave as if they were replaced
-by spaces with a tab stop of 4 characters.
+Tabs in lines are expanded to spaces, with a tab stop of 4 characters:
 
 .
 →foo→baz→→bim
 .
-<pre><code>foo→baz→→bim
-</code></pre>
-.
-
-.
-  →foo→baz→→bim
-.
-<pre><code>foo→baz→→bim
+<pre><code>foo baz     bim
 </code></pre>
 .
 
@@ -278,46 +265,19 @@ by spaces with a tab stop of 4 characters.
     a→a
     ὐ→a
 .
-<pre><code>a→a
-ὐ→a
+<pre><code>a   a
+ὐ   a
 </code></pre>
 .
-
-.
-  - foo
-
-→bar
-.
-<ul>
-<li>
-<p>foo</p>
-<p>bar</p>
-</li>
-</ul>
-.
-
-.
->→foo→bar
-.
-<blockquote>
-<p>foo→bar</p>
-</blockquote>
-.
-
-
-## Insecure characters
-
-For security reasons, the Unicode character `U+0000` must be replaced
-with the replacement character (`U+FFFD`).
 
 # Blocks and inlines
 
 We can think of a document as a sequence of
-[blocks](@block)---structural elements like paragraphs, block
-quotations, lists, headers, rules, and code blocks.  Some blocks (like
-block quotes and list items) contain other blocks; others (like
-headers and paragraphs) contain [inline](@inline) content---text,
-links, emphasized text, images, code, and so on.
+[blocks](@block)---structural
+elements like paragraphs, block quotations,
+lists, headers, rules, and code blocks.  Blocks can contain other
+blocks, or they can contain [inline](@inline) content:
+words, spaces, links, emphasized text, images, and inline code.
 
 ## Precedence
 
@@ -478,7 +438,7 @@ a------
 <p>---a---</p>
 .
 
-It is required that all of the [non-whitespace character]s be the same.
+It is required that all of the [non-space character]s be the same.
 So, this is not a horizontal rule:
 
 .
@@ -568,12 +528,12 @@ consists of a string of characters, parsed as inline content, between an
 opening sequence of 1--6 unescaped `#` characters and an optional
 closing sequence of any number of `#` characters.  The opening sequence
 of `#` characters cannot be followed directly by a
-[non-whitespace character]. The optional closing sequence of `#`s must be
-preceded by a [space] and may be followed by spaces only.  The opening
-`#` character may be indented 0-3 spaces.  The raw contents of the
-header are stripped of leading and trailing spaces before being parsed
-as inline content.  The header level is equal to the number of `#`
-characters in the opening sequence.
+[non-space character].
+The optional closing sequence of `#`s must be preceded by a space and may be
+followed by spaces only.  The opening `#` character may be indented 0-3
+spaces.  The raw contents of the header are stripped of leading and
+trailing spaces before being parsed as inline content.  The header level
+is equal to the number of `#` characters in the opening sequence.
 
 Simple headers:
 
@@ -601,13 +561,11 @@ More than six `#` characters is not a header:
 <p>####### foo</p>
 .
 
-At least one space is required between the `#` characters and the
-header's contents, unless the header is empty.  Note that many
-implementations currently do not require the space.  However, the
-space was required by the
-[original ATX implementation](http://www.aaronsw.com/2002/atx/atx.py),
-and it helps prevent things like the following from being parsed as
-headers:
+A space is required between the `#` characters and the header's
+contents.  Note that many implementations currently do not require
+the space.  However, the space was required by the [original ATX
+implementation](http://www.aaronsw.com/2002/atx/atx.py), and it helps
+prevent things like the following from being parsed as headers:
 
 .
 #5 bolt
@@ -700,7 +658,7 @@ Spaces are allowed after the closing sequence:
 .
 
 A sequence of `#` characters with a
-[non-whitespace character] following it
+[non-space character] following it
 is not a closing sequence, but counts as part of the contents of the
 header:
 
@@ -769,7 +727,7 @@ ATX headers can be empty:
 ## Setext headers
 
 A [setext header](@setext-header)
-consists of a line of text, containing at least one [non-whitespace character],
+consists of a line of text, containing at least one [non-space character],
 with no more than 3 spaces indentation, followed by a [setext header
 underline].  The line of text must be
 one that, were it not followed by the setext header underline,
@@ -1069,41 +1027,7 @@ paragraph.)
 </code></pre>
 .
 
-If there is any ambiguity between an interpretation of indentation
-as a code block and as indicating that material belongs to a [list
-item][list items], the list item interpretation takes precedence:
-
-.
-  - foo
-
-    bar
-.
-<ul>
-<li>
-<p>foo</p>
-<p>bar</p>
-</li>
-</ul>
-.
-
-.
-1.  foo
-
-    - bar
-.
-<ol>
-<li>
-<p>foo</p>
-<ul>
-<li>bar</li>
-</ul>
-</li>
-</ol>
-.
-
-
-The contents of a code block are literal text, and do not get parsed
-as Markdown:
+The contents are literal text, and do not get parsed as Markdown:
 
 .
     <a/>
@@ -1352,8 +1276,7 @@ aaa
 </code></pre>
 .
 
-Unclosed code blocks are closed by the end of the document
-(or the enclosing [block quote] or [list item]):
+Unclosed code blocks are closed by the end of the document:
 
 .
 ```
@@ -1371,19 +1294,6 @@ aaa
 ```
 aaa
 </code></pre>
-.
-
-.
-> ```
-> aaa
-
-bbb
-.
-<blockquote>
-<pre><code>aaa
-</code></pre>
-</blockquote>
-<p>bbb</p>
 .
 
 A code block can have all empty lines as its content:
@@ -1611,65 +1521,27 @@ Closing code fences cannot have [info string]s:
 
 ## HTML blocks
 
-An [HTML block](@html-block) is a group of lines that is treated
-as raw HTML (and will not be escaped in HTML output).
+An [HTML block tag](@html-block-tag) is
+an [open tag] or [closing tag] whose tag
+name is one of the following (case-insensitive):
+`article`, `header`, `aside`, `hgroup`, `blockquote`, `hr`, `iframe`,
+`body`, `li`, `map`, `button`, `object`, `canvas`, `ol`, `caption`,
+`output`, `col`, `p`, `colgroup`, `pre`, `dd`, `progress`, `div`,
+`section`, `dl`, `table`, `td`, `dt`, `tbody`, `embed`, `textarea`,
+`fieldset`, `tfoot`, `figcaption`, `th`, `figure`, `thead`, `footer`,
+`tr`, `form`, `ul`, `h1`, `h2`, `h3`, `h4`, `h5`, `h6`, `video`,
+`script`, `style`.
 
-There are seven kinds of [HTML block], which can be defined
-by their start and end conditions.  The block begins with a line that
-meets a [start condition](@start-condition) (after up to three spaces
-optional indentation).  It ends with the first subsequent line that
-meets a matching [end condition](@end-condition), or the last line of
-the document, if no line is encountered that meets the
-[end condition].  If the first line meets both the [start condition]
-and the [end condition], the block will contain just that line.
+An [HTML block](@html-block) begins with an
+[HTML block tag], [HTML comment], [processing instruction],
+[declaration], or [CDATA section].
+It ends when a [blank line] or the end of the
+input is encountered.  The initial line may be indented up to three
+spaces, and subsequent lines may have any indentation.  The contents
+of the HTML block are interpreted as raw HTML, and will not be escaped
+in HTML output.
 
-1.  **Start condition:**  line begins with the string `<script`,
-`<pre`, or `<style` (case-insensitive), followed by whitespace,
-the string `>`, or the end of the line.\
-**End condition:**  line contains an end tag
-`</script>`, `</pre>`, or `</style>` (case-insensitive; it
-need not match the start tag).
-
-2.  **Start condition:** line begins with the string `<!--`.\
-**End condition:**  line contains the string `-->`.
-
-3.  **Start condition:** line begins with the string `<?`.\
-**End condition:** line contains the string `?>`.
-
-4.  **Start condition:** line begins with the string `<!`
-followed by an uppercase ASCII letter.\
-**End condition:** line contains the character `>`.
-
-5.  **Start condition:**  line begins with the string
-`<![CDATA[`.\
-**End condition:** line contains the string `]]>`.
-
-6.  **Start condition:** line begins the string `<` or `</`
-followed by one of the strings (case-insensitive) `address`,
-`article`, `aside`, `base`, `basefont`, `blockquote`, `body`,
-`caption`, `center`, `col`, `colgroup`, `dd`, `details`, `dialog`,
-`dir`, `div`, `dl`, `dt`, `fieldset`, `figcaption`, `figure`,
-`footer`, `form`, `frame`, `frameset`, `h1`, `head`, `header`, `hr`,
-`html`, `legend`, `li`, `link`, `main`, `menu`, `menuitem`, `meta`,
-`nav`, `noframes`, `ol`, `optgroup`, `option`, `p`, `param`, `pre`,
-`section`, `source`, `summary`, `table`, `tbody`, `td`,
-`tfoot`, `th`, `thead`, `title`, `tr`, `track`, `ul`, followed
-by [whitespace], the end of the line, the string `>`, or
-the string `/>`.\
-**End condition:** line is followed by a [blank line].
-
-7.  **Start condition:**  line begins with a complete [open tag]
-or [closing tag] (with any [tag name]) followed only by [whitespace]
-or the end of the line.\
-**End condition:** line is followed by a [blank line].
-
-All types of [HTML blocks] except type 7 may interrupt
-a paragraph.  Blocks of type 7 may not interrupt a paragraph.
-(This restricted is intended to prevent unwanted interpretation
-of long tags inside a wrapped paragraph as starting HTML blocks.)
-
-Some simple examples follow.  Here are some basic HTML blocks
-of type 6:
+Some simple examples:
 
 .
 <table>
@@ -1702,16 +1574,6 @@ okay.
          <foo><a>
 .
 
-A block can also start with a closing tag:
-
-.
-</div>
-*foo*
-.
-</div>
-*foo*
-.
-
 Here we have two HTML blocks with a Markdown paragraph between them:
 
 .
@@ -1726,94 +1588,7 @@ Here we have two HTML blocks with a Markdown paragraph between them:
 </DIV>
 .
 
-The tag on the first line can be partial, as long
-as it is split where there would be whitespace:
-
-.
-<div id="foo"
-  class="bar">
-</div>
-.
-<div id="foo"
-  class="bar">
-</div>
-.
-
-.
-<div id="foo" class="bar
-  baz">
-</div>
-.
-<div id="foo" class="bar
-  baz">
-</div>
-.
-
-An open tag need not be closed:
-.
-<div>
-*foo*
-
-*bar*
-.
-<div>
-*foo*
-<p><em>bar</em></p>
-.
-
-
-A partial tag need not even be completed (garbage
-in, garbage out):
-
-.
-<div id="foo"
-*hi*
-.
-<div id="foo"
-*hi*
-.
-
-.
-<div class
-foo
-.
-<div class
-foo
-.
-
-The initial tag doesn't even need to be a valid
-tag, as long as it starts like one:
-
-.
-<div *???-&&&-<---
-*foo*
-.
-<div *???-&&&-<---
-*foo*
-.
-
-In type 6 blocks, the initial tag need not be on a line by
-itself:
-
-.
-<div><a href="bar">*foo*</a></div>
-.
-<div><a href="bar">*foo*</a></div>
-.
-
-.
-<table><tr><td>
-foo
-</td></tr></table>
-.
-<table><tr><td>
-foo
-</td></tr></table>
-.
-
-Everything until the next blank line or end of document
-gets included in the HTML block.  So, in the following
-example, what looks like a Markdown code block
+In the following example, what looks like a Markdown code block
 is actually part of the HTML block, which continues until a blank
 line or the end of the document is reached:
 
@@ -1829,275 +1604,43 @@ int x = 33;
 ```
 .
 
-To start an [HTML block] with a tag that is *not* in the
-list of block-level tags in (6), you must put the tag by
-itself on the first line (and it must be complete):
-
-.
-<a href="foo">
-*bar*
-</a>
-.
-<a href="foo">
-*bar*
-</a>
-.
-
-In type 7 blocks, the [tag name] can be anything:
-
-.
-<Warning>
-*bar*
-</Warning>
-.
-<Warning>
-*bar*
-</Warning>
-.
-
-.
-<i class="foo">
-*bar*
-</i>
-.
-<i class="foo">
-*bar*
-</i>
-.
-
-.
-</ins>
-*bar*
-.
-</ins>
-*bar*
-.
-
-These rules are designed to allow us to work with tags that
-can function as either block-level or inline-level tags.
-The `<del>` tag is a nice example.  We can surround content with
-`<del>` tags in three different ways.  In this case, we get a raw
-HTML block, because the `<del>` tag is on a line by itself:
-
-.
-<del>
-*foo*
-</del>
-.
-<del>
-*foo*
-</del>
-.
-
-In this case, we get a raw HTML block that just includes
-the `<del>` tag (because it ends with the following blank
-line).  So the contents get interpreted as CommonMark:
-
-.
-<del>
-
-*foo*
-
-</del>
-.
-<del>
-<p><em>foo</em></p>
-</del>
-.
-
-Finally, in this case, the `<del>` tags are interpreted
-as [raw HTML] *inside* the CommonMark paragraph.  (Because
-the tag is not on a line by itself, we get inline HTML
-rather than an [HTML block].)
-
-.
-<del>*foo*</del>
-.
-<p><del><em>foo</em></del></p>
-.
-
-HTML tags designed to contain literal content
-(`script`, `style`, `pre`), comments, processing instructions,
-and declarations are treated somewhat differently.
-Instead of ending at the first blank line, these blocks
-end at the first line containing a corresponding end tag.
-As a result, these blocks can contain blank lines:
-
-A pre tag (type 1):
-
-.
-<pre language="haskell"><code>
-import Text.HTML.TagSoup
-
-main :: IO ()
-main = print $ parseTags tags
-</code></pre>
-.
-<pre language="haskell"><code>
-import Text.HTML.TagSoup
-
-main :: IO ()
-main = print $ parseTags tags
-</code></pre>
-.
-
-A script tag (type 1):
-
-.
-<script type="text/javascript">
-// JavaScript example
-
-document.getElementById("demo").innerHTML = "Hello JavaScript!";
-</script>
-.
-<script type="text/javascript">
-// JavaScript example
-
-document.getElementById("demo").innerHTML = "Hello JavaScript!";
-</script>
-.
-
-A style tag (type 1):
-
-.
-<style
-  type="text/css">
-h1 {color:red;}
-
-p {color:blue;}
-</style>
-.
-<style
-  type="text/css">
-h1 {color:red;}
-
-p {color:blue;}
-</style>
-.
-
-If there is no matching end tag, the block will end at the
-end of the document (or the enclosing [block quote] or
-[list item]):
-
-.
-<style
-  type="text/css">
-
-foo
-.
-<style
-  type="text/css">
-
-foo
-.
-
-.
-> <div>
-> foo
-
-bar
-.
-<blockquote>
-<div>
-foo
-</blockquote>
-<p>bar</p>
-.
-
-.
-- <div>
-- foo
-.
-<ul>
-<li>
-<div>
-</li>
-<li>foo</li>
-</ul>
-.
-
-The end tag can occur on the same line as the start tag:
-
-.
-<style>p{color:red;}</style>
-*foo*
-.
-<style>p{color:red;}</style>
-<p><em>foo</em></p>
-.
-
-.
-<!-- foo -->*bar*
-*baz*
-.
-<!-- foo -->*bar*
-<p><em>baz</em></p>
-.
-
-Note that anything on the last line after the
-end tag will be included in the [HTML block]:
-
-.
-<script>
-foo
-</script>1. *bar*
-.
-<script>
-foo
-</script>1. *bar*
-.
-
-A comment (type 2):
+A comment:
 
 .
 <!-- Foo
-
 bar
    baz -->
 .
 <!-- Foo
-
 bar
    baz -->
 .
 
-
-A processing instruction (type 3):
+A processing instruction:
 
 .
 <?php
-
   echo '>';
-
 ?>
 .
 <?php
-
   echo '>';
-
 ?>
 .
 
-A declaration (type 4):
-
-.
-<!DOCTYPE html>
-.
-<!DOCTYPE html>
-.
-
-CDATA (type 5):
+CDATA:
 
 .
 <![CDATA[
 function matchwo(a,b)
 {
-  if (a < b && a < 0) then {
-    return 1;
-
-  } else {
-
-    return 0;
+if (a < b && a < 0) then
+  {
+  return 1;
+  }
+else
+  {
+  return 0;
   }
 }
 ]]>
@@ -2105,12 +1648,13 @@ function matchwo(a,b)
 <![CDATA[
 function matchwo(a,b)
 {
-  if (a < b && a < 0) then {
-    return 1;
-
-  } else {
-
-    return 0;
+if (a < b && a < 0) then
+  {
+  return 1;
+  }
+else
+  {
+  return 0;
   }
 }
 ]]>
@@ -2128,18 +1672,8 @@ The opening tag can be indented 1-3 spaces, but not 4:
 </code></pre>
 .
 
-.
-  <div>
-
-    <div>
-.
-  <div>
-<pre><code>&lt;div&gt;
-</code></pre>
-.
-
-An HTML block of types 1--6 can interrupt a paragraph, and need not be
-preceded by a blank line.
+An HTML block can interrupt a paragraph, and need not be preceded
+by a blank line.
 
 .
 Foo
@@ -2153,8 +1687,8 @@ bar
 </div>
 .
 
-However, a following blank line is needed, except at the end of
-a document, and except for blocks of types 1--5, above:
+However, a following blank line is always needed, except at the end of
+a document:
 
 .
 <div>
@@ -2168,16 +1702,14 @@ bar
 *foo*
 .
 
-HTML blocks of type 7 cannot interrupt a paragraph:
+An incomplete HTML block tag may also start an HTML block:
 
 .
-Foo
-<a href="bar">
-baz
+<div class
+foo
 .
-<p>Foo
-<a href="bar">
-baz</p>
+<div class
+foo
 .
 
 This rule differs from John Gruber's original Markdown syntax
@@ -2196,8 +1728,8 @@ here:
 - It requires a matching end tag, which it also does not allow to
   be indented.
 
-Most Markdown implementations (including some of Gruber's own) do not
-respect all of these restrictions.
+Indeed, most Markdown implementations, including some of Gruber's
+own perl implementations, do not impose these restrictions.
 
 There is one respect, however, in which Gruber's rule is more liberal
 than the one given here, since it allows blank lines to occur inside
@@ -2207,8 +1739,6 @@ expensive and can require backtracking from the end of the document
 if no matching end tag is found. Second, it provides a very simple
 and flexible way of including Markdown content inside HTML tags:
 simply separate the Markdown from the HTML using blank lines:
-
-Compare:
 
 .
 <div>
@@ -2221,6 +1751,8 @@ Compare:
 <p><em>Emphasized</em> text.</p>
 </div>
 .
+
+Compare:
 
 .
 <div>
@@ -2265,37 +1797,11 @@ Hi
 </table>
 .
 
-There are problems, however, if the inner tags are indented
-*and* separated by spaces, as then they will be interpreted as
-an indented code block:
+Moreover, blank lines are usually not necessary and can be
+deleted.  The exception is inside `<pre>` tags; here, one can
+replace the blank lines with `&#10;` entities.
 
-.
-<table>
-
-  <tr>
-
-    <td>
-      Hi
-    </td>
-
-  </tr>
-
-</table>
-.
-<table>
-  <tr>
-<pre><code>&lt;td&gt;
-  Hi
-&lt;/td&gt;
-</code></pre>
-  </tr>
-</table>
-.
-
-Fortunately, blank lines are usually not necessary and can be
-deleted.  The exception is inside `<pre>` tags, but as described
-above, raw HTML blocks starting with `<pre>` *can* contain blank
-lines.
+So there is no important loss of expressive power with the new rule.
 
 ## Link reference definitions
 
@@ -2307,7 +1813,7 @@ optional [whitespace] (including up to one
 [line ending]), and an optional [link
 title], which if it is present must be separated
 from the [link destination] by [whitespace].
-No further [non-whitespace character]s may occur on the line.
+No further [non-space character]s may occur on the line.
 
 A [link reference definition]
 does not correspond to a structural element of a document.  Instead, it
@@ -2406,17 +1912,6 @@ The link destination may not be omitted:
 <p>[foo]</p>
 .
 
-Both title and destination can contain backslash escapes
-and literal backslashes:
-
-.
-[foo]: /url\bar\*baz "foo\"bar\baz"
-
-[foo]
-.
-<p><a href="/url%5Cbar*baz" title="foo&quot;bar\baz">foo</a></p>
-.
-
 A link can come before its corresponding definition:
 
 .
@@ -2478,21 +1973,12 @@ bar
 .
 
 This is not a link reference definition, because there are
-[non-whitespace character]s after the title:
+[non-space character]s after the title:
 
 .
 [foo]: /url "title" ok
 .
 <p>[foo]: /url &quot;title&quot; ok</p>
-.
-
-This is a link reference definition, but it has no title:
-
-.
-[foo]: /url
-"title" ok
-.
-<p>&quot;title&quot; ok</p>
 .
 
 This is not a link reference definition, because it is indented
@@ -2727,7 +2213,7 @@ So, we explain what counts as a block quote or list item by explaining
 how these can be *generated* from their contents. This should suffice
 to define the syntax, although it does not give a recipe for *parsing*
 these constructions.  (A recipe is provided below in the section entitled
-[A parsing strategy](#appendix-a-parsing-strategy).)
+[A parsing strategy](#appendix-a-a-parsing-strategy).)
 
 ## Block quotes
 
@@ -2745,7 +2231,7 @@ The following rules define [block quotes]:
 2.  **Laziness.**  If a string of lines *Ls* constitute a [block
     quote](#block-quotes) with contents *Bs*, then the result of deleting
     the initial [block quote marker] from one or
-    more lines in which the next [non-whitespace character] after the [block
+    more lines in which the next [non-space character] after the [block
     quote marker] is [paragraph continuation
     text] is a block quote with *Bs* as its content.
     [Paragraph continuation text](@paragraph-continuation-text) is text
@@ -2842,16 +2328,9 @@ foo</p>
 </blockquote>
 .
 
-Laziness only applies to lines that would have been continuations of
-paragraphs had they been prepended with [block quote marker]s.
-For example, the `> ` cannot be omitted in the second line of
-
-``` markdown
-> foo
-> ---
-```
-
-without changing the meaning:
+Laziness only applies to lines that are continuations of
+paragraphs. Lines containing characters or indentation that indicate
+block structure cannot be lazy.
 
 .
 > foo
@@ -2862,15 +2341,6 @@ without changing the meaning:
 </blockquote>
 <hr />
 .
-
-Similarly, if we omit the `> ` in the second line of
-
-``` markdown
-> - foo
-> - bar
-```
-
-then the block quote ends after the first line:
 
 .
 > - foo
@@ -2885,9 +2355,6 @@ then the block quote ends after the first line:
 <li>bar</li>
 </ul>
 .
-
-For the same reason, we can't omit the `> ` in front of
-subsequent lines of an indented or fenced code block:
 
 .
 >     foo
@@ -2912,30 +2379,6 @@ foo
 <p>foo</p>
 <pre><code></code></pre>
 .
-
-Note that in the following case, we have a paragraph
-continuation line:
-
-.
-> foo
-    - bar
-.
-<blockquote>
-<p>foo
-- bar</p>
-</blockquote>
-.
-
-To see why, note that in
-
-```markdown
-> foo
->     - bar
-```
-
-the `- bar` is indented too far to start a list, and can't
-be an indented code block because indented code blocks cannot
-interrupt paragraphs, so it is a [paragraph continuation line].
 
 A block quote can be empty:
 
@@ -3140,15 +2583,13 @@ A [bullet list marker](@bullet-list-marker)
 is a `-`, `+`, or `*` character.
 
 An [ordered list marker](@ordered-list-marker)
-is a sequence of 1--9 arabic digits (`0-9`), followed by either a
-`.` character or a `)` character.  (The reason for the length
-limit is that with 10 digits we start seeing integer overflows
-in some browsers.)
+is a sequence of one of more digits (`0-9`), followed by either a
+`.` character or a `)` character.
 
 The following rules define [list items]:
 
 1.  **Basic case.**  If a sequence of lines *Ls* constitute a sequence of
-    blocks *Bs* starting with a [non-whitespace character] and not separated
+    blocks *Bs* starting with a [non-space character] and not separated
     from each other by more than one blank line, and *M* is a list
     marker of width *W* followed by 0 < *N* < 5 spaces, then the result
     of prepending *M* and the following spaces to the first line of
@@ -3206,7 +2647,7 @@ The most important thing to notice is that the position of
 the text after the list marker determines how much indentation
 is needed in subsequent blocks in the list item.  If the list
 marker takes up two spaces, and there are three spaces between
-the list marker and the next [non-whitespace character], then blocks
+the list marker and the next [non-space character], then blocks
 must be indented five spaces in order to fall under the list
 item.
 
@@ -3264,7 +2705,7 @@ put under the list item:
 
 It is tempting to think of this in terms of columns:  the continuation
 blocks must be indented at least to the column of the first
-[non-whitespace character] after the list marker. However, that is not quite right.
+[non-space character] after the list marker. However, that is not quite right.
 The spaces after the list marker determine how much relative indentation
 is needed.  Which column this indentation reaches will depend on
 how the list item is embedded in other constructions, as shown by
@@ -3412,49 +2853,6 @@ A list item may contain any kind of block:
 </ol>
 .
 
-Note that ordered list start numbers must be nine digits or less:
-
-.
-123456789. ok
-.
-<ol start="123456789">
-<li>ok</li>
-</ol>
-.
-
-.
-1234567890. not ok
-.
-<p>1234567890. not ok</p>
-.
-
-A start number may begin with 0s:
-
-.
-0. ok
-.
-<ol start="0">
-<li>ok</li>
-</ol>
-.
-
-.
-003. ok
-.
-<ol start="3">
-<li>ok</li>
-</ol>
-.
-
-A start number may not be negative:
-
-.
--1. not ok
-.
-<p>-1. not ok</p>
-.
-
-
 2.  **Item starting with indented code.**  If a sequence of lines *Ls*
     constitute a sequence of blocks *Bs* starting with an indented code
     block and not separated from each other by more than one blank line,
@@ -3560,7 +2958,7 @@ inside the code block:
 
 Note that rules #1 and #2 only apply to two cases:  (a) cases
 in which the lines to be included in a list item begin with a
-[non-whitespace character], and (b) cases in which
+[non-space character], and (b) cases in which
 they begin with an indented code
 block.  In a case like the following, where the first block begins with
 a three-space indent, the rules do not allow us to form a list item by
@@ -3792,7 +3190,7 @@ Four spaces indent gives a code block:
 5.  **Laziness.**  If a string of lines *Ls* constitute a [list
     item](#list-items) with contents *Bs*, then the result of deleting
     some or all of the indentation from one or more lines in which the
-    next [non-whitespace character] after the indentation is
+    next [non-space character] after the indentation is
     [paragraph continuation text] is a
     list item with the same contents and attributes.  The unindented
     lines are called
@@ -4459,26 +3857,6 @@ item:
 </ul>
 .
 
-.
-1. a
-
-  2. b
-
-    3. c
-.
-<ol>
-<li>
-<p>a</p>
-</li>
-<li>
-<p>b</p>
-</li>
-<li>
-<p>c</p>
-</li>
-</ol>
-.
-
 This is a loose list, because there is a blank line between
 two of the list items:
 
@@ -4773,7 +4151,7 @@ backslashes:
 .
 \→\A\a\ \3\φ\«
 .
-<p>\→\A\a\ \3\φ\«</p>
+<p>\   \A\a\ \3\φ\«</p>
 .
 
 Escaped characters are treated as regular characters and do
@@ -4851,7 +4229,7 @@ raw HTML:
 .
 <a href="/bar\/)">
 .
-<a href="/bar\/)">
+<p><a href="/bar\/)"></p>
 .
 
 But they work in all other contexts, including URLs and link titles,
@@ -4885,45 +4263,40 @@ foo
 
 With the goal of making this standard as HTML-agnostic as possible, all
 valid HTML entities (except in code blocks and code spans)
-are recognized as such and converted into Unicode characters before
+are recognized as such and converted into unicode characters before
 they are stored in the AST. This means that renderers to formats other
 than HTML need not be HTML-entity aware.  HTML renderers may either escape
-Unicode characters as entities or leave them as they are.  (However,
+unicode characters as entities or leave them as they are.  (However,
 `"`, `&`, `<`, and `>` must always be rendered as entities.)
 
 [Named entities](@name-entities) consist of `&`
 + any of the valid HTML5 entity names + `;`. The
 [following document](https://html.spec.whatwg.org/multipage/entities.json)
 is used as an authoritative source of the valid entity names and their
-corresponding code points.
+corresponding codepoints.
 
 .
-&nbsp; &amp; &copy; &AElig; &Dcaron;
-&frac34; &HilbertSpace; &DifferentialD;
-&ClockwiseContourIntegral; &ngE;
+&nbsp; &amp; &copy; &AElig; &Dcaron; &frac34; &HilbertSpace; &DifferentialD; &ClockwiseContourIntegral;
 .
-<p>  &amp; © Æ Ď
-¾ ℋ ⅆ
-∲ ≧̸</p>
+<p>  &amp; © Æ Ď ¾ ℋ ⅆ ∲</p>
 .
 
 [Decimal entities](@decimal-entities)
 consist of `&#` + a string of 1--8 arabic digits + `;`. Again, these
 entities need to be recognised and transformed into their corresponding
-Unicode code points. Invalid Unicode code points will be replaced by
-the "unknown code point" character (`U+FFFD`).  For security reasons,
-the code point `U+0000` will also be replaced by `U+FFFD`.
+unicode codepoints. Invalid unicode codepoints will be written as the
+"unknown codepoint" character (`0xFFFD`)
 
 .
-&#35; &#1234; &#992; &#98765432; &#0;
+&#35; &#1234; &#992; &#98765432;
 .
-<p># Ӓ Ϡ � �</p>
+<p># Ӓ Ϡ �</p>
 .
 
 [Hexadecimal entities](@hexadecimal-entities)
 consist of `&#` + either `X` or `x` + a string of 1-8 hexadecimal digits
 + `;`. They will also be parsed and turned into the corresponding
-Unicode code points in the AST.
+unicode codepoints in the AST.
 
 .
 &#X22; &#XD06; &#xcab;
@@ -4965,7 +4338,7 @@ code blocks, including raw HTML, URLs, [link title]s, and
 .
 <a href="&ouml;&ouml;.html">
 .
-<a href="&ouml;&ouml;.html">
+<p><a href="&ouml;&ouml;.html"></p>
 .
 
 .
@@ -5215,18 +4588,18 @@ followed by a `*` character, or a sequence of one or more `_`
 characters that is not preceded or followed by a `_` character.
 
 A [left-flanking delimiter run](@left-flanking-delimiter-run) is
-a [delimiter run] that is (a) not followed by [Unicode whitespace],
+a [delimiter run] that is (a) not followed by [unicode whitespace],
 and (b) either not followed by a [punctuation character], or
-preceded by [Unicode whitespace] or a [punctuation character].
+preceded by [unicode whitespace] or a [punctuation character].
 For purposes of this definition, the beginning and the end of
-the line count as Unicode whitespace.
+the line count as unicode whitespace.
 
 A [right-flanking delimiter run](@right-flanking-delimiter-run) is
-a [delimiter run] that is (a) not preceded by [Unicode whitespace],
+a [delimiter run] that is (a) not preceded by [unicode whitespace],
 and (b) either not preceded by a [punctuation character], or
-followed by [Unicode whitespace] or a [punctuation character].
+followed by [unicode whitespace] or a [punctuation character].
 For purposes of this definition, the beginning and the end of
-the line count as Unicode whitespace.
+the line count as unicode whitespace.
 
 Here are some examples of delimiter runs.
 
@@ -6274,11 +5647,6 @@ Rule 15:
 <p><em><em>foo</em>bar</em>*</p>
 .
 
-.
-*foo __bar *baz bim__ bam*
-.
-<p><em>foo <strong>bar *baz bim</strong> bam</em></p>
-.
 
 Rule 16:
 
@@ -6364,9 +5732,7 @@ A [link text](@link-text) consists of a sequence of zero or more
 inline elements enclosed by square brackets (`[` and `]`).  The
 following rules apply:
 
-- Links may not contain other links, at any level of nesting. If
-  multiple otherwise valid link definitions appear nested inside each
-  other, the inner-most definition is used.
+- Links may not contain other links, at any level of nesting.
 
 - Brackets are allowed in the [link text] only if (a) they
   are backslash-escaped or (b) they appear as a matched pair of brackets,
@@ -6522,33 +5888,10 @@ in Markdown:
 <p><a href="foo):">link</a></p>
 .
 
-A link can contain fragment identifiers and queries:
-
-.
-[link](#fragment)
-
-[link](http://example.com#fragment)
-
-[link](http://example.com?foo=bar&baz#fragment)
-.
-<p><a href="#fragment">link</a></p>
-<p><a href="http://example.com#fragment">link</a></p>
-<p><a href="http://example.com?foo=bar&amp;baz#fragment">link</a></p>
-.
-
-Note that a backslash before a non-escapable character is
-just a backslash:
-
-.
-[link](foo\bar)
-.
-<p><a href="foo%5Cbar">link</a></p>
-.
-
 URL-escaping should be left alone inside the destination, as all
 URL-escaped characters are also valid URL characters. HTML entities in
-the destination will be parsed into the corresponding Unicode
-code points, as usual, and optionally URL-escaped when written as HTML.
+the destination will be parsed into the corresponding unicode
+codepoints, as usual, and optionally URL-escaped when written as HTML.
 
 .
 [link](foo%20b&auml;)
@@ -6750,14 +6093,13 @@ that [matches] a [link reference definition] elsewhere in the document.
 
 A [link label](@link-label)  begins with a left bracket (`[`) and ends
 with the first right bracket (`]`) that is not backslash-escaped.
-Between these brackets there must be at least one [non-whitespace character].
 Unescaped square bracket characters are not allowed in
 [link label]s.  A link label can have at most 999
 characters inside the square brackets.
 
 One label [matches](@matches)
 another just in case their normalized forms are equal.  To normalize a
-label, perform the *Unicode case fold* and collapse consecutive internal
+label, perform the *unicode case fold* and collapse consecutive internal
 [whitespace] to a single space.  If there are multiple
 matching reference link definitions, the one that comes first in the
 document is used.  (It is desirable in such cases to emit a warning.)
@@ -6995,30 +6337,6 @@ backslash-escaped:
 [ref\[]: /uri
 .
 <p><a href="/uri">foo</a></p>
-.
-
-A [link label] must contain at least one [non-whitespace character]:
-
-.
-[]
-
-[]: /uri
-.
-<p>[]</p>
-<p>[]: /uri</p>
-.
-
-.
-[
- ]
-
-[
- ]: /uri
-.
-<p>[
-]</p>
-<p>[
-]: /uri</p>
 .
 
 A [collapsed reference link](@collapsed-reference-link)
@@ -7579,8 +6897,7 @@ so custom tags (and even, say, DocBook tags) may be used.
 Here is the grammar for tags:
 
 A [tag name](@tag-name) consists of an ASCII letter
-followed by zero or more ASCII letters, digits, or
-hyphens (`-`).
+followed by zero or more ASCII letters or digits.
 
 An [attribute](@attribute) consists of [whitespace],
 an [attribute name], and an optional
@@ -7613,7 +6930,7 @@ consists of `"`, zero or more
 characters not including `"`, and a final `"`.
 
 An [open tag](@open-tag) consists of a `<` character, a [tag name],
-zero or more [attributes](@attribute], optional [whitespace], an optional `/`
+zero or more [attributes], optional [whitespace], an optional `/`
 character, and a `>` character.
 
 A [closing tag](@closing-tag) consists of the string `</`, a
@@ -7678,21 +6995,6 @@ _boolean zoop:33=zoop:33 />
 _boolean zoop:33=zoop:33 /></p>
 .
 
-Custom tag names can be used:
-
-.
-<responsive-image src="foo.jpg" />
-
-<My-Tag>
-foo
-</My-Tag>
-.
-<responsive-image src="foo.jpg" />
-<My-Tag>
-foo
-</My-Tag>
-.
-
 Illegal tag names, not parsed as HTML:
 
 .
@@ -7741,8 +7043,8 @@ Closing tags:
 </a>
 </foo >
 .
-</a>
-</foo >
+<p></a>
+</foo ></p>
 .
 
 Illegal attributes in closing tag:
@@ -7809,7 +7111,7 @@ Entities are preserved in HTML attributes:
 .
 <a href="&ouml;">
 .
-<a href="&ouml;">
+<p><a href="&ouml;"></p>
 .
 
 Backslash escapes do not work in HTML attributes:
@@ -7817,7 +7119,7 @@ Backslash escapes do not work in HTML attributes:
 .
 <a href="\*">
 .
-<a href="\*">
+<p><a href="\*"></p>
 .
 
 .
@@ -8021,10 +7323,7 @@ Multiple     spaces
 
 <!-- END TESTS -->
 
-# Appendix: A parsing strategy {-}
-
-In this appendix we describe some features of the parsing strategy
-used in the CommonMark reference implementations.
+# Appendix A: A parsing strategy {-}
 
 ## Overview {-}
 
@@ -8040,6 +7339,8 @@ map of links is constructed.
 are parsed into sequences of Markdown inline elements (strings,
 code spans, links, emphasis, and so on), using the map of link
 references constructed in phase 1.
+
+## The document tree {-}
 
 At each point in processing, the document is represented as a tree of
 **blocks**.  The root of the tree is a `document` block.  The `document`
@@ -8064,7 +7365,7 @@ marked by arrows:
              "aliquando id"
 ```
 
-## Phase 1: block structure {-}
+## How source lines alter the document tree {-}
 
 Each line that is processed has an effect on this tree.  The line is
 analyzed and, depending on its contents, the document may be altered
@@ -8078,36 +7379,6 @@ in one or more of the following ways:
 
 Once a line has been incorporated into the tree in this way,
 it can be discarded, so input can be read in a stream.
-
-For each line, we follow this procedure:
-
-1. First we iterate through the open blocks, starting with the
-root document, and descending through last children down to the last
-open block.  Each block imposes a condition that the line must satisfy
-if the block is to remain open.  For example, a block quote requires a
-`>` character.  A paragraph requires a non-blank line.
-In this phase we may match all or just some of the open
-blocks.  But we cannot close unmatched blocks yet, because we may have a
-[lazy continuation line].
-
-2.  Next, after consuming the continuation markers for existing
-blocks, we look for new block starts (e.g. `>` for a block quote.
-If we encounter a new block start, we close any blocks unmatched
-in step 1 before creating the new block as a child of the last
-matched block.
-
-3.  Finally, we look at the remainder of the line (after block
-markers like `>`, list markers, and indentation have been consumed).
-This is text that can be incorporated into the last open
-block (a paragraph, code block, header, or raw HTML).
-
-Setext headers are formed when we detect that the second line of
-a paragraph is a setext header line.
-
-Reference link definitions are detected when a paragraph is closed;
-the accumulated text lines are parsed to see if they begin with
-one or more reference link definitions.  Any remainder becomes a
-normal paragraph.
 
 We can see how this works by considering how the tree above is
 generated by four lines of Markdown:
@@ -8206,7 +7477,7 @@ We thus obtain the final tree:
              "aliquando id"
 ```
 
-## Phase 2: inline structure {-}
+## From block structure to the final document {-}
 
 Once all of the input has been parsed, all open blocks are closed.
 
@@ -8237,123 +7508,5 @@ Notice how the [line ending] in the first paragraph has
 been parsed as a `softbreak`, and the asterisks in the first list item
 have become an `emph`.
 
-### An algorithm for parsing nested emphasis and links {-}
-
-By far the trickiest part of inline parsing is handling emphasis,
-strong emphasis, links, and images.  This is done using the following
-algorithm.
-
-When we're parsing inlines and we hit either
-
-- a run of `*` or `_` characters, or
-- a `[` or `![`
-
-we insert a text node with these symbols as its literal content, and we
-add a pointer to this text node to the [delimiter stack](@delimiter-stack).
-
-The [delimiter stack] is a doubly linked list.  Each
-element contains a pointer to a text node, plus information about
-
-- the type of delimiter (`[`, `![`, `*`, `_`)
-- the number of delimiters,
-- whether the delimiter is "active" (all are active to start), and
-- whether the delimiter is a potential opener, a potential closer,
-  or both (which depends on what sort of characters precede
-  and follow the delimiters).
-
-When we hit a `]` character, we call the *look for link or image*
-procedure (see below).
-
-When we hit the end of the input, we call the *process emphasis*
-procedure (see below), with `stack_bottom` = NULL.
-
-#### *look for link or image* {-}
-
-Starting at the top of the delimiter stack, we look backwards
-through the stack for an opening `[` or `![` delimiter.
-
-- If we don't find one, we return a literal text node `]`.
-
-- If we do find one, but it's not *active*, we remove the inactive
-  delimiter from the stack, and return a literal text node `]`.
-
-- If we find one and it's active, then we parse ahead to see if
-  we have an inline link/image, reference link/image, compact reference
-  link/image, or shortcut reference link/image.
-
-  + If we don't, then we remove the opening delimiter from the
-    delimiter stack and return a literal text node `]`.
-
-  + If we do, then
-
-    * We return a link or image node whose children are the inlines
-      after the text node pointed to by the opening delimiter.
-
-    * We run *process emphasis* on these inlines, with the `[` opener
-      as `stack_bottom`.
-
-    * We remove the opening delimiter.
-
-    * If we have a link (and not an image), we also set all
-      `[` delimiters before the opening delimiter to *inactive*.  (This
-      will prevent us from getting links within links.)
-
-#### *process emphasis* {-}
-
-Parameter `stack_bottom` sets a lower bound to how far we
-descend in the [delimiter stack].  If it is NULL, we can
-go all the way to the bottom.  Otherwise, we stop before
-visiting `stack_bottom`.
-
-Let `current_position` point to the element on the [delimiter stack]
-just above `stack_bottom` (or the first element if `stack_bottom`
-is NULL).
-
-We keep track of the `openers_bottom` for each delimiter
-type (`*`, `_`).  Initialize this to `stack_bottom`.
-
-Then we repeat the following until we run out of potential
-closers:
-
-- Move `current_position` forward in the delimiter stack (if needed)
-  until we find the first potential closer with delimiter `*` or `_`.
-  (This will be the potential closer closest
-  to the beginning of the input -- the first one in parse order.)
-
-- Now, look back in the stack (staying above `stack_bottom` and
-  the `openers_bottom` for this delimiter type) for the
-  first matching potential opener ("matching" means same delimiter).
-
-- If one is found:
-
-  + Figure out whether we have emphasis or strong emphasis:
-    if both closer and opener spans have length >= 2, we have
-    strong, otherwise regular.
-
-  + Insert an emph or strong emph node accordingly, after
-    the text node corresponding to the opener.
-
-  + Remove any delimiters between the opener and closer from
-    the delimiter stack.
-
-  + Remove 1 (for regular emph) or 2 (for strong emph) delimiters
-    from the opening and closing text nodes.  If they become empty
-    as a result, remove them and remove the corresponding element
-    of the delimiter stack.  If the closing node is removed, reset
-    `current_position` to the next element in the stack.
-
-- If none in found:
-
-  + Set `openers_bottom` to the element before `current_position`.
-    (We know that there are no openers for this kind of closer up to and
-    including this point, so this puts a lower bound on future searches.)
-
-  + If the closer at `current_position` is not a potential opener,
-    remove it from the delimiter stack (since we know it can't
-    be a closer either).
-
-  + Advance `current_position` to the next element in the stack.
-
-After we're done, we remove all delimiters above `stack_bottom` from the
-delimiter stack.
-
+The document can be rendered as HTML, or in any other format, given
+an appropriate renderer.

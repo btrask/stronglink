@@ -2,9 +2,9 @@
 #include "chunk.h"
 #include "scanners.h"
 
-bufsize_t _scan_at(bufsize_t (*scanner)(const unsigned char *), cmark_chunk *c, bufsize_t offset)
+int _scan_at(int (*scanner)(const unsigned char *), cmark_chunk *c, int offset)
 {
-	bufsize_t res;
+	int res;
 	unsigned char *ptr = (unsigned char *)c->data;
 	unsigned char lim = ptr[c->len];
 
@@ -30,9 +30,9 @@ bufsize_t _scan_at(bufsize_t (*scanner)(const unsigned char *), cmark_chunk *c, 
 
   escaped_char = [\\][!"#$%&'()*+,./:;<=>?@[\\\]^_`{|}~-];
 
-  tagname = [A-Za-z][A-Za-z0-9-]*;
+  tagname = [A-Za-z][A-Za-z0-9]*;
 
-  blocktagname = 'address'|'article'|'aside'|'base'|'basefont'|'blockquote'|'body'|'caption'|'center'|'col'|'colgroup'|'dd'|'details'|'dialog'|'dir'|'div'|'dl'|'dt'|'fieldset'|'figcaption'|'figure'|'footer'|'form'|'frame'|'frameset'|'h1'|'head'|'header'|'hr'|'html'|'legend'|'li'|'link'|'main'|'menu'|'menuitem'|'meta'|'nav'|'noframes'|'ol'|'optgroup'|'option'|'p'|'param'|'pre'|'section'|'source'|'title'|'summary'|'table'|'tbody'|'td'|'tfoot'|'th'|'thead'|'title'|'tr'|'track'|'ul';
+  blocktagname = 'article'|'header'|'aside'|'hgroup'|'iframe'|'blockquote'|'hr'|'body'|'li'|'map'|'button'|'object'|'canvas'|'ol'|'caption'|'output'|'col'|'p'|'colgroup'|'pre'|'dd'|'progress'|'div'|'section'|'dl'|'table'|'td'|'dt'|'tbody'|'embed'|'textarea'|'fieldset'|'tfoot'|'figcaption'|'th'|'figure'|'thead'|'footer'|'footer'|'tr'|'form'|'ul'|'h1'|'h2'|'h3'|'h4'|'h5'|'h6'|'video'|'script'|'style';
 
   attributename = [a-zA-Z_:][a-zA-Z0-9:._-]*;
 
@@ -60,7 +60,7 @@ bufsize_t _scan_at(bufsize_t (*scanner)(const unsigned char *), cmark_chunk *c, 
   htmltag = opentag | closetag | htmlcomment | processinginstruction |
             declaration | cdata;
 
-  in_parens_nosp   = [(] (reg_char|escaped_char|[\\])* [)];
+  in_parens_nosp   = [(] (reg_char|escaped_char)* [)];
 
   in_double_quotes = ["] (escaped_char|[^"\x00])* ["];
   in_single_quotes = ['] (escaped_char|[^'\x00])* ['];
@@ -70,29 +70,29 @@ bufsize_t _scan_at(bufsize_t (*scanner)(const unsigned char *), cmark_chunk *c, 
 */
 
 // Try to match a scheme including colon.
-bufsize_t _scan_scheme(const unsigned char *p)
+int _scan_scheme(const unsigned char *p)
 {
   const unsigned char *marker = NULL;
   const unsigned char *start = p;
 /*!re2c
-  scheme [:] { return (bufsize_t)(p - start); }
+  scheme [:] { return (p - start); }
   .? { return 0; }
 */
 }
 
 // Try to match URI autolink after first <, returning number of chars matched.
-bufsize_t _scan_autolink_uri(const unsigned char *p)
+int _scan_autolink_uri(const unsigned char *p)
 {
   const unsigned char *marker = NULL;
   const unsigned char *start = p;
 /*!re2c
-  scheme [:][^\x00-\x20<>]*[>]  { return (bufsize_t)(p - start); }
+  scheme [:][^\x00-\x20<>]*[>]  { return (p - start); }
   .? { return 0; }
 */
 }
 
 // Try to match email autolink after first <, returning num of chars matched.
-bufsize_t _scan_autolink_email(const unsigned char *p)
+int _scan_autolink_email(const unsigned char *p)
 {
   const unsigned char *marker = NULL;
   const unsigned char *start = p;
@@ -101,101 +101,32 @@ bufsize_t _scan_autolink_email(const unsigned char *p)
     [@]
     [a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?
     ([.][a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*
-    [>] { return (bufsize_t)(p - start); }
+    [>] { return (p - start); }
   .? { return 0; }
 */
 }
 
 // Try to match an HTML tag after first <, returning num of chars matched.
-bufsize_t _scan_html_tag(const unsigned char *p)
+int _scan_html_tag(const unsigned char *p)
 {
   const unsigned char *marker = NULL;
   const unsigned char *start = p;
 /*!re2c
-  htmltag { return (bufsize_t)(p - start); }
+  htmltag { return (p - start); }
   .? { return 0; }
 */
 }
 
-// Try to match an HTML block tag start line, returning
-// an integer code for the type of block (1-6, matching the spec).
-// #7 is handled by a separate function, below.
-bufsize_t _scan_html_block_start(const unsigned char *p)
-{
-  const unsigned char *marker = NULL;
-/*!re2c
-  [<] ('script'|'pre'|'style') (spacechar | [>]) { return 1; }
-  '<!--' { return 2; }
-  '<?' { return 3; }
-  '<!' [A-Z] { return 4; }
-  '<![CDATA[' { return 5; }
-  [<] [/]? blocktagname (spacechar | [/]? [>])  { return 6; }
-  .? { return 0; }
-*/
-}
-
-// Try to match an HTML block tag start line of type 7, returning
-// 7 if successful, 0 if not.
-bufsize_t _scan_html_block_start_7(const unsigned char *p)
-{
-  const unsigned char *marker = NULL;
-/*!re2c
-  [<] (opentag | closetag) [\t\n\f ]* [\r\n] { return 7; }
-  .? { return 0; }
-*/
-}
-
-// Try to match an HTML block end line of type 1
-bufsize_t _scan_html_block_end_1(const unsigned char *p)
+// Try to match an HTML block tag including first <,
+// returning num of chars matched.
+int _scan_html_block_tag(const unsigned char *p)
 {
   const unsigned char *marker = NULL;
   const unsigned char *start = p;
 /*!re2c
-  .* [<] [/] ('script'|'pre'|'style') [>] { return (bufsize_t)(p - start); }
-  .? { return 0; }
-*/
-}
-
-// Try to match an HTML block end line of type 2
-bufsize_t _scan_html_block_end_2(const unsigned char *p)
-{
-  const unsigned char *marker = NULL;
-  const unsigned char *start = p;
-/*!re2c
-  .* '-->' { return (bufsize_t)(p - start); }
-  .? { return 0; }
-*/
-}
-
-// Try to match an HTML block end line of type 3
-bufsize_t _scan_html_block_end_3(const unsigned char *p)
-{
-  const unsigned char *marker = NULL;
-  const unsigned char *start = p;
-/*!re2c
-  .* '?>' { return (bufsize_t)(p - start); }
-  .? { return 0; }
-*/
-}
-
-// Try to match an HTML block end line of type 4
-bufsize_t _scan_html_block_end_4(const unsigned char *p)
-{
-  const unsigned char *marker = NULL;
-  const unsigned char *start = p;
-/*!re2c
-  .* '>' { return (bufsize_t)(p - start); }
-  .? { return 0; }
-*/
-}
-
-// Try to match an HTML block end line of type 5
-bufsize_t _scan_html_block_end_5(const unsigned char *p)
-{
-  const unsigned char *marker = NULL;
-  const unsigned char *start = p;
-/*!re2c
-  .* ']]>' { return (bufsize_t)(p - start); }
+  [<] [/] blocktagname (spacechar | [>])  { return (p - start); }
+  [<] blocktagname (spacechar | [/>]) { return (p - start); }
+  [<] [!?] { return (p - start); }
   .? { return 0; }
 */
 }
@@ -204,13 +135,13 @@ bufsize_t _scan_html_block_end_5(const unsigned char *p)
 // This may optionally be contained in <..>; otherwise
 // whitespace and unbalanced right parentheses aren't allowed.
 // Newlines aren't ever allowed.
-bufsize_t _scan_link_url(const unsigned char *p)
+int _scan_link_url(const unsigned char *p)
 {
   const unsigned char *marker = NULL;
   const unsigned char *start = p;
 /*!re2c
-  [ \r\n]* [<] ([^<>\r\n\\\x00] | escaped_char | [\\])* [>] { return (bufsize_t)(p - start); }
-  [ \r\n]* (reg_char+ | escaped_char | in_parens_nosp | [\\][^()])* { return (bufsize_t)(p - start); }
+  [ \r\n]* [<] ([^<>\r\n\\\x00] | escaped_char | [\\])* [>] { return (p - start); }
+  [ \r\n]* (reg_char+ | escaped_char | in_parens_nosp)* { return (p - start); }
   .? { return 0; }
 */
 }
@@ -218,43 +149,42 @@ bufsize_t _scan_link_url(const unsigned char *p)
 // Try to match a link title (in single quotes, in double quotes, or
 // in parentheses), returning number of chars matched.  Allow one
 // level of internal nesting (quotes within quotes).
-bufsize_t _scan_link_title(const unsigned char *p)
+int _scan_link_title(const unsigned char *p)
 {
   const unsigned char *marker = NULL;
   const unsigned char *start = p;
 /*!re2c
-  ["] (escaped_char|[^"\x00])* ["]   { return (bufsize_t)(p - start); }
-  ['] (escaped_char|[^'\x00])* ['] { return (bufsize_t)(p - start); }
-  [(] (escaped_char|[^)\x00])* [)]  { return (bufsize_t)(p - start); }
+  ["] (escaped_char|[^"\x00])* ["]   { return (p - start); }
+  ['] (escaped_char|[^'\x00])* ['] { return (p - start); }
+  [(] (escaped_char|[^)\x00])* [)]  { return (p - start); }
   .? { return 0; }
 */
 }
 
 // Match space characters, including newlines.
-bufsize_t _scan_spacechars(const unsigned char *p)
+int _scan_spacechars(const unsigned char *p)
 {
-  const unsigned char *marker = NULL;
   const unsigned char *start = p; \
 /*!re2c
-  [ \t\v\f\r\n]* { return (bufsize_t)(p - start); }
+  [ \t\v\f\r\n]* { return (p - start); }
   . { return 0; }
 */
 }
 
 // Match ATX header start.
-bufsize_t _scan_atx_header_start(const unsigned char *p)
+int _scan_atx_header_start(const unsigned char *p)
 {
   const unsigned char *marker = NULL;
   const unsigned char *start = p;
 /*!re2c
-  [#]{1,6} ([ ]+|[\r\n])  { return (bufsize_t)(p - start); }
+  [#]{1,6} ([ ]+|[\r\n])  { return (p - start); }
   .? { return 0; }
 */
 }
 
 // Match setext header line.  Return 1 for level-1 header,
 // 2 for level-2, 0 for no match.
-bufsize_t _scan_setext_header_line(const unsigned char *p)
+int _scan_setext_header_line(const unsigned char *p)
 {
   const unsigned char *marker = NULL;
 /*!re2c
@@ -267,65 +197,51 @@ bufsize_t _scan_setext_header_line(const unsigned char *p)
 // Scan a horizontal rule line: "...three or more hyphens, asterisks,
 // or underscores on a line by themselves. If you wish, you may use
 // spaces between the hyphens or asterisks."
-bufsize_t _scan_hrule(const unsigned char *p)
+int _scan_hrule(const unsigned char *p)
 {
   const unsigned char *marker = NULL;
   const unsigned char *start = p;
 /*!re2c
-  ([*][ ]*){3,} [ \t]* [\r\n] { return (bufsize_t)(p - start); }
-  ([_][ ]*){3,} [ \t]* [\r\n] { return (bufsize_t)(p - start); }
-  ([-][ ]*){3,} [ \t]* [\r\n] { return (bufsize_t)(p - start); }
+  ([*][ ]*){3,} [ \t]* [\r\n] { return (p - start); }
+  ([_][ ]*){3,} [ \t]* [\r\n] { return (p - start); }
+  ([-][ ]*){3,} [ \t]* [\r\n] { return (p - start); }
   .? { return 0; }
 */
 }
 
 // Scan an opening code fence.
-bufsize_t _scan_open_code_fence(const unsigned char *p)
+int _scan_open_code_fence(const unsigned char *p)
 {
   const unsigned char *marker = NULL;
   const unsigned char *start = p;
 /*!re2c
-  [`]{3,} / [^`\r\n\x00]*[\r\n] { return (bufsize_t)(p - start); }
-  [~]{3,} / [^~\r\n\x00]*[\r\n] { return (bufsize_t)(p - start); }
+  [`]{3,} / [^`\r\n\x00]*[\r\n] { return (p - start); }
+  [~]{3,} / [^~\r\n\x00]*[\r\n] { return (p - start); }
   .?                        { return 0; }
 */
 }
 
 // Scan a closing code fence with length at least len.
-bufsize_t _scan_close_code_fence(const unsigned char *p)
+int _scan_close_code_fence(const unsigned char *p)
 {
   const unsigned char *marker = NULL;
   const unsigned char *start = p;
 /*!re2c
-  [`]{3,} / [ \t]*[\r\n] { return (bufsize_t)(p - start); }
-  [~]{3,} / [ \t]*[\r\n] { return (bufsize_t)(p - start); }
+  [`]{3,} / [ \t]*[\r\n] { return (p - start); }
+  [~]{3,} / [ \t]*[\r\n] { return (p - start); }
   .? { return 0; }
 */
 }
 
 // Scans an entity.
 // Returns number of chars matched.
-bufsize_t _scan_entity(const unsigned char *p)
+int _scan_entity(const unsigned char *p)
 {
   const unsigned char *marker = NULL;
   const unsigned char *start = p;
 /*!re2c
   [&] ([#] ([Xx][A-Fa-f0-9]{1,8}|[0-9]{1,8}) |[A-Za-z][A-Za-z0-9]{1,31} ) [;]
-     { return (bufsize_t)(p - start); }
+     { return (p - start); }
   .? { return 0; }
 */
 }
-
-// Returns positive value if a URL begins in a way that is potentially
-// dangerous, with javascript:, vbscript:, file:, or data:, otherwise 0.
-bufsize_t _scan_dangerous_url(const unsigned char *p)
-{
-  const unsigned char *marker = NULL;
-  const unsigned char *start = p;
-/*!re2c
-  'data:image/' ('png'|'gif'|'jpeg'|'webp') { return 0; }
-  'javascript:' | 'vbscript:' | 'file:' | 'data:' { return (bufsize_t)(p - start); }
-  .? { return 0; }
-*/
-}
-

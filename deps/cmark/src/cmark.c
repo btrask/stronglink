@@ -6,17 +6,10 @@
 #include "cmark.h"
 #include "buffer.h"
 
-int cmark_version()
-{
-	return CMARK_VERSION;
-}
+const int cmark_version = CMARK_VERSION;
+const char cmark_version_string[] = CMARK_VERSION_STRING;
 
-const char *cmark_version_string()
-{
-	return CMARK_VERSION_STRING;
-}
-
-char *cmark_markdown_to_html(const char *text, size_t len, int options)
+char *cmark_markdown_to_html(const char *text, int len, int options)
 {
 	cmark_node *doc;
 	char *result;

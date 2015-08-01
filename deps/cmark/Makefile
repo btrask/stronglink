@@ -18,9 +18,8 @@ BENCHINP?=README.md
 VERSION?=$(SPECVERSION)
 RELEASE?=CommonMark-$(VERSION)
 INSTALL_PREFIX?=/usr/local
-CLANG_CHECK?=clang-check
 
-.PHONY: all cmake_build spec leakcheck clean fuzztest dingus upload test update-site upload-site debug ubsan asan mingw archive bench astyle update-spec afl clang-check
+.PHONY: all cmake_build spec leakcheck clean fuzztest dingus upload test update-site upload-site debug ubsan asan mingw archive bench astyle update-spec afl
 
 all: cmake_build man/man3/cmark.3
 
@@ -37,8 +36,7 @@ $(BUILDDIR):
 	cmake .. \
 		-G "$(GENERATOR)" \
 		-DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
-		-DCMAKE_INSTALL_PREFIX=$(INSTALL_PREFIX) \
-		-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+		-DCMAKE_INSTALL_PREFIX=$(INSTALL_PREFIX)
 
 install: $(BUILDDIR)
 	make -C $(BUILDDIR) install
@@ -77,10 +75,8 @@ afl:
 	    -o test/afl_results \
 	    -x test/afl_dictionary \
 	    -t 100 \
-	    $(CMARK) $(CMARK_OPTS)
-
-clang-check: all
-	${CLANG_CHECK} -p build -analyze src/*.c
+	    -m none \
+	    $(CMARK)
 
 mingw:
 	mkdir -p $(MINGW_BUILDDIR); \
@@ -98,6 +94,12 @@ archive:
 clean:
 	rm -rf $(BUILDDIR) $(MINGW_BUILDDIR) $(MINGW_INSTALLDIR)
 
+# We include html_unescape.h in the repository, so this shouldn't
+# normally need to be generated.
+$(SRCDIR)/html_unescape.h: $(SRCDIR)/html_unescape.gperf
+	gperf -L ANSI-C -I -t -N find_entity -H hash_entity -K entity -C -l \
+		-F ',{0}' --null-strings -m5 -P -Q entity_pool $< > $@
+
 # We include case_fold_switch.inc in the repository, so this shouldn't
 # normally need to be generated.
 $(SRCDIR)/case_fold_switch.inc: $(DATADIR)/CaseFolding-3.2.0.txt
@@ -113,13 +115,7 @@ $(SRCDIR)/scanners.c: $(SRCDIR)/scanners.re
 		false; \
 		;; \
 	esac
-	re2c --case-insensitive -b -i --no-generation-date -8 \
-		--encoding-policy substitute -o $@ $<
-
-# We include entities.inc in the repository, so normally this
-# doesn't need to be regenerated:
-$(SRCDIR)/entities.inc: tools/make_entities_inc.py
-	python3 $< > $@
+	re2c --case-insensitive -b -i --no-generation-date -o $@ $<
 
 update-spec:
 	curl 'https://raw.githubusercontent.com/jgm/CommonMark/master/spec.txt'\
@@ -136,7 +132,7 @@ $(ALLTESTS): $(SPEC)
 
 leakcheck: $(ALLTESTS)
 	rc=0; \
-	for format in html man xml latex commonmark; do \
+	for format in html man xml commonmark; do \
 	  for opts in "" "--smart" "--normalize"; do \
 	     echo "cmark -t $$format $$opts" ; \
 	     cat $< | valgrind -q --leak-check=full --dsymutil=yes --error-exitcode=1 $(PROG) -t $$format $$opts >/dev/null || rc=1; \
@@ -153,7 +149,7 @@ fuzztest:
 progit:
 	git clone https://github.com/progit/progit.git
 
-$(BENCHDIR)/benchinput.md: progit
+$(BENCHFILE): progit
 	echo "" > $@
 	for lang in ar az be ca cs de en eo es es-ni fa fi fr hi hu id it ja ko mk nl no-nb pl pt-br ro ru sr th tr uk vi zh zh-tw; do \
 		cat progit/$$lang/*/*.markdown >> $@; \

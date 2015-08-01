@@ -5,40 +5,12 @@
 #include "buffer.h"
 #include "houdini.h"
 #include "utf8.h"
-#include "entities.inc"
+#include "html_unescape.h"
 
-/* Binary tree lookup code for entities added by JGM */
-
-static unsigned char *
-S_lookup(int i, int low, int hi, const unsigned char *s, int len)
+size_t
+houdini_unescape_ent(cmark_strbuf *ob, const uint8_t *src, size_t size)
 {
-	int j;
-	int cmp = strncmp((char *)s, (char *)cmark_entities[i].entity, len);
-	if (cmp == 0 && cmark_entities[i].entity[len] == 0) {
-		return (unsigned char *)cmark_entities[i].bytes;
-	} else if (cmp < 0 && i > low) {
-		j = i - ((i - low) / 2);
-		if (j == i) j -= 1;
-		return S_lookup(j, low, i - 1, s, len);
-	} else if (cmp > 0 && i < hi) {
-		j = i + ((hi - i) / 2);
-		if (j == i) j += 1;
-		return S_lookup(j, i + 1, hi, s, len);
-	} else {
-		return NULL;
-	}
-}
-
-static unsigned char *
-S_lookup_entity(const unsigned char *s, int len)
-{
-	return S_lookup(CMARK_NUM_ENTITIES / 2, 0, CMARK_NUM_ENTITIES - 1, s, len);
-}
-
-bufsize_t
-houdini_unescape_ent(cmark_strbuf *ob, const uint8_t *src, bufsize_t size)
-{
-	bufsize_t i = 0;
+	size_t i = 0;
 
 	if (size >= 3 && src[0] == '#') {
 		int codepoint  = 0;
@@ -85,18 +57,22 @@ houdini_unescape_ent(cmark_strbuf *ob, const uint8_t *src, bufsize_t size)
 	}
 
 	else {
-		if (size > CMARK_ENTITY_MAX_LENGTH)
-			size = CMARK_ENTITY_MAX_LENGTH;
+		if (size > MAX_WORD_LENGTH)
+			size = MAX_WORD_LENGTH;
 
-		for (i = CMARK_ENTITY_MIN_LENGTH; i < size; ++i) {
+		for (i = MIN_WORD_LENGTH; i < size; ++i) {
 			if (src[i] == ' ')
 				break;
 
 			if (src[i] == ';') {
-				const unsigned char *entity = S_lookup_entity(src, i);
+				const struct html_ent *entity = find_entity((char *)src, i);
 
 				if (entity != NULL) {
-					cmark_strbuf_puts(ob, (const char *)entity);
+					int len = 0;
+					while (len < 4 && entity->utf8[len] != '\0') {
+						++len;
+					}
+					cmark_strbuf_put(ob, entity->utf8, len);
 					return i + 1;
 				}
 
@@ -109,9 +85,9 @@ houdini_unescape_ent(cmark_strbuf *ob, const uint8_t *src, bufsize_t size)
 }
 
 int
-houdini_unescape_html(cmark_strbuf *ob, const uint8_t *src, bufsize_t size)
+houdini_unescape_html(cmark_strbuf *ob, const uint8_t *src, size_t size)
 {
-	bufsize_t i = 0, org, ent;
+	size_t  i = 0, org, ent;
 
 	while (i < size) {
 		org = i;
@@ -146,7 +122,7 @@ houdini_unescape_html(cmark_strbuf *ob, const uint8_t *src, bufsize_t size)
 	return 1;
 }
 
-void houdini_unescape_html_f(cmark_strbuf *ob, const uint8_t *src, bufsize_t size)
+void houdini_unescape_html_f(cmark_strbuf *ob, const uint8_t *src, size_t size)
 {
 	if (!houdini_unescape_html(ob, src, size))
 		cmark_strbuf_put(ob, src, size);

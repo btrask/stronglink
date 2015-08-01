@@ -24,7 +24,7 @@ extern "C" {
  * UTF-8-encoded string.
  */
 CMARK_EXPORT
-char *cmark_markdown_to_html(const char *text, size_t len, int options);
+char *cmark_markdown_to_html(const char *text, int len, int options);
 
 /** ## Node Structure
  */
@@ -479,17 +479,12 @@ char *cmark_render_html(cmark_node *root, int options);
 /** Render a 'node' tree as a groff man page, without the header.
  */
 CMARK_EXPORT
-char *cmark_render_man(cmark_node *root, int options, int width);
+char *cmark_render_man(cmark_node *root, int options);
 
 /** Render a 'node' tree as a commonmark document.
  */
 CMARK_EXPORT
 char *cmark_render_commonmark(cmark_node *root, int options, int width);
-
-/** Render a 'node' tree as a LaTeX document.
- */
-CMARK_EXPORT
-char *cmark_render_latex(cmark_node *root, int options, int width);
 
 /** Default writer options.
  */
@@ -511,19 +506,6 @@ char *cmark_render_latex(cmark_node *root, int options, int width);
  */
 #define CMARK_OPT_SMART 8
 
-/** Validate UTF-8 in the input before parsing, replacing illegal
- * sequences with the replacement character U+FFFD.
- */
-#define CMARK_OPT_VALIDATE_UTF8 16
-
-/** Suppress raw HTML and unsafe links (`javascript:`, `vbscript:`,
- * `file:`, and `data:`, except for `image/png`, `image/gif`,
- * `image/jpeg`, or `image/webp` mime types).  Raw HTML is replaced
- * by a placeholder HTML comment. Unsafe links are replaced by
- * empty strings.
- */
-#define CMARK_OPT_SAFE 32
-
 /**
  * ## Version information
  */
@@ -538,13 +520,13 @@ char *cmark_render_latex(cmark_node *root, int options, int width);
  * In hexadecimal format, the number 0x010203 represents version 1.2.3.
  */
 CMARK_EXPORT
-int cmark_version();
+extern const int cmark_version;
 
 /** The library version string for runtime checks. Also available as
  * macro CMARK_VERSION_STRING for compile time checks.
  */
 CMARK_EXPORT
-const char *cmark_version_string();
+extern const char cmark_version_string[];
 
 /** # AUTHORS
  *
