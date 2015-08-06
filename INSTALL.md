@@ -36,7 +36,7 @@ Right now there is no configuration interface whatsoever (not even a config file
 
 - Port number: set `SERVER_PORT` in `src/blog/main.c`
 - Server access: set `SERVER_ADDRESS` in `src/blog/main.c`
-- Database backend: use `DB=xx make` where `xx` is empty (for LevelDB), `mdb`, `rocksdb`, or `hyper`
+- Database backend: use `DB=xx make` where `xx` is empty (for MDB), `leveldb`, `rocksdb`, or `hyper`
 - Repository name: uses the repository directory's basename
 - Guest access: set `repo->pub_mode` from `0` to `SLN_RDONLY` or `SLN_RDWR`
 - Number of results per page: `RESULTS_MAX` in `src/blog/Blog.c`

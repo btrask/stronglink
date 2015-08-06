@@ -202,13 +202,13 @@ else ifeq ($(DB),lsmdb)
   HEADERS += $(DEPS_DIR)/lsmdb/lsmdb.h
   OBJECTS += $(BUILD_DIR)/deps/lsmdb/lsmdb.o
   OBJECTS += $(BUILD_DIR)/db/db_base_lsmdb.o
-else ifeq ($(DB),mdb)
-  OBJECTS += $(BUILD_DIR)/db/db_base_mdb.o
-else
+else ifeq ($(DB),leveldb)
   CFLAGS += -I$(DEPS_DIR)/leveldb/include -I$(DEPS_DIR)/snappy/include
   STATIC_LIBS += $(DEPS_DIR)/leveldb/libleveldb.a $(DEPS_DIR)/snappy/.libs/libsnappy.a
   LIBS += -lstdc++
   OBJECTS += $(BUILD_DIR)/db/db_base_leveldb.o
+else
+  OBJECTS += $(BUILD_DIR)/db/db_base_mdb.o
 endif
 
 .DEFAULT_GOAL := all
