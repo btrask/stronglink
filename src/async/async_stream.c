@@ -25,7 +25,7 @@ static void read_cb(uv_stream_t *const stream, ssize_t const nread, uv_buf_t con
 		state->buf->len = 0;
 		state->status = nread;
 	} else {
-		state->buf->base = buf->base;
+		state->buf->base = buf->base; // buf->base = NULL;
 		state->buf->len = nread;
 		state->status = 0;
 	}
