@@ -62,3 +62,8 @@ Currently there is no interface for managing session keys. The only way to get o
 
 You can set up any number of repositories and the names (like "main" above) are up to you.
 
+Feedback
+--------
+
+If you need any help installing, configuring or using StrongLink, feel free to open a GitHub issue, even if it's not a "bug" per se. Updates or corrections on the documentation are also welcome.
+
