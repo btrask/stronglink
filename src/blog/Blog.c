@@ -188,7 +188,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(blog->repo));
 
-	snprintf(tmp, sizeof(tmp), "Queried in %.3f seconds", (t2-t1) / 1e9);
+	snprintf(tmp, sizeof(tmp), "Queried in %.6f seconds", (t2-t1) / 1e9);
 	str_t *querytime_HTMLSafe = htmlenc(tmp);
 
 	str_t *account_HTMLSafe;
