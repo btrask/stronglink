@@ -777,13 +777,13 @@ int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnection
 
 	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
 
-	if(strchr(URI, '?')) return 501; // TODO: Not Implemented
-
 	str_t path[PATH_MAX];
 	size_t const len = strlen(URI);
 	if(0 == len) return 400;
 
-	str_t *URI_raw = QSUnescape(URI, len, false);
+	strarg_t const qs = strchr(URI, '?');
+	size_t const pathlen = qs ? qs-URI : len;
+	str_t *URI_raw = QSUnescape(URI, pathlen, false);
 	if('/' == URI[len-1]) {
 		str_t const index[] = "index.html";
 		rc = snprintf(path, sizeof(path), "%s/static/%s%s", blog->dir, URI_raw, index);
