@@ -428,7 +428,7 @@ URIListStream.prototype._transform = function(chunk, encoding, cb) {
 		if(!this._meta) {
 			this.push(x[1]);
 		} else {
-			x = /^(.*)\s*->\s*(.*)$/.exec(x[1]);
+			x = /^(.*[^ ]) +-> +(.*)$/.exec(x[1]);
 			if(!x) return cb(new Error("Parse error"));
 			this.push({ uri: x[1], target: x[2] });
 		}
