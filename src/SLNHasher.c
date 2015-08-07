@@ -105,28 +105,32 @@ str_t **SLNHasherEnd(SLNHasherRef const hasher) {
 			hex[HASHLEN_LONG*2] = '\0';
 			URIs[x] = SLNFormatURI(algos[i]->name, hex);
 			hex[HASHLEN_LONG*2] = c;
-			if(URIs[x]) x++;
+			if(!URIs[x]) goto cleanup;
+			x++;
 		}
 		if(len >= HASHLEN_MEDIUM) {
 			char const c = hex[HASHLEN_MEDIUM*2];
 			hex[HASHLEN_MEDIUM*2] = '\0';
 			URIs[x] = SLNFormatURI(algos[i]->name, hex);
 			hex[HASHLEN_MEDIUM*2] = c;
-			if(URIs[x]) x++;
+			if(!URIs[x]) goto cleanup;
+			x++;
 		}
 		if(len >= HASHLEN_SHORT) {
 			char const c = hex[HASHLEN_SHORT*2];
 			hex[HASHLEN_SHORT*2] = '\0';
 			URIs[x] = SLNFormatURI(algos[i]->name, hex);
 			hex[HASHLEN_SHORT*2] = c;
-			if(URIs[x]) x++;
+			if(!URIs[x]) goto cleanup;
+			x++;
 		}
 		if(len >= 0) {
 			char const c = hex[HASHLEN_MAX*2];
 			hex[HASHLEN_MAX*2] = '\0';
 			URIs[x] = SLNFormatURI(algos[i]->name, hex);
 			hex[HASHLEN_MAX*2] = c;
-			if(URIs[x]) x++;
+			if(!URIs[x]) goto cleanup;
+			x++;
 		}
 
 		// TODO: base-64 support.
