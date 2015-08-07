@@ -41,6 +41,7 @@ Right now there is no configuration interface whatsoever (not even a config file
 - Guest access: set `repo->pub_mode` from `0` to `SLN_RDONLY` or `SLN_RDWR`
 - Number of results per page: `RESULTS_MAX` in `src/blog/Blog.c`
 - Repo name: by default the name of the directory, but override `reponame` in `src/blog/main.c`
+- Internal algorithm: `SLN_INTERNAL_ALGORITHM` in `src/StrongLink.h` (only change for new repos!)
 
 Client Configuration
 --------------------
