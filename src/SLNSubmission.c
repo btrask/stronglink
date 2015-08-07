@@ -20,6 +20,7 @@ struct SLNSubmission {
 	uint64_t metaFileID;
 
 	str_t **URIs;
+	str_t *primaryURI;
 	str_t *internalHash;
 };
 
@@ -89,6 +90,7 @@ void SLNSubmissionFree(SLNSubmissionRef *const subptr) {
 
 	if(sub->URIs) for(size_t i = 0; sub->URIs[i]; ++i) FREE(&sub->URIs[i]);
 	FREE(&sub->URIs);
+	FREE(&sub->primaryURI);
 	FREE(&sub->internalHash);
 
 	assert_zeroed(sub, 1);
@@ -202,8 +204,11 @@ int SLNSubmissionWriteFrom(SLNSubmissionRef const sub, ssize_t (*read)(void *, b
 
 strarg_t SLNSubmissionGetPrimaryURI(SLNSubmissionRef const sub) {
 	if(!sub) return NULL;
-	if(!sub->URIs) return NULL;
-	return sub->URIs[0];
+	if(!sub->primaryURI) {
+		if(!sub->internalHash) return NULL;
+		sub->primaryURI = SLNFormatURI(SLN_INTERNAL_ALGO, sub->internalHash);
+	}
+	return sub->primaryURI;
 }
 int SLNSubmissionGetFileInfo(SLNSubmissionRef const sub, SLNFileInfo *const info) {
 	if(!sub) return UV_EINVAL;

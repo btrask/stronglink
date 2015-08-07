@@ -221,8 +221,8 @@ void SLNPullFree(SLNPullRef *const pullptr);
 int SLNPullStart(SLNPullRef const pull);
 void SLNPullStop(SLNPullRef const pull);
 
-#define SLN_URI_MAX (511+1) // Otherwise use URI_MAX
-#define SLN_INTERNAL_ALGO "sha256"
+#define SLN_URI_MAX (511+1) // Otherwise use URI_MAX.
+#define SLN_INTERNAL_ALGO "sha256" // Defines part of our on-disk format.
 #define SLN_ALGO_SIZE (31+1)
 #define SLN_HASH_SIZE (255+1)
 #define SLN_ALGO_FMT "%31[a-zA-Z0-9.-]"

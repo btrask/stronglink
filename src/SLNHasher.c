@@ -12,7 +12,7 @@
 
 // Note: Support for old/weak algorithms is important for old files
 // that have links using those algorithms. The algorithm we use
-// internally is currently SHA-256 (which must be first in the list).
+// internally is defined by SLN_INTERNAL_ALGO.
 static SLNAlgo const *const algos[];
 static size_t const algocount;
 
@@ -92,7 +92,8 @@ str_t **SLNHasherEnd(SLNHasherRef const hasher) {
 		str_t hex[sizeof(bin)*2+1];
 		tohex(hex, bin, len);
 		hex[len*2] = '\0';
-		if(0 == i) {
+		if(0 == strcmp(SLN_INTERNAL_ALGO, algos[i]->name)) {
+			if(hasher->internalHash) goto cleanup; // Duplicate...?
 			char const c = hex[HASHLEN_LONG*2];
 			hex[HASHLEN_LONG*2] = '\0';
 			hasher->internalHash = strdup(hex);
@@ -135,6 +136,7 @@ str_t **SLNHasherEnd(SLNHasherRef const hasher) {
 
 		// TODO: base-64 support.
 	}
+	if(!hasher->internalHash) goto cleanup;
 
 	URIs[x] = NULL;
 
@@ -245,12 +247,10 @@ static SLNAlgo const sha512 = {
 	.final = sha512final,
 };
 
-// First algo is used for the internal hash.
-// Changing it changes the on-disk format.
 static SLNAlgo const *const algos[] = {
+	&sha1,
 	&sha256,
 	&sha512,
-	&sha1,
 };
 static size_t const algocount = numberof(algos);
 
