@@ -117,6 +117,14 @@ int SLNSubmissionGetFileInfo(SLNSubmissionRef const sub, SLNFileInfo *const info
 int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn);
 int SLNSubmissionStoreBatch(SLNSubmissionRef const *const list, size_t const count);
 
+
+typedef struct {
+	char const *const name;
+	int (*init)(char const *const type, void **const algo);
+	int (*update)(void *const ctx, byte_t const *const buf, size_t const len);
+	ssize_t (*final)(void *const ctx, byte_t *const out, size_t const max);
+} SLNAlgo;
+
 SLNHasherRef SLNHasherCreate(strarg_t const type);
 void SLNHasherFree(SLNHasherRef *const hasherptr);
 int SLNHasherWrite(SLNHasherRef const hasher, byte_t const *const buf, size_t const len);
