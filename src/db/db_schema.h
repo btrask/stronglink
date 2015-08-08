@@ -20,13 +20,19 @@
 #define DB_VAL_STORAGE(val, len) \
 	uint8_t __buf_##val[(len)]; \
 	*(val) = (DB_val){ 0, __buf_##val };
-#define DB_VAL_STORAGE_VERIFY(val) \
-	assert((val)->size <= sizeof(__buf_##val))
 #define DB_RANGE_STORAGE(range, len) \
 	uint8_t __buf_min_##range[(len)]; \
 	uint8_t __buf_max_##range[(len)]; \
 	*(range)->min = (DB_val){ 0, __buf_min_##range }; \
 	*(range)->max = (DB_val){ 0, __buf_max_##range };
+
+// TODO: These checks are better than nothing, but they're far from ideal.
+// We can calculate the storage needed at compile-time, so we shouldn't need
+// to hardcode+verify at all. Just generate the right answer and use that.
+// We could also count the theoretical storage needed at runtime and verify
+// that. Probably by adding an in/out counter to db_bind_*.
+#define DB_VAL_STORAGE_VERIFY(val) \
+	assert((val)->size <= sizeof(__buf_##val))
 #define DB_RANGE_STORAGE_VERIFY(range) do { \
 	assert((range)->min->size <= sizeof(__buf_min_##range)); \
 	assert((range)->max->size <= sizeof(__buf_max_##range)); \
