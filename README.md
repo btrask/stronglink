@@ -23,7 +23,7 @@ It currently [takes some work to set up](https://github.com/btrask/stronglink/bl
 Demo
 ----
 
-My notes on StrongLink development are self-hosted. You can find over a thousand notes spanning several years [here](http://bentrask.com/). (You can copy and paste the sample hash link above into my site's search field to resolve it.)
+My notes on StrongLink development are self-hosted. You can find over a thousand notes spanning several years [here](http://bentrask.com/). You can [resolve the hash link above](http://bentrask.com/?q=hash://sha256/6834b5440fc88e00a1e7fec197f9f42c72fd92600275ba1afc7704e8e3bcd1ee) or [search for something](http://bentrask.com/?q=Dave+Winer).
 
 If you install StrongLink yourself (which currently is an [involved process](https://github.com/btrask/stronglink/blob/master/INSTALL.md)), you can make your own mirror by syncing from my site.
 
