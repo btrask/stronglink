@@ -45,7 +45,7 @@ It doesn't have any themes or plugins yet.
 **How does it compare to web search engines?**  
 StrongLink is built like a search engine, although it has some different design goals.
 
-Since it's designed to search a single repository rather than the entire web, it can take fewer shortcuts and return more accurate results. The index is fully ACID, so there is no delay before results show up or chance of files getting "missed." Results are ordered chronologically rather than by fuzzy relevance heuristics (which is admittedly sometimes a downside). It doesn't (currently) use stopwords and stemming can be changed on a per-repository basis.
+Since it's designed to search a single repository rather than the entire web, it can take fewer shortcuts and return more accurate results. The index is fully ACID, so there is no delay before results show up or chance of files getting "missed." Results are ordered chronologically rather than by fuzzy relevance heuristics (which is admittedly sometimes a downside). It doesn't (currently) use stopwords, and stemming can be changed on a per-repository basis.
 
 Your searches never leave your machine. It can index private files without exposing them to a third party.
 
