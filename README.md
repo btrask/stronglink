@@ -67,6 +67,13 @@ The [client API](https://github.com/btrask/stronglink/blob/master/client/README.
 
 The server API (used for embedding as a library) is completely unfinished and isn't ready (or documented) for public consumption.
 
+**What happens in case of a hash collision?**  
+Long hashes make collisions extremely unlikely. For instance, in the old SHA-1 algorithm, no collisions have ever been found. SHA-256, the default in StrongLink, makes collisions even less likely and harder to find.
+
+StrongLink supports several hash lengths. By default, long hashes are used (32 bytes), which are as secure as possible. Medium length hashes (24 bytes) are still secure but slightly shorter. Short hashes (12 bytes) are robust against accidental collisions and convenient to speak, type, or write down.
+
+In the unlikely event that a hash collision does occur, StrongLink always uses the oldest file with the given hash, which theoretically allows "squatting" but prevents unexpected overwriting or other abuse.
+
 **Will it ever support mutability?**  
 Hopefully, yes. The plan is to build a mutable interface layer on top of the immutable data store. This will keep StrongLink's sync protocol simple and reliable while gradually supporting a broader range of uses. Mutable tags will come first, and then eventually mutable files (using diffs rather than block deduplication).
 
