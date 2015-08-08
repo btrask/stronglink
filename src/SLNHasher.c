@@ -8,7 +8,7 @@
 #define HASHLEN_SHORT 12 // Safe against accidental collisions.
 #define HASHLEN_MEDIUM 24 // Safe against malicious collisions.
 #define HASHLEN_LONG 32 // Longest reasonable, hex form fits 80-char line.
-#define HASHLEN_MAX 128 // Come on, this isn't IPv6.
+#define HASHLEN_MAX 128 // Should be enough for anyone.
 
 // Note: Support for old/weak algorithms is important for old files
 // that have links using those algorithms. The algorithm we use
