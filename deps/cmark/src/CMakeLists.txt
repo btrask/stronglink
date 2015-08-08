@@ -9,14 +9,13 @@ set(HEADERS
   iterator.h
   chunk.h
   references.h
-  debug.h
   bench.h
   utf8.h
   scanners.h
   inlines.h
-  html_unescape.h
   houdini.h
   cmark_ctype.h
+  render.h
   )
 set(LIBRARY_SOURCES
   cmark.c
@@ -29,11 +28,12 @@ set(LIBRARY_SOURCES
   utf8.c
   buffer.c
   references.c
+  render.c
   man.c
   xml.c
   html.c
   commonmark.c
-  html_unescape.gperf
+  latex.c
   houdini_href_e.c
   houdini_html_e.c
   houdini_html_u.c
@@ -88,7 +88,8 @@ set_target_properties(${LIBRARY} PROPERTIES
   SOVERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}
   VERSION ${PROJECT_VERSION})
 set_target_properties(${STATICLIBRARY} PROPERTIES
-  COMPILE_FLAGS -DCMARK_STATIC_DEFINE)
+  COMPILE_FLAGS -DCMARK_STATIC_DEFINE
+  POSITION_INDEPENDENT_CODE ON)
 
 if (MSVC)
   set_target_properties(${STATICLIBRARY} PROPERTIES
@@ -138,11 +139,6 @@ CHECK_C_SOURCE_COMPILES("
   int f(void) __attribute__ (());
   int main() { return 0; }
 " HAVE___ATTRIBUTE__)
-CHECK_C_SOURCE_RUNS("
-  #include <stdio.h>
-  int main() { return snprintf(NULL, 0, \"123\") == 3 ? 0 : 1; }
-" HAVE_C99_SNPRINTF)
-CHECK_SYMBOL_EXISTS(va_copy stdarg.h HAVE_VA_COPY)
 
 CONFIGURE_FILE(
   ${CMAKE_CURRENT_SOURCE_DIR}/config.h.in

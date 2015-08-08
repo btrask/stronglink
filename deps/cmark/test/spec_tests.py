@@ -13,7 +13,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run cmark tests.')
     parser.add_argument('-p', '--program', dest='program', nargs='?', default=None,
             help='program to test')
-    parser.add_argument('-s', '--spec', dest='spec', nargs='?', default='test/spec.txt',
+    parser.add_argument('-s', '--spec', dest='spec', nargs='?', default='spec.txt',
             help='path to spec')
     parser.add_argument('-P', '--pattern', dest='pattern', nargs='?',
             default=None, help='limit to sections matching regex pattern')
@@ -32,11 +32,14 @@ if __name__ == "__main__":
             help='only consider the test with the given number')
     args = parser.parse_args(sys.argv[1:])
 
+def out(str):
+    sys.stdout.buffer.write(str.encode('utf-8')) 
+
 def print_test_header(headertext, example_number, start_line, end_line):
-    print("Example %d (lines %d-%d) %s" % (example_number,start_line,end_line,headertext))
+    out("Example %d (lines %d-%d) %s\n" % (example_number,start_line,end_line,headertext))
 
 def do_test(test, normalize, result_counts):
-    [retcode, actual_html, err] = cmark.to_html(re.sub(r"\n", "\r\n", test['markdown']))
+    [retcode, actual_html, err] = cmark.to_html(test['markdown'])
     if retcode == 0:
         expected_html = test['html']
         unicode_error = None
@@ -52,27 +55,23 @@ def do_test(test, normalize, result_counts):
             result_counts['pass'] += 1
         else:
             print_test_header(test['section'], test['example'], test['start_line'], test['end_line'])
-            print("Orig: "+repr(test['markdown']))
-            print("Conv: "+repr(re.sub(r"\n", "\r\n", test['markdown'])))
-#            sys.stdout.write(test['markdown'])
+            out(test['markdown'] + '\n')
             if unicode_error:
-                print("Unicode error: " + str(unicode_error))
-                print("Expected: " + repr(expected_html))
-                print("Got:      " + repr(actual_html))
+                out("Unicode error: " + str(unicode_error) + '\n')
+                out("Expected: " + repr(expected_html) + '\n')
+                out("Got:      " + repr(actual_html) + '\n')
             else:
-                print("Expected: " + repr(expected_html))
-                print("Got:      " + repr(actual_html))
-#                expected_html_lines = expected_html.splitlines(True)
-#                actual_html_lines = actual_html.splitlines(True)
-#                for diffline in unified_diff(expected_html_lines, actual_html_lines,
-#                                "expected HTML", "actual HTML"):
-#                    sys.stdout.write(diffline)
-            sys.stdout.write('\n')
+                expected_html_lines = expected_html.splitlines(True)
+                actual_html_lines = actual_html.splitlines(True)
+                for diffline in unified_diff(expected_html_lines, actual_html_lines,
+                                "expected HTML", "actual HTML"):
+                    out(diffline)
+            out('\n')
             result_counts['fail'] += 1
     else:
         print_test_header(test['section'], test['example'], test['start_line'], test['end_line'])
-        print("program returned error code %d" % retcode)
-        print(err)
+        out("program returned error code %d\n" % retcode)
+        sys.stdout.buffer.write(err)
         result_counts['error'] += 1
 
 def get_tests(specfile):
@@ -100,7 +99,7 @@ def get_tests(specfile):
                     end_line = line_number
                     tests.append({
                         "markdown":''.join(markdown_lines).replace('→',"\t"),
-                        "html":''.join(html_lines),
+                        "html":''.join(html_lines).replace('→',"\t"),
                         "example": example_number,
                         "start_line": start_line,
                         "end_line": end_line,
@@ -118,7 +117,7 @@ def get_tests(specfile):
 
 if __name__ == "__main__":
     if args.debug_normalization:
-        print(normalize_html(sys.stdin.read()))
+        out(normalize_html(sys.stdin.read()))
         exit(0)
 
     all_tests = get_tests(args.spec)
@@ -128,7 +127,7 @@ if __name__ == "__main__":
         pattern_re = re.compile('.')
     tests = [ test for test in all_tests if re.search(pattern_re, test['section']) and (not args.number or test['example'] == args.number) ]
     if args.dump_tests:
-        print(json.dumps(tests, ensure_ascii=False, indent=2))
+        out(json.dumps(tests, ensure_ascii=False, indent=2))
         exit(0)
     else:
         skipped = len(all_tests) - len(tests)
@@ -136,7 +135,7 @@ if __name__ == "__main__":
         result_counts = {'pass': 0, 'fail': 0, 'error': 0, 'skip': skipped}
         for test in tests:
             do_test(test, args.normalize, result_counts)
-        print("{pass} passed, {fail} failed, {error} errored, {skip} skipped".format(**result_counts))
+        out("{pass} passed, {fail} failed, {error} errored, {skip} skipped\n".format(**result_counts))
         if result_counts['fail'] == 0 and result_counts['error'] == 0:
             exit(0)
         else:
