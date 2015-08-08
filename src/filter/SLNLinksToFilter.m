@@ -5,8 +5,7 @@ static int SLNFilterCopyURISynonyms(DB_txn *const txn, strarg_t const URI, str_t
 	assert(out);
 	if(!URI) return DB_EINVAL;
 
-	DB_cursor *c1 = NULL;
-	DB_cursor *c2 = NULL;
+	DB_cursor *cursor = NULL;
 	size_t count = 0;
 	size_t size = 0;
 	str_t **alts = NULL;
@@ -20,18 +19,16 @@ static int SLNFilterCopyURISynonyms(DB_txn *const txn, strarg_t const URI, str_t
 	if(!alts[count-1]) rc = DB_ENOMEM;
 	if(rc < 0) goto cleanup;
 
-	rc = db_cursor_open(txn, &c1);
-	if(rc < 0) goto cleanup;
-	rc = db_cursor_open(txn, &c2);
+	rc = db_cursor_open(txn, &cursor);
 	if(rc < 0) goto cleanup;
 
+	// Even though there can be multiple files with the given URI,
+	// we only want the synonyms for ONE of them (the oldest one).
 	DB_val key[1];
 	DB_range files[1];
 	SLNURIAndFileIDRange1(files, txn, URI);
-	rc = db_cursor_firstr(c1, files, key, NULL, +1);
-	if(rc < 0 && DB_NOTFOUND != rc) goto cleanup;
-
-	for(; DB_NOTFOUND != rc; rc = db_cursor_nextr(c1, files, key, NULL, +1)) {
+	rc = db_cursor_firstr(cursor, files, key, NULL, +1);
+	if(rc >= 0) {
 		strarg_t u;
 		uint64_t fileID;
 		SLNURIAndFileIDKeyUnpack(key, txn, &u, &fileID);
@@ -39,10 +36,10 @@ static int SLNFilterCopyURISynonyms(DB_txn *const txn, strarg_t const URI, str_t
 
 		DB_range URIs[1];
 		SLNFileIDAndURIRange1(URIs, txn, fileID);
-		rc = db_cursor_firstr(c2, URIs, key, NULL, +1);
+		rc = db_cursor_firstr(cursor, URIs, key, NULL, +1);
 		if(rc < 0 && DB_NOTFOUND != rc) goto cleanup;
 
-		for(; DB_NOTFOUND != rc; rc = db_cursor_nextr(c2, URIs, key, NULL, +1)) {
+		for(; DB_NOTFOUND != rc; rc = db_cursor_nextr(cursor, URIs, key, NULL, +1)) {
 			uint64_t f;
 			strarg_t alt;
 			SLNFileIDAndURIKeyUnpack(key, txn, &f, &alt);
@@ -59,15 +56,17 @@ static int SLNFilterCopyURISynonyms(DB_txn *const txn, strarg_t const URI, str_t
 			if(!alts[count-1]) rc = DB_ENOMEM;
 			if(rc < 0) goto cleanup;
 		}
+	} else if(DB_NOTFOUND != rc) {
+		goto cleanup;
 	}
+
 	assert(DB_NOTFOUND == rc);
 	rc = 0;
 
 	*out = alts; alts = NULL;
 
 cleanup:
-	db_cursor_close(c1); c1 = NULL;
-	db_cursor_close(c2); c2 = NULL;
+	db_cursor_close(cursor); cursor = NULL;
 	FREE(&alts);
 	return rc;
 }

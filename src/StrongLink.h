@@ -158,9 +158,9 @@ enum {
 	SLNFulltextFilterType = 10,
 	// Exact meta-data field and value // TODO: Case-insensitivity
 	SLNMetadataFilterType = 11,
-	// Backlinks to file(s) with given URI
+	// Backlinks (everything linking to a file with the given URI)
 	SLNLinksToFilterType = 12,
-	// Forward links (everything linked from file(s) with given URI)
+	// Forward links (everything linked from a file with the given URI)
 //	SLNLinkedFromFilterType = 13, // TODO
 };
 
