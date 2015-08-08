@@ -20,11 +20,17 @@
 #define DB_VAL_STORAGE(val, len) \
 	uint8_t __buf_##val[(len)]; \
 	*(val) = (DB_val){ 0, __buf_##val };
+#define DB_VAL_STORAGE_VERIFY(val) \
+	assert((val)->size <= sizeof(__buf_##val))
 #define DB_RANGE_STORAGE(range, len) \
 	uint8_t __buf_min_##range[(len)]; \
 	uint8_t __buf_max_##range[(len)]; \
 	*(range)->min = (DB_val){ 0, __buf_min_##range }; \
 	*(range)->max = (DB_val){ 0, __buf_max_##range };
+#define DB_RANGE_STORAGE_VERIFY(range) do { \
+	assert((range)->min->size <= sizeof(__buf_min_##range)); \
+	assert((range)->max->size <= sizeof(__buf_max_##range)); \
+} while(0)
 
 typedef uint64_t dbid_t;
 enum {
