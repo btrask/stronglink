@@ -92,46 +92,32 @@ str_t **SLNHasherEnd(SLNHasherRef const hasher) {
 		str_t hex[sizeof(bin)*2+1];
 		tohex(hex, bin, len);
 		hex[len*2] = '\0';
+
 		if(0 == strcmp(SLN_INTERNAL_ALGO, algos[i]->name)) {
 			if(hasher->internalHash) goto cleanup; // Duplicate...?
-			char const c = hex[HASHLEN_LONG*2];
-			hex[HASHLEN_LONG*2] = '\0';
-			hasher->internalHash = strdup(hex);
-			hex[HASHLEN_LONG*2] = c;
+			hasher->internalHash = aasprintf("%.*s", HASHLEN_LONG*2, hex);
 			if(!hasher->internalHash) goto cleanup;
 		}
 
 		if(len >= HASHLEN_LONG) {
-			char const c = hex[HASHLEN_LONG*2];
-			hex[HASHLEN_LONG*2] = '\0';
-			URIs[x] = SLNFormatURI(algos[i]->name, hex);
-			hex[HASHLEN_LONG*2] = c;
-			if(!URIs[x]) goto cleanup;
-			x++;
+			str_t *tmp = aasprintf("hash://%s/%.*s", algos[i]->name, HASHLEN_LONG*2, hex);
+			if(!tmp) goto cleanup;
+			URIs[x++] = tmp; tmp = NULL;
 		}
 		if(len >= HASHLEN_MEDIUM) {
-			char const c = hex[HASHLEN_MEDIUM*2];
-			hex[HASHLEN_MEDIUM*2] = '\0';
-			URIs[x] = SLNFormatURI(algos[i]->name, hex);
-			hex[HASHLEN_MEDIUM*2] = c;
-			if(!URIs[x]) goto cleanup;
-			x++;
+			str_t *tmp = aasprintf("hash://%s/%.*s", algos[i]->name, HASHLEN_MEDIUM*2, hex);
+			if(!tmp) goto cleanup;
+			URIs[x++] = tmp; tmp = NULL;
 		}
 		if(len >= HASHLEN_SHORT) {
-			char const c = hex[HASHLEN_SHORT*2];
-			hex[HASHLEN_SHORT*2] = '\0';
-			URIs[x] = SLNFormatURI(algos[i]->name, hex);
-			hex[HASHLEN_SHORT*2] = c;
-			if(!URIs[x]) goto cleanup;
-			x++;
+			str_t *tmp = aasprintf("hash://%s/%.*s", algos[i]->name, HASHLEN_SHORT*2, hex);
+			if(!tmp) goto cleanup;
+			URIs[x++] = tmp; tmp = NULL;
 		}
 		if(len >= 0) {
-			char const c = hex[HASHLEN_MAX*2];
-			hex[HASHLEN_MAX*2] = '\0';
-			URIs[x] = SLNFormatURI(algos[i]->name, hex);
-			hex[HASHLEN_MAX*2] = c;
-			if(!URIs[x]) goto cleanup;
-			x++;
+			str_t *tmp = aasprintf("hash://%s/%s", algos[i]->name, hex);
+			if(!tmp) goto cleanup;
+			URIs[x++] = tmp; tmp = NULL;
 		}
 
 		// TODO: base-64 support.
