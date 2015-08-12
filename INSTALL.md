@@ -10,9 +10,9 @@ Most of the dependencies are included. You might need to instal Git to clone the
 
 Additional dependencies:
 
-Ubuntu / Debian / Linux Mint: `sudo apt-get install gcc g++ gobjc cmake automake autoconf libtool pkg-config libssl-dev`
+Ubuntu / Debian / Linux Mint: `sudo apt-get install gcc g++ gobjc cmake automake autoconf libtool pkg-config`
 
-Fedora / RedHat: `sudo yum install gcc gcc-c++ gcc-objc cmake automake autoconf libtool openssl-devel`
+Fedora / RedHat: `sudo yum install gcc gcc-c++ gcc-objc cmake automake autoconf libtool`
 
 OS X: Install the developer tools from the App Store and cmake from Homebrew. [TODO]
 
