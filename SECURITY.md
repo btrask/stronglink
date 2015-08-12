@@ -122,7 +122,6 @@ Only libraries that StrongLink "bundles" count. Currently those libraries are:
 - lsmdb
 - mdb
 - multipart-parser-c
-- openbsd-compat (only portions used by StrongLink)
 - mumurhash3
 - snappy
 - libuv
