@@ -180,7 +180,11 @@ STATIC_LIBS += $(DEPS_DIR)/lsmdb/liblmdb/liblmdb.a
 
 STATIC_LIBS += $(DEPS_DIR)/uv/.libs/libuv.a
 
-LIBS += -lcrypto -lpthread -lobjc -lm
+STATIC_LIBS += $(DEPS_DIR)/libressl-portable/crypto/.libs/libcrypto.a
+#STATIC_LIBS += $(DEPS_DIR)/libressl-portable/tls/.libs/libtls.a
+CFLAGS += -I$(DEPS_DIR)/libressl-portable/include
+
+LIBS += -lpthread -lobjc -lm
 ifeq ($(platform),linux)
 LIBS += -lrt
 endif
@@ -235,6 +239,12 @@ $(DEPS_DIR)/leveldb/libleveldb.a: | leveldb
 .PHONY: leveldb
 leveldb:
 	make -C $(DEPS_DIR)/leveldb --no-print-directory
+
+$(DEPS_DIR)/libressl-portable/crypto/.libs/libcrypto.a: | libressl
+$(DEPS_DIR)/libressl-portable/tls/.libs/libtls.a: | libressl
+.PHONY: libressl
+libressl:
+	make -C $(DEPS_DIR)/libressl-portable --no-print-directory
 
 $(DEPS_DIR)/snappy/.libs/libsnappy.a: | snappy
 .PHONY: snappy
@@ -359,6 +369,7 @@ distclean: clean
 	- make distclean -C $(DEPS_DIR)/cmark
 	- make clean -C $(DEPS_DIR)/leveldb
 	- make clean -C $(DEPS_DIR)/lsmdb/liblmdb
+	- make distclean -C $(DEPS_DIR)/libressl-portable
 	- make distclean -C $(DEPS_DIR)/snappy
 	- make distclean -C $(DEPS_DIR)/uv
 	- make distclean -C $(DEPS_DIR)/yajl

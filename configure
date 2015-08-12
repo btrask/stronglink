@@ -1,5 +1,8 @@
 #!/bin/sh
+set -e
 
-(cd deps/yajl && ./configure)
+(cd deps/libressl-portable && ./autogen.sh && ./configure)
 (cd deps/snappy && ./autogen.sh && ./configure)
 (cd deps/uv && ./autogen.sh && ./configure)
+(cd deps/yajl && ./configure)
+

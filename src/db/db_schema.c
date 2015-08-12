@@ -3,7 +3,7 @@
 
 #include <assert.h>
 #include <stdio.h> // DEBUG
-#include <openssl/sha.h> // TODO: Switch to LibreSSL.
+#include <openssl/sha.h>
 #include <stdlib.h>
 #include <string.h>
 #include "../common.h"

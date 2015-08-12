@@ -1,0 +1,33 @@
+#!/bin/sh
+set -e
+
+./autogen.sh
+
+if [ "x$ARCH" = "xnative" ]; then
+	./configure
+	if [ `uname` = "Darwin" ]; then
+		# OS X runs out of resources if we run 'make -j check'
+		make check
+	else
+		make -j distcheck
+	fi
+else
+	CPU=i686
+	if [ "x$ARCH" = "xmingw64" ]; then
+		CPU=x86_64
+	fi
+	export CC=$CPU-w64-mingw32-gcc
+
+	if [ -z $(which $CC) ]; then
+		# Update Ubuntu 12.04 with current mingw toolchain
+		sudo apt-get update
+		sudo apt-get install -y python-software-properties
+		sudo apt-add-repository -y ppa:tobydox/mingw-x-precise
+		sudo apt-get update
+		sudo apt-get install -y $ARCH-x-gcc make
+		export PATH=$PATH:/opt/$ARCH/bin
+	fi
+
+	./configure --host=$CPU-w64-mingw32
+	make -j
+fi
