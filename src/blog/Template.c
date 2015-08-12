@@ -3,7 +3,7 @@
 
 #include <regex.h>
 #include "Template.h"
-#include "../../deps/openbsd-compat/includes.h"
+#include "../../deps/libressl-portable/include/compat/stdlib.h"
 
 #define TEMPLATE_MAX (1024 * 512)
 

@@ -6,7 +6,8 @@
 #include <objc/runtime.h>
 #include "../StrongLink.h"
 #include "../SLNDB.h"
-#include "../../deps/openbsd-compat/includes.h"
+#include "../../deps/libressl-portable/include/compat/stdlib.h"
+#include "../../deps/libressl-portable/include/compat/string.h"
 
 @interface SLNObject
 {

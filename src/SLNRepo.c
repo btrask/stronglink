@@ -3,7 +3,7 @@
 
 #include "StrongLink.h"
 #include "SLNDB.h"
-#include "../deps/openbsd-compat/includes.h"
+#include "../deps/libressl-portable/include/compat/stdlib.h"
 
 #define CACHE_SIZE 1000
 

@@ -2,7 +2,6 @@
 // MIT licensed (see LICENSE for details)
 
 #include "HTTPHeaders.h"
-#include "../../deps/openbsd-compat/includes.h"
 
 // HTTPHeaders currently uses linear search of the header fields during
 // lookup. The theory is that the total field size is quite small (currently
