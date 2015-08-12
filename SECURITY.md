@@ -129,6 +129,8 @@ Only libraries that StrongLink "bundles" count. Currently those libraries are:
 
 libc and other system libraries are NOT included. libcoro is excluded because it is only used for debugging under Valgrind. lsmdb is included despite not being used by default (because I wrote it).
 
+In order to discourage "high frequency trading" of widely publicized upstream bug reports, the original discoverer of a published bug has 7 days to bring it to our attention. If we still haven't documented/fixed the issue after 7 days, anyone may report it and claim the bounty. If no bounty was awarded for a particular bug, the original discoverer may claim it at any time indefinitely, even after it was fixed.
+
 Payments will be made via PayPal.
 
 The "minimum maximum" total payout is $500 (50 bugs). I won't cancel the offer before then, and I might choose extend it indefinitely beyond that (at least until I go broke). (Hopefully the limit will never matter because 50 security-related bugs would be a disaster.)
