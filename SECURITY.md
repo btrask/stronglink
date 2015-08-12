@@ -139,6 +139,8 @@ Anyone interested in the security of StrongLink or these libraries is encouraged
 
 In the event of a dispute, my decision is NOT final. You can take me to court for your ten lousy dollars.
 
+False positives are worth negative $2.50. That means if you report 4 false positives and one true positive, you won't get paid anything. We won't come after you to collect on a negative balance, but we might blacklist you from reporting more bugs.
+
 Critical vulnerability reporting
 --------------------------------
 
