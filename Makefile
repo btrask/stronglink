@@ -180,8 +180,9 @@ STATIC_LIBS += $(DEPS_DIR)/lsmdb/liblmdb/liblmdb.a
 
 STATIC_LIBS += $(DEPS_DIR)/uv/.libs/libuv.a
 
+STATIC_LIBS += $(DEPS_DIR)/libressl-portable/tls/.libs/libtls.a
+STATIC_LIBS += $(DEPS_DIR)/libressl-portable/ssl/.libs/libssl.a
 STATIC_LIBS += $(DEPS_DIR)/libressl-portable/crypto/.libs/libcrypto.a
-#STATIC_LIBS += $(DEPS_DIR)/libressl-portable/tls/.libs/libtls.a
 CFLAGS += -I$(DEPS_DIR)/libressl-portable/include
 
 LIBS += -lpthread -lobjc -lm
@@ -241,6 +242,7 @@ leveldb:
 	make -C $(DEPS_DIR)/leveldb --no-print-directory
 
 $(DEPS_DIR)/libressl-portable/crypto/.libs/libcrypto.a: | libressl
+$(DEPS_DIR)/libressl-portable/ssl/.libs/libssl.a: | libressl
 $(DEPS_DIR)/libressl-portable/tls/.libs/libtls.a: | libressl
 .PHONY: libressl
 libressl:

@@ -4,6 +4,7 @@
 #include <libgen.h> /* basename(3) */
 #include <limits.h>
 #include <signal.h>
+#include <tls.h>
 #include "../util/fts.h"
 #include "../util/raiserlimit.h"
 #include "../http/HTTPServer.h"
@@ -128,6 +129,12 @@ int main(int const argc, char const *const *const argv) {
 
 	raiserlimit();
 	async_init();
+
+	int rc = tls_init();
+	if(rc < 0) {
+		fprintf(stderr, "TLS initialization error\n");
+		return 1;
+	}
 
 	// TODO: Real option parsing.
 	if(2 != argc || '-' == argv[1][0]) {
