@@ -133,7 +133,7 @@ include/openssl/*.he
 /libtls-standalone/src/*.h
 /libtls-standalone/src
 /libtls-standalone/tests/test
-/libtls-standalone/compat
+#/libtls-standalone/compat
 !/libtls-standalone/compat/Makefile.am
 /libtls-standalone/VERSION
 /libtls-standalone/m4
