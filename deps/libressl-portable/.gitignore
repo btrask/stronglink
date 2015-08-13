@@ -116,7 +116,8 @@ include/openssl/*.he
 !/apps/poll_win.c
 !/apps/certhash_disabled.c
 
-/crypto
+# HACK: BROKEN
+#/crypto
 !/crypto/Makefile.am.*
 !/crypto/compat/arc4random.h
 !/crypto/compat/b_win.c
