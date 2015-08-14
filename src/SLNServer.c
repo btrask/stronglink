@@ -205,10 +205,7 @@ cleanup:
 }
 static int POST_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return -1;
-	int len = 0;
-	sscanf(URI, "/sln/file%n", &len);
-	if(!len) return -1;
-	if('\0' != URI[len] && '?' != URI[len]) return -1;
+	if(!URIPath(URI, "/sln/file", NULL)) return -1;
 
 	return accept_sub(session, NULL, conn, headers);
 }
