@@ -11,6 +11,7 @@
 .textarea, .preview { top: 0; height: 100%; border: none; font-family: "Helvetica", sans-serif; font-size: 16px; }
 .textarea { left: 0; width: 50%; padding: 16px; outline: none; background: white; color: black; }
 .preview { right: 0; width: 50%; border-left: 1px solid #555; }
+.watermark { top: 30px; right: 30px; opacity: 0.5; font-size: 2em; }
 .scroll { overflow: auto; overflow-x: hidden; }
 .button { background: -webkit-linear-gradient(top, #eee, #ddd); background: -moz-linear-gradient(top, #eee, #ddd); }
 .button:active { background: -webkit-linear-gradient(top, #ddd, #eee); background: -moz-linear-gradient(top, #ddd, #eee); }
@@ -34,6 +35,7 @@
 	<div class="absolute editor">
 		<textarea id="input" name="markdown" class="absolute textarea"></textarea>
 		<article id="output" class="preview absolute scroll"></article>
+		<div class="absolute watermark">preview</div>
 	</div>
 </div>
 
