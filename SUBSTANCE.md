@@ -341,7 +341,7 @@ See, that wasn't so hard, was it?
 Why is this list so long and complicated?
 -----------------------------------------
 
-Optimization always causes problems, regardless of what you're optimizing for. Look at the failures of capitalism. When you write security-critical code in C, you are serving two masters: security and performance. Obviously, serving one master is easier.
+Optimization always causes problems, regardless of what you're optimizing for. Look at the failures of capitalism. When you try to write efficient, security-critical code in C, you are serving two masters: security and performance. Obviously, serving one master is easier.
 
 It's worth pointing out that while there is a lot of messy shit written in C, some of the [most secure](http://cr.yp.to/qmail/qmailsec-20071101.pdf) software [of all time](https://sel4.systems/) is written in it too.
 
