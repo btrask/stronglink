@@ -347,7 +347,7 @@ Why is this list so long and complicated?
 
 Optimization always causes problems, regardless of what you're optimizing for. Look at the failures of capitalism. When you try to write efficient, security-critical code in C, you are serving two masters: security and performance. Obviously, serving one master is easier.
 
-It's worth pointing out that while there is a lot of messy shit written in C, some of the [most secure](http://cr.yp.to/qmail/qmailsec-20071101.pdf) software [of all time](https://sel4.systems/) is written in it too.
+It's worth pointing out that while there is a lot of messy garbage written in C, some of the [most secure](http://cr.yp.to/qmail/qmailsec-20071101.pdf) software [of all time](https://sel4.systems/) is written in it too.
 
 Incidentally, these examples sit at opposite ends of the spectrum: qmail was written by a single genius who basically kept it all in his head; seL4 was written using formal methods. Both techniques constrain the size and change rate of projects, which I believe is the true key to security.
 
