@@ -8,7 +8,7 @@ This document is intended to provide _substance_ guidelines, as opposed to _styl
 
 This article is written for experienced programmers, although not necessarily experienced in C. Familiarity with C is assumed. This article is _not_ about C++ (which I'm not at all qualified to write about).
 
-If you're interested in learning C, Zed Shaw's [Learn C the Hard Way](TODO) is probably very good, although I've only read a few parts.
+If you're interested in learning C, Zed Shaw's [Learn C the Hard Way](http://c.learncodethehardway.org/book/) is probably very good, although I've only read a few parts.
 
 This document is mainly about avoiding problems specific to the C programming language. Language-specific bugs are only a portion of the whole picture:
 
@@ -219,7 +219,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Short `read`s and `write`s
 		- Handle EINTR
 - Creating good APIs
-	- [Some say](TODO) it's the hardest skill in programming
+	- [Some say](http://mollyrocket.com/jacs/jacs_0004_0008.html) it's the hardest skill in programming
 	- Empathize with the person who has to use your API
 	- Write sample code using your API before you define it
 	- Don't hide power or assume you know better than your user
@@ -239,7 +239,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 			- Read the list of available compiler warnings
 		- Static analyzers (but compiler warnings are better)
 		- Sanitizers and runtime checkers (e.g. Valgrind)
-		- Fuzzers (e.g. [American Fuzzy Lop](TODO))
+		- Fuzzers (e.g. [american fuzzy lop](http://lcamtuf.coredump.cx/afl/))
 	- No one can physically see what a computer is doing, so we need tools to visualize it for us
 		- A lot of these tools don't exist yet, in any language
 		- Unfortunately we need them to be universal and open source, so there isn't much money in it
@@ -334,11 +334,11 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 			- More importantly, prevents you from freeing constant strings
 	- I wish we had more good compiler warnings
 - Study great real-world C projects
-	- [SQLite](TODO) (the gold standard for any codebase in any language)
-	- [PostgreSQL](TODO) (although I haven't personally looked at it)
-	- [MDB](TODO) (not always perfect but very efficiently written)
-	- Code from [OpenBSD](TODO) (it doesn't look special, it's just simple and error-free)
-	- [Apple's CoreFoundation API](TODO) (my model for modern object-oriented C code)
+	- [SQLite](https://sqlite.org/) (the gold standard for any codebase in any language)
+	- [PostgreSQL](http://www.postgresql.org/) (although I haven't personally looked at it)
+	- [MDB](http://symas.com/mdb/) (not always perfect but very efficiently written)
+	- Code from [OpenBSD](http://www.openbsd.org/) (it doesn't look special, it's just simple and error-free)
+	- [Apple's CoreFoundation API](https://developer.apple.com/library/prerelease/mac/documentation/CoreFoundation/Reference/CoreFoundation_Collection/) (my model for modern object-oriented C code)
 
 See, that wasn't so hard, was it?
 
@@ -361,7 +361,7 @@ Also check the [Security Information page](https://github.com/btrask/stronglink/
 Other sources
 -------------
 
-- [Linux Kernel Style Guide](TODO)
+- [Linux kernel coding style](https://www.kernel.org/doc/Documentation/CodingStyle)
 - [Tips for C libraries on GNU/Linux](https://git.kernel.org/?p=linux/kernel/git/kay/libabc.git;a=blob_plain;f=README)
-- [JPL Standard](TODO)
+- [JPL Coding Standard](http://lars-lab.jpl.nasa.gov/JPL_Coding_Standard_C.pdf)
 
