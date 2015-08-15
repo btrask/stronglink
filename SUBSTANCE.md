@@ -124,9 +124,11 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 			- Single line if possible: `if(rc < 0) return rc;`
 			- When several steps are needed use `rc = rc < 0 ? rc : expr;`
 			- If you're writing a web server, you should be able to use `return 404;`
+			- Anything longer is suffering, even `return HTTP(404);`
 		- Translate codes from meaningful to callee to meaningful to caller
 			- Single line if possible: `if(X == rc) return Y;`
-		- Try not to mix error code sets within a single function
+			- Most of the time this shouldn't be necessary
+		- Try not to mix error code sets within a single function or API
 			- Convert all error types into one as early as possible
 			- Don't use libraries that have bad error handling
 				- Or worst case, wrap them
@@ -233,9 +235,10 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 			- Read the list of available compiler warnings
 		- Static analyzers (but compiler warnings are better)
 		- Sanitizers and runtime checkers (e.g. Valgrind)
+		- Fuzzers (e.g. [American Fuzzy Lop](TODO))
 	- No one can physically see what a computer is doing, so we need tools to visualize it for us
 		- A lot of these tools don't exist yet, in any language
-		- Unfortunately we need them to be open source, so there isn't much money in it
+		- Unfortunately we need them to be universal and open source, so there isn't much money in it
 		- For niche cases you will need to write your own tools anyway
 	- Unit testing
 		- At least do end-to-end testing for stable APIs you expect other people to use
@@ -262,9 +265,11 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Both are bad though
 		- If you have an "OO" API, define a macro like `MSG(obj, func, arg)`
 			- Try to avoid APIs like that though
-	- Use in-out args for recursion, especially tree walking
+	- Use `const` in function signatures to communicate use of pointer args
 		- Declare the top pointer `const` to make it clear what can change
 			- E.g. `X **const asdf`
+		- It helps, despite the fact that the top `const` isn't actually part of the signature
+	- Use in-out args for recursion, especially tree walking
 - Naming conventions
 	- Different conventions from different libraries is not a bad thing
 		- Consistency is a poor substitute for taste
@@ -284,6 +289,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 - Avoid conspicuous complexity
 	- Use post-increment over pre-increment unless it matters
 	- Yoda conditions...? Iffy... (I'm used to them now...)
+		- It's better to catch accidental assignment with compiler warnings
 		- There's still an argument for putting the shorter term first
 	- Complicated solutions better solve very important problems
 	- Go out of your way to keep common things simple (eg. error handling)
