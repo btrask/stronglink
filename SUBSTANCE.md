@@ -51,6 +51,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 - Memory management
 	- Freeing
 		- Immediately clear pointers after freeing
+			- E.g. `free(x); x = NULL;`
 			- Define a macro like `FREE(&x)` to do this for you
 			- Prevents use-after-free and double free
 			- If you can't clear a pointer marked `const`, you don't own it
@@ -59,7 +60,10 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 			- Catches memory leaks
 			- You can skip this for known safe buffers (like strings)
 		- When you free a sensitive buffer, use `explicit_bzero()` first
-		- It would be nice to have a compiler feature to assert that all stack allocations are zeroed when they go out of scope
+		- When you move a pointer from one variable to another, null out the old one
+			- E.g. `x = y; y = NULL;`
+			- Then you can unconditionally free `y` without problem
+		- It would be nice to have a compiler feature to assert that all stack variables are zeroed when they go out of scope
 	- Allocation
 		- Use `calloc` instead of `malloc`
 		- Be careful when using `reallocarray`
