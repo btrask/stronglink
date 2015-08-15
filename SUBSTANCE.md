@@ -100,7 +100,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 			7. Free temporary buffers ASAP so future errors can ignore them
 		- Note: all of these options are situational and require consideration
 		- Also consider using an assertion or abort() on failure
-			- `assert(x)` is equivalent to Rust's `x.unwrap()`
+			- `assert(x)` is basically equivalent to Rust's `x.unwrap()`
 	- Make allocations as static as possible
 		- Just allocate the maximum always
 	- A buffer overflow on the stack is worse than one elsewhere
