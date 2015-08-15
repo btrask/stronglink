@@ -61,8 +61,7 @@ typedef str_t const *strarg_t; // A string that belongs to someone else.
 
 #define FREE(ptrptr) do { \
 	__typeof__(ptrptr) const __x = (ptrptr); \
-	free(*__x); \
-	*__x = NULL; \
+	free(*__x); *__x = NULL; \
 } while(0)
 
 // Compares nul-terminated string `a` with substring of `blen` at `b`.
