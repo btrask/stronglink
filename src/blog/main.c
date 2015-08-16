@@ -62,6 +62,7 @@ static void stop(uv_signal_t *const signal, int const signum) {
 }
 
 static void init(void *const unused) {
+	int rc;
 	async_random((byte_t *)&SLNSeed, sizeof(SLNSeed));
 
 	uv_signal_init(async_loop, sigpipe);
@@ -81,12 +82,24 @@ static void init(void *const unused) {
 		fprintf(stderr, "Blog server could not be initialized\n");
 		return;
 	}
+
+	struct tls_config *config = tls_config_new();
+	if(!config) {
+		fprintf(stderr, "Couldn't create TLS configuration\n");
+		return;
+	}
+	// TODO
+	rc = tls_config_set_key_file(config, "/home/user/Documents/testrepo/key.pem");
+	assert(0 == rc);
+	rc = tls_config_set_cert_file(config, "/home/user/Documents/testrepo/crt.pem");
+	assert(0 == rc);
+
 	server = HTTPServerCreate((HTTPListener)listener, blog);
 	if(!server) {
 		fprintf(stderr, "Web server could not be initialized\n");
 		return;
 	}
-	int rc = HTTPServerListen(server, SERVER_ADDRESS, SERVER_PORT);
+	rc = HTTPServerListenSecure(server, SERVER_ADDRESS, SERVER_PORT, config);
 	if(rc < 0) {
 		fprintf(stderr, "Unable to start server (%d, %s)", rc, sln_strerror(rc));
 		return;

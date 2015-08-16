@@ -9,6 +9,7 @@ struct HTTPServer {
 	HTTPListener listener;
 	void *context;
 	uv_tcp_t socket[1];
+	struct tls *secure;
 };
 
 static void connection_cb(uv_stream_t *const socket, int const status);
@@ -69,16 +70,36 @@ int HTTPServerListen(HTTPServerRef const server, strarg_t const address, strarg_
 	}
 	return 0;
 }
+int HTTPServerListenSecure(HTTPServerRef const server, strarg_t const address, strarg_t const port, struct tls_config *const config) {
+	if(!server) return 0;
+	int rc = HTTPServerListen(server, address, port);
+	if(rc < 0) return rc;
+	if(!config) return 0;
+
+	server->secure = tls_server();
+	if(!server->secure) {
+		HTTPServerClose(server);
+		return UV_ENOMEM;
+	}
+	rc = tls_configure(server->secure, config);
+	if(0 != rc) {
+		HTTPServerClose(server);
+		return UV_UNKNOWN;
+	}
+	return 0;
+}
 void HTTPServerClose(HTTPServerRef const server) {
 	if(!server) return;
 	if(!server->socket->data) return;
+	if(server->secure) tls_close(server->secure);
+	tls_free(server->secure); server->secure = NULL;
 	async_close((uv_handle_t *)server->socket);
 }
 
 static void connection(uv_stream_t *const socket) {
 	HTTPServerRef const server = socket->data;
 	HTTPConnectionRef conn;
-	int rc = HTTPConnectionCreateIncoming(socket, 0, &conn);
+	int rc = HTTPConnectionCreateIncomingSecure(socket, server->secure, 0, &conn);
 	if(rc < 0) {
 		fprintf(stderr, "HTTP server connection error %s\n", uv_strerror(rc));
 		return;

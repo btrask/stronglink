@@ -16,6 +16,7 @@ static http_parser_settings const settings;
 
 struct HTTPConnection {
 	uv_tcp_t stream[1];
+	struct tls *secure;
 	http_parser parser[1];
 
 	void *buf;
@@ -41,6 +42,42 @@ cleanup:
 	HTTPConnectionFree(&conn);
 	return rc;
 }
+int HTTPConnectionCreateIncomingSecure(uv_stream_t *const socket, struct tls *const server, unsigned const flags, HTTPConnectionRef *const out) {
+	assert(out);
+	HTTPConnectionRef conn = NULL;
+	int rc = HTTPConnectionCreateIncoming(socket, flags, &conn);
+	if(rc < 0) return rc;
+	if(!server) return 0;
+
+	uv_os_fd_t fd;
+	rc = uv_fileno((uv_handle_t *)conn->stream, &fd);
+	if(rc < 0) goto cleanup;
+
+	for(;;) {
+		rc = tls_accept_socket(server, &conn->secure, fd);
+		if(0 == rc) break;
+		if(TLS_READ_AGAIN == rc) {
+			uv_buf_t buf;
+			rc = async_read((uv_stream_t *)conn->stream, 0, &buf);
+			assertf(rc >= 0 || UV_ENOBUFS == rc, "bad read %s", uv_strerror(rc));
+		} else if(TLS_WRITE_AGAIN == rc) {
+			uv_buf_t buf = uv_buf_init(NULL, 0);
+			rc = async_write((uv_stream_t *)conn->stream, &buf, 1);
+			assertf(rc >= 0, "bad write %s", uv_strerror(rc));
+		} else {
+			rc = UV_UNKNOWN;
+			goto cleanup;
+		}
+	}
+
+	fprintf(stderr, "accepted!\n");
+	*out = conn; conn = NULL;
+
+cleanup:
+	HTTPConnectionFree(&conn);
+	return rc;
+}
+
 int HTTPConnectionCreateOutgoing(strarg_t const domain, unsigned const flags, HTTPConnectionRef *const out) {
 	str_t host[1023+1];
 	str_t service[15+1];
@@ -93,6 +130,8 @@ void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
 	if(!conn) return;
 
 	async_close((uv_handle_t *)conn->stream);
+	if(conn->secure) tls_close(conn->secure);
+	tls_free(conn->secure); conn->secure = NULL;
 
 	// http_parser does not need to be freed, closed or destroyed.
 	memset(conn->parser, 0, sizeof(*conn->parser));
@@ -133,7 +172,7 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 			*conn->raw = uv_buf_init(NULL, 0);
 			*conn->out = uv_buf_init(NULL, 0);
 
-			rc = async_read((uv_stream_t *)conn->stream, conn->raw);
+			rc = async_read((uv_stream_t *)conn->stream, BUFFER_SIZE, conn->raw);
 			if(UV_EOF == rc) conn->flags |= HTTPStreamEOF;
 			if(rc < 0) return rc;
 			conn->buf = conn->raw->base;

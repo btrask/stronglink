@@ -6,6 +6,7 @@
 
 #include "../async/async.h"
 #include "../../deps/http_parser/http_parser.h"
+#include "../../deps/libressl-portable/include/tls.h"
 #include "../common.h"
 
 typedef enum http_method HTTPMethod;
@@ -23,6 +24,7 @@ typedef enum {
 typedef struct HTTPConnection* HTTPConnectionRef;
 
 int HTTPConnectionCreateIncoming(uv_stream_t *const socket, unsigned const flags, HTTPConnectionRef *const out);
+int HTTPConnectionCreateIncomingSecure(uv_stream_t *const socket, struct tls *const server, unsigned const flags, HTTPConnectionRef *const out);
 int HTTPConnectionCreateOutgoing(strarg_t const domain, unsigned const flags, HTTPConnectionRef *const out);
 void HTTPConnectionFree(HTTPConnectionRef *const connptr);
 int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_buf_t *const buf);

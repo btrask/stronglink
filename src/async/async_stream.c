@@ -8,13 +8,19 @@
 
 typedef struct {
 	async_t *thread;
+	size_t size;
 	int status;
 	uv_buf_t buf[1];
 } async_state;
 
 static void alloc_cb(uv_handle_t *const handle, size_t const suggested_size, uv_buf_t *const buf) {
-	buf->len = 1024 * 8; // suggested_size is hardcoded at 64k, which seems large
-	buf->base = malloc(buf->len);
+	async_state *const state = handle->data;
+	buf->len = state->size;
+	if(0 == state->size) {
+		buf->base = NULL;
+		return;
+	}
+	buf->base = malloc(state->size);
 	assert(buf->base); // TODO
 }
 static void read_cb(uv_stream_t *const stream, ssize_t const nread, uv_buf_t const *const buf) {
@@ -31,11 +37,12 @@ static void read_cb(uv_stream_t *const stream, ssize_t const nread, uv_buf_t con
 	}
 	async_switch(state->thread);
 }
-int async_read(uv_stream_t *const stream, uv_buf_t *const out) {
+int async_read(uv_stream_t *const stream, size_t const size, uv_buf_t *const out) {
 	if(!stream) return UV_EINVAL;
 	if(!out) return UV_EINVAL;
 	async_state state[1];
 	state->thread = async_active();
+	state->size = size;
 	state->status = 0;
 	*state->buf = uv_buf_init(NULL, 0);
 	stream->data = state;
@@ -106,6 +113,7 @@ int async_poll(uv_stream_t *const stream, int *const events) {
 	uv_poll_t handle[1];
 	handle->data = info;
 
+	// TODO: libuv doesn't like polling on streams it controls, apparently.
 	uv_os_fd_t fd;
 	int rc = uv_fileno((uv_handle_t *)stream, &fd);
 	if(rc < 0) return rc;
