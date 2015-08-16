@@ -322,6 +322,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Don't deal with audio one sample at a time
 		- Don't deal with buffers one byte at a time
 			- Ask Linus Torvalds... Or Kay Sievers
+		- While we're at it, don't deal with thread pools one syscall at a time
 - Build system (not a thorough analysis)
 	- Use `-Wall -Wextra -Werror`
 		- But turn off errors you don't care about instead of cluttering your code
