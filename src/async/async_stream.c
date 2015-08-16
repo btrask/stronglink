@@ -85,3 +85,41 @@ int async_tcp_connect(uv_tcp_t *const stream, struct sockaddr const *const addr)
 	return state->status;
 }
 
+
+struct poll_info {
+	async_t *thread;
+	int res;
+	int events;
+};
+void poll_cb(uv_poll_t *const handle, int const res, int const events) {
+	struct poll_info *const info = handle->data;
+	info->res = res;
+	info->events = events;
+	async_switch(info->thread);
+}
+int async_poll(uv_stream_t *const stream, int *const events) {
+	assert(events);
+	struct poll_info info[1];
+	info->thread = async_active();
+	info->res = 0;
+	info->events = 0;
+	uv_poll_t handle[1];
+	handle->data = info;
+
+	uv_os_fd_t fd;
+	int rc = uv_fileno((uv_handle_t *)stream, &fd);
+	if(rc < 0) return rc;
+	rc = uv_poll_init(async_loop, handle, (uv_os_sock_t)fd);
+	if(rc < 0) return rc;
+	rc = uv_poll_start(handle, *events, poll_cb);
+	if(rc < 0) goto cleanup;
+	async_yield();
+	rc = uv_poll_stop(handle);
+cleanup:
+	async_close((uv_handle_t *)handle);
+	if(info->res < 0) return info->res;
+	if(rc < 0) return rc;
+	*events = info->events;
+	return 0;
+}
+
