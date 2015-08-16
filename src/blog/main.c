@@ -94,6 +94,7 @@ static void init(void *const unused) {
 	rc = tls_config_set_cert_file(config, "/home/user/Documents/testrepo/crt.pem");
 	assert(0 == rc);
 
+
 	server = HTTPServerCreate((HTTPListener)listener, blog);
 	if(!server) {
 		fprintf(stderr, "Web server could not be initialized\n");

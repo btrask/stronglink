@@ -43,7 +43,7 @@ int HTTPConnectionDrainMessage(HTTPConnectionRef const conn);
 
 // Writing
 int HTTPConnectionWrite(HTTPConnectionRef const conn, byte_t const *const buf, size_t const len);
-int HTTPConnectionWritev(HTTPConnectionRef const conn, uv_buf_t const parts[], unsigned int const count);
+int HTTPConnectionWritev(HTTPConnectionRef const conn, uv_buf_t parts[], unsigned int const count);
 int HTTPConnectionWriteRequest(HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const requestURI, strarg_t const host);
 int HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const status, strarg_t const message);
 int HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const field, strarg_t const value);
@@ -52,7 +52,7 @@ int HTTPConnectionWriteSetCookie(HTTPConnectionRef const conn, strarg_t const co
 int HTTPConnectionBeginBody(HTTPConnectionRef const conn);
 int HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file);
 int HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, uint64_t const length);
-int HTTPConnectionWriteChunkv(HTTPConnectionRef const conn, uv_buf_t const parts[], unsigned int const count);
+int HTTPConnectionWriteChunkv(HTTPConnectionRef const conn, uv_buf_t parts[], unsigned int const count);
 int HTTPConnectionWriteChunkFile(HTTPConnectionRef const conn, strarg_t const path);
 int HTTPConnectionWriteChunkEnd(HTTPConnectionRef const conn);
 int HTTPConnectionEnd(HTTPConnectionRef const conn);

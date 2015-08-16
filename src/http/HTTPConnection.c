@@ -13,7 +13,10 @@ enum {
 };
 
 static http_parser_settings const settings;
+
 static int tls_poll(uv_stream_t *const stream, int const event);
+static int conn_read(HTTPConnectionRef const conn, size_t const size, uv_buf_t *const out);
+static int conn_writeall(HTTPConnectionRef const conn, uv_buf_t bufs[], unsigned int const nbufs);
 
 struct HTTPConnection {
 	uv_tcp_t stream[1];
@@ -61,7 +64,6 @@ int HTTPConnectionCreateIncomingSecure(uv_stream_t *const socket, struct tls *co
 		if(rc < 0) goto cleanup;
 	}
 
-	fprintf(stderr, "accepted!\n");
 	*out = conn; conn = NULL;
 
 cleanup:
@@ -163,7 +165,7 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 			*conn->raw = uv_buf_init(NULL, 0);
 			*conn->out = uv_buf_init(NULL, 0);
 
-			rc = async_read((uv_stream_t *)conn->stream, BUFFER_SIZE, conn->raw);
+			rc = conn_read(conn, BUFFER_SIZE, conn->raw);
 			if(UV_EOF == rc) conn->flags |= HTTPStreamEOF;
 			if(rc < 0) return rc;
 			conn->buf = conn->raw->base;
@@ -400,11 +402,11 @@ int HTTPConnectionDrainMessage(HTTPConnectionRef const conn) {
 int HTTPConnectionWrite(HTTPConnectionRef const conn, byte_t const *const buf, size_t const len) {
 	if(!conn) return 0;
 	uv_buf_t parts[1] = { uv_buf_init((char *)buf, len) };
-	return async_write((uv_stream_t *)conn->stream, parts, numberof(parts));
+	return conn_writeall(conn, parts, numberof(parts));
 }
-int HTTPConnectionWritev(HTTPConnectionRef const conn, uv_buf_t const parts[], unsigned int const count) {
+int HTTPConnectionWritev(HTTPConnectionRef const conn, uv_buf_t parts[], unsigned int const count) {
 	if(!conn) return 0;
-	return async_write((uv_stream_t *)conn->stream, parts, count);
+	return conn_writeall(conn, parts, count);
 }
 int HTTPConnectionWriteRequest(HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const requestURI, strarg_t const host) {
 	if(!conn) return 0;
@@ -495,8 +497,8 @@ int HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file) {
 			FREE(&buf);
 			return (int)len;
 		}
-		uv_buf_t const write = uv_buf_init((char *)buf, len);
-		ssize_t written = async_write((uv_stream_t *)conn->stream, &write, 1);
+		uv_buf_t write = uv_buf_init((char *)buf, len);
+		ssize_t written = conn_writeall(conn, &write, 1);
 		if(written < 0) {
 			FREE(&buf);
 			return (int)written;
@@ -512,14 +514,14 @@ int HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, uint64_t const 
 	if(slen < 0) return UV_UNKNOWN;
 	return HTTPConnectionWrite(conn, (byte_t const *)str, slen);
 }
-int HTTPConnectionWriteChunkv(HTTPConnectionRef const conn, uv_buf_t const parts[], unsigned int const count) {
+int HTTPConnectionWriteChunkv(HTTPConnectionRef const conn, uv_buf_t parts[], unsigned int const count) {
 	if(!conn) return 0;
 	uint64_t total = 0;
 	for(size_t i = 0; i < count; i++) total += parts[i].len;
 	if(total <= 0) return 0;
 	int rc = 0;
 	rc = rc < 0 ? rc : HTTPConnectionWriteChunkLength(conn, total);
-	rc = rc < 0 ? rc : async_write((uv_stream_t *)conn->stream, parts, count);
+	rc = rc < 0 ? rc : conn_writeall(conn, parts, count);
 	rc = rc < 0 ? rc : HTTPConnectionWrite(conn, (byte_t const *)STR_LEN("\r\n"));
 	return rc;
 }
@@ -538,7 +540,7 @@ int HTTPConnectionWriteChunkFile(HTTPConnectionRef const conn, strarg_t const pa
 	if(!buf) rc = UV_ENOMEM;
 	if(rc < 0) goto cleanup;
 
-	uv_buf_t const chunk = uv_buf_init((char *)buf, BUFFER_SIZE);
+	uv_buf_t chunk = uv_buf_init((char *)buf, BUFFER_SIZE);
 	ssize_t len = async_fs_readall_simple(file, &chunk);
 	if(len < 0) rc = len;
 	if(rc < 0) goto cleanup;
@@ -734,5 +736,52 @@ static int tls_poll(uv_stream_t *const stream, int const event) {
 		rc = UV_UNKNOWN;
 	}
 	return rc;
+}
+static int conn_read(HTTPConnectionRef const conn, size_t const size, uv_buf_t *const out) {
+	if(conn->secure) {
+		out->base = malloc(size);
+		if(!out->base) return UV_ENOMEM;
+		for(;;) {
+			int event = tls_read(conn->secure, conn->raw->base, size, &out->len);
+			if(0 == event) return 0;
+			int rc = tls_poll((uv_stream_t *)conn->stream, event);
+			if(rc < 0) return rc;
+		}
+	} else {
+		return async_read((uv_stream_t *)conn->stream, size, out);
+	}
+}
+static ssize_t conn_write(HTTPConnectionRef const conn, char const *const buf, size_t const len) {
+	if(conn->secure) {
+		size_t total = 0;
+		for(;;) {
+			size_t partial = 0;
+			int event = tls_write(conn->secure, buf, len, &partial);
+			total += partial;
+			if(0 == event) return total;
+			int rc = tls_poll((uv_stream_t *)conn->stream, event);
+			if(rc < 0) return rc;
+		}
+	} else {
+		uv_buf_t info = uv_buf_init((char *)buf, len);
+		return async_write((uv_stream_t *)conn->stream, &info, 1);
+	}
+}
+static int conn_writeall(HTTPConnectionRef const conn, uv_buf_t bufs[], unsigned int const nbufs) {
+	unsigned used = 0;
+	int rc = 0;
+	for(;;) {
+		ssize_t len = conn_write(conn, bufs[used].base, bufs[used].len);
+		if(len < 0) return len;
+		for(;;) {
+			if(used >= nbufs) return 0;
+			size_t const x = len < bufs[used].len ? len : bufs[used].len;
+			bufs[used].base += x;
+			bufs[used].len -= x;
+			len -= x;
+			if(bufs[used].len) break;
+			used++;
+		}
+	}
 }
 
