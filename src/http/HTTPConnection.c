@@ -13,6 +13,7 @@ enum {
 };
 
 static http_parser_settings const settings;
+static int tls_poll(uv_stream_t *const stream, int const event);
 
 struct HTTPConnection {
 	uv_tcp_t stream[1];
@@ -54,20 +55,10 @@ int HTTPConnectionCreateIncomingSecure(uv_stream_t *const socket, struct tls *co
 	if(rc < 0) goto cleanup;
 
 	for(;;) {
-		rc = tls_accept_socket(server, &conn->secure, fd);
-		if(0 == rc) break;
-		if(TLS_READ_AGAIN == rc) {
-			uv_buf_t buf;
-			rc = async_read((uv_stream_t *)conn->stream, 0, &buf);
-			assertf(rc >= 0 || UV_ENOBUFS == rc, "bad read %s", uv_strerror(rc));
-		} else if(TLS_WRITE_AGAIN == rc) {
-			uv_buf_t buf = uv_buf_init(NULL, 0);
-			rc = async_write((uv_stream_t *)conn->stream, &buf, 1);
-			assertf(rc >= 0, "bad write %s", uv_strerror(rc));
-		} else {
-			rc = UV_UNKNOWN;
-			goto cleanup;
-		}
+		int event = tls_accept_socket(server, &conn->secure, fd);
+		if(0 == event) break;
+		rc = tls_poll((uv_stream_t *)conn->stream, event);
+		if(rc < 0) goto cleanup;
 	}
 
 	fprintf(stderr, "accepted!\n");
@@ -729,4 +720,19 @@ static http_parser_settings const settings = {
 	.on_body = on_body,
 	.on_message_complete = on_message_complete,
 };
+
+static int tls_poll(uv_stream_t *const stream, int const event) {
+	int rc;
+	if(TLS_READ_AGAIN == event) {
+		uv_buf_t buf;
+		rc = async_read(stream, 0, &buf);
+		if(UV_ENOBUFS == rc) rc = 0;
+	} else if(TLS_WRITE_AGAIN == event) {
+		uv_buf_t buf = uv_buf_init(NULL, 0);
+		rc = async_write(stream, &buf, 1);
+	} else {
+		rc = UV_UNKNOWN;
+	}
+	return rc;
+}
 
