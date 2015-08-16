@@ -739,11 +739,21 @@ static int tls_poll(uv_stream_t *const stream, int const event) {
 }
 static int conn_read(HTTPConnectionRef const conn, size_t const size, uv_buf_t *const out) {
 	if(conn->secure) {
+		assert(!out->base);
+		assert(!out->len);
 		out->base = malloc(size);
 		if(!out->base) return UV_ENOMEM;
+		size_t total = 0;
 		for(;;) {
-			int event = tls_read(conn->secure, conn->raw->base, size, &out->len);
-			if(0 == event) return 0;
+			size_t partial = 0;
+			int event = tls_read(conn->secure, out->base+total, size-total, &partial);
+			total += partial;
+			out->len = total;
+			if(0 == event) {
+				if(0 == size) return UV_ENOBUFS;
+				if(0 == total) return UV_EOF;
+				return 0;
+			}
 			int rc = tls_poll((uv_stream_t *)conn->stream, event);
 			if(rc < 0) return rc;
 		}
@@ -756,7 +766,7 @@ static ssize_t conn_write(HTTPConnectionRef const conn, char const *const buf, s
 		size_t total = 0;
 		for(;;) {
 			size_t partial = 0;
-			int event = tls_write(conn->secure, buf, len, &partial);
+			int event = tls_write(conn->secure, buf+total, len-total, &partial);
 			total += partial;
 			if(0 == event) return total;
 			int rc = tls_poll((uv_stream_t *)conn->stream, event);
