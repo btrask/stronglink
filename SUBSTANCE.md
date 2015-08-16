@@ -175,7 +175,6 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 			- And use `__typeof__(var)` on compilers that support it
 	- Never explicitly compare booleans to true or false
 		- False is unnecessary and true is incorrect
-		- Don't bother explicitly comparing things to `NULL` either
 	- Use the style of expression to convey the type of check being done
 		- Don't use `!strcmp()`, compare with zero instead
 - Strings
