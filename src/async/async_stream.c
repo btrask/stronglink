@@ -109,7 +109,7 @@ int async_poll(uv_stream_t *const stream, int *const events) {
 	uv_os_fd_t fd;
 	int rc = uv_fileno((uv_handle_t *)stream, &fd);
 	if(rc < 0) return rc;
-	rc = uv_poll_init(async_loop, handle, (uv_os_sock_t)fd);
+	rc = uv_poll_init(async_loop, handle, fd);
 	if(rc < 0) return rc;
 	rc = uv_poll_start(handle, *events, poll_cb);
 	if(rc < 0) goto cleanup;
