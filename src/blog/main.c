@@ -28,6 +28,7 @@ static void listener(void *ctx, HTTPConnectionRef const conn) {
 	HTTPMethod method;
 	str_t URI[URI_MAX];
 	ssize_t len = HTTPConnectionReadRequest(conn, &method, URI, sizeof(URI));
+	if(UV_EOF == len) return;
 	if(UV_EMSGSIZE == len) return (void)HTTPConnectionSendStatus(conn, 414); // Request-URI Too Large
 	if(len < 0) {
 		fprintf(stderr, "Request error %s\n", uv_strerror(len));
