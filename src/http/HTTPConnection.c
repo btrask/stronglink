@@ -738,6 +738,7 @@ static int tls_poll(uv_stream_t *const stream, int const event) {
 	return rc;
 }
 static int conn_read(HTTPConnectionRef const conn, size_t const size, uv_buf_t *const out) {
+	assert(size > 0);
 	if(conn->secure) {
 		assert(!out->base);
 		assert(!out->len);
@@ -750,7 +751,6 @@ static int conn_read(HTTPConnectionRef const conn, size_t const size, uv_buf_t *
 			total += partial;
 			out->len = total;
 			if(0 == event) {
-				if(0 == size) return UV_ENOBUFS;
 				if(0 == total) return UV_EOF;
 				return 0;
 			}
