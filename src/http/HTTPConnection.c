@@ -379,10 +379,17 @@ ssize_t HTTPConnectionReadBodyStatic(HTTPConnectionRef const conn, byte_t *const
 }
 int HTTPConnectionDrainMessage(HTTPConnectionRef const conn) {
 	if(!conn) return 0;
+
+	// It's critical that we track and report persistent errors here so
+	// that the server knows to close the connection. Failure to do so
+	// can cause an endless loop as we keep failing to process the same
+	// request.
 	int rc = HTTP_PARSER_ERRNO(conn->parser);
 	if(HPE_OK != rc && HPE_PAUSED != rc) return UV_UNKNOWN;
+	if(conn->secure && tls_error(conn->secure)) return UV_UNKNOWN;
 	if(HTTPStreamEOF & conn->flags) return UV_EOF;
 	if(!(HTTPMessageIncomplete & conn->flags)) return 0;
+
 	uv_buf_t buf[1];
 	HTTPEvent type;
 	for(;;) {
