@@ -43,9 +43,8 @@ static int listener0(void *ctx, HTTPServerRef const server, HTTPConnectionRef co
 	if(rc < 0) return 500;
 
 	strarg_t const host = HTTPHeadersGet(headers, "host");
-	if(!host) return 400;
 	str_t domain[1023+1]; domain[0] = '\0';
-	(void) sscanf(host, "%1023[^:]", domain);
+	if(host) sscanf(host, "%1023[^:]", domain);
 	// TODO: Verify Host header to prevent DNS rebinding.
 
 	if(server == server_raw && server_tls) {
