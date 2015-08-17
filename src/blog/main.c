@@ -121,7 +121,7 @@ static void init(void *const unused) {
 		}
 		rc = HTTPServerListen(server_raw, SERVER_ADDRESS, SERVER_PORT_RAW);
 		if(rc < 0) {
-			fprintf(stderr, "Unable to start server (%d, %s)", rc, sln_strerror(rc));
+			fprintf(stderr, "Unable to start server (%d, %s)\n", rc, sln_strerror(rc));
 			return;
 		}
 		strarg_t const port = SERVER_PORT_RAW;
@@ -156,7 +156,7 @@ static void init(void *const unused) {
 		}
 		rc = HTTPServerListenSecure(server_tls, SERVER_ADDRESS, SERVER_PORT_TLS, config);
 		if(rc < 0) {
-			fprintf(stderr, "Unable to start server (%d, %s)", rc, sln_strerror(rc));
+			fprintf(stderr, "Unable to start server (%d, %s)\n", rc, sln_strerror(rc));
 			tls_config_free(config); config = NULL;
 			return;
 		}
