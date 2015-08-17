@@ -23,7 +23,7 @@ It currently [takes some work to set up](https://github.com/btrask/stronglink/bl
 Demo
 ----
 
-My notes on StrongLink development are self-hosted. You can find over a thousand notes spanning several years [here](http://bentrask.com/). You can [resolve the hash link above](http://bentrask.com/?q=hash://sha256/6834b5440fc88e00a1e7fec197f9f42c72fd92600275ba1afc7704e8e3bcd1ee) or [search for something](http://bentrask.com/?q=Dave+Winer). Keywords are [also supported](http://bentrask.com/?q=keyword%3Dhumor).
+My notes on StrongLink development are self-hosted. You can find over a thousand notes spanning several years [here](https://bentrask.com/). You can [resolve the hash link above](https://bentrask.com/?q=hash://sha256/6834b5440fc88e00a1e7fec197f9f42c72fd92600275ba1afc7704e8e3bcd1ee) or [search for something](https://bentrask.com/?q=Dave+Winer). Keywords are [also supported](https://bentrask.com/?q=keyword%3Dhumor).
 
 If you install StrongLink yourself (which currently is an [involved process](https://github.com/btrask/stronglink/blob/master/INSTALL.md)), you can make your own mirror by syncing from my site.
 
@@ -52,7 +52,7 @@ Your searches never leave your machine. It can index private files without expos
 A major challenge of the design is being able to sync a large index quickly between repositories. After a lot of blood, sweat and [tears](https://github.com/btrask/lsmdb/), we have some solid sync performance, but there's still room for improvement.
 
 **How does it compare to other content addressing systems?**  
-StrongLink follows my [Principles of Content Addressing](http://bentrask.com/notes/content-addressing.html). It focuses on providing content addresses as regular links you can use between your files.
+StrongLink follows my [Principles of Content Addressing](https://bentrask.com/notes/content-addressing.html). It focuses on providing content addresses as regular links you can use between your files.
 
 I would be extremely happy if other projects took some notes from StrongLink's design.
 
@@ -100,5 +100,5 @@ In the process of developing StrongLink, I've learned two things I can say with 
 2. With hashing, less is more. Don't hash meaningless data or your concept of identity will be meaningless.
 
 **My question isn't answered here...**  
-Please search [my notes and development log](http://bentrask.com/). Most questions have been answered and most suggestions have been considered.
+Please search [my notes and development log](https://bentrask.com/). Most questions have been answered and most suggestions have been considered.
 
