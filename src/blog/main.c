@@ -159,8 +159,11 @@ static int init_https(void) {
 	return 0;
 }
 static void init(void *const unused) {
-	int rc;
-	async_random((byte_t *)&SLNSeed, sizeof(SLNSeed));
+	int rc = async_random((byte_t *)&SLNSeed, sizeof(SLNSeed));
+	if(rc < 0) {
+		fprintf(stderr, "Random seed error\n");
+		return;
+	}
 
 	uv_signal_init(async_loop, sigpipe);
 	uv_signal_start(sigpipe, ignore, SIGPIPE);
