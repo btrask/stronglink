@@ -33,7 +33,7 @@ static int listener0(void *ctx, HTTPServerRef const server, HTTPConnectionRef co
 	if(UV_EOF == len) return 0;
 	if(UV_EMSGSIZE == len) return 414; // Request-URI Too Large
 	if(len < 0) {
-		fprintf(stderr, "Request error %s\n", uv_strerror(len));
+		fprintf(stderr, "Request error: %s\n", uv_strerror(len));
 		return 500;
 	}
 
@@ -111,27 +111,27 @@ static int init_https(void) {
 	if(!SERVER_PORT_TLS) return 0;
 	struct tls_config *config = tls_config_new();
 	if(!config) {
-		fprintf(stderr, "TLS config error %s\n", strerror(errno));
+		fprintf(stderr, "TLS config error: %s\n", strerror(errno));
 		return -1;
 	}
 	str_t pemfile[PATH_MAX];
 	snprintf(pemfile, sizeof(pemfile), "%s/key.pem", path);
 	int rc = tls_config_set_key_file(config, pemfile);
 	if(0 != rc) {
-		fprintf(stderr, "TLS key file error %s\n", strerror(errno));
+		fprintf(stderr, "TLS key file error: %s\n", strerror(errno));
 		tls_config_free(config); config = NULL;
 		return -1;
 	}
 	snprintf(pemfile, sizeof(pemfile), "%s/crt.pem", path);
 	rc = tls_config_set_cert_file(config, pemfile);
 	if(0 != rc) {
-		fprintf(stderr, "TLS crt file error %s\n", strerror(errno));
+		fprintf(stderr, "TLS crt file error: %s\n", strerror(errno));
 		tls_config_free(config); config = NULL;
 		return -1;
 	}
 	struct tls *tls = tls_server();
 	if(!tls) {
-		fprintf(stderr, "TLS engine error %s\n", strerror(errno));
+		fprintf(stderr, "TLS engine error: %s\n", strerror(errno));
 		tls_config_free(config); config = NULL;
 		return -1;
 	}
@@ -228,13 +228,13 @@ int main(int const argc, char const *const *const argv) {
 
 	int rc = tls_init();
 	if(rc < 0) {
-		fprintf(stderr, "TLS initialization error\n");
+		fprintf(stderr, "TLS initialization error: %s\n", strerror(errno));
 		return 1;
 	}
 
 	// TODO: Real option parsing.
 	if(2 != argc || '-' == argv[1][0]) {
-		fprintf(stderr, "Usage:\n\t" "%s <repo>\n", argv[0]);
+		fprintf(stderr, "Usage:\n\t" "%s repo\n", argv[0]);
 		return 1;
 	}
 	path = argv[1];
