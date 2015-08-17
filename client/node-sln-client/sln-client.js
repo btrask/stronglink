@@ -6,6 +6,7 @@ var sln = exports;
 var crypto = require("crypto");
 var fs = require("fs");
 var http = require("http");
+var https = require("https");
 var qs = require("querystring");
 
 var PassThroughStream = require("stream").PassThrough;
@@ -91,7 +92,7 @@ function Repo(url, session) {
 	this.port = obj.port;
 	this.path = obj.pathname; // pathname excludes query string
 	this.session = session;
-	this.client = http; // TODO
+	this.protocol = "https:" == obj.protocol ? https : http;
 
 	if("/" === this.path.slice(-1)) this.path = this.path.slice(0, -1);
 }
@@ -129,7 +130,7 @@ Repo.prototype.query = function(query, opts, cb) {
 Repo.prototype.createQueryStream = function(query, opts) {
 	var repo = this;
 	// TODO: Use POST, accept non-string queries.
-	var req = repo.client.get({
+	var req = repo.protocol.get({
 		hostname: repo.hostname,
 		port: repo.port,
 		path: repo.path+"/sln/query?"+qs.stringify({
@@ -153,7 +154,7 @@ Repo.prototype.createQueryStream = function(query, opts) {
 // returns: stream.Readable (object mode, emits { uri: string, target: string })
 Repo.prototype.createMetafilesStream = function(opts) {
 	var repo = this;
-	var req = repo.client.get({
+	var req = repo.protocol.get({
 		hostname: repo.hostname,
 		port: repo.port,
 		path: repo.path+"/sln/metafiles?"+qs.stringify({
@@ -200,7 +201,7 @@ Repo.prototype.createFileRequest = function(uri, opts) {
 	var repo = this;
 	var obj = sln.parseURI(uri);
 	if(!obj) throw new Error("Bad URI "+uri);
-	var req = repo.client.get({
+	var req = repo.protocol.get({
 		method: opts && has(opts, "method") ? opts.method : "GET",
 		hostname: repo.hostname,
 		port: repo.port,
@@ -274,7 +275,7 @@ Repo.prototype.submitFile = function(buf, type, opts, cb) {
 			hash: sha256.read().toString("hex"),
 		};
 	}
-	var req = repo.client.request({
+	var req = repo.protocol.request({
 		method: "PUT",
 		hostname: repo.hostname,
 		port: repo.port,
@@ -320,7 +321,7 @@ Repo.prototype.createSubmissionStream = function(type, opts) {
 		"Content-Type": type,
 	};
 	if(opts && has(opts, "size")) headers["Content-Length"] = opts.size;
-	var req = repo.client.request({
+	var req = repo.protocol.request({
 		method: method,
 		hostname: repo.hostname,
 		port: repo.port,

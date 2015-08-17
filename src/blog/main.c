@@ -11,7 +11,7 @@
 #include "../StrongLink.h"
 #include "Blog.h"
 
-#define SERVER_ADDRESS "localhost" // NULL = public, "localhost" = private
+#define SERVER_ADDRESS NULL // NULL = public, "localhost" = private
 #define SERVER_PORT_RAW "8000" // HTTP default 80
 #define SERVER_PORT_TLS "8001" // HTTPS default 443
 
