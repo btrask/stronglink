@@ -758,6 +758,7 @@ static strarg_t exttype(strarg_t const ext) {
 	if(0 == strcasecmp(ext, ".jpg")) return "image/jpeg";
 	if(0 == strcasecmp(ext, ".jpeg")) return "image/jpeg";
 	if(0 == strcasecmp(ext, ".gif")) return "image/gif";
+	if(0 == strcasecmp(ext, ".ico")) return "image/vnd.microsoft.icon";
 	return NULL;
 }
 int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
