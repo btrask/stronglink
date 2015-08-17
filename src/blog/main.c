@@ -47,7 +47,7 @@ static int listener0(void *ctx, HTTPServerRef const server, HTTPConnectionRef co
 	if(host) sscanf(host, "%1023[^:]", domain);
 	// TODO: Verify Host header to prevent DNS rebinding.
 
-	if(server == server_raw && server_tls) {
+	if(SERVER_PORT_TLS && server == server_raw) {
 		// Redirect from HTTP to HTTPS
 		if('\0' == domain[0]) return 400;
 		strarg_t const port = SERVER_PORT_TLS;
@@ -91,6 +91,73 @@ static void stop(uv_signal_t *const signal, int const signum) {
 	uv_stop(async_loop);
 }
 
+static int init_http(void) {
+	if(!SERVER_PORT_RAW) return 0;
+	server_raw = HTTPServerCreate((HTTPListener)listener, blog);
+	if(!server_raw) {
+		fprintf(stderr, "HTTP server could not be initialized\n");
+		return -1;
+	}
+	int rc = HTTPServerListen(server_raw, SERVER_ADDRESS, SERVER_PORT_RAW);
+	if(rc < 0) {
+		fprintf(stderr, "HTTP server could not be started: %s\n", sln_strerror(rc));
+		return -1;
+	}
+	strarg_t const port = SERVER_PORT_RAW;
+	fprintf(stderr, "StrongLink server running at http://localhost:%s/\n", port);
+	return 0;
+}
+static int init_https(void) {
+	if(!SERVER_PORT_TLS) return 0;
+	struct tls_config *config = tls_config_new();
+	if(!config) {
+		fprintf(stderr, "TLS config error %s\n", strerror(errno));
+		return -1;
+	}
+	str_t pemfile[PATH_MAX];
+	snprintf(pemfile, sizeof(pemfile), "%s/key.pem", path);
+	int rc = tls_config_set_key_file(config, pemfile);
+	if(0 != rc) {
+		fprintf(stderr, "TLS key file error %s\n", strerror(errno));
+		tls_config_free(config); config = NULL;
+		return -1;
+	}
+	snprintf(pemfile, sizeof(pemfile), "%s/crt.pem", path);
+	rc = tls_config_set_cert_file(config, pemfile);
+	if(0 != rc) {
+		fprintf(stderr, "TLS crt file error %s\n", strerror(errno));
+		tls_config_free(config); config = NULL;
+		return -1;
+	}
+	struct tls *tls = tls_server();
+	if(!tls) {
+		fprintf(stderr, "TLS engine error %s\n", strerror(errno));
+		tls_config_free(config); config = NULL;
+		return -1;
+	}
+	rc = tls_configure(tls, config);
+	tls_config_free(config); config = NULL;
+	if(0 != rc) {
+		fprintf(stderr, "TLS config error: %s\n", tls_error(tls));
+		tls_free(tls); tls = NULL;
+		return -1;
+	}
+	server_tls = HTTPServerCreate((HTTPListener)listener, blog);
+	if(!server_tls) {
+		fprintf(stderr, "HTTPS server could not be initialized\n");
+		tls_free(tls); tls = NULL;
+		return -1;
+	}
+	rc = HTTPServerListenSecure(server_tls, SERVER_ADDRESS, SERVER_PORT_TLS, &tls);
+	tls_free(tls); tls = NULL;
+	if(rc < 0) {
+		fprintf(stderr, "HTTPS server could not be started: %s\n", sln_strerror(rc));
+		return -1;
+	}
+	strarg_t const port = SERVER_PORT_TLS;
+	fprintf(stderr, "StrongLink server running at https://localhost:%s/\n", port);
+	return 0;
+}
 static void init(void *const unused) {
 	int rc;
 	async_random((byte_t *)&SLNSeed, sizeof(SLNSeed));
@@ -113,56 +180,10 @@ static void init(void *const unused) {
 		return;
 	}
 
-	if(SERVER_PORT_RAW) {
-		server_raw = HTTPServerCreate((HTTPListener)listener, blog);
-		if(!server_raw) {
-			fprintf(stderr, "Web server could not be initialized\n");
-			return;
-		}
-		rc = HTTPServerListen(server_raw, SERVER_ADDRESS, SERVER_PORT_RAW);
-		if(rc < 0) {
-			fprintf(stderr, "Unable to start server (%d, %s)\n", rc, sln_strerror(rc));
-			return;
-		}
-		strarg_t const port = SERVER_PORT_RAW;
-		fprintf(stderr, "StrongLink server running at http://localhost:%s/\n", port);
-	}
-	if(SERVER_PORT_TLS) {
-		struct tls_config *config = tls_config_new();
-		if(!config) {
-			fprintf(stderr, "Couldn't create TLS configuration\n");
-			return;
-		}
-		str_t pemfile[PATH_MAX];
-		snprintf(pemfile, sizeof(pemfile), "%s/key.pem", path);
-		rc = tls_config_set_key_file(config, pemfile);
-		if(0 != rc) {
-			fprintf(stderr, "Couldn't load key.pem for TLS\n");
-			tls_config_free(config); config = NULL;
-			return;
-		}
-		snprintf(pemfile, sizeof(pemfile), "%s/crt.pem", path);
-		rc = tls_config_set_cert_file(config, pemfile);
-		if(0 != rc) {
-			fprintf(stderr, "Couldn't load crt.pem for TLS\n");
-			tls_config_free(config); config = NULL;
-			return;
-		}
-		server_tls = HTTPServerCreate((HTTPListener)listener, blog);
-		if(!server_tls) {
-			fprintf(stderr, "Web server could not be initialized\n");
-			tls_config_free(config); config = NULL;
-			return;
-		}
-		rc = HTTPServerListenSecure(server_tls, SERVER_ADDRESS, SERVER_PORT_TLS, config);
-		if(rc < 0) {
-			fprintf(stderr, "Unable to start server (%d, %s)\n", rc, sln_strerror(rc));
-			tls_config_free(config); config = NULL;
-			return;
-		}
-		strarg_t const port = SERVER_PORT_TLS;
-		fprintf(stderr, "StrongLink server running at https://localhost:%s/\n", port);
-		tls_config_free(config); config = NULL;
+	if(init_http() < 0 || init_https() < 0) {
+		HTTPServerClose(server_raw);
+		HTTPServerClose(server_tls);
+		return;
 	}
 
 //	SLNRepoPullsStart(repo);

@@ -70,22 +70,11 @@ int HTTPServerListen(HTTPServerRef const server, strarg_t const address, strarg_
 	}
 	return 0;
 }
-int HTTPServerListenSecure(HTTPServerRef const server, strarg_t const address, strarg_t const port, struct tls_config *const config) {
+int HTTPServerListenSecure(HTTPServerRef const server, strarg_t const address, strarg_t const port, struct tls **const tlsptr) {
 	if(!server) return 0;
 	int rc = HTTPServerListen(server, address, port);
 	if(rc < 0) return rc;
-	if(!config) return 0;
-
-	server->secure = tls_server();
-	if(!server->secure) {
-		HTTPServerClose(server);
-		return UV_ENOMEM;
-	}
-	rc = tls_configure(server->secure, config);
-	if(0 != rc) {
-		HTTPServerClose(server);
-		return UV_UNKNOWN;
-	}
+	server->secure = *tlsptr; *tlsptr = NULL;
 	return 0;
 }
 void HTTPServerClose(HTTPServerRef const server) {
