@@ -180,7 +180,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 - Strings
 	- Format strings
 		- Always use strings literals to specify format strings
-		- Use "%s" instead of directly passing string variables
+		- Use `"%s"` instead of directly passing string variables
 		- Know which APIs expect format strings
 			- Passing a dynamic string where a format string was expected is a security vulnerability
 			- Name functions taking format strings ending in "f"
