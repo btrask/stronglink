@@ -68,6 +68,10 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Use `calloc` instead of `malloc`
 		- Be careful when using `reallocarray`
 			- You should generally track used and unused space in dynamic arrays, so uninitialized memory shouldn't be a problem there
+		- Don't write custom allocators
+			- Even simple bump allocators, or whatever
+			- Custom allocation defeats memory safety in every language
+			- Unfortunately the ease of custom allocation is a big benefit of C
 	- Lifespans
 		- Use `const` to indicate and enforce ownership
 			- `X *const` can't be null'd so it can't be freed
@@ -185,10 +189,14 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 			- Passing a dynamic string where a format string was expected is a security vulnerability
 			- Name functions taking format strings ending in "f"
 	- `scanf`
+		- Pre-initialize all outputs
 		- Always specify string widths
 		- Be careful about locales
+		- Sometimes it's easiest to check the scanned length with `%n`
 	- String functions
 		- Use `strlcpy` and `strlcat` from OpenBSD
+		- Use `snprintf(3)` instead of `sprintf(3)` (it takes an output length)
+		- Use `strdup(3)`
 	- Define string length constants as `(X+1)` to indicate nul termination
 		- If you're using UTF-8 (which you should be), remember the length is bytes, not characters
 	- Use `signed char` for strings and `unsigned char` for buffers
@@ -196,6 +204,10 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Compiler warnings will catch accidental conversions
 	- Have a string type for borrowed strings
 		- I like `typedef char const *strarg_t;`
+	- Parsing
+		- I have no idea how to hand-parse strings in an easy, safe and efficient manner
+		- I don't want machine-generated code
+		- Suggestions welcome
 - Threading
 	- Shared resources
 		- Know when to use locks, conditions and semaphores
