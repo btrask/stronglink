@@ -53,7 +53,8 @@ static int listener0(void *ctx, HTTPServerRef const server, HTTPConnectionRef co
 		if(matched < 1) return 400;
 		if('\0' == domain[0]) return 400;
 		str_t loc[URI_MAX];
-		rc = snprintf(loc, sizeof(loc), "https://%s:%s/", domain, SERVER_PORT_TLS);
+		strarg_t const port = SERVER_PORT_TLS;
+		rc = snprintf(loc, sizeof(loc), "https://%s:%s/", domain, port);
 		if(rc >= sizeof(loc)) 414; // Request-URI Too Large
 		if(rc < 0) return 500;
 		HTTPConnectionSendRedirect(conn, 301, loc);
@@ -125,7 +126,8 @@ static void init(void *const unused) {
 			fprintf(stderr, "Unable to start server (%d, %s)", rc, sln_strerror(rc));
 			return;
 		}
-		fprintf(stderr, "StrongLink server running at http://localhost:%s/\n", SERVER_PORT_RAW);
+		strarg_t const port = SERVER_PORT_RAW;
+		fprintf(stderr, "StrongLink server running at http://localhost:%s/\n", port);
 	}
 	if(SERVER_PORT_TLS) {
 		struct tls_config *config = tls_config_new();
@@ -160,7 +162,8 @@ static void init(void *const unused) {
 			tls_config_free(config); config = NULL;
 			return;
 		}
-		fprintf(stderr, "StrongLink server running at https://localhost:%s/\n", SERVER_PORT_TLS);
+		strarg_t const port = SERVER_PORT_TLS;
+		fprintf(stderr, "StrongLink server running at https://localhost:%s/\n", port);
 		tls_config_free(config); config = NULL;
 	}
 
