@@ -51,7 +51,10 @@ int HTTPConnectionCreateIncomingSecure(uv_stream_t *const socket, struct tls *co
 	HTTPConnectionRef conn = NULL;
 	int rc = HTTPConnectionCreateIncoming(socket, flags, &conn);
 	if(rc < 0) return rc;
-	if(!server) return 0;
+	if(!server) {
+		*out = conn; conn = NULL;
+		goto cleanup;
+	}
 
 	uv_os_fd_t fd;
 	rc = uv_fileno((uv_handle_t *)conn->stream, &fd);
@@ -601,6 +604,7 @@ int HTTPConnectionEnd(HTTPConnectionRef const conn) {
 }
 
 int HTTPConnectionSendMessage(HTTPConnectionRef const conn, uint16_t const status, strarg_t const str) {
+	if(!conn) return 0;
 	size_t const len = strlen(str);
 	int rc = 0;
 	rc = rc < 0 ? rc : HTTPConnectionWriteResponse(conn, status, str);
@@ -778,11 +782,13 @@ static ssize_t conn_write_secure(HTTPConnectionRef const conn, char const *const
 	}
 }
 static ssize_t conn_write(HTTPConnectionRef const conn, uv_buf_t const bufs[], unsigned int const nbufs) {
-	if(!conn->secure) return async_write((uv_stream_t *)conn->stream, bufs, nbufs);
 	if(0 == nbufs) return 0;
 	return conn_write_secure(conn, bufs[0].base, bufs[0].len);
 }
 static int conn_writeall(HTTPConnectionRef const conn, uv_buf_t bufs[], unsigned int const nbufs) {
+	// TODO: Apparently libuv never does short writes and we don't get back the length...?
+	// Might be a bug in our async wrapper...
+	if(!conn->secure) return async_write((uv_stream_t *)conn->stream, bufs, nbufs);
 	unsigned used = 0;
 	int rc = 0;
 	for(;;) {

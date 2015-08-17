@@ -11,40 +11,61 @@
 #include "../StrongLink.h"
 #include "Blog.h"
 
-#define SERVER_ADDRESS NULL // NULL = public, "localhost" = private
-#define SERVER_PORT "8000"
+#define SERVER_ADDRESS "localhost" // NULL = public, "localhost" = private
+#define SERVER_PORT_RAW "8000" // HTTP default 80
+#define SERVER_PORT_TLS "8001" // HTTPS default 443
 
 int SLNServerDispatch(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
 
 static strarg_t path = NULL;
 static SLNRepoRef repo = NULL;
 static BlogRef blog = NULL;
-static HTTPServerRef server = NULL;
+static HTTPServerRef server_raw = NULL;
+static HTTPServerRef server_tls = NULL;
 static uv_signal_t sigpipe[1] = {};
 static uv_signal_t sigint[1] = {};
 static int sig = 0;
 
-static void listener(void *ctx, HTTPConnectionRef const conn) {
+static int listener0(void *ctx, HTTPServerRef const server, HTTPConnectionRef const conn) {
 	HTTPMethod method;
 	str_t URI[URI_MAX];
 	ssize_t len = HTTPConnectionReadRequest(conn, &method, URI, sizeof(URI));
-	if(UV_EOF == len) return;
-	if(UV_EMSGSIZE == len) return (void)HTTPConnectionSendStatus(conn, 414); // Request-URI Too Large
+	if(UV_EOF == len) return 0;
+	if(UV_EMSGSIZE == len) return 414; // Request-URI Too Large
 	if(len < 0) {
 		fprintf(stderr, "Request error %s\n", uv_strerror(len));
-		return (void)HTTPConnectionSendStatus(conn, 500);
+		return 500;
 	}
 
 	HTTPHeadersRef headers;
 	int rc = HTTPHeadersCreateFromConnection(conn, &headers);
-	if(UV_EMSGSIZE == rc) return (void)HTTPConnectionSendStatus(conn, 431); // Request Header Fields Too Large
-	if(rc < 0) return (void)HTTPConnectionSendStatus(conn, 500);
+	if(UV_EMSGSIZE == rc) return 431; // Request Header Fields Too Large
+	if(rc < 0) return 500;
+
+	// TODO: Verify Host header to prevent DNS rebinding.
+
+	if(server == server_raw && server_tls) {
+		// Redirect from HTTP to HTTPS
+		strarg_t const host = HTTPHeadersGet(headers, "host");
+		if(!host) return 400;
+		str_t domain[1023+1]; domain[0] = '\0';
+		int matched = sscanf(host, "%1023[^:]", domain);
+		if(matched < 1) return 400;
+		if('\0' == domain[0]) return 400;
+		str_t loc[URI_MAX];
+		rc = snprintf(loc, sizeof(loc), "https://%s:%s/", domain, SERVER_PORT_TLS);
+		if(rc >= sizeof(loc)) 414; // Request-URI Too Large
+		if(rc < 0) return 500;
+		HTTPConnectionSendRedirect(conn, 301, loc);
+		// TODO: HTST
+		return 0;
+	}
 
 	strarg_t const cookie = HTTPHeadersGet(headers, "cookie");
 	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);
 	SLNSessionRef session = NULL;
 	rc = SLNSessionCacheCopyActiveSession(cache, cookie, &session);
-	if(rc < 0) return (void)HTTPConnectionSendStatus(conn, 500);
+	if(rc < 0) return 500;
 	// Note: null session is valid (zero permissions).
 
 	rc = -1;
@@ -53,6 +74,12 @@ static void listener(void *ctx, HTTPConnectionRef const conn) {
 
 	SLNSessionRelease(&session);
 	HTTPHeadersFree(&headers);
+	return rc;
+}
+static void listener(void *ctx, HTTPServerRef const server, HTTPConnectionRef const conn) {
+	assert(server);
+	assert(conn);
+	int rc = listener0(ctx, server, conn);
 	if(rc < 0) rc = 404;
 	if(rc > 0) HTTPConnectionSendStatus(conn, rc);
 }
@@ -87,29 +114,56 @@ static void init(void *const unused) {
 		return;
 	}
 
-	struct tls_config *config = tls_config_new();
-	if(!config) {
-		fprintf(stderr, "Couldn't create TLS configuration\n");
-		return;
+	if(SERVER_PORT_RAW) {
+		server_raw = HTTPServerCreate((HTTPListener)listener, blog);
+		if(!server_raw) {
+			fprintf(stderr, "Web server could not be initialized\n");
+			return;
+		}
+		rc = HTTPServerListen(server_raw, SERVER_ADDRESS, SERVER_PORT_RAW);
+		if(rc < 0) {
+			fprintf(stderr, "Unable to start server (%d, %s)", rc, sln_strerror(rc));
+			return;
+		}
+		fprintf(stderr, "StrongLink server running at http://localhost:%s/\n", SERVER_PORT_RAW);
 	}
-	// TODO
-	rc = tls_config_set_key_file(config, "/home/user/Documents/testrepo/key.pem");
-	assert(0 == rc);
-	rc = tls_config_set_cert_file(config, "/home/user/Documents/testrepo/crt.pem");
-	assert(0 == rc);
+	if(SERVER_PORT_TLS) {
+		struct tls_config *config = tls_config_new();
+		if(!config) {
+			fprintf(stderr, "Couldn't create TLS configuration\n");
+			return;
+		}
+		str_t pemfile[PATH_MAX];
+		snprintf(pemfile, sizeof(pemfile), "%s/key.pem", path);
+		rc = tls_config_set_key_file(config, pemfile);
+		if(0 != rc) {
+			fprintf(stderr, "Couldn't load key.pem for TLS\n");
+			tls_config_free(config); config = NULL;
+			return;
+		}
+		snprintf(pemfile, sizeof(pemfile), "%s/crt.pem", path);
+		rc = tls_config_set_cert_file(config, pemfile);
+		if(0 != rc) {
+			fprintf(stderr, "Couldn't load crt.pem for TLS\n");
+			tls_config_free(config); config = NULL;
+			return;
+		}
+		server_tls = HTTPServerCreate((HTTPListener)listener, blog);
+		if(!server_tls) {
+			fprintf(stderr, "Web server could not be initialized\n");
+			tls_config_free(config); config = NULL;
+			return;
+		}
+		rc = HTTPServerListenSecure(server_tls, SERVER_ADDRESS, SERVER_PORT_TLS, config);
+		if(rc < 0) {
+			fprintf(stderr, "Unable to start server (%d, %s)", rc, sln_strerror(rc));
+			tls_config_free(config); config = NULL;
+			return;
+		}
+		fprintf(stderr, "StrongLink server running at https://localhost:%s/\n", SERVER_PORT_TLS);
+		tls_config_free(config); config = NULL;
+	}
 
-
-	server = HTTPServerCreate((HTTPListener)listener, blog);
-	if(!server) {
-		fprintf(stderr, "Web server could not be initialized\n");
-		return;
-	}
-	rc = HTTPServerListenSecure(server, SERVER_ADDRESS, SERVER_PORT, config);
-	if(rc < 0) {
-		fprintf(stderr, "Unable to start server (%d, %s)", rc, sln_strerror(rc));
-		return;
-	}
-	fprintf(stderr, "StrongLink server running at http://localhost:" SERVER_PORT "/\n");
 //	SLNRepoPullsStart(repo);
 
 	uv_signal_init(async_loop, sigint);
@@ -124,14 +178,16 @@ static void term(void *const unused) {
 	async_close((uv_handle_t *)sigint);
 
 	SLNRepoPullsStop(repo);
-	HTTPServerClose(server);
+	HTTPServerClose(server_raw);
+	HTTPServerClose(server_tls);
 
 	uv_ref((uv_handle_t *)sigpipe);
 	uv_signal_stop(sigpipe);
 	uv_close((uv_handle_t *)sigpipe, NULL);
 }
 static void cleanup(void *const unused) {
-	HTTPServerFree(&server);
+	HTTPServerFree(&server_raw);
+	HTTPServerFree(&server_tls);
 	BlogFree(&blog);
 	SLNRepoFree(&repo);
 

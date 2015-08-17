@@ -10,7 +10,7 @@
 
 typedef struct HTTPServer* HTTPServerRef;
 
-typedef void (*HTTPListener)(void *const context, HTTPConnectionRef const conn);
+typedef void (*HTTPListener)(void *const context, HTTPServerRef const server, HTTPConnectionRef const conn);
 
 
 HTTPServerRef HTTPServerCreate(HTTPListener const listener, void *const context);

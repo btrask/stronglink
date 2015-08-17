@@ -104,9 +104,10 @@ static void connection(uv_stream_t *const socket) {
 		fprintf(stderr, "HTTP server connection error %s\n", uv_strerror(rc));
 		return;
 	}
+	assert(conn);
 
 	for(;;) {
-		server->listener(server->context, conn);
+		server->listener(server->context, server, conn);
 		rc = HTTPConnectionDrainMessage(conn);
 		if(rc < 0) break;
 	}
