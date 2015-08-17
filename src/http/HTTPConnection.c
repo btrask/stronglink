@@ -746,49 +746,47 @@ static int tls_poll(uv_stream_t *const stream, int const event) {
 }
 static int conn_read(HTTPConnectionRef const conn, size_t const size, uv_buf_t *const out) {
 	assert(size > 0);
-	if(conn->secure) {
-		assert(!out->base);
-		assert(!out->len);
-		out->base = malloc(size);
-		if(!out->base) return UV_ENOMEM;
-		size_t total = 0;
-		for(;;) {
-			size_t partial = 0;
-			int event = tls_read(conn->secure, out->base+total, size-total, &partial);
-			total += partial;
-			out->len = total;
-			if(0 == event) {
-				if(0 == total) return UV_EOF;
-				return 0;
-			}
-			int rc = tls_poll((uv_stream_t *)conn->stream, event);
-			if(rc < 0) return rc;
+	if(!conn->secure) return async_read((uv_stream_t *)conn->stream, size, out);
+	assert(!out->base);
+	assert(!out->len);
+	out->base = malloc(size);
+	if(!out->base) return UV_ENOMEM;
+	size_t total = 0;
+	for(;;) {
+		size_t partial = 0;
+		int event = tls_read(conn->secure, out->base+total, size-total, &partial);
+		total += partial;
+		out->len = total;
+		if(0 == event) {
+			if(0 == total) return UV_EOF;
+			return 0;
 		}
-	} else {
-		return async_read((uv_stream_t *)conn->stream, size, out);
+		int rc = tls_poll((uv_stream_t *)conn->stream, event);
+		if(rc < 0) return rc;
 	}
 }
-static ssize_t conn_write(HTTPConnectionRef const conn, char const *const buf, size_t const len) {
-	if(conn->secure) {
-		size_t total = 0;
-		for(;;) {
-			size_t partial = 0;
-			int event = tls_write(conn->secure, buf+total, len-total, &partial);
-			total += partial;
-			if(0 == event) return total;
-			int rc = tls_poll((uv_stream_t *)conn->stream, event);
-			if(rc < 0) return rc;
-		}
-	} else {
-		uv_buf_t info = uv_buf_init((char *)buf, len);
-		return async_write((uv_stream_t *)conn->stream, &info, 1);
+static ssize_t conn_write_secure(HTTPConnectionRef const conn, char const *const buf, size_t const len) {
+	assert(conn->secure);
+	size_t total = 0;
+	for(;;) {
+		size_t partial = 0;
+		int event = tls_write(conn->secure, buf+total, len-total, &partial);
+		total += partial;
+		if(0 == event) return total;
+		int rc = tls_poll((uv_stream_t *)conn->stream, event);
+		if(rc < 0) return rc;
 	}
+}
+static ssize_t conn_write(HTTPConnectionRef const conn, uv_buf_t const bufs[], unsigned int const nbufs) {
+	if(!conn->secure) return async_write((uv_stream_t *)conn->stream, bufs, nbufs);
+	if(0 == nbufs) return 0;
+	return conn_write_secure(conn, bufs[0].base, bufs[0].len);
 }
 static int conn_writeall(HTTPConnectionRef const conn, uv_buf_t bufs[], unsigned int const nbufs) {
 	unsigned used = 0;
 	int rc = 0;
 	for(;;) {
-		ssize_t len = conn_write(conn, bufs[used].base, bufs[used].len);
+		ssize_t len = conn_write(conn, bufs+used, nbufs-used);
 		if(len < 0) return len;
 		for(;;) {
 			if(used >= nbufs) return 0;
