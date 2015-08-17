@@ -42,15 +42,14 @@ static int listener0(void *ctx, HTTPServerRef const server, HTTPConnectionRef co
 	if(UV_EMSGSIZE == rc) return 431; // Request Header Fields Too Large
 	if(rc < 0) return 500;
 
+	strarg_t const host = HTTPHeadersGet(headers, "host");
+	if(!host) return 400;
+	str_t domain[1023+1]; domain[0] = '\0';
+	(void) sscanf(host, "%1023[^:]", domain);
 	// TODO: Verify Host header to prevent DNS rebinding.
 
 	if(server == server_raw && server_tls) {
 		// Redirect from HTTP to HTTPS
-		strarg_t const host = HTTPHeadersGet(headers, "host");
-		if(!host) return 400;
-		str_t domain[1023+1]; domain[0] = '\0';
-		int matched = sscanf(host, "%1023[^:]", domain);
-		if(matched < 1) return 400;
 		if('\0' == domain[0]) return 400;
 		str_t loc[URI_MAX];
 		strarg_t const port = SERVER_PORT_TLS;
