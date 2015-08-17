@@ -235,7 +235,6 @@ int main(int const argc, char const *const *const argv) {
 		return 1;
 	}
 
-	// TODO: Real option parsing.
 	if(2 != argc || '-' == argv[1][0]) {
 		fprintf(stderr, "Usage:\n\t" "%s repo\n", argv[0]);
 		return 1;
