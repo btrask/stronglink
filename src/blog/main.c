@@ -50,8 +50,8 @@ static int listener0(void *ctx, HTTPServerRef const server, HTTPConnectionRef co
 	if(server == server_raw && server_tls) {
 		// Redirect from HTTP to HTTPS
 		if('\0' == domain[0]) return 400;
-		str_t loc[URI_MAX];
 		strarg_t const port = SERVER_PORT_TLS;
+		str_t loc[URI_MAX];
 		rc = snprintf(loc, sizeof(loc), "https://%s:%s/", domain, port);
 		if(rc >= sizeof(loc)) 414; // Request-URI Too Large
 		if(rc < 0) return 500;
