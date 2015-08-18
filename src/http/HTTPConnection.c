@@ -486,7 +486,10 @@ int HTTPConnectionWriteSetCookie(HTTPConnectionRef const conn, strarg_t const co
 		uv_buf_init((char *)path, strlen(path)),
 		uv_buf_init((char *)STR_LEN("; Max-Age=")),
 		uv_buf_init(maxage_str, maxage_len),
-		uv_buf_init((char *)STR_LEN("; HttpOnly\r\n")),
+		uv_buf_init((char *)STR_LEN("; HttpOnly")),
+		conn->secure ?
+			uv_buf_init((char *)STR_LEN("; Secure" "\r\n")) :
+			uv_buf_init((char *)STR_LEN("\r\n")),
 	};
 	return HTTPConnectionWritev(conn, parts, numberof(parts));
 }
