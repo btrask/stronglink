@@ -147,6 +147,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 				- Or show them to the user, depending
 	- Assertions
 		- Don't do anything with side effects in assertion statements
+			- If you're still worried, define `assert(x)` to `(void)x` so side effects get preserved
 		- Don't assert things that aren't obviously invariants
 		- Consider shipping with assertions on
 		- Include descriptive strings like `assert(cond && "msg")`
@@ -228,7 +229,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Specify permissions on `open` to avoid race conditions
 	- Use `O_CREAT | O_EXCL`
 	- Short `read`s and `write`s
-		- Handle EINTR
+		- Handle `EINTR`
 - Creating good APIs
 	- [Some say](http://mollyrocket.com/jacs/jacs_0004_0008.html) it's the hardest skill in programming
 	- Empathize with the person who has to use your API
