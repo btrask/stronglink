@@ -56,7 +56,6 @@ static int listener0(void *ctx, HTTPServerRef const server, HTTPConnectionRef co
 		if(rc >= sizeof(loc)) 414; // Request-URI Too Large
 		if(rc < 0) return 500;
 		HTTPConnectionSendRedirect(conn, 301, loc);
-		// TODO: HSTS
 		return 0;
 	}
 
