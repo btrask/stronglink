@@ -80,6 +80,35 @@ Rejected:
 - Switch to Rust (maybe once it's ready for prime time in five years)
 - [Content Security Policy](http://lcamtuf.coredump.cx/postxss/), except in certain cases (defense in depth is good, but security through obscurity is bad)
 
+Analysis of major security decisions
+------------------------------------
+
+**Passwords**  
+Passwords are hashed with [bcrypt](http://www.openwall.com/crypt/) using 2^13 rounds and the `$2b$` mode. Hashing only happens when creating a session, so performance isn't that critical. 2^13 rounds takes about half a second on my laptop. scrypt isn't used simply because it's too new, but the plan is to switch to it in a few years if it continues to gain traction.
+
+**Sessions**  
+Session keys are 16 bytes (128 bits) of random data given to clients in the format "[session-id]:[key-hex]". Session IDs are monotonic and not related to user IDs or other identifying information. Internally, session keys are stored as SHA-256 hashes (which is performance-critical) both in the database and in the session cache. Sessions also have an associated bitmask of permissions (currently just read and write).
+
+**Session cache**  
+The session cache keeps up to 1000 session IDs and hashed keys in memory to avoid hitting the database. StrongLink's API uses one HTTP request per resource, which means large numbers of small requests can be made while syncing. The session cache code is currently too complicated, buying performance at the cost of security. With the MDB backend, the cost of database lookups is very low.
+
+**HTTPS**  
+HTTPS support is provided using the high level LibTLS API that is part of LibreSSL. LibreSSL is currently statically linked, which means that the application will need to be rebuilt to update it (e.g. in the case of a security vulnerability). Dynamic linking support is planned, especially for platforms that bundle LibreSSL and other dependencies.
+
+If HTTPS is enabled, StrongLink will refuse to start if there is an error from LibTLS or the server setup. If HTTPS and HTTP are simultaneously enabled, StrongLink will forcefully redirect all incoming connections from HTTP to HTTPS. It also sends the HSTS header over all HTTPS connections.
+
+**On-disk storage**  
+All storage, including database data and temporary files, is kept in the repo directory. Encryption of this data is seen as out of the scope of the StrongLink project, at least for now. At some point there may be a virtual file system layer added so that encryption could be done directly within StrongLink, similar to SQLite, although this would constrain the choice of database backends. For secure storage, users are recommended to use a loop mount or FUSE file system.
+
+**Client API and syncing**  
+Syncing is done using the client API, which supports HTTP and HTTPS. It will be possible to pin certificates for pushes and pulls. The client API allows applications and "plugins" to be isolated from the StrongLink instance, preventing bugs in the application from compromising the StrongLink repository. The client API uses sessions and can be constrained by session permissions.
+
+**Templates**  
+Templates are currently implemented using simple string substitution and must be carefully written (putting quotes around all HTML attribute variables) to avoid allowing JavaScript injection. A new template system using DOM manipulation is planned.
+
+**Security documentation**  
+Security issues are documented outside of the source code (here and using GitHub issues) in order to make basic security/trust analysis possible without full audits for busy, unpaid experts or even non-programmers.
+
 Low stakes bug bounty program
 -----------------------------
 
@@ -156,12 +185,12 @@ Bug advisory
 Reverse chronological order by date fixed (bugs that aren't fixed yet should also be listed):
 
 - Unfixed: CSRF tokens are not used
-- Unfixed: HTTPS is not supported
 - Unfixed: Digital signatures (e.g. GPG or [OpenBSD's Signify](http://www.openbsd.org/papers/bsdcan-signify.html)) are not supported
 - Unfixed: DOM-based template parsing is not used
 - Unfixed: The custom parsers (user queries, content dispositions and query strings) use lots of raw pointer manipulation
 - Unfixed: Potentially untrusted raw files are hosted within the same origin as the rest of the site and API
 - Unfixed: A small number of slow queries can saturate the thread pool (denial of service)
+- 2015-08-17: HTTP support added
 - 2015-07-18: Create dates in UTC to avoid leaking timezone (privacy leak; fixed in 73df2e409685f7acf320095b57af2aa3884988a2)
 - 2015-05-30: Confused UV errors with DB errors in upload handler (not exploitable; fixed in 0065f969845981781bf2d3eab330a74a070dd079)
 - 2015-05-21: Always ensure filter representation is nul-terminated (probably not exploitable; fixed in c9bd941573e124f06274ed9a9e24a8d115902b09)
