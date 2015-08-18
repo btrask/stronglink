@@ -1,0 +1,29 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Hash Handler</title>
+<style>[hidden] { display: none; }</style>
+
+<p>Experimental <code>hash:</code> protocol handler.</p>
+
+<p id="pending">Pending...</p>
+<p id="success" hidden>Protocol handler request submitted. If the handler isn't already registered, some sort of confirmation should have appeared.</p>
+<p id="unsupported" hidden>The registerProtocolHandler API is not supported on this browser.</p>
+<p id="exception" hidden>An exception occurred.</p>
+
+<script>
+if(navigator.registerProtocolHandler) {
+	var resolver = window.location.origin+"/?q=%s";
+	var title = "StrongLink repository";
+	try {
+		navigator.registerProtocolHandler("hash", resolver, title);
+		document.getElementById("success").hidden = false;
+	} catch(e) {
+		console.log(e);
+		document.getElementById("exception").hidden = false;
+	}
+} else {
+	document.getElementById("unsupported").hidden = false;
+}
+document.getElementById("pending").hidden = true;
+</script>
+
