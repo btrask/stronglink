@@ -52,7 +52,7 @@ static int listener0(void *ctx, HTTPServerRef const server, HTTPConnectionRef co
 		if('\0' == domain[0]) return 400;
 		strarg_t const port = SERVER_PORT_TLS;
 		str_t loc[URI_MAX];
-		rc = snprintf(loc, sizeof(loc), "https://%s:%s/", domain, port);
+		rc = snprintf(loc, sizeof(loc), "https://%s:%s%s", domain, port, URI);
 		if(rc >= sizeof(loc)) 414; // Request-URI Too Large
 		if(rc < 0) return 500;
 		HTTPConnectionSendRedirect(conn, 301, loc);
