@@ -30,7 +30,14 @@ static int listener0(void *ctx, HTTPServerRef const server, HTTPConnectionRef co
 	HTTPMethod method;
 	str_t URI[URI_MAX];
 	ssize_t len = HTTPConnectionReadRequest(conn, &method, URI, sizeof(URI));
-	if(UV_EOF == len) return 0;
+	if(UV_EOF == len) {
+		// HACK: Force the connection to realize it's dead.
+		// Otherwise there is a timeout period of like 15-20 seconds
+		// and we can run out of file descriptors. I suspect this
+		// is a bug with libuv, but I'm not sure.
+		HTTPConnectionWrite(conn, (byte_t const *)STR_LEN("x"));
+		return 0;
+	}
 	if(UV_EMSGSIZE == len) return 414; // Request-URI Too Large
 	if(len < 0) {
 		fprintf(stderr, "Request error: %s\n", uv_strerror(len));
