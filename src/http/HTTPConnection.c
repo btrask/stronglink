@@ -495,9 +495,16 @@ int HTTPConnectionWriteSetCookie(HTTPConnectionRef const conn, strarg_t const co
 }
 int HTTPConnectionBeginBody(HTTPConnectionRef const conn) {
 	if(!conn) return 0;
-	return HTTPConnectionWrite(conn, (byte_t *)STR_LEN(
-		"Connection: keep-alive\r\n" // TODO
-		"\r\n"));
+	if(conn->secure) {
+		return HTTPConnectionWrite(conn, (byte_t *)STR_LEN(
+			"Strict-Transport-Security: max-age=31536000; includeSubDomains\r\n"
+			"Connection: keep-alive\r\n"
+			"\r\n"));
+	} else {
+		return HTTPConnectionWrite(conn, (byte_t *)STR_LEN(
+			"Connection: keep-alive\r\n"
+			"\r\n"));
+	}
 }
 int HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file) {
 	byte_t *buf = malloc(BUFFER_SIZE);
