@@ -15,6 +15,11 @@
 #define SERVER_PORT_RAW "8000" // HTTP default 80
 #define SERVER_PORT_TLS "8001" // HTTPS default 443
 
+// The main cipher options are "secure" or "legacy". According to SSL Labs,
+// "secure" doesn't work with any version of IE or Safari. On the other hand,
+// "legacy" is still very progressive.
+#define TLS_CIPHERS "legacy"
+
 int SLNServerDispatch(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
 
 static strarg_t path = NULL;
@@ -120,9 +125,15 @@ static int init_https(void) {
 		fprintf(stderr, "TLS config error: %s\n", strerror(errno));
 		return -1;
 	}
+	int rc = tls_config_set_ciphers(config, TLS_CIPHERS);
+	if(0 != rc) {
+		fprintf(stderr, "TLS ciphers error: %s\n", strerror(errno));
+		tls_config_free(config); config = NULL;
+		return -1;
+	}
 	str_t pemfile[PATH_MAX];
 	snprintf(pemfile, sizeof(pemfile), "%s/key.pem", path);
-	int rc = tls_config_set_key_file(config, pemfile);
+	rc = tls_config_set_key_file(config, pemfile);
 	if(0 != rc) {
 		fprintf(stderr, "TLS key file error: %s\n", strerror(errno));
 		tls_config_free(config); config = NULL;
