@@ -20,6 +20,12 @@
 // "legacy" is still very progressive.
 #define TLS_CIPHERS "legacy"
 
+// Apparently IE11 doesn't enable TLS1.2 by default. You have to go into
+// the preferences to enable it. The recommended "modern" configuration
+// permits 1.1 and 1.2 both.
+// https://wiki.mozilla.org/Security/Server_Side_TLS
+#define TLS_PROTOCOLS (TLS_PROTOCOL_TLSv1_2 | TLS_PROTOCOL_TLSv1_1)
+
 int SLNServerDispatch(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
 
 static strarg_t path = NULL;
@@ -131,6 +137,7 @@ static int init_https(void) {
 		tls_config_free(config); config = NULL;
 		return -1;
 	}
+	tls_config_set_protocols(config, TLS_PROTOCOLS);
 	str_t pemfile[PATH_MAX];
 	snprintf(pemfile, sizeof(pemfile), "%s/key.pem", path);
 	rc = tls_config_set_key_file(config, pemfile);
