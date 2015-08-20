@@ -93,7 +93,10 @@ function Repo(url, session) {
 	this.path = obj.pathname; // pathname excludes query string
 	this.session = session;
 	this.protocol = "https:" == obj.protocol ? https : http;
-	this.agent = new this.protocol.Agent({ keepAlive: true });
+	this.agent = new this.protocol.Agent({
+		keepAlive: false,
+		keepAliveMsecs: 1000 * 30,
+	});
 
 	if("/" === this.path.slice(-1)) this.path = this.path.slice(0, -1);
 }
