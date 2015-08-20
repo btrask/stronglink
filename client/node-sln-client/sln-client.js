@@ -107,13 +107,12 @@ Repo.prototype.info = function(cb) {
 	});
 };
 
-// opts: { lang: string, start: string, count: number, wait: bool, agent: http.Agent }
+// opts: { lang: string, start: string, count: number, wait: bool }
 // cb: err: Error, URIs: array
 Repo.prototype.query = function(query, opts, cb) {
 	if(!opts) opts = {};
 	if(!has(opts, "count")) opts.count = 50;
 	if(!has(opts, "wait")) opts.wait = false;
-	if(!has(opts, "agent")) opts.agent = undefined;
 	var stream = this.createQueryStream(query, opts);
 	var URIs = [];
 	stream.on("data", function(URI) {
@@ -126,7 +125,7 @@ Repo.prototype.query = function(query, opts, cb) {
 		cb(err, null);
 	});
 };
-// opts: { lang: string, start: string, count: number, wait: bool, dir: string, agent: http.Agent }
+// opts: { lang: string, start: string, count: number, wait: bool, dir: string }
 // returns: stream.Readable (object mode, emits uri: string)
 Repo.prototype.createQueryStream = function(query, opts) {
 	var repo = this;
@@ -145,12 +144,11 @@ Repo.prototype.createQueryStream = function(query, opts) {
 		headers: {
 			"Cookie": "s="+repo.session,
 		},
-		// TODO: If opts.wait is false, allow the default agent?
-		agent: opts && has(opts, "agent") ? opts.agent : false,
+		agent: repo.agent,
 	});
 	return new URIListStream({ meta: false, req: req });
 };
-// opts: { start: string, count: number, wait: bool, dir: string, agent: http.Agent }
+// opts: { start: string, count: number, wait: bool, dir: string }
 // returns: stream.Readable (object mode, emits { uri: string, target: string })
 Repo.prototype.createMetafilesStream = function(opts) {
 	var repo = this;
@@ -166,7 +164,7 @@ Repo.prototype.createMetafilesStream = function(opts) {
 		headers: {
 			"Cookie": "s="+repo.session,
 		},
-		agent: opts && has(opts, "agent") ? opts.agent : false,
+		agent: repo.agent,
 	});
 	return new URIListStream({ meta: true, req: req });
 };
