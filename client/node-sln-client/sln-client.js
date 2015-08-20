@@ -93,6 +93,7 @@ function Repo(url, session) {
 	this.path = obj.pathname; // pathname excludes query string
 	this.session = session;
 	this.protocol = "https:" == obj.protocol ? https : http;
+	this.agent = new this.protocol.Agent({ keepAlive: true });
 
 	if("/" === this.path.slice(-1)) this.path = this.path.slice(0, -1);
 }
@@ -146,7 +147,6 @@ Repo.prototype.createQueryStream = function(query, opts) {
 		},
 		// TODO: If opts.wait is false, allow the default agent?
 		agent: opts && has(opts, "agent") ? opts.agent : false,
-		keepAlive: false,
 	});
 	return new URIListStream({ meta: false, req: req });
 };
@@ -167,7 +167,6 @@ Repo.prototype.createMetafilesStream = function(opts) {
 			"Cookie": "s="+repo.session,
 		},
 		agent: opts && has(opts, "agent") ? opts.agent : false,
-		keepAlive: false,
 	});
 	return new URIListStream({ meta: true, req: req });
 };
@@ -210,7 +209,7 @@ Repo.prototype.createFileRequest = function(uri, opts) {
 			"Cookie": "s="+repo.session,
 			"Accept": opts && has(opts, "accept") ? opts.accept : "*",
 		},
-		keepAlive: true,
+		agent: repo.agent,
 	});
 	return req;
 };
@@ -284,7 +283,7 @@ Repo.prototype.submitFile = function(buf, type, opts, cb) {
 			"Cookie": "s="+repo.session,
 			"Content-Type": type,
 		},
-		keepAlive: true,
+		agent: repo.agent,
 	});
 	req.end(buf);
 	req.on("error", function(err) {
@@ -327,7 +326,7 @@ Repo.prototype.createSubmissionStream = function(type, opts) {
 		port: repo.port,
 		path: repo.path+path,
 		headers: headers,
-		keepAlive: true,
+		agent: repo.agent,
 	});
 	var stream = new PassThroughStream();
 	stream.pipe(req);
