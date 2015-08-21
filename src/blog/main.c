@@ -47,6 +47,7 @@ static int listener0(void *ctx, HTTPServerRef const server, HTTPConnectionRef co
 		// and we can run out of file descriptors. I suspect this
 		// is a bug with libuv, but I'm not sure.
 		HTTPConnectionWrite(conn, (byte_t const *)STR_LEN("x"));
+		HTTPConnectionFlush(conn);
 		return 0;
 	}
 	if(UV_EMSGSIZE == len) return 414; // Request-URI Too Large
