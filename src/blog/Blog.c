@@ -809,7 +809,7 @@ int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnection
 		return 0;
 	}
 	if(rc < 0) {
-		fprintf(stderr, "Error sending file %s\n", URI);
+		fprintf(stderr, "Error sending file %s: %s\n", URI, uv_strerror(rc));
 	}
 
 	return 0;

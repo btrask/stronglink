@@ -4,10 +4,8 @@
 #ifndef HTTPCONNECTION_H
 #define HTTPCONNECTION_H
 
-#include "../async/async.h"
 #include "../../deps/http_parser/http_parser.h"
-#include "../../deps/libressl-portable/include/tls.h"
-#include "../common.h"
+#include "Socket.h"
 
 typedef enum http_method HTTPMethod;
 typedef enum {
@@ -23,8 +21,8 @@ typedef enum {
 
 typedef struct HTTPConnection* HTTPConnectionRef;
 
-int HTTPConnectionCreateIncoming(uv_stream_t *const socket, unsigned const flags, HTTPConnectionRef *const out);
-int HTTPConnectionCreateIncomingSecure(uv_stream_t *const socket, struct tls *const server, unsigned const flags, HTTPConnectionRef *const out);
+int HTTPConnectionCreateIncoming(uv_stream_t *const ssocket, unsigned const flags, HTTPConnectionRef *const out);
+int HTTPConnectionCreateIncomingSecure(uv_stream_t *const ssocket, struct tls *const ssecure, unsigned const flags, HTTPConnectionRef *const out);
 int HTTPConnectionCreateOutgoing(strarg_t const domain, unsigned const flags, HTTPConnectionRef *const out);
 void HTTPConnectionFree(HTTPConnectionRef *const connptr);
 int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_buf_t *const buf);
@@ -56,6 +54,7 @@ int HTTPConnectionWriteChunkv(HTTPConnectionRef const conn, uv_buf_t parts[], un
 int HTTPConnectionWriteChunkFile(HTTPConnectionRef const conn, strarg_t const path);
 int HTTPConnectionWriteChunkEnd(HTTPConnectionRef const conn);
 int HTTPConnectionEnd(HTTPConnectionRef const conn);
+int HTTPConnectionFlush(HTTPConnectionRef const conn);
 
 // Convenience
 int HTTPConnectionSendString(HTTPConnectionRef const conn, uint16_t const status, strarg_t const str);

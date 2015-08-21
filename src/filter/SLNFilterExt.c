@@ -241,6 +241,7 @@ int SLNFilterWriteURIs(SLNFilterRef const filter, SLNSessionRef const session, S
 		if(!remaining) return 0;
 		if(!count) break;
 	}
+	// TODO: Flush
 
 	if(!wait || pos->dir < 0) return 0;
 
@@ -262,6 +263,7 @@ int SLNFilterWriteURIs(SLNFilterRef const filter, SLNSessionRef const session, S
 			remaining -= count;
 			if(!remaining) return 0;
 		}
+		// TODO: Flush
 	}
 
 	return 0;

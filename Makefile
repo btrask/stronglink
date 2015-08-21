@@ -70,6 +70,7 @@ HEADERS := \
 	$(SRC_DIR)/db/db_ext.h \
 	$(SRC_DIR)/db/db_schema.h \
 	$(SRC_DIR)/http/status.h \
+	$(SRC_DIR)/http/Socket.h \
 	$(SRC_DIR)/http/HTTPConnection.h \
 	$(SRC_DIR)/http/HTTPServer.h \
 	$(SRC_DIR)/http/HTTPHeaders.h \
@@ -125,6 +126,7 @@ OBJECTS := \
 	$(BUILD_DIR)/async/async_worker.o \
 	$(BUILD_DIR)/db/db_ext.o \
 	$(BUILD_DIR)/db/db_schema.o \
+	$(BUILD_DIR)/http/Socket.o \
 	$(BUILD_DIR)/http/HTTPConnection.o \
 	$(BUILD_DIR)/http/HTTPServer.o \
 	$(BUILD_DIR)/http/HTTPHeaders.o \

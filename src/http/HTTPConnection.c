@@ -14,30 +14,21 @@ enum {
 
 static http_parser_settings const settings;
 
-static int tls_poll(uv_stream_t *const stream, int const event);
-static int conn_read(HTTPConnectionRef const conn, size_t const size, uv_buf_t *const out);
-static int conn_writeall(HTTPConnectionRef const conn, uv_buf_t bufs[], unsigned int const nbufs);
-
 struct HTTPConnection {
-	uv_tcp_t stream[1];
-	struct tls *secure;
+	SocketRef socket;
 	http_parser parser[1];
-
-	void *buf;
-	uv_buf_t raw[1];
-
 	HTTPEvent type;
 	uv_buf_t out[1];
-
 	unsigned flags;
 };
 
-int HTTPConnectionCreateIncoming(uv_stream_t *const socket, unsigned const flags, HTTPConnectionRef *const out) {
+int HTTPConnectionCreateIncoming(uv_stream_t *const ssocket, unsigned const flags, HTTPConnectionRef *const out) {
+	return HTTPConnectionCreateIncomingSecure(ssocket, NULL, flags, out);
+}
+int HTTPConnectionCreateIncomingSecure(uv_stream_t *const ssocket, struct tls *const ssecure, unsigned const flags, HTTPConnectionRef *const out) {
 	HTTPConnectionRef conn = calloc(1, sizeof(struct HTTPConnection));
 	if(!conn) return UV_ENOMEM;
-	int rc = uv_tcp_init(async_loop, conn->stream);
-	if(rc < 0) goto cleanup;
-	rc = uv_accept(socket, (uv_stream_t *)conn->stream);
+	int rc = SocketAccept(ssocket, ssecure, &conn->socket);
 	if(rc < 0) goto cleanup;
 	http_parser_init(conn->parser, HTTP_REQUEST);
 	conn->parser->data = conn;
@@ -46,36 +37,11 @@ cleanup:
 	HTTPConnectionFree(&conn);
 	return rc;
 }
-int HTTPConnectionCreateIncomingSecure(uv_stream_t *const socket, struct tls *const server, unsigned const flags, HTTPConnectionRef *const out) {
-	assert(out);
-	HTTPConnectionRef conn = NULL;
-	int rc = HTTPConnectionCreateIncoming(socket, flags, &conn);
-	if(rc < 0) return rc;
-	if(!server) {
-		*out = conn; conn = NULL;
-		goto cleanup;
-	}
-
-	uv_os_fd_t fd;
-	rc = uv_fileno((uv_handle_t *)conn->stream, &fd);
-	if(rc < 0) goto cleanup;
-
-	for(;;) {
-		int event = tls_accept_socket(server, &conn->secure, fd);
-		if(0 == event) break;
-		rc = tls_poll((uv_stream_t *)conn->stream, event);
-		if(rc < 0) goto cleanup;
-	}
-
-	*out = conn; conn = NULL;
-
-cleanup:
-	HTTPConnectionFree(&conn);
-	return rc;
-}
 
 int HTTPConnectionCreateOutgoing(strarg_t const domain, unsigned const flags, HTTPConnectionRef *const out) {
-	str_t host[1023+1];
+	assert(0);
+	return UV_ENOSYS;
+/*	str_t host[1023+1];
 	str_t service[15+1];
 	host[0] = '\0';
 	service[0] = '\0';
@@ -119,21 +85,16 @@ int HTTPConnectionCreateOutgoing(strarg_t const domain, unsigned const flags, HT
 cleanup:
 	uv_freeaddrinfo(info); info = NULL;
 	HTTPConnectionFree(&conn);
-	return rc;
+	return rc;*/
 }
 void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
 	HTTPConnectionRef conn = *connptr;
 	if(!conn) return;
 
-	if(conn->secure) tls_close(conn->secure);
-	tls_free(conn->secure); conn->secure = NULL;
-	async_close((uv_handle_t *)conn->stream);
+	SocketFree(&conn->socket);
 
 	// http_parser does not need to be freed, closed or destroyed.
 	memset(conn->parser, 0, sizeof(*conn->parser));
-
-	FREE(&conn->buf);
-	*conn->raw = uv_buf_init(NULL, 0);
 
 	conn->type = HTTPNothing;
 	*conn->out = uv_buf_init(NULL, 0);
@@ -147,48 +108,34 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 	if(!conn) return UV_EINVAL;
 	if(!type) return UV_EINVAL;
 	if(!buf) return UV_EINVAL;
-	size_t len;
-	int rc;
-
-	if(HTTPStreamEOF & conn->flags) return UV_EOF;
 
 	// Repeat previous errors.
-	rc = HTTP_PARSER_ERRNO(conn->parser);
+	int rc = HTTP_PARSER_ERRNO(conn->parser);
 	if(HPE_OK != rc && HPE_PAUSED != rc) return UV_UNKNOWN;
+	if(HTTPStreamEOF & conn->flags) return UV_EOF;
 
 	while(HTTPNothing == conn->type) {
-		if(!conn->raw->len) {
-			// It might seem counterintuitive to free the buffer
-			// just before we could reuse it, but the one time we
-			// don't need it is while blocking. We could free it
-			// after a timeout to give us a chance to reuse it,
-			// but even the two second timeout Apache uses causes
-			// a lot of problems...
-			FREE(&conn->buf);
-			*conn->raw = uv_buf_init(NULL, 0);
-			*conn->out = uv_buf_init(NULL, 0);
+		uv_buf_t raw[1];
+		rc = SocketPeek(conn->socket, raw);
+		if(UV_EOF == rc) conn->flags |= HTTPStreamEOF;
+		if(rc < 0) return rc;
 
-			rc = conn_read(conn, BUFFER_SIZE, conn->raw);
-			if(UV_EOF == rc) conn->flags |= HTTPStreamEOF;
-			if(rc < 0) return rc;
-			conn->buf = conn->raw->base;
-		}
 		http_parser_pause(conn->parser, 0);
-		len = http_parser_execute(conn->parser, &settings, conn->raw->base, conn->raw->len);
+		size_t len = http_parser_execute(conn->parser, &settings, raw->base, raw->len);
 		rc = HTTP_PARSER_ERRNO(conn->parser);
 
 		// HACK: http_parser returns 1 when the input length is 0 (EOF).
-		if(len > conn->raw->len) len = conn->raw->len;
+		if(len > raw->len) len = raw->len;
 
-		conn->raw->base += len;
-		conn->raw->len -= len;
+		SocketPop(conn->socket, len);
+
 		if(HPE_OK != rc && HPE_PAUSED != rc) {
 			// TODO: We should convert HPE_* and return them
 			// instead of logging and returning UV_UNKNOWN.
 			fprintf(stderr, "HTTP parse error %s (%d)\n",
 				http_errno_name(rc),
 				HTTP_PARSER_ERRNO_LINE(conn->parser));
-//			fprintf(stderr, "%s (%lu)\n", strndup(conn->raw->base, conn->raw->len), conn->raw->len);
+//			fprintf(stderr, "%s (%lu)\n", strndup(raw->base, raw->len), raw->len);
 			return UV_UNKNOWN;
 		}
 	}
@@ -216,11 +163,12 @@ ssize_t HTTPConnectionReadRequest(HTTPConnectionRef const conn, HTTPMethod *cons
 	HTTPEvent type;
 	size_t len = 0;
 	for(;;) {
+		// TODO
 		// Use unref because we shouldn't block the server
 		// on a request that may never arrive.
-		uv_unref((uv_handle_t *)conn->stream);
+//		uv_unref((uv_handle_t *)conn->stream);
 		rc = HTTPConnectionPeek(conn, &type, buf);
-		uv_ref((uv_handle_t *)conn->stream);
+//		uv_ref((uv_handle_t *)conn->stream);
 		if(rc < 0) return rc;
 		if(HTTPHeaderField == type || HTTPHeadersComplete == type) break;
 		HTTPConnectionPop(conn, buf->len);
@@ -389,7 +337,6 @@ int HTTPConnectionDrainMessage(HTTPConnectionRef const conn) {
 	// request.
 	int rc = HTTP_PARSER_ERRNO(conn->parser);
 	if(HPE_OK != rc && HPE_PAUSED != rc) return UV_UNKNOWN;
-	if(conn->secure && tls_error(conn->secure)) return UV_UNKNOWN;
 	if(HTTPStreamEOF & conn->flags) return UV_EOF;
 	if(!(HTTPMessageIncomplete & conn->flags)) return 0;
 
@@ -411,12 +358,16 @@ int HTTPConnectionDrainMessage(HTTPConnectionRef const conn) {
 
 int HTTPConnectionWrite(HTTPConnectionRef const conn, byte_t const *const buf, size_t const len) {
 	if(!conn) return 0;
-	uv_buf_t parts[1] = { uv_buf_init((char *)buf, len) };
-	return conn_writeall(conn, parts, numberof(parts));
+	uv_buf_t info = uv_buf_init((char *)buf, len);
+	return SocketWrite(conn->socket, &info);
 }
 int HTTPConnectionWritev(HTTPConnectionRef const conn, uv_buf_t parts[], unsigned int const count) {
 	if(!conn) return 0;
-	return conn_writeall(conn, parts, count);
+	for(size_t i = 0; i < count; i++) {
+		int rc = SocketWrite(conn->socket, &parts[i]);
+		if(rc < 0) return rc;
+	}
+	return 0;
 }
 int HTTPConnectionWriteRequest(HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const requestURI, strarg_t const host) {
 	if(!conn) return 0;
@@ -487,45 +438,29 @@ int HTTPConnectionWriteSetCookie(HTTPConnectionRef const conn, strarg_t const co
 		uv_buf_init((char *)STR_LEN("; Max-Age=")),
 		uv_buf_init(maxage_str, maxage_len),
 		uv_buf_init((char *)STR_LEN("; HttpOnly")),
-		conn->secure ?
-			uv_buf_init((char *)STR_LEN("; Secure" "\r\n")) :
+		// TODO
+	//	conn->secure ?
+	//		uv_buf_init((char *)STR_LEN("; Secure" "\r\n")) :
 			uv_buf_init((char *)STR_LEN("\r\n")),
 	};
 	return HTTPConnectionWritev(conn, parts, numberof(parts));
 }
 int HTTPConnectionBeginBody(HTTPConnectionRef const conn) {
 	if(!conn) return 0;
-	if(conn->secure) {
+	// TODO
+/*	if(conn->secure) {
 		return HTTPConnectionWrite(conn, (byte_t *)STR_LEN(
 			"Strict-Transport-Security: max-age=31536000; includeSubDomains\r\n"
 			"Connection: keep-alive\r\n"
 			"\r\n"));
-	} else {
+	} else {*/
 		return HTTPConnectionWrite(conn, (byte_t *)STR_LEN(
 			"Connection: keep-alive\r\n"
 			"\r\n"));
-	}
+//	}
 }
 int HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file) {
-	byte_t *buf = malloc(BUFFER_SIZE);
-	if(!buf) return UV_ENOMEM;
-	uv_buf_t const info = uv_buf_init((char *)buf, BUFFER_SIZE);
-	for(;;) {
-		ssize_t const len = async_fs_readall_simple(file, &info);
-		if(0 == len) break;
-		if(len < 0) {
-			FREE(&buf);
-			return (int)len;
-		}
-		uv_buf_t write = uv_buf_init((char *)buf, len);
-		ssize_t written = conn_writeall(conn, &write, 1);
-		if(written < 0) {
-			FREE(&buf);
-			return (int)written;
-		}
-	}
-	FREE(&buf);
-	return 0;
+	return SocketWriteFromFile(conn->socket, file, SIZE_MAX, -1);
 }
 int HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, uint64_t const length) {
 	if(!conn) return 0;
@@ -541,7 +476,7 @@ int HTTPConnectionWriteChunkv(HTTPConnectionRef const conn, uv_buf_t parts[], un
 	if(total <= 0) return 0;
 	int rc = 0;
 	rc = rc < 0 ? rc : HTTPConnectionWriteChunkLength(conn, total);
-	rc = rc < 0 ? rc : conn_writeall(conn, parts, count);
+	rc = rc < 0 ? rc : HTTPConnectionWritev(conn, parts, count);
 	rc = rc < 0 ? rc : HTTPConnectionWrite(conn, (byte_t const *)STR_LEN("\r\n"));
 	return rc;
 }
@@ -609,8 +544,15 @@ int HTTPConnectionWriteChunkEnd(HTTPConnectionRef const conn) {
 	return HTTPConnectionWrite(conn, (byte_t const *)STR_LEN("0\r\n\r\n"));
 }
 int HTTPConnectionEnd(HTTPConnectionRef const conn) {
+	if(!conn) return 0;
+	int rc = HTTPConnectionFlush(conn);
+	if(rc < 0) return rc;
 	// We assume keep-alive is enabled.
 	return 0;
+}
+int HTTPConnectionFlush(HTTPConnectionRef const conn) {
+	if(!conn) return 0;
+	return SocketFlush(conn->socket, false);
 }
 
 int HTTPConnectionSendMessage(HTTPConnectionRef const conn, uint16_t const status, strarg_t const str) {
@@ -743,76 +685,4 @@ static http_parser_settings const settings = {
 	.on_body = on_body,
 	.on_message_complete = on_message_complete,
 };
-
-static int tls_poll(uv_stream_t *const stream, int const event) {
-	int rc;
-	if(TLS_READ_AGAIN == event) {
-		uv_buf_t buf;
-		rc = async_read(stream, 0, &buf);
-		if(UV_ENOBUFS == rc) rc = 0;
-	} else if(TLS_WRITE_AGAIN == event) {
-		uv_buf_t buf = uv_buf_init(NULL, 0);
-		rc = async_write(stream, &buf, 1);
-	} else {
-		rc = UV_UNKNOWN;
-	}
-	return rc;
-}
-static int conn_read(HTTPConnectionRef const conn, size_t const size, uv_buf_t *const out) {
-	assert(size > 0);
-	if(!conn->secure) return async_read((uv_stream_t *)conn->stream, size, out);
-	assert(!out->base);
-	assert(!out->len);
-	out->base = malloc(size);
-	if(!out->base) return UV_ENOMEM;
-	size_t total = 0;
-	for(;;) {
-		size_t partial = 0;
-		int event = tls_read(conn->secure, out->base+total, size-total, &partial);
-		total += partial;
-		out->len = total;
-		if(0 == event) {
-			if(0 == total) return UV_EOF;
-			return 0;
-		}
-		int rc = tls_poll((uv_stream_t *)conn->stream, event);
-		if(rc < 0) return rc;
-	}
-}
-static ssize_t conn_write_secure(HTTPConnectionRef const conn, char const *const buf, size_t const len) {
-	assert(conn->secure);
-	size_t total = 0;
-	for(;;) {
-		size_t partial = 0;
-		int event = tls_write(conn->secure, buf+total, len-total, &partial);
-		total += partial;
-		if(0 == event) return total;
-		int rc = tls_poll((uv_stream_t *)conn->stream, event);
-		if(rc < 0) return rc;
-	}
-}
-static ssize_t conn_write(HTTPConnectionRef const conn, uv_buf_t const bufs[], unsigned int const nbufs) {
-	if(0 == nbufs) return 0;
-	return conn_write_secure(conn, bufs[0].base, bufs[0].len);
-}
-static int conn_writeall(HTTPConnectionRef const conn, uv_buf_t bufs[], unsigned int const nbufs) {
-	// TODO: Apparently libuv never does short writes and we don't get back the length...?
-	// Might be a bug in our async wrapper...
-	if(!conn->secure) return async_write((uv_stream_t *)conn->stream, bufs, nbufs);
-	unsigned used = 0;
-	int rc = 0;
-	for(;;) {
-		ssize_t len = conn_write(conn, bufs+used, nbufs-used);
-		if(len < 0) return len;
-		for(;;) {
-			if(used >= nbufs) return 0;
-			size_t const x = len < bufs[used].len ? len : bufs[used].len;
-			bufs[used].base += x;
-			bufs[used].len -= x;
-			len -= x;
-			if(bufs[used].len) break;
-			used++;
-		}
-	}
-}
 
