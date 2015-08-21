@@ -232,7 +232,7 @@ ssize_t SLNFilterWriteURIBatch(SLNFilterRef const filter, SLNSessionRef const se
 	if(rc < 0) return rc;
 	return count;
 }
-int SLNFilterWriteURIs(SLNFilterRef const filter, SLNSessionRef const session, SLNFilterPosition *const pos, bool const meta, uint64_t const max, bool const wait, SLNFilterWriteCB const writecb, void *ctx) {
+int SLNFilterWriteURIs(SLNFilterRef const filter, SLNSessionRef const session, SLNFilterPosition *const pos, bool const meta, uint64_t const max, bool const wait, SLNFilterWriteCB const writecb, SLNFilterFlushCB const flushcb, void *ctx) {
 	uint64_t remaining = max;
 	for(;;) {
 		ssize_t const count = SLNFilterWriteURIBatch(filter, session, pos, meta, remaining, writecb, ctx);
@@ -241,14 +241,15 @@ int SLNFilterWriteURIs(SLNFilterRef const filter, SLNSessionRef const session, S
 		if(!remaining) return 0;
 		if(!count) break;
 	}
-	// TODO: Flush
+	int rc = flushcb ? flushcb(ctx) : 0;
+	if(rc < 0) return rc;
 
 	if(!wait || pos->dir < 0) return 0;
 
 	SLNRepoRef const repo = SLNSessionGetRepo(session);
 	for(;;) {
 		uint64_t const timeout = uv_now(async_loop)+(1000 * 30);
-		int rc = SLNRepoSubmissionWait(repo, pos->sortID, timeout);
+		rc = SLNRepoSubmissionWait(repo, pos->sortID, timeout);
 		if(UV_ETIMEDOUT == rc) {
 			uv_buf_t const parts[] = { uv_buf_init((char *)STR_LEN("\r\n")) };
 			rc = writecb(ctx, parts, numberof(parts));
@@ -263,7 +264,8 @@ int SLNFilterWriteURIs(SLNFilterRef const filter, SLNSessionRef const session, S
 			remaining -= count;
 			if(!remaining) return 0;
 		}
-		// TODO: Flush
+		rc = flushcb ? flushcb(ctx) : 0;
+		if(rc < 0) return rc;
 	}
 
 	return 0;

@@ -195,6 +195,7 @@ typedef struct {
 } SLNFilterPosition;
 
 typedef int (*SLNFilterWriteCB)(void *ctx, uv_buf_t const parts[], unsigned int const count);
+typedef int (*SLNFilterFlushCB)(void *ctx);
 
 void SLNFilterParseOptions(strarg_t const qs, SLNFilterPosition *const start, uint64_t *const count, int *const dir, bool *const wait);
 void SLNFilterPositionCleanup(SLNFilterPosition *const pos);
@@ -205,7 +206,7 @@ int SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, bool const me
 
 ssize_t SLNFilterCopyURIs(SLNFilterRef const filter, SLNSessionRef const session, SLNFilterPosition *const pos, int const dir, bool const meta, str_t *URIs[], size_t const max);
 ssize_t SLNFilterWriteURIBatch(SLNFilterRef const filter, SLNSessionRef const session, SLNFilterPosition *const pos, bool const meta, uint64_t const max, SLNFilterWriteCB const writecb, void *ctx);
-int SLNFilterWriteURIs(SLNFilterRef const filter, SLNSessionRef const session, SLNFilterPosition *const pos, bool const meta, uint64_t const max, bool const wait, SLNFilterWriteCB const writecb, void *ctx);
+int SLNFilterWriteURIs(SLNFilterRef const filter, SLNSessionRef const session, SLNFilterPosition *const pos, bool const meta, uint64_t const max, bool const wait, SLNFilterWriteCB const writecb, SLNFilterFlushCB const flushcb, void *ctx);
 
 
 int SLNJSONFilterParserCreate(SLNSessionRef const session, SLNJSONFilterParserRef *const out);
