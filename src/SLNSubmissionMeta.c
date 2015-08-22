@@ -118,7 +118,10 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 		unsigned char *msg = yajl_get_error(parser, true, (byte_t const *)buf->base, len);
 		fprintf(stderr, "%s", msg);
 		yajl_free_error(parser, msg); msg = NULL;
-		while(ctx->depth-- > -1) FREE(&ctx->fields[ctx->depth]);
+		for(i = 0; i < DEPTH_MAX; i++) {
+			FREE(&ctx->fields[i]);
+		}
+		ctx->depth = -1;
 		rc = DB_EIO;
 		goto cleanup;
 	}
