@@ -129,7 +129,12 @@ int SocketFlush(SocketRef const socket, bool const more) {
 
 
 static int sock_read(SocketRef const socket, size_t const size, uv_buf_t *const out) {
-	if(!socket->secure) return async_read((uv_stream_t *)socket->stream, size, out);
+	if(!socket->secure) {
+		int rc = async_read((uv_stream_t *)socket->stream, size, out);
+		if(rc >= 0) return rc;
+		socket->err = rc;
+		return rc;
+	}
 	out->base = malloc(size);
 	if(!out->base) return UV_ENOMEM;
 	size_t total = 0;
