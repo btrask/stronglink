@@ -808,7 +808,7 @@ int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnection
 		HTTPConnectionSendRedirect(conn, 301, location);
 		return 0;
 	}
-	if(rc < 0) {
+	if(rc < 0 && UV_EPIPE != rc) {
 		fprintf(stderr, "Error sending file %s: %s\n", URI, uv_strerror(rc));
 	}
 
