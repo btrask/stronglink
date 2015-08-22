@@ -460,7 +460,22 @@ int HTTPConnectionBeginBody(HTTPConnectionRef const conn) {
 //	}
 }
 int HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file) {
-	return SocketWriteFromFile(conn->socket, file, SIZE_MAX, -1);
+	// TODO: This function should support lengths and offsets.
+	if(!conn) return 0;
+	char *buf = malloc(BUFFER_SIZE);
+	if(!buf) return UV_ENOMEM;
+	uv_buf_t const info = uv_buf_init(buf, BUFFER_SIZE);
+	int rc;
+	for(;;) {
+		ssize_t const len = rc = async_fs_readall_simple(file, &info);
+		if(0 == len) break;
+		if(rc < 0) break;
+		uv_buf_t write = uv_buf_init(buf, len);
+		rc = SocketWrite(conn->socket, &write);
+		if(rc < 0) break;
+	}
+	FREE(&buf);
+	return rc;
 }
 int HTTPConnectionWriteChunkLength(HTTPConnectionRef const conn, uint64_t const length) {
 	if(!conn) return 0;

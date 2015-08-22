@@ -5,7 +5,6 @@
 
 #define READ_BUFFER (1024 * 8)
 #define WRITE_BUFFER (1024 * 2)
-#define FS_BUFFER (1024 * 8)
 
 static int sock_read(SocketRef const socket, size_t const size, uv_buf_t *const out);
 static int sock_write(SocketRef const socket, uv_buf_t const *const buf);
@@ -126,31 +125,6 @@ int SocketFlush(SocketRef const socket, bool const more) {
 	if(!more) FREE(&socket->wr->base);
 	socket->wr->len = 0;
 	return rc;
-}
-
-int SocketWriteFromFile(SocketRef const socket, uv_file const file, size_t const len, int64_t const offset) {
-	// TODO: Smarter buffering, partial reads.
-	int rc = SocketFlush(socket, false);
-	if(rc < 0) return rc;
-	char *buf = malloc(FS_BUFFER);
-	if(!buf) return UV_ENOMEM;
-	uv_buf_t const info = uv_buf_init(buf, FS_BUFFER);
-	for(;;) {
-		ssize_t const rlen = async_fs_readall_simple(file, &info);
-		if(0 == rlen) break;
-		if(rlen < 0) {
-			FREE(&buf);
-			return (int)rlen;
-		}
-		uv_buf_t write = uv_buf_init(buf, rlen);
-		rc = sock_write(socket, &write);
-		if(rc < 0) {
-			FREE(&buf);
-			return rc;
-		}
-	}
-	FREE(&buf);
-	return 0;
 }
 
 

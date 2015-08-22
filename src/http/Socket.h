@@ -18,5 +18,3 @@ void SocketPop(SocketRef const socket, size_t const len);
 int SocketWrite(SocketRef const socket, uv_buf_t const *const buf);
 int SocketFlush(SocketRef const socket, bool const more);
 
-int SocketWriteFromFile(SocketRef const socket, uv_file const file, size_t const len, int64_t const offset);
-

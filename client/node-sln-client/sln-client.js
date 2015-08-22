@@ -94,7 +94,7 @@ function Repo(url, session) {
 	this.session = session;
 	this.protocol = "https:" == obj.protocol ? https : http;
 	this.agent = new this.protocol.Agent({
-		keepAlive: false,
+		keepAlive: true,
 		keepAliveMsecs: 1000 * 30,
 	});
 
