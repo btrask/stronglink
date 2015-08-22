@@ -9,7 +9,6 @@
 
 enum {
 	HTTPMessageIncomplete = 1 << 0,
-	HTTPStreamEOF = 1 << 1,
 };
 
 static http_parser_settings const settings;
@@ -112,12 +111,12 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 	// Repeat previous errors.
 	int rc = HTTP_PARSER_ERRNO(conn->parser);
 	if(HPE_OK != rc && HPE_PAUSED != rc) return UV_UNKNOWN;
-	if(HTTPStreamEOF & conn->flags) return UV_EOF;
+	rc = SocketStatus(conn->socket);
+	if(rc < 0) return rc;
 
 	while(HTTPNothing == conn->type) {
 		uv_buf_t raw[1];
 		rc = SocketPeek(conn->socket, raw);
-		if(UV_EOF == rc) conn->flags |= HTTPStreamEOF;
 		if(rc < 0) return rc;
 
 		http_parser_pause(conn->parser, 0);
@@ -337,7 +336,8 @@ int HTTPConnectionDrainMessage(HTTPConnectionRef const conn) {
 	// request.
 	int rc = HTTP_PARSER_ERRNO(conn->parser);
 	if(HPE_OK != rc && HPE_PAUSED != rc) return UV_UNKNOWN;
-	if(HTTPStreamEOF & conn->flags) return UV_EOF;
+	rc = SocketStatus(conn->socket);
+	if(rc < 0) return rc;
 	if(!(HTTPMessageIncomplete & conn->flags)) return 0;
 
 	uv_buf_t buf[1];

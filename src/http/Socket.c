@@ -17,6 +17,7 @@ struct Socket {
 	char *rdmem;
 	uv_buf_t rd[1];
 	uv_buf_t wr[1];
+	int err;
 };
 
 int SocketAccept(uv_stream_t *const sstream, struct tls *const ssecure, SocketRef *const out) {
@@ -57,8 +58,13 @@ void SocketFree(SocketRef *const socketptr) {
 	async_close((uv_handle_t *)socket->stream);
 	FREE(&socket->rd->base); socket->rd->len = 0;
 	FREE(&socket->wr->base); socket->wr->len = 0;
+	socket->err = 0;
 	assert_zeroed(socket, 1);
 	FREE(socketptr); socket = NULL;
+}
+int SocketStatus(SocketRef const socket) {
+	if(!socket) return UV_EINVAL;
+	return socket->err;
 }
 
 int SocketPeek(SocketRef const socket, uv_buf_t *const out) {
@@ -161,11 +167,13 @@ static int sock_read(SocketRef const socket, size_t const size, uv_buf_t *const 
 		int rc = tls_poll((uv_stream_t *)socket->stream, event);
 		if(rc < 0) {
 			FREE(&out->base);
+			socket->err = rc;
 			return rc;
 		}
 	}
 	if(0 == total) {
 		FREE(&out->base);
+		socket->err = UV_EOF;
 		return UV_EOF;
 	}
 	out->len = total;
