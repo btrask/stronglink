@@ -6,7 +6,7 @@ Warning: Not for the faint of heart! This process will be streamlined over time.
 Dependencies
 ------------
 
-Most of the dependencies are included. You might need to instal Git to clone the repository, or you can use GitHub's ZIP download.
+Most of the dependencies are included. You might need to install Git to clone the repository, or you can use GitHub's ZIP download.
 
 Additional dependencies:
 

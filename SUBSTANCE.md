@@ -261,7 +261,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Manual testing
 		- There is no substitute for manual testing
 		- Test how things break, not just how they work
-	- Debug with the same optimization mode as release (eg. `-g -O2`)
+	- Debug with the same optimization mode as release (e.g. `-g -O2`)
 		- Turn it down when necessary for the debugger
 - Header files
 	- Use them properly for keeping your public and private interfaces separate
@@ -308,7 +308,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- It's better to catch accidental assignment with compiler warnings
 		- There's still an argument for putting the shorter term first
 	- Complicated solutions better solve very important problems
-	- Go out of your way to keep common things simple (eg. error handling)
+	- Go out of your way to keep common things simple (e.g. error handling)
 	- Preserve, create and exploit symmetry
 		- E.g. use vectors (in the physics sense) instead of enums for directions
 - Performance

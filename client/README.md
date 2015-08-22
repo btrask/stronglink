@@ -12,7 +12,7 @@ Planned features: content negotiation, range requests
 Implementation status: working but incomplete
 
 **GET /sln/meta/[algo]/[hash]**  
-Returns the current, cummulative meta-data snapshot of a given file in JSON format.
+Returns the current, cumulative meta-data snapshot of a given file in JSON format.
 
 Note: The result is *not* a meta-file. If you want a specific meta-file, look it up with `/sln/file/[algo]/[hash]`. If you want all of the meta-files for a given file, use a query (`target=[URI]`). Full-text content is not returned.
 
@@ -31,7 +31,7 @@ Submits a file (meta-file or regular file). Responds with 201 Created on success
 Implementation status: working
 
 **PUT /sln/file/[algo]/[hash]**  
-Like `POST /sln/file` above except that the intended algorithm and hash are stated up front. If the hash doesn't match, the file isn't added and an error is returned (409 Conflict). If a file with the given hash already exists, then the upload doesn't have to be saved at all, which is much faster. Note that the upload still takes place, so for large files you should consider checking explictly with `HEAD /sln/file/[algo]/[hash]`.
+Like `POST /sln/file` above except that the intended algorithm and hash are stated up front. If the hash doesn't match, the file isn't added and an error is returned (409 Conflict). If a file with the given hash already exists, then the upload doesn't have to be saved at all, which is much faster. Note that the upload still takes place, so for large files you should consider checking explicitly with `HEAD /sln/file/[algo]/[hash]`.
 
 You should generally prefer this version if it's practical to generate the hash in advance.
 
