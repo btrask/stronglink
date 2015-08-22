@@ -163,7 +163,7 @@ Although fields can contain multiple values, it's strongly recommended that appl
 
 Meta-data values are append-only. Mutability can be built on top using [CRDT](https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type) structures.
 
-Meta-files are always excoded as UTF-8. Line endings are recommended to be LF-only, since that's what most JSON libraries use.
+Meta-files are always encoded as UTF-8. Line endings are recommended to be LF-only, since that's what most JSON libraries use.
 
 Currently the maximum meta-file size is capped at 1MB. Data after that point will be preserved but ignored and cannot be be queried on. This may be made a configurable setting.
 
