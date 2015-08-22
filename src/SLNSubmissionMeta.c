@@ -118,11 +118,10 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 		unsigned char *msg = yajl_get_error(parser, true, (byte_t const *)buf->base, len);
 		fprintf(stderr, "%s", msg);
 		yajl_free_error(parser, msg); msg = NULL;
+		while(ctx->depth-- > -1) FREE(&ctx->fields[ctx->depth]);
 		rc = DB_EIO;
 		goto cleanup;
 	}
-
-	assert(-1 == ctx->depth);
 
 //	rc = db_txn_commit(subtxn); subtxn = NULL;
 	if(rc < 0) goto cleanup;
@@ -133,6 +132,7 @@ cleanup:
 //	db_txn_abort(subtxn); subtxn = NULL;
 	FREE(&buf->base);
 	if(parser) yajl_free(parser); parser = NULL;
+	assert(-1 == ctx->depth);
 	assert_zeroed(ctx->fields, DEPTH_MAX);
 	return rc;
 }
