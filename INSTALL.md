@@ -43,6 +43,17 @@ Right now there is no configuration interface whatsoever (not even a config file
 - Internal algorithm: `SLN_INTERNAL_ALGO` in `src/StrongLink.h` (only change for new repos!)
 - Number of bcrypt rounds: `BCRYPT_ROUNDS` in `src/util/pass.c` (default 13)
 
+Database Backends
+-----------------
+
+StrongLink supports several database backends including MDB (the default), LevelDB, RocksDB, and HyperLevelDB. MDB is the smallest and most stable, and it has the best read performance (making it good for public-facing sites). LevelDB has better write performance and compression (so the database storage can take 1/5th the space).
+
+RocksDB is not recommended but might be useful for specialized applications since it has a lot of tuning options. HyperLevelDB is not recommended since it's generally worse than LevelDB.
+
+It's not too difficult to add support for any transactional (ACID) key-value store.
+
+The backend can be chosen at build time by setting the `DB` environment variable (see above). This might become a runtime option in the future.
+
 Client Configuration
 --------------------
 
