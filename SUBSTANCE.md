@@ -48,6 +48,30 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- I don't think there is actually much relation between programming language and code size
 		- A small code size should be a badge of honor ("lines spent")
 		- It's harder to write less code than more
+- Error handling
+	- Do it, always, even in sample code
+		- Error handling is all programming is
+			- The problem is an error and your program is the handler
+		- Handle errors like everyone is watching
+	- Keep error checks short so they are less painful to read/write
+		- Single line if possible: `if(rc < 0) return rc;`
+		- When several steps are needed use `rc = rc < 0 ? rc : expr;`
+		- If you're writing a web server, you should be able to use `return 404;`
+		- Anything longer is suffering, even `return HTTP(404);`
+	- Checks should be as simple as possible but no simpler
+		- Don't use crazy macros that automatically return or jump to special labels
+	- Translate codes from meaningful to callee to meaningful to caller
+		- Single line if possible: `if(X == rc) return Y;`
+		- Most of the time this shouldn't be necessary
+	- Try not to mix error code sets within a single function or API
+		- Convert all error types into one as early as possible
+		- Don't use libraries that have bad error handling
+			- Or worst case, wrap them
+	- Functions should have a policy of either reporting or returning errors
+		- Low level reusable functions should only return them
+		- High level app-specific functions can report them
+			- Don't go too crazy, just log to `stderr`
+			- Or show them to the user, depending
 - Memory management
 	- Freeing
 		- Immediately clear pointers after freeing
@@ -96,8 +120,8 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 			- C error handling is hard but that's because it's trying
 		- Limited options in C (in order of preference)
 			1. Use stack allocation so no cleanup is needed
-			2. Do allocations in a parent function and pass them in
-			3. Use `goto`
+			2. Use `goto` (best general purpose option)
+			3. Do allocations in a parent function and pass them in
 			4. Use separate functions so cleanup stays simple
 			5. Tie many allocations together into a single object
 			6. Combine error handlers after several smaller operations
@@ -123,28 +147,6 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Don't divide by zero
 		- NaN
 			- Don't use floats and you'll never run into it...
-	- Error checking
-		- Do it, always, even in sample code
-			- Error handling is all programming is
-				- The problem is an error and your program is the handler
-			- Handle errors like everyone is watching
-		- Keep error checks short so they are less painful to read/write
-			- Single line if possible: `if(rc < 0) return rc;`
-			- When several steps are needed use `rc = rc < 0 ? rc : expr;`
-			- If you're writing a web server, you should be able to use `return 404;`
-			- Anything longer is suffering, even `return HTTP(404);`
-		- Translate codes from meaningful to callee to meaningful to caller
-			- Single line if possible: `if(X == rc) return Y;`
-			- Most of the time this shouldn't be necessary
-		- Try not to mix error code sets within a single function or API
-			- Convert all error types into one as early as possible
-			- Don't use libraries that have bad error handling
-				- Or worst case, wrap them
-		- Functions should have a policy of either reporting or returning errors
-			- Low level reusable functions should only return them
-			- High level app-specific functions can report them
-				- Don't go too crazy, just log to `stderr`
-				- Or show them to the user, depending
 	- Assertions
 		- Don't do anything with side effects in assertion statements
 			- If you're still worried, define `assert(x)` to `(void)x` so side effects get preserved
