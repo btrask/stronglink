@@ -50,9 +50,9 @@ StrongLink supports several database backends including MDB (the default), Level
 
 RocksDB is not recommended but might be useful for specialized applications since it has a lot of tuning options. HyperLevelDB is not recommended since it's generally worse than LevelDB.
 
-It's not too difficult to add support for any transactional (ACID) key-value store.
-
 The backend can be chosen at build time by setting the `DB` environment variable (see above). This might become a runtime option in the future.
+
+It's not too difficult to add support for any transactional (ACID) key-value store. Embedded, write-optimized stores and distributed stores are the most interesting.
 
 Client Configuration
 --------------------
