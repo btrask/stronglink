@@ -186,6 +186,8 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- False is unnecessary and true is incorrect
 	- Use the style of expression to convey the type of check being done
 		- Don't use `!strcmp()`, compare with zero instead
+	- Use `{}` instead of `;` for empty statements
+		- Harder to miss
 - Strings
 	- Format strings
 		- Always use strings literals to specify format strings
