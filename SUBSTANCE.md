@@ -290,10 +290,9 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Use in-out args for recursion, especially tree walking
 - Naming conventions
 	- Different conventions from different libraries is not a bad thing
-		- Consistency is a poor substitute for taste
-			- Although it's better than nothing
 		- When wrapping/extending a library, keep its conventions
-	- Use a different convention between low level and high level interfaces
+		- It'll keep you from wrapping things just to make them more familiar
+	- Maintain a distinction between low level and high level interfaces
 		- Or between public and private interfaces
 		- An example of this is SQLite
 	- It's nice if related names are the same length
@@ -303,7 +302,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Simplify complex expressions with named local variables
 		- And declare them `const`
 		- Write code in "single static assignment" form
-	- I don't care if you use camelCase, under_scores or whatever
+	- I don't care if you use `camelCase`, `under_scores` or whatever
 - Avoid conspicuous complexity
 	- Use post-increment over pre-increment unless it matters
 	- Yoda conditions...? Iffy... (I'm used to them now...)
@@ -311,6 +310,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- There's still an argument for putting the shorter term first
 	- Complicated solutions better solve very important problems
 	- Go out of your way to keep common things simple (e.g. error handling)
+		- Especially things you want to encourage (e.g. error handling)
 	- Preserve, create and exploit symmetry
 		- E.g. use vectors (in the physics sense) instead of enums for directions
 - Performance
