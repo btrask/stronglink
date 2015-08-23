@@ -55,7 +55,8 @@ void SocketFree(SocketRef *const socketptr) {
 	if(socket->secure) tls_close(socket->secure);
 	tls_free(socket->secure); socket->secure = NULL;
 	async_close((uv_handle_t *)socket->stream);
-	FREE(&socket->rd->base); socket->rd->len = 0;
+	FREE(&socket->rdmem);
+	socket->rd->base = NULL; socket->rd->len = 0;
 	FREE(&socket->wr->base); socket->wr->len = 0;
 	socket->err = 0;
 	assert_zeroed(socket, 1);
@@ -69,7 +70,7 @@ int SocketStatus(SocketRef const socket) {
 int SocketPeek(SocketRef const socket, uv_buf_t *const out) {
 	if(!socket) return UV_EINVAL;
 	if(0 == socket->rd->len) {
-		assert(!socket->rdmem);
+		FREE(&socket->rdmem);
 		int rc = sock_read(socket, READ_BUFFER, socket->rd);
 		if(rc < 0) return rc;
 		socket->rdmem = socket->rd->base;
@@ -84,7 +85,7 @@ void SocketPop(SocketRef const socket, size_t const len) {
 	socket->rd->base += len;
 	socket->rd->len -= len;
 	if(socket->rd->len > 0) return;
-	FREE(&socket->rdmem);
+	// socket->rdmem can't be freed because the client is probably still using it.
 	socket->rd->base = NULL;
 	socket->rd->len = 0;
 }
