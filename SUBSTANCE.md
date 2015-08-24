@@ -173,6 +173,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Use `calloc`/`reallocarray` (from OpenBSD) instead of `malloc`/`realloc`
 		- Use overflow-checking compiler intrinsics
 		- Respect the integer types used by each API (`int`, `size_t`, `ssize_t`...)
+		- Use `!!` when converting to `bool`
 	- Macros
 		- Wrap variable expansions in parentheses
 		- Wrap multiple statements in `do {} while(0)` or `({})`
