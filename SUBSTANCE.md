@@ -39,7 +39,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 			- Unfortunately most hypervisors are ever-expanding as well...
 	- Larger scales (e.g. project size) requires heavier duty techniques
 		- I think it's possible to write secure programs in C up to maybe 25-50KLOC using these guidelines
-			- For reference, the ext3 file system was 40KLOC (ext4 is 60)
+			- For reference, the ext3 file system was 28KLOC (ext4 is 60) [[cite]](https://lwn.net/Articles/651645/)
 		- The problem domain must be "well defined," meaning the code is not constantly changing
 		- Larger projects get disproportionately hard to audit, and audits must keep up with the pace of changes
 		- I'm skeptical whether something like a web browser can ever be secure, but I completely acknowledge that Rust is the only hope for it
