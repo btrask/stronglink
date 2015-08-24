@@ -268,11 +268,7 @@ int HTTPConnectionReadBody(HTTPConnectionRef const conn, uv_buf_t *const buf) {
 	HTTPEvent type;
 	int rc = HTTPConnectionPeek(conn, &type, buf);
 	if(rc < 0) return rc;
-	if(HTTPMessageEnd == type) {
-		HTTPConnectionPop(conn, buf->len);
-		return UV_EOF;
-	}
-	if(HTTPBody != type) {
+	if(HTTPBody != type && HTTPMessageEnd != type) {
 		assertf(0, "Unexpected HTTP event %d", type);
 		return UV_UNKNOWN;
 	}
