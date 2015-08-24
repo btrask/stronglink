@@ -15,16 +15,15 @@
 #define SERVER_PORT_RAW "8000" // HTTP default 80
 #define SERVER_PORT_TLS "8001" // HTTPS default 443
 
-// The main cipher options are "secure" or "legacy". According to SSL Labs,
-// "secure" doesn't work with any version of IE or Safari. On the other hand,
-// "legacy" is still very progressive.
-#define TLS_CIPHERS "legacy"
-
-// Apparently IE11 doesn't enable TLS1.2 by default. You have to go into
-// the preferences to enable it. The recommended "modern" configuration
-// permits 1.1 and 1.2 both.
 // https://wiki.mozilla.org/Security/Server_Side_TLS
-#define TLS_PROTOCOLS (TLS_PROTOCOL_TLSv1_2 | TLS_PROTOCOL_TLSv1_1)
+// "Modern" compatibility ciphersuite
+// TODO: Permalink
+// > This page was last modified on 19 June 2015, at 11:59.
+#define TLS_CIPHERS "ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-DSS-AES128-GCM-SHA256:kEDH+AESGCM:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:DHE-RSA-AES256-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!3DES:!MD5:!PSK"
+
+// According to SSL Labs, enabling TLS1.1 doesn't do any good...
+// Not 100% sure about its status in IE11 though.
+#define TLS_PROTOCOLS (TLS_PROTOCOL_TLSv1_2)
 
 int SLNServerDispatch(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
 
