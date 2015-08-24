@@ -438,26 +438,24 @@ int HTTPConnectionWriteSetCookie(HTTPConnectionRef const conn, strarg_t const co
 		uv_buf_init((char *)STR_LEN("; Max-Age=")),
 		uv_buf_init(maxage_str, maxage_len),
 		uv_buf_init((char *)STR_LEN("; HttpOnly")),
-		// TODO
-	//	conn->secure ?
-	//		uv_buf_init((char *)STR_LEN("; Secure" "\r\n")) :
+		SocketIsSecure(conn->socket) ?
+			uv_buf_init((char *)STR_LEN("; Secure" "\r\n")) :
 			uv_buf_init((char *)STR_LEN("\r\n")),
 	};
 	return HTTPConnectionWritev(conn, parts, numberof(parts));
 }
 int HTTPConnectionBeginBody(HTTPConnectionRef const conn) {
 	if(!conn) return 0;
-	// TODO
-/*	if(conn->secure) {
+	if(SocketIsSecure(conn->socket)) {
 		return HTTPConnectionWrite(conn, (byte_t *)STR_LEN(
-			"Strict-Transport-Security: max-age=31536000; includeSubDomains\r\n"
+			"Strict-Transport-Security: max-age=31536000; includeSubDomains; preload\r\n"
 			"Connection: keep-alive\r\n"
 			"\r\n"));
-	} else {*/
+	} else {
 		return HTTPConnectionWrite(conn, (byte_t *)STR_LEN(
 			"Connection: keep-alive\r\n"
 			"\r\n"));
-//	}
+	}
 }
 int HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file) {
 	// TODO: This function should support lengths and offsets.

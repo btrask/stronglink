@@ -62,6 +62,10 @@ void SocketFree(SocketRef *const socketptr) {
 	assert_zeroed(socket, 1);
 	FREE(socketptr); socket = NULL;
 }
+bool SocketIsSecure(SocketRef const socket) {
+	if(!socket) return false;
+	return !!socket->secure;
+}
 int SocketStatus(SocketRef const socket) {
 	if(!socket) return UV_EINVAL;
 	return socket->err;
