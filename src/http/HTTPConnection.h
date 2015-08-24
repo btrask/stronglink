@@ -25,10 +25,12 @@ int HTTPConnectionCreateIncoming(uv_stream_t *const ssocket, unsigned const flag
 int HTTPConnectionCreateIncomingSecure(uv_stream_t *const ssocket, struct tls *const ssecure, unsigned const flags, HTTPConnectionRef *const out);
 int HTTPConnectionCreateOutgoing(strarg_t const domain, unsigned const flags, HTTPConnectionRef *const out);
 void HTTPConnectionFree(HTTPConnectionRef *const connptr);
+
+// Reading
+int HTTPConnectionStatus(HTTPConnectionRef const conn); // NOT a HTTP status code.
 int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_buf_t *const buf);
 void HTTPConnectionPop(HTTPConnectionRef const conn, size_t const len);
 
-// Reading
 ssize_t HTTPConnectionReadRequest(HTTPConnectionRef const conn, HTTPMethod *const method, str_t *const out, size_t const max);
 int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn);
 ssize_t HTTPConnectionReadHeaderField(HTTPConnectionRef const conn, str_t out[], size_t const max);
@@ -37,7 +39,6 @@ int HTTPConnectionReadBody(HTTPConnectionRef const conn, uv_buf_t *const buf);
 int HTTPConnectionReadBodyLine(HTTPConnectionRef const conn, str_t out[], size_t const max);
 ssize_t HTTPConnectionReadBodyStatic(HTTPConnectionRef const conn, byte_t *const out, size_t const max);
 int HTTPConnectionDrainMessage(HTTPConnectionRef const conn);
-
 
 // Writing
 int HTTPConnectionWrite(HTTPConnectionRef const conn, byte_t const *const buf, size_t const len);

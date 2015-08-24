@@ -84,7 +84,6 @@ int SocketPeek(SocketRef const socket, uv_buf_t *const out) {
 }
 void SocketPop(SocketRef const socket, size_t const len) {
 	if(!socket) return;
-	assert(socket->rdmem);
 	assert(len <= socket->rd->len);
 	socket->rd->base += len;
 	socket->rd->len -= len;

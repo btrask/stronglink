@@ -103,20 +103,32 @@ void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
 	assert_zeroed(conn, 1);
 	FREE(connptr); conn = NULL;
 }
+
+int HTTPConnectionStatus(HTTPConnectionRef const conn) {
+	if(!conn) return UV_EINVAL;
+	int rc = HTTP_PARSER_ERRNO(conn->parser);
+	if(HPE_INVALID_EOF_STATE == rc) return UV_ECONNABORTED;
+	if(HPE_OK != rc && HPE_PAUSED != rc) return UV_UNKNOWN;
+	rc = SocketStatus(conn->socket);
+	if(rc < 0) return rc;
+	return 0;
+}
 int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_buf_t *const buf) {
 	if(!conn) return UV_EINVAL;
 	if(!type) return UV_EINVAL;
 	if(!buf) return UV_EINVAL;
 
 	// Repeat previous errors.
-	int rc = HTTP_PARSER_ERRNO(conn->parser);
-	if(HPE_OK != rc && HPE_PAUSED != rc) return UV_UNKNOWN;
-	rc = SocketStatus(conn->socket);
+	int rc = HTTPConnectionStatus(conn);
 	if(rc < 0) return rc;
 
 	while(HTTPNothing == conn->type) {
 		uv_buf_t raw[1];
 		rc = SocketPeek(conn->socket, raw);
+		if(UV_EOF == rc && (HTTPMessageIncomplete & conn->flags)) {
+			rc = 0;
+			*raw = uv_buf_init(NULL, 0);
+		}
 		if(rc < 0) return rc;
 
 		http_parser_pause(conn->parser, 0);
@@ -128,6 +140,7 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 
 		SocketPop(conn->socket, len);
 
+		if(HPE_INVALID_EOF_STATE == rc) return UV_ECONNABORTED;
 		if(HPE_OK != rc && HPE_PAUSED != rc) {
 			// TODO: We should convert HPE_* and return them
 			// instead of logging and returning UV_UNKNOWN.
@@ -255,7 +268,11 @@ int HTTPConnectionReadBody(HTTPConnectionRef const conn, uv_buf_t *const buf) {
 	HTTPEvent type;
 	int rc = HTTPConnectionPeek(conn, &type, buf);
 	if(rc < 0) return rc;
-	if(HTTPBody != type && HTTPMessageEnd != type) {
+	if(HTTPMessageEnd == type) {
+		HTTPConnectionPop(conn, buf->len);
+		return UV_EOF;
+	}
+	if(HTTPBody != type) {
 		assertf(0, "Unexpected HTTP event %d", type);
 		return UV_UNKNOWN;
 	}
@@ -334,10 +351,9 @@ int HTTPConnectionDrainMessage(HTTPConnectionRef const conn) {
 	// that the server knows to close the connection. Failure to do so
 	// can cause an endless loop as we keep failing to process the same
 	// request.
-	int rc = HTTP_PARSER_ERRNO(conn->parser);
-	if(HPE_OK != rc && HPE_PAUSED != rc) return UV_UNKNOWN;
-	rc = SocketStatus(conn->socket);
+	int rc = HTTPConnectionStatus(conn);
 	if(rc < 0) return rc;
+
 	if(!(HTTPMessageIncomplete & conn->flags)) return 0;
 
 	uv_buf_t buf[1];
