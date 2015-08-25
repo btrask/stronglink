@@ -232,11 +232,15 @@ static int PUT_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 	}
 	if(rc < 0) goto cleanup;
 
+	rc = HTTPConnectionDrainMessage(conn);
+	if(rc < 0) goto cleanup;
+
 	created(knownURI, conn);
 
 cleanup:
 	FREE(&knownURI);
 	if(UV_EACCES == rc) return 403;
+	if(UV_ECONNABORTED == rc) return 400;
 	if(rc < 0) return 500;
 	return 0;
 }
