@@ -25,11 +25,11 @@ static void alloc_cb(uv_handle_t *const handle, size_t const suggested_size, uv_
 }
 static void read_cb(uv_stream_t *const stream, ssize_t const nread, uv_buf_t const *const buf) {
 	async_state *const state = stream->data;
-	if(nread < 0) {
+	if(nread <= 0) {
 		free(buf->base); // buf->base = NULL;
 		state->buf->base = NULL;
 		state->buf->len = 0;
-		state->status = nread;
+		state->status = nread ? nread : UV_EAGAIN;
 	} else {
 		state->buf->base = buf->base; // buf->base = NULL;
 		state->buf->len = nread;

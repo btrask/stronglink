@@ -125,6 +125,7 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 	while(HTTPNothing == conn->type) {
 		uv_buf_t raw[1];
 		rc = SocketPeek(conn->socket, raw);
+		if(UV_EAGAIN == rc) continue;
 		if(UV_EOF == rc && (HTTPMessageIncomplete & conn->flags)) {
 			rc = 0;
 			*raw = uv_buf_init(NULL, 0);
