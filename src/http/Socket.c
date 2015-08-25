@@ -76,7 +76,11 @@ int SocketPeek(SocketRef const socket, uv_buf_t *const out) {
 	if(0 == socket->rd->len) {
 		FREE(&socket->rdmem);
 		int rc = sock_read(socket, READ_BUFFER, socket->rd);
-		if(rc < 0) return rc;
+		if(UV_EAGAIN == rc) return rc;
+		if(rc < 0) {
+			socket->err = rc;
+			return rc;
+		}
 		socket->rdmem = socket->rd->base;
 	}
 	*out = *socket->rd;
@@ -133,12 +137,8 @@ int SocketFlush(SocketRef const socket, bool const more) {
 
 
 static int sock_read(SocketRef const socket, size_t const size, uv_buf_t *const out) {
-	if(!socket->secure) {
-		int rc = async_read((uv_stream_t *)socket->stream, size, out);
-		if(rc >= 0) return rc;
-		socket->err = rc;
-		return rc;
-	}
+	if(!socket->secure) return async_read((uv_stream_t *)socket->stream, size, out);
+
 	out->base = malloc(size);
 	if(!out->base) return UV_ENOMEM;
 	size_t total = 0;
@@ -150,13 +150,11 @@ static int sock_read(SocketRef const socket, size_t const size, uv_buf_t *const 
 		int rc = tls_poll((uv_stream_t *)socket->stream, event);
 		if(rc < 0) {
 			FREE(&out->base);
-			socket->err = rc;
 			return rc;
 		}
 	}
 	if(0 == total) {
 		FREE(&out->base);
-		socket->err = UV_EOF;
 		return UV_EOF;
 	}
 	out->len = total;
