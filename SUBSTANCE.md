@@ -60,7 +60,9 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- If you're writing a web server, you should be able to use `return 404;`
 		- Anything longer is suffering, even `return HTTP(404);`
 	- Checks should be as simple as possible but no simpler
-		- Don't use crazy macros that automatically return or jump to special labels
+		- Macros can help, but don't abuse them
+		- Try to keep control flow (`goto`/`return`) out of macros
+			- It can be done quite compactly inline
 	- Translate codes from meaningful to callee to meaningful to caller
 		- Single line if possible: `if(X == rc) return Y;`
 		- Most of the time this shouldn't be necessary
@@ -223,7 +225,8 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Declare the mutex together with the variables it protects
 		- Generally avoid read-write locks
 			- If you need a read-write lock, you need a better data structure
-		- Know when `volatile` is necessary and then use locks instead
+		- Know when `volatile` or atomics are necessary and then use locks instead
+			- Depends on what kind of code you're writing, of course
 	- Patterns
 		- Thread pools (task scheduling)
 			- Best general approach?
