@@ -39,7 +39,6 @@ fs.readdir(path, function(err, dirs) {
 				console.log(file);
 				repo.getFile("hash://"+algo+"/"+files[j], {method: "HEAD"}, function(err, obj) {
 					if(err) throw err;
-					if(!obj.data) throw new Error("something bad");
 					nextj(j+1);
 				});
 			})(0);
