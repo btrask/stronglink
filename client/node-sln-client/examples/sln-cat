@@ -1,0 +1,19 @@
+#!/usr/bin/env node
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
+var sln = require("../sln-client");
+
+if(process.argv.length <= 3) {
+	console.error("Usage: sln-cat repo link");
+	process.exit(1);
+}
+var repo = sln.repoForName(process.argv[2]);
+var link = process.argv[3];
+
+var req = repo.createFileRequest(link, {});
+req.on("response", function(res) {
+	if(200 !== res.statusCode) throw new Error("Response error "+res.statusCode);
+	res.pipe(process.stdout);
+});
+
