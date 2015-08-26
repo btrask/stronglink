@@ -100,5 +100,5 @@ In the process of developing StrongLink, I've learned two things I can say with 
 2. With hashing, less is more. Don't hash meaningless data or your concept of identity will be meaningless.
 
 **My question isn't answered here...**  
-Please search [my notes and development log](https://bentrask.com/). Most questions have been answered and most suggestions have been considered.
+Please search [my notes and development log](https://bentrask.com/). Most questions have been answered and most suggestions have been considered. If you still have any questions or concerns, feel free to open a GitHub issue.
 
