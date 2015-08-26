@@ -384,4 +384,5 @@ Other sources
 - [Linux kernel coding style](https://www.kernel.org/doc/Documentation/CodingStyle)
 - [Tips for C libraries on GNU/Linux](https://git.kernel.org/?p=linux/kernel/git/kay/libabc.git;a=blob_plain;f=README)
 - [JPL Coding Standard](http://lars-lab.jpl.nasa.gov/JPL_Coding_Standard_C.pdf)
+- [This article on Reddit, with Q&A](https://www.reddit.com/r/programming/comments/3i4ffo/c_programming_substance_guidelines/)
 
