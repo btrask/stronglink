@@ -389,6 +389,7 @@ sln.parseURIList = function(str, opts) {
 };
 
 // opts: { meta: bool, req: http.ClientRequest }
+sln.URIListStream = URIListStream;
 function URIListStream(opts) {
 	var stream = this;
 	TransformStream.call(stream, { readableObjectMode: true });

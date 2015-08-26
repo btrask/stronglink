@@ -1,0 +1,32 @@
+#!/usr/bin/env node
+// Copyright 2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
+var crypto = require("crypto");
+var fs = require("fs");
+
+var sln = require("../sln-client");
+
+if(process.argv.length <= 3) {
+	console.error("Usage: sln-verify-from-list repo path");
+	process.exit(1);
+}
+var repo = sln.repoForName(process.argv[2]);
+var path = process.argv[3];
+
+// Note: file order isn't verified here because it isn't
+// guaranteed in all cases.
+
+var list = fs.createReadStream(path, { encoding: "utf8" });
+var stream = new sln.URIListStream();
+list.pipe(stream);
+
+stream.on("data", function(URI) {
+	stream.pause();
+	console.log(URI);
+	repo.getFile(URI, { method: "HEAD" }, function(err, obj) {
+		if(err) throw err;
+		stream.resume();
+	});
+});
+
