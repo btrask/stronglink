@@ -1,0 +1,49 @@
+#!/usr/bin/env node
+// Copyright 2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
+var crypto = require("crypto");
+var fs = require("fs");
+var pathmodule = require("path");
+
+var sln = require("../sln-client");
+
+if(process.argv.length <= 4) {
+	console.error("Usage: sln-verify-from-fs repo path algo");
+	process.exit(1);
+}
+var repo = sln.repoForName(process.argv[2]);
+var path = process.argv[3];
+var algo = process.argv[4];
+
+// This script is mainly useful for testing against very old versions of
+// StrongLink (even from before it was called StrongLink).
+
+// This tool just uses the directory tree at `path` as a list of hashes
+// under the `algo` algorithm. The old files are assumed to match their
+// hashes. The new files can be verified with the sln-verify tool.
+
+// File ordering is not verified since it can't be determined from the
+// raw file structure.
+
+fs.readdir(path, function(err, dirs) {
+	if(err) throw err;
+	(function nexti(i) {
+		if(i >= dirs.length) return;
+		var dir = pathmodule.join(path, dirs[i]);
+		fs.readdir(dir, function(err, files) {
+			if(err) throw err;
+			(function nextj(j) {
+				if(j >= files.length) return nexti(i+1);
+				var file = pathmodule.join(dir, files[j]);
+				console.log(file);
+				repo.getFile("hash://"+algo+"/"+files[j], {method: "HEAD"}, function(err, obj) {
+					if(err) throw err;
+					if(!obj.data) throw new Error("something bad");
+					nextj(j+1);
+				});
+			})(0);
+		});
+	})(0);
+});
+
