@@ -7,7 +7,7 @@ var crypto = require("crypto");
 var sln = require("../sln-client");
 
 if(process.argv.length <= 2) {
-	console.error("Usage: sln-verify repo [query]");
+	console.error("Usage: sln-verify-content repo [query]");
 	process.exit(1);
 }
 var repo = sln.repoForName(process.argv[2]);

@@ -21,10 +21,7 @@ var algo = process.argv[4];
 
 // This tool just uses the directory tree at `path` as a list of hashes
 // under the `algo` algorithm. The old files are assumed to match their
-// hashes. The new files can be verified with the sln-verify tool.
-
-// File ordering is not verified since it can't be determined from the
-// raw file structure.
+// hashes. The new files can be verified with the sln-verify-content tool.
 
 fs.readdir(path, function(err, dirs) {
 	if(err) throw err;
