@@ -23,7 +23,6 @@ Practices in use (pro tip: contributing guidelines):
 	- Perform privileged user operations through objects that manage their own access
 	- Use mainly single-threaded code, with very clean abstractions for threaded sections
 	- Keep the whole project small and auditable
-	- Use appropriate `open(2)` args to control access and avoid race conditions
 	- Use read-only access when possible
 	- Use established HTML sanitization instead of DIY
 	- Variables holding sanitized data are given suffixed names to make it very obvious
@@ -35,25 +34,7 @@ Practices in use (pro tip: contributing guidelines):
 	- Test under Clang static analyzer
 	- Test under [Facebook Infer](http://fbinfer.com/) static analyzer
 - Low level ("C-specific")
-	- Zero pointers on free and check that freed memory is zeroed
-	- Never use dynamic format strings
-	- Use explicit lengths in format string specifiers
-	- Use `snprintf` instead of `sprintf`
-	- Use custom allocating printf function (designed for ease of use)
-	- Use `-Werror -Wall -Wextra -Wshadow -Wuninitialized` strict compiler warnings
-	- Use `-Wwrite-strings` to have the compiler mark all strings as constant
-	- Use simple memory layouts without any custom allocators
-	- Generally prefer `calloc` over `malloc`
-	- Declare things `const` when possible (practically everywhere)
-	- Use `const` to control whether pointers can be freed (thus indicating ownership)
-	- Use "Yoda expressions" with the constant on the left to avoid accidental assignment
-	- For "confusing" functions like `strcmp`, explicitly compare them to zero instead of using `!`
-	- Never split conditional statements onto multiple lines without braces
-	- Use `goto` tastefully to simplify error handling and cleanup when appropriate
-	- Use `reallocarray`
-	- Use standard, secure string functions like `strlcat` instead of rolling our own (where possible)
-	- Define string length constants as `(N+1)` to make nul termination explicit
-	- `byte_t` (`unsigned char`) is used for binary data, as opposed to `str_t`/`strarg_t` (plain `char`) for string data
+	- See the [C Programming Substance Guidelines](https://github.com/btrask/stronglink/blob/master/SUBSTANCE.md)
 
 Planned (pro tip: places bugs might be hiding):
 
