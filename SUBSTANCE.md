@@ -2,7 +2,7 @@ C Programming Substance Guidelines
 ==================================
 
 **AKA Everything You Need to Know to Write Good C Code**  
-**AKA The StrongLink Programming Guidelines**
+**AKA The StrongLink Code Contribution Guidelines**
 
 This document is intended to provide _substance_ guidelines, as opposed to _style_ guidelines frequently proposed and debated elsewhere. Every guideline herein should have some intuitive (if not provable) rationale for how it improves code quality (mainly by making code less error-prone or more secure). Conversely, I will not tell you where to put your braces.
 
