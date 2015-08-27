@@ -231,12 +231,8 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 			- If you need a read-write lock, you need a better data structure
 		- Know when `volatile` or atomics are necessary and then use locks instead
 			- Depends on what kind of code you're writing, of course
-	- Patterns
-		- Thread pools (task scheduling)
-			- Best general approach?
-		- Worker threads (data consumers)
-			- Not as good because pool logic is mixed with task logic?
-			- Finer grained cancellation?
+	- Threading really deserves a whole separate article
+		- Teaser: asynchronous callbacks are threads and queues are locks
 - File system
 	- `fsync` (including on directories after renaming contents)
 	- Atomic operations (rename, link, unlink...)
