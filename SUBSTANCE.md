@@ -333,6 +333,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Almost never use fancy data structures
 		- Funny how C is so fast without built in hash tables or anything else
 		- Most of the time it doesn't matter and the overhead isn't worth it
+		- [Rob Pike: "Fancy algorithms are slow when _n_ is small, and _n_ is usually small."](https://www.lysator.liu.se/c/pikestyle.html)
 		- Sometimes it does and gets inconvenient, though...
 	- Study data-oriented design
 		- The appropriate memory representation depends on the access patterns
@@ -344,7 +345,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- If function call overhead is your bottleneck, you've probably done something wrong
 		- Don't deal with audio one sample at a time
 		- Don't deal with buffers one byte at a time
-			- Ask Linus Torvalds... Or Kay Sievers
+			- [Ask Linus Torvalds... Or Kay Sievers](http://lkml.iu.edu/hypermail/linux/kernel/1207.0/02973.html)
 		- While we're at it, don't deal with thread pools one syscall at a time
 - Build system (not a thorough analysis)
 	- Use `-Wall -Wextra -Werror`
@@ -387,6 +388,7 @@ Other sources
 
 - [Linux kernel coding style](https://www.kernel.org/doc/Documentation/CodingStyle)
 - [Tips for C libraries on GNU/Linux](https://git.kernel.org/?p=linux/kernel/git/kay/libabc.git;a=blob_plain;f=README)
+- [Notes on Programming in C](https://www.lysator.liu.se/c/pikestyle.html)
 - [JPL Coding Standard](http://lars-lab.jpl.nasa.gov/JPL_Coding_Standard_C.pdf)
 - [This article on Reddit, with Q&A](https://www.reddit.com/r/programming/comments/3i4ffo/c_programming_substance_guidelines/)
 
