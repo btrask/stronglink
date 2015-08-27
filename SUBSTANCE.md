@@ -198,11 +198,11 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Know which APIs expect format strings
 			- Passing a dynamic string where a format string was expected is a security vulnerability
 			- Name functions taking format strings ending in "f"
-	- `scanf`
+	- `scanf(3)`
 		- Pre-initialize all outputs
 		- Always specify string widths
 		- Be careful about locales
-		- Sometimes it's easiest to check the scanned length with `%n`
+		- Sometimes it's easiest to check the scanned length with `%n` (takes `int *`)
 	- String functions
 		- Use `strlcpy` and `strlcat` from OpenBSD
 		- Use `snprintf(3)` instead of `sprintf(3)` (it takes an output length)
