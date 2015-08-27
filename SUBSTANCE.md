@@ -326,6 +326,8 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Especially things you want to encourage (e.g. error handling)
 	- Preserve, create and exploit symmetry
 		- E.g. use vectors (in the physics sense) instead of enums for directions
+	- Resist the "nesting instinct"
+		- You are a visitor here (on the user's computer... and in life?)
 - Performance
 	- Choosing good optimizations and avoiding bad ones is the core of programming
 		- Know when an optimization is too complicated to be worth it
