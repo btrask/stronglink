@@ -10,7 +10,7 @@ Please remember this project as a whole is still very young. One goal of releasi
 
 Practices in use (pro tip: contributing guidelines):
 
-- High level
+- Language-agnostic
 	- Read the man pages/docs before using functions
 	- Know which functions accept format strings and don't pass arbitrary strings by mistake
 	- Don't use SQL (for performance, but no chance of SQLi)
@@ -33,7 +33,7 @@ Practices in use (pro tip: contributing guidelines):
 	- Test under Valgrind
 	- Test under Clang static analyzer
 	- Test under [Facebook Infer](http://fbinfer.com/) static analyzer
-- Low level ("C-specific")
+- C-specific
 	- See the [C Programming Substance Guidelines](https://github.com/btrask/stronglink/blob/master/SUBSTANCE.md)
 
 Planned (pro tip: places bugs might be hiding):
