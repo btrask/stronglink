@@ -6,6 +6,8 @@ C Programming Substance Guidelines
 
 This document is intended to provide _substance_ guidelines, as opposed to _style_ guidelines frequently proposed and debated elsewhere. Every guideline herein should have some intuitive (if not provable) rationale for how it improves code quality (mainly by making code less error-prone or more secure). Conversely, I will not tell you where to put your braces.
 
+These techniques are intended to be widely applicable, but probably aren't relevant to game engines (where security basically doesn't matter) or hard real-time/safety-critical control software (where you might ban all dynamic allocation and unverifiable loop bounds...).
+
 This article is written for experienced programmers, although not necessarily experienced in C. Familiarity with C is assumed. This article is _not_ about C++ (which I'm not at all qualified to write about).
 
 If you're interested in learning C, Zed Shaw's [Learn C the Hard Way](http://c.learncodethehardway.org/book/) is probably very good, although I've only read a few parts.
@@ -393,6 +395,6 @@ Other sources
 - [Linux kernel coding style](https://www.kernel.org/doc/Documentation/CodingStyle)
 - [Tips for C libraries on GNU/Linux](https://git.kernel.org/?p=linux/kernel/git/kay/libabc.git;a=blob_plain;f=README)
 - [Notes on Programming in C](https://www.lysator.liu.se/c/pikestyle.html)
-- [JPL Coding Standard](http://lars-lab.jpl.nasa.gov/JPL_Coding_Standard_C.pdf)
+- [JPL Coding Standard](http://lars-lab.jpl.nasa.gov/JPL_Coding_Standard_C.pdf) [PDF]
 - [This article on Reddit, with Q&A](https://www.reddit.com/r/programming/comments/3i4ffo/c_programming_substance_guidelines/)
 
