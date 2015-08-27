@@ -214,6 +214,8 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Compiler warnings will catch accidental conversions
 	- Have a string type for borrowed strings
 		- I like `typedef char const *strarg_t;`
+		- Another name that has been suggested is `borrowedstr_t`
+		- This isn't a style guide so the name is up to you
 	- Parsing
 		- I have no idea how to hand-parse strings in an easy, safe and efficient manner
 		- I don't want machine-generated code
