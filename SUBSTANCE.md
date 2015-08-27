@@ -257,6 +257,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Code should be factored so that changes don't ripple throughout the codebase
 	- Files are C's primary namespaces
 		- Declare file-local variables and functions as `static`
+	- [Redundancy vs dependencies: which is worse?](http://yosefk.com/blog/redundancy-vs-dependencies-which-is-worse.html)
 - Testing
 	- Tools
 		- Your best tool is the compiler
