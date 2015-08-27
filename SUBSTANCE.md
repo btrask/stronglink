@@ -235,8 +235,8 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Teaser: asynchronous callbacks are threads and queues are locks
 - File system
 	- `fsync` (including on directories after renaming contents)
-	- Atomic operations (rename, link, unlink...)
-	- Specify permissions on `open` to avoid race conditions
+	- Atomic operations (`rename`, `link`, `unlink`...)
+	- Specify permissions on `open(2)` to avoid race conditions
 	- Use `O_CREAT | O_EXCL`
 	- Short `read`s and `write`s
 		- Handle `EINTR`
