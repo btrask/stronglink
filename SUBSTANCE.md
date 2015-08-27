@@ -345,7 +345,8 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- If function call overhead is your bottleneck, you've probably done something wrong
 		- Don't deal with audio one sample at a time
 		- Don't deal with buffers one byte at a time
-			- [Ask Linus Torvalds... Or Kay Sievers](http://lkml.iu.edu/hypermail/linux/kernel/1207.0/02973.html)
+			- Ask Linus Torvalds... Or Kay Sievers
+				- Warning: [strong language](http://lkml.iu.edu/hypermail/linux/kernel/1207.0/02973.html)
 		- While we're at it, don't deal with thread pools one syscall at a time
 - Build system (not a thorough analysis)
 	- Use `-Wall -Wextra -Werror`
