@@ -296,6 +296,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 			- E.g. `X **const asdf`
 		- It helps, despite the fact that the top `const` isn't actually part of the signature
 	- Use in-out args for recursion, especially tree walking
+	- Brain teaser: what's the ideal pointer size?
 - Naming conventions
 	- Different conventions from different libraries is not a bad thing
 		- When wrapping/extending a library, keep its conventions
