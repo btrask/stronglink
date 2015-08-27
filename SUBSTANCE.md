@@ -246,6 +246,8 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Write sample code using your API before you define it
 	- Don't hide power or assume you know better than your user
 	- Public APIs should have some sort of prefix or namespace
+	- Use error codes, not strings
+		- LevelDB, what were you thinking...?
 - Modularity
 	- Code duplication
 		- Plugins should have the minimum boilerplate possible
