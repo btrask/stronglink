@@ -281,7 +281,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- `static` functions in headers are always hacks
 		- Not all hacks are bad, just keep it in mind
 - Pointers
-	- Use `struct thing thingptr[1]` to get pointers with inline storage
+	- Use `struct thing thingptr[1];` to get pointers with inline storage
 		- Lets you avoid `.` or excessive use of `&`
 		- You should pretty much always use `->` instead of `.`
 		- Most useful in structs, also sometimes useful on the stack
