@@ -253,11 +253,11 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Plugins should have the minimum boilerplate possible
 			- The more plugins you have, the less duplication you can afford
 			- Abuse preprocessor macros if you have to?
+		- [Redundancy vs dependencies: which is worse?](http://yosefk.com/blog/redundancy-vs-dependencies-which-is-worse.html)
 	- Code that changes together should be grouped together
 	- Code should be factored so that changes don't ripple throughout the codebase
 	- Files are C's primary namespaces
 		- Declare file-local variables and functions as `static`
-	- [Redundancy vs dependencies: which is worse?](http://yosefk.com/blog/redundancy-vs-dependencies-which-is-worse.html)
 - Testing
 	- Tools
 		- Your best tool is the compiler
