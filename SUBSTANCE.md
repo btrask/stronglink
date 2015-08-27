@@ -195,7 +195,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Harder to miss
 - Strings
 	- Format strings
-		- Always use strings literals to specify format strings
+		- Always use string literals to specify format strings
 		- Use `"%s"` instead of directly passing string variables
 		- Know which APIs expect format strings
 			- Passing a dynamic string where a format string was expected is a security vulnerability
