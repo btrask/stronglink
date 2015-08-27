@@ -11,6 +11,8 @@ Please remember this project as a whole is still very young. One goal of releasi
 Practices in use (pro tip: contributing guidelines):
 
 - Language-agnostic
+	- Keep the whole project small and auditable
+	- Use read-only access when possible (for the file system, variables, etc.)
 	- Read the man pages/docs before using functions
 	- Know which functions accept format strings and don't pass arbitrary strings by mistake
 	- Don't use SQL (for performance, but no chance of SQLi)
@@ -21,9 +23,7 @@ Practices in use (pro tip: contributing guidelines):
 	- Use purely random tokens for session cookies, rather than some sort of meaningful data
 	- Don't require cloud storage for backup or syncing
 	- Perform privileged user operations through objects that manage their own access
-	- Use mainly single-threaded code, with very clean abstractions for threaded sections
-	- Keep the whole project small and auditable
-	- Use read-only access when possible
+	- Do privilege checks as early and as low level as possible
 	- Use established HTML sanitization instead of DIY
 	- Variables holding sanitized data are given suffixed names to make it very obvious
 	- Times are stored in UTC to avoid inadvertently leaking time zone information
