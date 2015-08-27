@@ -17,6 +17,7 @@ Practices in use (pro tip: contributing guidelines):
 	- Know which functions accept format strings and don't pass arbitrary strings by mistake
 	- Don't use SQL (for performance, but no chance of SQLi)
 	- Use established parsing libraries like http\_parser and YAJL
+	- Encrypt network connections using LibTLS, which has a very simple API
 	- Use bcrypt for passwords
 	- Use constant-time string comparison when necessary (currently nowhere)
 	- Use 128 bits of entropy and SHA-256 for session cookies
