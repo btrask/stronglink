@@ -59,7 +59,7 @@ I would be extremely happy if other projects took some notes from StrongLink's d
 I'd like to thank Juan Batiz-Benet, creator of [IPFS](http://ipfs.io/), for giving me some valuable feedback.
 
 **What is the status of the project?**  
-I've been using StrongLink (and earlier prototypes) for my own notes for years. So far I haven't lost any data. (Update 2015-08-25: Some of my old notes MAY have been lost or corrupted. The bug has been found and fixed, and more protections have already been added. I'm currently investigating the scope of the impact.)
+I've been using StrongLink (and earlier prototypes) for my own notes for years. So far I haven't lost any data (although there have been some close calls).
 
 It's currently missing a large number of features. Most major problems are [documented as GitHub issues](https://github.com/btrask/stronglink/issues).
 
