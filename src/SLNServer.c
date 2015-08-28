@@ -226,9 +226,9 @@ static int PUT_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 
 	int rc = SLNSessionGetFileInfo(session, knownURI, NULL);
 	if(DB_NOTFOUND == rc) {
-		rc = accept_sub(session, knownURI, conn, headers);
+		int status = accept_sub(session, knownURI, conn, headers);
 		FREE(&knownURI);
-		return rc;
+		return status;
 	}
 	if(rc < 0) goto cleanup;
 
