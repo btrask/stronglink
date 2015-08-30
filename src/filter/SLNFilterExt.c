@@ -241,15 +241,17 @@ int SLNFilterWriteURIs(SLNFilterRef const filter, SLNSessionRef const session, S
 		if(!remaining) return 0;
 		if(!count) break;
 	}
-	int rc = flushcb ? flushcb(ctx) : 0;
-	if(rc < 0) return rc;
 
 	if(!wait || pos->dir < 0) return 0;
 
 	SLNRepoRef const repo = SLNSessionGetRepo(session);
 	for(;;) {
+		int rc = flushcb ? flushcb(ctx) : 0;
+		if(rc < 0) return rc;
+
+		uint64_t latest = pos->sortID;
 		uint64_t const timeout = uv_now(async_loop)+(1000 * 30);
-		rc = SLNRepoSubmissionWait(repo, pos->sortID, timeout);
+		rc = SLNRepoSubmissionWait(repo, &latest, timeout);
 		if(UV_ETIMEDOUT == rc) {
 			uv_buf_t const parts[] = { uv_buf_init((char *)STR_LEN("\r\n")) };
 			rc = writecb(ctx, parts, numberof(parts));
@@ -263,9 +265,14 @@ int SLNFilterWriteURIs(SLNFilterRef const filter, SLNSessionRef const session, S
 			if(count < 0) return count;
 			remaining -= count;
 			if(!remaining) return 0;
+			if(count < BATCH_SIZE) break;
 		}
-		rc = flushcb ? flushcb(ctx) : 0;
-		if(rc < 0) return rc;
+
+		// This is how far we scanned, even if we didn't find anything.
+		if(pos->sortID < latest) {
+			pos->sortID = latest;
+			pos->fileID = 0;
+		}
 	}
 
 	return 0;

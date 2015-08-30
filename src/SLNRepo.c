@@ -184,14 +184,16 @@ void SLNRepoSubmissionEmit(SLNRepoRef const repo, uint64_t const sortID) {
 	}
 	async_mutex_unlock(repo->sub_mutex);
 }
-int SLNRepoSubmissionWait(SLNRepoRef const repo, uint64_t const sortID, uint64_t const future) {
+int SLNRepoSubmissionWait(SLNRepoRef const repo, uint64_t *const sortID, uint64_t const future) {
 	assert(repo);
+	assert(sortID);
 	int rc = 0;
 	async_mutex_lock(repo->sub_mutex);
-	while(repo->sub_latest <= sortID) {
+	while(repo->sub_latest <= *sortID) {
 		rc = async_cond_timedwait(repo->sub_cond, repo->sub_mutex, future);
 		if(rc < 0) break;
 	}
+	*sortID = repo->sub_latest;
 	async_mutex_unlock(repo->sub_mutex);
 	return rc;
 }
