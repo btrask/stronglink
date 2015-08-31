@@ -1,0 +1,46 @@
+#!/usr/bin/env node
+// Copyright 2014-2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
+var sln = require("../sln-client");
+
+if(process.argv.length <= 2) {
+	console.error("Usage: sln-stats repo [query]");
+	process.exit(1);
+}
+var repo = sln.repoForName(process.argv[2]);
+var query = process.argv[3] || "";
+
+function has(obj, prop) {
+	return Object.prototype.hasOwnProperty.call(obj, prop);
+}
+
+var stats = {
+	totalCount: 0,
+	totalSize: 0,
+	types: {},
+};
+
+var stream = repo.createQueryStream(query, { wait: false });
+stream.on("data", function(URI) {
+	stream.pause();
+	console.log(URI);
+	var req = repo.createFileRequest(URI, {method: "HEAD"})
+	req.on("response", function(res) {
+		if(200 != res.statusCode) throw new Error("Status code "+res.statusCode);
+		stats.totalCount++;
+		stats.totalSize += parseInt(res.headers["content-length"], 10);
+		var type = res.headers["content-type"];
+		if(!has(stats.types, type)) stats.types[type] = 0;
+		stats.types[type]++;
+		res.resume();
+		stream.resume();
+	});
+});
+stream.on("end", function() {
+	console.log("");
+	console.log("Total count: "+stats.totalCount+" files");
+	console.log("Total size: "+stats.totalSize+" bytes");
+	console.log("Average size: "+(stats.totalSize/stats.totalCount)+" bytes per file");
+	console.log("Types:", stats.types);
+});
