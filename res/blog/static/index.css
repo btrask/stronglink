@@ -50,6 +50,7 @@ body, textarea {
 }
 input {
 	padding: 2px 4px;
+	font-size: medium;
 }
 
 .margin {
