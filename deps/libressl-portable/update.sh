@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 set -e
 
 openbsd_branch=`cat OPENBSD_BRANCH`
@@ -28,17 +28,17 @@ libtls_src=$CWD/openbsd/src/lib/libtls
 openssl_app_src=$CWD/openbsd/src/usr.bin/openssl
 
 # load library versions
-source $libcrypto_src/crypto/shlib_version
+. $libcrypto_src/crypto/shlib_version
 libcrypto_version=$major:$minor:0
 echo "libcrypto version $libcrypto_version"
 echo $libcrypto_version > crypto/VERSION
 
-source $libssl_src/ssl/shlib_version
+. $libssl_src/ssl/shlib_version
 libssl_version=$major:$minor:0
 echo "libssl version $libssl_version"
 echo $libssl_version > ssl/VERSION
 
-source $libtls_src/shlib_version
+. $libtls_src/shlib_version
 libtls_version=$major:$minor:0
 echo "libtls version $libtls_version"
 echo $libtls_version > tls/VERSION
@@ -52,8 +52,14 @@ do_mv() {
 		rm -f "$1"
 	fi
 }
-CP='cp -p'
 MV='do_mv'
+
+do_cp_libc() {
+	sed "/DEF_WEAK/d" < "$1" > "$2"/`basename "$1"`
+}
+CP_LIBC='do_cp_libc'
+
+CP='cp -p'
 
 $CP $libssl_src/src/LICENSE COPYING
 
@@ -66,20 +72,21 @@ $CP $libtls_src/tls.h include
 $CP $libtls_src/tls.h libtls-standalone/include
 
 for i in crypto/compat libtls-standalone/compat; do
-	$CP $libc_src/crypt/arc4random.c \
-		$libc_src/crypt/chacha_private.h \
-		$libc_src/string/explicit_bzero.c \
-		$libc_src/stdlib/reallocarray.c \
-		$libc_src/string/strcasecmp.c \
-		$libc_src/string/strlcpy.c \
-		$libc_src/string/strlcat.c \
-		$libc_src/string/strndup.c \
-		$libc_src/string/strnlen.c \
-		$libc_src/string/timingsafe_bcmp.c \
-		$libc_src/string/timingsafe_memcmp.c \
-		$libcrypto_src/crypto/getentropy_*.c \
-		$libcrypto_src/crypto/arc4random_*.h \
-		$i
+	for j in $libc_src/crypt/arc4random.c \
+	    $libc_src/crypt/chacha_private.h \
+	    $libc_src/string/explicit_bzero.c \
+	    $libc_src/stdlib/reallocarray.c \
+	    $libc_src/string/strcasecmp.c \
+	    $libc_src/string/strlcpy.c \
+	    $libc_src/string/strlcat.c \
+	    $libc_src/string/strndup.c \
+	    $libc_src/string/strnlen.c \
+	    $libc_src/string/timingsafe_bcmp.c \
+	    $libc_src/string/timingsafe_memcmp.c \
+	    $libcrypto_src/crypto/getentropy_*.c \
+	    $libcrypto_src/crypto/arc4random_*.h; do
+		$CP_LIBC $j $i
+	done
 done
 
 $CP include/compat/stdlib.h \
@@ -143,7 +150,7 @@ $CP crypto/compat/ui_openssl_win.c crypto/ui
 asm_src=$libssl_src/src/crypto
 gen_asm_stdout() {
 	perl $asm_src/$2 $1 > $3.tmp
-	[[ $1 == "elf" ]] && cat <<-EOF >> $3.tmp
+	[ $1 = "elf" ] && cat <<-EOF >> $3.tmp
 	#if defined(HAVE_GNU_STACK)
 	.section .note.GNU-stack,"",%progbits
 	#endif
@@ -152,7 +159,7 @@ gen_asm_stdout() {
 }
 gen_asm() {
 	perl $asm_src/$2 $1 $3.tmp
-	[[ $1 == "elf" ]] && cat <<-EOF >> $3.tmp
+	[ $1 = "elf" ] && cat <<-EOF >> $3.tmp
 	#if defined(HAVE_GNU_STACK)
 	.section .note.GNU-stack,"",%progbits
 	#endif
@@ -191,8 +198,10 @@ for i in `awk '/SOURCES|HEADERS/ { print $3 }' tls/Makefile.am` ; do
 		$CP $libtls_src/$i libtls-standalone/src
 	fi
 done
-$CP $libc_src/string/strsep.c tls
-$CP $libc_src/string/strsep.c libtls-standalone/compat
+
+$CP_LIBC $libc_src/string/strsep.c tls
+$CP_LIBC $libc_src/string/strsep.c libtls-standalone/compat
+
 mkdir -p libtls-standalone/m4
 $CP m4/check*.m4 \
 	m4/disable*.m4 \
