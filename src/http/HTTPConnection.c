@@ -637,7 +637,7 @@ int HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path, st
 	}
 	rc = rc < 0 ? rc : HTTPConnectionWriteResponse(conn, 200, "OK");
 	rc = rc < 0 ? rc : HTTPConnectionWriteContentLength(conn, size);
-	// TODO: Caching and other headers.
+	rc = rc < 0 ? rc : HTTPConnectionWriteHeader(conn, "Cache-Control", "max-age=604800; public"); // TODO: Just cache all static files for one week, for now.
 	if(type) rc = rc < 0 ? rc : HTTPConnectionWriteHeader(conn, "Content-Type", type);
 	rc = rc < 0 ? rc : HTTPConnectionBeginBody(conn);
 	rc = rc < 0 ? rc : HTTPConnectionWriteFile(conn, file);
