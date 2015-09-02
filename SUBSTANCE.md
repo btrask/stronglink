@@ -400,4 +400,4 @@ Other sources
 - [Notes on Programming in C](https://www.lysator.liu.se/c/pikestyle.html)
 - [JPL Coding Standard](http://lars-lab.jpl.nasa.gov/JPL_Coding_Standard_C.pdf) [PDF]
 - [This article on Reddit, with Q&A](https://www.reddit.com/r/programming/comments/3i4ffo/c_programming_substance_guidelines/)
-
+- [This article on Hacker News, with Q&A](https://news.ycombinator.com/item?id=10157018)
