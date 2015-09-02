@@ -170,6 +170,8 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 			- Be very careful about adding a second statement on the same line (with braces obviously)
 				- I do this sometimes but I know it's bad practice
 				- It'd be nice to have a compiler warning for statements that look like they're in a conditional but aren't
+			- Downside of using a single line: can't set breakpoints on the `goto` statement
+				- I see this as a tool problem
 		- Put a comma after the last element in arrays (if one element per line)
 		- Put logical units on the same line
 			- Otherwise wrap them in parentheses or braces
