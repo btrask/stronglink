@@ -211,9 +211,9 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Use `strdup(3)`
 	- Define string length constants as `(X+1)` to indicate nul termination
 		- If you're using UTF-8 (which you should be), remember the length is bytes, not characters
-	- Use `signed char` for strings and `unsigned char` for buffers
+	- Use (typically signed) `char` for strings and `unsigned char` for buffers
 		- `typedef unsigned char byte_t;`
-		- Compiler warnings will catch accidental conversions
+		- Compiler warnings will catch accidental conversions (on most platforms)
 	- Have a string type for borrowed strings
 		- I like `typedef char const *strarg_t;`
 		- Another name that has been suggested is `borrowedstr_t`
