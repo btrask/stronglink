@@ -116,7 +116,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Limit recursion
 		- Use loops instead of relying on TCO (personal preference)
 			- Don't be fancy
-		- Don't decare large arrays on the stack
+		- Don't declare large arrays on the stack
 		- Always declare the worst case size instead of using `alloca(3)`
 		- Use nested local scopes when necessary
 	- Cleanup in case of errors
