@@ -25,9 +25,10 @@ A semi-recent version of [Node.js](https://nodejs.org/) or [io.js](https://iojs.
 Basic Installation
 ------------------
 
-1. `./configure && make`
-2. `sudo make install`
-3. `stronglink /repo-dir`
+1. `cd deps/libressl-portable && ./update.sh` (TODO: make this step go away)
+2. `./configure && make`
+3. `sudo make install`
+4. `stronglink /repo-dir`
 
 Server Configuration
 --------------------
