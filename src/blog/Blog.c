@@ -668,6 +668,7 @@ static bool load_template(BlogRef const blog, strarg_t const name, TemplateRef *
 	TemplateRef t = TemplateCreateFromPath(path);
 	if(!t) {
 		fprintf(stderr, "Blog couldn't load template at %s\n", path);
+		fprintf(stderr, "Make sure StrongLink is properly installed or try manually copying the res/blog directory to %s", blog->dir);
 		return false;
 	}
 	*out = t;
