@@ -8,7 +8,7 @@
 
 static int sock_read(SocketRef const socket, size_t const size, uv_buf_t *const out);
 static int sock_write(SocketRef const socket, uv_buf_t const *const buf);
-static int tls_poll(uv_stream_t *const stream, int const event);
+//static int tls_poll(uv_stream_t *const stream, int const event);
 
 struct Socket {
 	uv_tcp_t stream[1];
@@ -27,13 +27,21 @@ int SocketAccept(uv_stream_t *const sstream, struct tls *const ssecure, SocketRe
 	rc = uv_accept(sstream, (uv_stream_t *)socket->stream);
 	if(rc < 0) goto cleanup;
 	if(ssecure) {
+		// TODO: HACK
+		// We use blocking I/O on a thread in order to make
+		// libtls and libuv cooperate, for now.
+		rc = uv_stream_set_blocking((uv_stream_t *)socket->stream, true);
+		if(rc < 0) goto cleanup;
 		uv_os_fd_t fd;
 		rc = uv_fileno((uv_handle_t *)socket->stream, &fd);
 		if(rc < 0) goto cleanup;
 		for(;;) {
+			async_pool_enter(NULL);
 			int event = tls_accept_socket(ssecure, &socket->secure, fd);
+			async_pool_leave(NULL);
 			if(0 == event) break;
-			rc = tls_poll((uv_stream_t *)socket->stream, event);
+//			rc = tls_poll((uv_stream_t *)socket->stream, event);
+			if(event < 0) rc = -errno;
 			if(rc < 0) goto cleanup;
 		}
 	}
@@ -52,7 +60,11 @@ int SocketConnect(strarg_t const host, strarg_t const port, SocketRef *const out
 void SocketFree(SocketRef *const socketptr) {
 	SocketRef socket = *socketptr;
 	if(!socket) return;
-	if(socket->secure) tls_close(socket->secure);
+	if(socket->secure) {
+		async_pool_enter(NULL);
+		tls_close(socket->secure);
+		async_pool_leave(NULL);
+	}
 	tls_free(socket->secure); socket->secure = NULL;
 	async_close((uv_handle_t *)socket->stream);
 	FREE(&socket->rdmem);
@@ -144,13 +156,15 @@ static int sock_read(SocketRef const socket, size_t const size, uv_buf_t *const 
 	size_t total = 0;
 	for(;;) {
 		size_t partial = 0;
+		async_pool_enter(NULL);
 		int event = tls_read(socket->secure, out->base+total, size-total, &partial);
+		async_pool_leave(NULL);
 		total += partial;
 		if(0 == event) break;
-		int rc = tls_poll((uv_stream_t *)socket->stream, event);
-		if(rc < 0) {
+//		int rc = tls_poll((uv_stream_t *)socket->stream, event);
+		if(event < 0) {
 			FREE(&out->base);
-			return rc;
+			return -errno;
 		}
 	}
 	if(0 == total) {
@@ -165,18 +179,20 @@ static int sock_write(SocketRef const socket, uv_buf_t const *const buf) {
 	size_t total = 0;
 	for(;;) {
 		size_t partial = 0;
+		async_pool_enter(NULL);
 		int event = tls_write(socket->secure,
 			buf->base + total,
 			buf->len - total, &partial);
+		async_pool_leave(NULL);
 		total += partial;
 		if(0 == event) break;
-		int rc = tls_poll((uv_stream_t *)socket->stream, event);
-		if(rc < 0) return rc;
+//		int rc = tls_poll((uv_stream_t *)socket->stream, event);
+		if(event < 0) return -errno;
 	}
 	return 0;
 }
 
-static int tls_poll(uv_stream_t *const stream, int const event) {
+/*static int tls_poll(uv_stream_t *const stream, int const event) {
 	int rc;
 	if(TLS_READ_AGAIN == event) {
 		uv_buf_t buf;
@@ -190,5 +206,5 @@ static int tls_poll(uv_stream_t *const stream, int const event) {
 		if(rc >= 0) rc = UV_EIO;
 	}
 	return rc;
-}
+}*/
 

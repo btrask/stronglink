@@ -1374,11 +1374,9 @@ int uv_write2(uv_write_t* req,
   if (stream->connect_req) {
     /* Still connecting, do nothing. */
   }
-// TODO: HACK to try to support our zero-length write hack.
-// What we really need is a separate way to poll streams without writing.
-//  else if (empty_queue) {
-//    uv__write(stream);
-//  }
+  else if (empty_queue) {
+    uv__write(stream);
+  }
   else {
     /*
      * blocking streams should never have anything in the queue.
