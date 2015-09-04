@@ -663,12 +663,13 @@ static bool load_template(BlogRef const blog, strarg_t const name, TemplateRef *
 	assert(out);
 	assert(blog->dir);
 	str_t path[PATH_MAX];
-	int rc = snprintf(path, PATH_MAX, "%s/template/%s", blog->dir, name);
-	if(rc < 0 || rc >= PATH_MAX) return false;
+	int rc = snprintf(path, sizeof(path), "%s/template/%s", blog->dir, name);
+	if(rc < 0 || rc >= sizeof(path)) return false;
 	TemplateRef t = TemplateCreateFromPath(path);
 	if(!t) {
-		fprintf(stderr, "Blog couldn't load template at %s\n", path);
-		fprintf(stderr, "Make sure StrongLink is properly installed or try manually copying the res/blog directory to %s", blog->dir);
+		fprintf(stderr, "Blog couldn't load template at '%s'\n", path);
+		fprintf(stderr, "(Make sure the StrongLink resource files are properly installed or try manually copying the 'res/blog' directory to '%s')\n",
+			blog->dir);
 		return false;
 	}
 	*out = t;
