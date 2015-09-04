@@ -64,7 +64,7 @@ sln.repoForNameOptional = function(name) {
 	if(!has(CONFIG["repos"], name)) return null;
 	var obj = CONFIG["repos"][name];
 	if("string" !== typeof obj["url"]) return null;
-	if("string" !== typeof obj["session"]) return null;
+	if("string" !== typeof obj["session"] && null !== obj["session"]) return null;
 	REPOS[name] = new Repo(obj["url"], obj["session"]);
 	return REPOS[name];
 };
@@ -92,6 +92,7 @@ function Repo(url, session) {
 	this.port = obj.port;
 	this.path = obj.pathname; // pathname excludes query string
 	this.session = session;
+	this.cookie = session ? "s="+session : "";
 	this.protocol = "https:" == obj.protocol ? https : http;
 	this.agent = new this.protocol.Agent({
 		keepAlive: true,
@@ -145,7 +146,7 @@ Repo.prototype.createQueryStream = function(query, opts) {
 			"dir": opts ? opts.dir : "",
 		}),
 		headers: {
-			"Cookie": "s="+repo.session,
+			"Cookie": repo.cookie,
 		},
 		agent: repo.agent,
 	});
@@ -165,7 +166,7 @@ Repo.prototype.createMetafilesStream = function(opts) {
 			"dir": opts ? opts.dir : "",
 		}),
 		headers: {
-			"Cookie": "s="+repo.session,
+			"Cookie": repo.cookie,
 		},
 		agent: repo.agent,
 	});
@@ -207,7 +208,7 @@ Repo.prototype.createFileRequest = function(uri, opts) {
 		port: repo.port,
 		path: repo.path+"/sln/file/"+obj.algo+"/"+obj.hash,
 		headers: {
-			"Cookie": "s="+repo.session,
+			"Cookie": repo.cookie,
 			"Accept": opts && has(opts, "accept") ? opts.accept : "*",
 		},
 		agent: repo.agent,
@@ -281,7 +282,7 @@ Repo.prototype.submitFile = function(buf, type, opts, cb) {
 		port: repo.port,
 		path: repo.path+"/sln/file/"+uri.algo+"/"+uri.hash,
 		headers: {
-			"Cookie": "s="+repo.session,
+			"Cookie": repo.cookie,
 			"Content-Type": type,
 		},
 		agent: repo.agent,
@@ -317,7 +318,7 @@ Repo.prototype.createSubmissionStream = function(type, opts) {
 		path = "/sln/file";
 	}
 	var headers = {
-		"Cookie": "s="+repo.session,
+		"Cookie": repo.cookie,
 		"Content-Type": type,
 	};
 	if(opts && has(opts, "size")) headers["Content-Length"] = opts.size;
