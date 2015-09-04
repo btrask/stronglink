@@ -88,18 +88,19 @@ sln.Repo = Repo;
 
 function Repo(url, session) {
 	var obj = urlmodule.parse(url);
-	this.hostname = obj.hostname;
-	this.port = obj.port;
-	this.path = obj.pathname; // pathname excludes query string
-	this.session = session;
-	this.cookie = session ? "s="+session : "";
-	this.protocol = "https:" == obj.protocol ? https : http;
-	this.agent = new this.protocol.Agent({
+	var repo = this;
+	repo.hostname = obj.hostname;
+	repo.port = obj.port;
+	repo.path = obj.pathname; // pathname excludes query string
+	repo.session = session;
+	repo.cookie = session ? "s="+session : "";
+	repo.protocol = "https:" == obj.protocol ? https : http;
+	repo.agent = new repo.protocol.Agent({
 		keepAlive: true,
 		keepAliveMsecs: 1000 * 30,
 	});
 
-	if("/" === this.path.slice(-1)) this.path = this.path.slice(0, -1);
+	if("/" === repo.path.slice(-1)) repo.path = repo.path.slice(0, -1);
 }
 Repo.prototype.info = function(cb) {
 	// TODO
