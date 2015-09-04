@@ -39,19 +39,23 @@ static void debug_data(DB_env *const db);
 SLNRepoRef SLNRepoCreate(strarg_t const dir, strarg_t const name) {
 	assert(dir);
 	assert(name);
+
 	SLNRepoRef repo = calloc(1, sizeof(struct SLNRepo));
 	if(!repo) return NULL;
-	repo->dir = strdup(dir);
+
+	size_t dirlen = strlen(dir);
+	while(dirlen > 1 && '/' == dir[dirlen-1]) dirlen--; // Prettier.
+	repo->dir = strndup(dir, dirlen);
 	repo->name = strdup(name);
 	if(!repo->dir || !repo->name) {
 		SLNRepoFree(&repo);
 		return NULL;
 	}
 
-	repo->dataDir = aasprintf("%s/data", dir);
-	repo->tempDir = aasprintf("%s/tmp", dir);
-	repo->cacheDir = aasprintf("%s/cache", dir);
-	repo->DBPath = aasprintf("%s/sln.db", dir);
+	repo->dataDir = aasprintf("%s/data", repo->dir);
+	repo->tempDir = aasprintf("%s/tmp", repo->dir);
+	repo->cacheDir = aasprintf("%s/cache", repo->dir);
+	repo->DBPath = aasprintf("%s/sln.db", repo->dir);
 	if(!repo->dataDir || !repo->tempDir || !repo->cacheDir || !repo->DBPath) {
 		SLNRepoFree(&repo);
 		return NULL;
