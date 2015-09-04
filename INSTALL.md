@@ -57,6 +57,8 @@ The backend can be chosen at build time by setting the `DB` environment variable
 
 It's not too difficult to add support for any transactional (ACID) key-value store. Embedded, write-optimized stores and distributed stores are the most interesting.
 
+MDB and LevelDB are included in the Git repository. Other backends need to be installed separately to be used.
+
 Client Configuration
 --------------------
 
