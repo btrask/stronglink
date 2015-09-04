@@ -12,8 +12,8 @@
 #include "Blog.h"
 
 #define SERVER_ADDRESS NULL // NULL = public, "localhost" = private
-#define SERVER_PORT_RAW "8000" // HTTP default 80
-#define SERVER_PORT_TLS NULL // HTTPS default 443
+#define SERVER_PORT_RAW "8000" // HTTP default 80, NULL for disabled
+#define SERVER_PORT_TLS NULL // HTTPS default 443, NULL for disabled
 
 // https://wiki.mozilla.org/Security/Server_Side_TLS
 // https://wiki.mozilla.org/index.php?title=Security/Server_Side_TLS&oldid=1080944

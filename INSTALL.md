@@ -37,7 +37,7 @@ Server Configuration
 
 Right now there is no configuration interface whatsoever (not even a config file). That means you need to edit the code and recompile to change any settings.
 
-- Port number: set `SERVER_PORT` in `src/blog/main.c`
+- Port number: set `SERVER_PORT_RAW` and `SERVER_PORT_TLS` in `src/blog/main.c`
 - Server access: set `SERVER_ADDRESS` in `src/blog/main.c`
 - Database backend: use `DB=xx make` where `xx` is empty (for MDB), `leveldb`, `rocksdb`, or `hyper`
 - Guest access: set `repo->pub_mode` from `0` to `SLN_RDONLY` or `SLN_RDWR`
