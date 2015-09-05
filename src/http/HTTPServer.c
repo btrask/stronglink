@@ -89,6 +89,7 @@ static void connection(uv_stream_t *const socket) {
 	HTTPServerRef const server = socket->data;
 	HTTPConnectionRef conn;
 	int rc = HTTPConnectionCreateIncomingSecure(socket, server->secure, 0, &conn);
+	if(UV_EOF == rc) return;
 	if(rc < 0) {
 		fprintf(stderr, "Incoming connection error: %s\n", uv_strerror(rc));
 		return;

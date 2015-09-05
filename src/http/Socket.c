@@ -187,7 +187,7 @@ static int tls_poll(uv_stream_t *const stream, int const event) {
 		rc = async_write(stream, &buf, 1);
 	} else {
 		rc = -errno; // TODO: Might have problems on Windows?
-		if(rc >= 0) rc = UV_EIO;
+		if(rc >= 0) rc = UV_EOF; // Most common case, is this guaranteed?
 	}
 	return rc;
 }
