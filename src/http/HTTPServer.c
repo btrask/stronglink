@@ -90,7 +90,7 @@ static void connection(uv_stream_t *const socket) {
 	HTTPConnectionRef conn;
 	int rc = HTTPConnectionCreateIncomingSecure(socket, server->secure, 0, &conn);
 	if(rc < 0) {
-		fprintf(stderr, "HTTP server connection error %s\n", uv_strerror(rc));
+		fprintf(stderr, "Incoming connection error: %s\n", uv_strerror(rc));
 		return;
 	}
 	assert(conn);
