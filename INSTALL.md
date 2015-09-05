@@ -79,6 +79,8 @@ Currently there is no interface for managing session keys. The only way to get o
 
 You can set up any number of repositories and the names (like "main" above) are up to you.
 
+You can also use URLs instead of pre-configured names. The session will be `null` (public access).
+
 Feedback
 --------
 
