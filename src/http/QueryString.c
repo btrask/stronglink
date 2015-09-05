@@ -138,6 +138,10 @@ static bool unescape(char const cc) {
       // ~
       if (cc == 126) return true;
 
+      // Hack so our URIs in query parameters look nice.
+      if (cc == '/') return true;
+      if (cc == ':') return true;
+
       return false;
 }
 char *QSEscape(char const *const s, size_t const slen, bool const encodeSpaces) {
