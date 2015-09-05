@@ -150,7 +150,7 @@ static int sock_read(SocketRef const socket, size_t const size, uv_buf_t *const 
 		int rc = tls_poll((uv_stream_t *)socket->stream, event);
 		if(rc < 0) {
 			FREE(&out->base);
-			return -errno;
+			return rc;
 		}
 	}
 	if(0 == total) {
@@ -171,7 +171,7 @@ static int sock_write(SocketRef const socket, uv_buf_t const *const buf) {
 		total += partial;
 		if(0 == event) break;
 		int rc = tls_poll((uv_stream_t *)socket->stream, event);
-		if(rc < 0) return -errno;
+		if(rc < 0) return rc;
 	}
 	return 0;
 }
