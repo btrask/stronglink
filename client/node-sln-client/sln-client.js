@@ -64,8 +64,8 @@ sln.repoForNameOptional = function(name) {
 	if(!has(CONFIG["repos"], name)) return null;
 	var obj = CONFIG["repos"][name];
 	if("string" !== typeof obj["url"]) return null;
-	if("string" !== typeof obj["session"] && null !== obj["session"]) return null;
-	REPOS[name] = new Repo(obj["url"], obj["session"]);
+	if("string" !== typeof obj["session"] && obj["session"]) return null;
+	REPOS[name] = new Repo(obj["url"], obj["session"] || null);
 	return REPOS[name];
 };
 sln.repoForName = function(name) {
