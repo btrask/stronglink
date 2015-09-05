@@ -21,26 +21,42 @@ var stats = {
 	types: {},
 };
 
+// Track the number of outstanding requests, including one for the
+// stream itself. We can collect the aggregate stats in any order.
+// Lets us compensate for latency.
+var active = 1;
+
+// Our server should be able to take it. Your router might not.
+repo.agent.maxSockets = 32;
+
+if(repo.agent.maxSockets > 1) {
+	console.error("(URIs might be listed out of order.)");
+}
+
 var stream = repo.createQueryStream(query, { wait: false });
 stream.on("data", function(URI) {
-	stream.pause();
-	console.log(URI);
+	active++;
 	var req = repo.createFileRequest(URI, {method: "HEAD"})
 	req.on("response", function(res) {
+		console.error(URI);
 		if(200 != res.statusCode) throw new Error("Status code "+res.statusCode);
 		stats.totalCount++;
 		stats.totalSize += parseInt(res.headers["content-length"], 10);
 		var type = res.headers["content-type"];
 		if(!has(stats.types, type)) stats.types[type] = 0;
 		stats.types[type]++;
-		res.resume();
-		stream.resume();
+		res.resume(); // Drain
+		if(0 === --active) done();
 	});
 });
 stream.on("end", function() {
-	console.log("");
+	if(0 === --active) done();
+});
+
+function done() {
+	console.error("");
 	console.log("Total count: "+stats.totalCount+" files");
 	console.log("Total size: "+stats.totalSize+" bytes");
 	console.log("Average size: "+(stats.totalSize/stats.totalCount)+" bytes per file");
 	console.log("Types:", stats.types);
-});
+}
