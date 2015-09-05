@@ -58,52 +58,63 @@
 # include <sys/sendfile.h>
 #endif
 
-#define INIT(type)                                                            \
+#define INIT(subtype)                                                         \
   do {                                                                        \
-    uv__req_init((loop), (req), UV_FS);                                       \
-    (req)->fs_type = UV_FS_ ## type;                                          \
-    (req)->result = 0;                                                        \
-    (req)->ptr = NULL;                                                        \
-    (req)->loop = loop;                                                       \
-    (req)->path = NULL;                                                       \
-    (req)->new_path = NULL;                                                   \
-    (req)->cb = (cb);                                                         \
+    req->type = UV_FS;                                                        \
+    if (cb != NULL)                                                           \
+      uv__req_init(loop, req, UV_FS);                                         \
+    req->fs_type = UV_FS_ ## subtype;                                         \
+    req->result = 0;                                                          \
+    req->ptr = NULL;                                                          \
+    req->loop = loop;                                                         \
+    req->path = NULL;                                                         \
+    req->new_path = NULL;                                                     \
+    req->cb = cb;                                                             \
   }                                                                           \
   while (0)
 
 #define PATH                                                                  \
   do {                                                                        \
-    (req)->path = uv__strdup(path);                                           \
-    if ((req)->path == NULL)                                                  \
-      return -ENOMEM;                                                         \
+    assert(path != NULL);                                                     \
+    if (cb == NULL) {                                                         \
+      req->path = path;                                                       \
+    } else {                                                                  \
+      req->path = uv__strdup(path);                                           \
+      if (req->path == NULL)                                                  \
+        return -ENOMEM;                                                       \
+    }                                                                         \
   }                                                                           \
   while (0)
 
 #define PATH2                                                                 \
   do {                                                                        \
-    size_t path_len;                                                          \
-    size_t new_path_len;                                                      \
-    path_len = strlen((path)) + 1;                                            \
-    new_path_len = strlen((new_path)) + 1;                                    \
-    (req)->path = uv__malloc(path_len + new_path_len);                        \
-    if ((req)->path == NULL)                                                  \
-      return -ENOMEM;                                                         \
-    (req)->new_path = (req)->path + path_len;                                 \
-    memcpy((void*) (req)->path, (path), path_len);                            \
-    memcpy((void*) (req)->new_path, (new_path), new_path_len);                \
+    if (cb == NULL) {                                                         \
+      req->path = path;                                                       \
+      req->new_path = new_path;                                               \
+    } else {                                                                  \
+      size_t path_len;                                                        \
+      size_t new_path_len;                                                    \
+      path_len = strlen(path) + 1;                                            \
+      new_path_len = strlen(new_path) + 1;                                    \
+      req->path = uv__malloc(path_len + new_path_len);                        \
+      if (req->path == NULL)                                                  \
+        return -ENOMEM;                                                       \
+      req->new_path = req->path + path_len;                                   \
+      memcpy((void*) req->path, path, path_len);                              \
+      memcpy((void*) req->new_path, new_path, new_path_len);                  \
+    }                                                                         \
   }                                                                           \
   while (0)
 
 #define POST                                                                  \
   do {                                                                        \
-    if ((cb) != NULL) {                                                       \
-      uv__work_submit((loop), &(req)->work_req, uv__fs_work, uv__fs_done);    \
+    if (cb != NULL) {                                                         \
+      uv__work_submit(loop, &req->work_req, uv__fs_work, uv__fs_done);        \
       return 0;                                                               \
     }                                                                         \
     else {                                                                    \
-      uv__fs_work(&(req)->work_req);                                          \
-      uv__fs_done(&(req)->work_req, 0);                                       \
-      return (req)->result;                                                   \
+      uv__fs_work(&req->work_req);                                            \
+      return req->result;                                                     \
     }                                                                         \
   }                                                                           \
   while (0)
@@ -563,7 +574,14 @@ static ssize_t uv__fs_sendfile(uv_fs_t* req) {
     r = sendfile(in_fd, out_fd, req->off, &len, NULL, 0);
 #endif
 
-    if (r != -1 || len != 0) {
+     /*
+     * The man page for sendfile(2) on DragonFly states that `len` contains
+     * a meaningful value ONLY in case of EAGAIN and EINTR.
+     * Nothing is said about it's value in case of other errors, so better
+     * not depend on the potential wrong assumption that is was not modified
+     * by the syscall.
+     */
+    if (r == 0 || ((errno == EAGAIN || errno == EINTR) && len != 0)) {
       req->off += len;
       return (ssize_t) len;
     }
@@ -886,8 +904,7 @@ static void uv__fs_done(struct uv__work* w, int status) {
     req->result = -ECANCELED;
   }
 
-  if (req->cb != NULL)
-    req->cb(req);
+  req->cb(req);
 }
 
 
@@ -1071,6 +1088,9 @@ int uv_fs_read(uv_loop_t* loop, uv_fs_t* req,
                unsigned int nbufs,
                int64_t off,
                uv_fs_cb cb) {
+  if (bufs == NULL || nbufs == 0)
+    return -EINVAL;
+
   INIT(READ);
   req->file = file;
 
@@ -1193,6 +1213,9 @@ int uv_fs_write(uv_loop_t* loop,
                 unsigned int nbufs,
                 int64_t off,
                 uv_fs_cb cb) {
+  if (bufs == NULL || nbufs == 0)
+    return -EINVAL;
+
   INIT(WRITE);
   req->file = file;
 
@@ -1212,7 +1235,14 @@ int uv_fs_write(uv_loop_t* loop,
 
 
 void uv_fs_req_cleanup(uv_fs_t* req) {
-  uv__free((void*)req->path);
+  /* Only necessary for asychronous requests, i.e., requests with a callback.
+   * Synchronous ones don't copy their arguments and have req->path and
+   * req->new_path pointing to user-owned memory.  UV_FS_MKDTEMP is the
+   * exception to the rule, it always allocates memory.
+   */
+  if (req->path != NULL && (req->cb != NULL || req->fs_type == UV_FS_MKDTEMP))
+    uv__free((void*) req->path);  /* Memory is shared with req->new_path. */
+
   req->path = NULL;
   req->new_path = NULL;
 

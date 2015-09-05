@@ -254,7 +254,8 @@ static int uv_set_pipe_handle(uv_loop_t* loop,
   DWORD current_mode = 0;
   DWORD err = 0;
 
-  if (handle->handle != INVALID_HANDLE_VALUE)
+  if (!(handle->flags & UV_HANDLE_PIPESERVER) &&
+      handle->handle != INVALID_HANDLE_VALUE)
     return UV_EBUSY;
 
   if (!SetNamedPipeHandleState(pipeHandle, &mode, NULL, NULL)) {
@@ -471,6 +472,8 @@ void uv_pipe_endgame(uv_loop_t* loop, uv_pipe_t* handle) {
 
 
 void uv_pipe_pending_instances(uv_pipe_t* handle, int count) {
+  if (handle->flags & UV_HANDLE_BOUND)
+    return;
   handle->pipe.serv.pending_instances = count;
   handle->flags |= UV_HANDLE_PIPESERVER;
 }
@@ -748,6 +751,7 @@ void uv_pipe_cleanup(uv_loop_t* loop, uv_pipe_t* handle) {
         handle->pipe.serv.accept_reqs[i].pipeHandle = INVALID_HANDLE_VALUE;
       }
     }
+    handle->handle = INVALID_HANDLE_VALUE;
   }
 
   if (handle->flags & UV_HANDLE_CONNECTION) {
