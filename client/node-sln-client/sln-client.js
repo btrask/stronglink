@@ -58,10 +58,15 @@ sln.repoForNameOptional = function(name) {
 	REPOS[name] = null;
 	if(!CONFIG) {
 		try { sln.loadConfig(); }
-		catch(e) { return null; }
+		catch(e) {}
 	}
-	if(!has(CONFIG, "repos")) return null;
-	if(!has(CONFIG["repos"], name)) return null;
+	if(!CONFIG || !has(CONFIG, "repos") || !has(CONFIG["repos"], name)) {
+		// TODO: Better parsing, handle bare domains.
+		var parsed = urlmodule.parse(name);
+		if(!parsed || !parsed.hostname) return null;
+		REPOS[name] = new Repo(name, null);
+		return REPOS[name];
+	}
 	var obj = CONFIG["repos"][name];
 	if("string" !== typeof obj["url"]) return null;
 	if("string" !== typeof obj["session"] && obj["session"]) return null;
