@@ -76,10 +76,10 @@ HEADERS := \
 	$(SRC_DIR)/http/HTTPHeaders.h \
 	$(SRC_DIR)/http/MultipartForm.h \
 	$(SRC_DIR)/http/QueryString.h \
-	$(SRC_DIR)/util/aasprintf.h \
 	$(SRC_DIR)/util/fts.h \
 	$(SRC_DIR)/util/pass.h \
 	$(SRC_DIR)/util/raiserlimit.h \
+	$(SRC_DIR)/util/strext.h \
 	$(SRC_DIR)/common.h \
 	$(SRC_DIR)/StrongLink.h \
 	$(SRC_DIR)/SLNDB.h \
@@ -134,6 +134,7 @@ OBJECTS := \
 	$(BUILD_DIR)/http/QueryString.o \
 	$(BUILD_DIR)/util/fts.o \
 	$(BUILD_DIR)/util/pass.o \
+	$(BUILD_DIR)/util/strext.o \
 	$(BUILD_DIR)/deps/crypt/crypt_blowfish.o \
 	$(BUILD_DIR)/deps/crypt/crypt_gensalt.o \
 	$(BUILD_DIR)/deps/crypt/wrapper.o \

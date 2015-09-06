@@ -117,7 +117,7 @@ int SLNSubmissionWrite(SLNSubmissionRef const sub, byte_t const *const buf, size
 	uv_buf_t parts[] = { uv_buf_init((char *)buf, len) };
 	int rc = async_fs_writeall(sub->tmpfile, parts, numberof(parts), -1);
 	if(rc < 0) {
-		fprintf(stderr, "SLNSubmission write error %s\n", sln_strerror(rc));
+		alogf("SLNSubmission write error: %s\n", sln_strerror(rc));
 		return rc;
 	}
 
@@ -174,7 +174,7 @@ int SLNSubmissionEnd(SLNSubmissionRef const sub) {
 		goto cleanup;
 	}
 	if(rc < 0) {
-		fprintf(stderr, "SLNSubmission couldn't move '%s' to '%s' (%s)\n", sub->tmppath, internalPath, sln_strerror(rc));
+		alogf("SLNSubmission couldn't move '%s' to '%s' (%s)\n", sub->tmppath, internalPath, sln_strerror(rc));
 		goto cleanup;
 	}
 
@@ -268,7 +268,7 @@ int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn) {
 
 	rc = SLNSubmissionParseMetaFile(sub, fileID, txn, &sub->metaFileID);
 	if(rc < 0) {
-		fprintf(stderr, "Submission meta-file error %s\n", sln_strerror(rc));
+		alogf("Submission meta-file error: %s\n", sln_strerror(rc));
 		return rc;
 	}
 

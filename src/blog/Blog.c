@@ -176,7 +176,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	ssize_t const count = SLNFilterCopyURIs(filter, session, pos, outdir, false, URIs, (size_t)max);
 	SLNFilterPositionCleanup(pos);
 	if(count < 0) {
-		fprintf(stderr, "Filter error: %s\n", sln_strerror(count));
+		alogf("Filter error: %s\n", sln_strerror(count));
 		FREE(&query);
 		FREE(&query_HTMLSafe);
 		SLNFilterFree(&filter);
@@ -667,8 +667,8 @@ static bool load_template(BlogRef const blog, strarg_t const name, TemplateRef *
 	if(rc < 0 || rc >= sizeof(path)) return false;
 	TemplateRef t = TemplateCreateFromPath(path);
 	if(!t) {
-		fprintf(stderr, "Blog couldn't load template at '%s'\n", path);
-		fprintf(stderr, "(Make sure the StrongLink resource files are properly installed or try manually copying the 'res/blog' directory to '%s')\n",
+		alogf("Blog couldn't load template at '%s'\n", path);
+		alogf("(Make sure the StrongLink resource files are properly installed or try manually copying the 'res/blog' directory to '%s')\n",
 			blog->dir);
 		return false;
 	}
@@ -811,7 +811,7 @@ int BlogDispatch(BlogRef const blog, SLNSessionRef const session, HTTPConnection
 		return 0;
 	}
 	if(rc < 0 && UV_EPIPE != rc) {
-		fprintf(stderr, "Error sending file %s: %s\n", URI, uv_strerror(rc));
+		alogf("Error sending file %s: %s\n", URI, uv_strerror(rc));
 	}
 
 	return 0;

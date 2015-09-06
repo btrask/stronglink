@@ -4,6 +4,7 @@
 #include <assert.h>
 #include "HTTPConnection.h"
 #include "status.h"
+#include "../util/strext.h"
 
 #define BUFFER_SIZE (1024 * 8)
 
@@ -145,10 +146,10 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 		if(HPE_OK != rc && HPE_PAUSED != rc) {
 			// TODO: We should convert HPE_* and return them
 			// instead of logging and returning UV_UNKNOWN.
-			fprintf(stderr, "HTTP parse error %s (%d)\n",
+			alogf("HTTP parse error: %s (%d)\n",
 				http_errno_name(rc),
 				HTTP_PARSER_ERRNO_LINE(conn->parser));
-//			fprintf(stderr, "%s (%lu)\n", strndup(raw->base, raw->len), raw->len);
+//			alogf("%s (%lu)\n", strndup(raw->base, raw->len), raw->len);
 			return UV_UNKNOWN;
 		}
 	}
@@ -595,7 +596,7 @@ int HTTPConnectionSendMessage(HTTPConnectionRef const conn, uint16_t const statu
 		rc = rc < 0 ? rc : HTTPConnectionWrite(conn, (byte_t const *)STR_LEN("\n"));
 	}
 	rc = rc < 0 ? rc : HTTPConnectionEnd(conn);
-//	if(status >= 400) fprintf(stderr, "%s: %d %s\n", HTTPConnectionGetRequestURI(conn), (int)status, str);
+//	if(status >= 400) alogf("%s: %d %s\n", HTTPConnectionGetRequestURI(conn), (int)status, str);
 	return rc;
 }
 int HTTPConnectionSendStatus(HTTPConnectionRef const conn, uint16_t const status) {

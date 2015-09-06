@@ -78,7 +78,7 @@ int MultipartFormPeek(MultipartFormRef const form, MultipartEvent *const type, u
 		}
 		len = multipart_parser_execute(form->parser, raw->base, raw->len);
 		if(len < 0) {
-			fprintf(stderr, "Multipart parse error\n");
+			alogf("Multipart parse error\n");
 			return -1;
 		}
 		HTTPConnectionPop(form->conn, len);

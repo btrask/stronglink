@@ -57,7 +57,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	int64_t pos = 0;
 	ssize_t len = async_fs_read(fd, buf, 1, pos);
 	if(len < 0) {
-		fprintf(stderr, "Submission meta-file read error (%s)\n", sln_strerror(len));
+		alogf("Submission meta-file read error: %s\n", sln_strerror(len));
 		rc = DB_EIO;
 		goto cleanup;
 	}
@@ -68,7 +68,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 		if('\r' == c || '\n' == c) break;
 	}
 	if(i >= len) {
-		fprintf(stderr, "Submission meta-file parse error (invalid target URI)\n");
+		alogf("Submission meta-file parse error (invalid target URI)\n");
 		rc = DB_EIO;
 		goto cleanup;
 	}
@@ -104,7 +104,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 		if(!buf->len) break;
 		len = async_fs_read(fd, buf, 1, pos);
 		if(len < 0) {
-			fprintf(stderr, "Submission meta-file read error (%s)\n", sln_strerror(len));
+			alogf("Submission meta-file read error: %s\n", sln_strerror(len));
 			rc = DB_EIO;
 			goto cleanup;
 		}
@@ -116,7 +116,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	status = yajl_complete_parse(parser);
 	if(yajl_status_ok != status) {
 		unsigned char *msg = yajl_get_error(parser, true, (byte_t const *)buf->base, len);
-		fprintf(stderr, "%s", msg);
+		alogf("%s", msg);
 		yajl_free_error(parser, msg); msg = NULL;
 		for(i = 0; i < DEPTH_MAX; i++) {
 			FREE(&ctx->fields[i]);

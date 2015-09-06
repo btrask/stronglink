@@ -268,7 +268,7 @@ static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, 
 
 	int rc = SLNFilterWriteURIs(filter, session, pos, meta, count, wait, (SLNFilterWriteCB)HTTPConnectionWriteChunkv, (SLNFilterFlushCB)HTTPConnectionFlush, conn);
 	if(rc < 0) {
-		fprintf(stderr, "Query response error %s\n", sln_strerror(rc));
+		alogf("Query response error: %s\n", sln_strerror(rc));
 	}
 
 	HTTPConnectionWriteChunkEnd(conn);

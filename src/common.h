@@ -13,7 +13,7 @@
 #include <strings.h>
 #include <unistd.h>
 
-#include "util/aasprintf.h"
+#include "util/strext.h"
 
 typedef unsigned char byte_t;
 typedef char str_t;

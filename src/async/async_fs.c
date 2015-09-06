@@ -6,7 +6,7 @@
 #include <string.h>
 
 #include "async.h"
-#include "../util/aasprintf.h"
+#include "../util/strext.h"
 
 #define ENTROPY_BYTES 8
 

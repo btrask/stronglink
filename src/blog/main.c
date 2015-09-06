@@ -50,7 +50,7 @@ static int listener0(void *ctx, HTTPServerRef const server, HTTPConnectionRef co
 	}
 	if(UV_EMSGSIZE == len) return 414; // Request-URI Too Large
 	if(len < 0) {
-		fprintf(stderr, "Request error: %s\n", uv_strerror(len));
+		alogf("Request error: %s\n", uv_strerror(len));
 		return 500;
 	}
 
@@ -111,28 +111,28 @@ static int init_http(void) {
 	if(!SERVER_PORT_RAW) return 0;
 	server_raw = HTTPServerCreate((HTTPListener)listener, blog);
 	if(!server_raw) {
-		fprintf(stderr, "HTTP server could not be initialized\n");
+		alogf("HTTP server could not be initialized\n");
 		return -1;
 	}
 	int rc = HTTPServerListen(server_raw, SERVER_ADDRESS, SERVER_PORT_RAW);
 	if(rc < 0) {
-		fprintf(stderr, "HTTP server could not be started: %s\n", sln_strerror(rc));
+		alogf("HTTP server could not be started: %s\n", sln_strerror(rc));
 		return -1;
 	}
 	strarg_t const port = SERVER_PORT_RAW;
-	fprintf(stderr, "StrongLink server running at http://localhost:%s/\n", port);
+	alogf("StrongLink server running at http://localhost:%s/\n", port);
 	return 0;
 }
 static int init_https(void) {
 	if(!SERVER_PORT_TLS) return 0;
 	struct tls_config *config = tls_config_new();
 	if(!config) {
-		fprintf(stderr, "TLS config error: %s\n", strerror(errno));
+		alogf("TLS config error: %s\n", strerror(errno));
 		return -1;
 	}
 	int rc = tls_config_set_ciphers(config, TLS_CIPHERS);
 	if(0 != rc) {
-		fprintf(stderr, "TLS ciphers error: %s\n", strerror(errno));
+		alogf("TLS ciphers error: %s\n", strerror(errno));
 		tls_config_free(config); config = NULL;
 		return -1;
 	}
@@ -141,50 +141,50 @@ static int init_https(void) {
 	snprintf(pemfile, sizeof(pemfile), "%s/key.pem", path);
 	rc = tls_config_set_key_file(config, pemfile);
 	if(0 != rc) {
-		fprintf(stderr, "TLS key file error: %s\n", strerror(errno));
+		alogf("TLS key file error: %s\n", strerror(errno));
 		tls_config_free(config); config = NULL;
 		return -1;
 	}
 	snprintf(pemfile, sizeof(pemfile), "%s/crt.pem", path);
 	rc = tls_config_set_cert_file(config, pemfile);
 	if(0 != rc) {
-		fprintf(stderr, "TLS crt file error: %s\n", strerror(errno));
+		alogf("TLS crt file error: %s\n", strerror(errno));
 		tls_config_free(config); config = NULL;
 		return -1;
 	}
 	struct tls *tls = tls_server();
 	if(!tls) {
-		fprintf(stderr, "TLS engine error: %s\n", strerror(errno));
+		alogf("TLS engine error: %s\n", strerror(errno));
 		tls_config_free(config); config = NULL;
 		return -1;
 	}
 	rc = tls_configure(tls, config);
 	tls_config_free(config); config = NULL;
 	if(0 != rc) {
-		fprintf(stderr, "TLS config error: %s\n", tls_error(tls));
+		alogf("TLS config error: %s\n", tls_error(tls));
 		tls_free(tls); tls = NULL;
 		return -1;
 	}
 	server_tls = HTTPServerCreate((HTTPListener)listener, blog);
 	if(!server_tls) {
-		fprintf(stderr, "HTTPS server could not be initialized\n");
+		alogf("HTTPS server could not be initialized\n");
 		tls_free(tls); tls = NULL;
 		return -1;
 	}
 	rc = HTTPServerListenSecure(server_tls, SERVER_ADDRESS, SERVER_PORT_TLS, &tls);
 	tls_free(tls); tls = NULL;
 	if(rc < 0) {
-		fprintf(stderr, "HTTPS server could not be started: %s\n", sln_strerror(rc));
+		alogf("HTTPS server could not be started: %s\n", sln_strerror(rc));
 		return -1;
 	}
 	strarg_t const port = SERVER_PORT_TLS;
-	fprintf(stderr, "StrongLink server running at https://localhost:%s/\n", port);
+	alogf("StrongLink server running at https://localhost:%s/\n", port);
 	return 0;
 }
 static void init(void *const unused) {
 	int rc = async_random((byte_t *)&SLNSeed, sizeof(SLNSeed));
 	if(rc < 0) {
-		fprintf(stderr, "Random seed error\n");
+		alogf("Random seed error\n");
 		return;
 	}
 
@@ -197,12 +197,12 @@ static void init(void *const unused) {
 	repo = SLNRepoCreate(path, reponame);
 	FREE(&tmp);
 	if(!repo) {
-		fprintf(stderr, "Repository could not be opened\n");
+		alogf("Repository could not be opened\n");
 		return;
 	}
 	blog = BlogCreate(repo);
 	if(!blog) {
-		fprintf(stderr, "Blog server could not be initialized\n");
+		alogf("Blog server could not be initialized\n");
 		return;
 	}
 
@@ -219,7 +219,8 @@ static void init(void *const unused) {
 	uv_unref((uv_handle_t *)sigint);
 }
 static void term(void *const unused) {
-	fprintf(stderr, "\nStopping StrongLink server...\n");
+	fprintf(stderr, "\n");
+	alogf("Stopping StrongLink server...\n");
 
 	uv_ref((uv_handle_t *)sigint);
 	uv_signal_stop(sigint);
@@ -254,12 +255,12 @@ int main(int const argc, char const *const *const argv) {
 
 	int rc = tls_init();
 	if(rc < 0) {
-		fprintf(stderr, "TLS initialization error: %s\n", strerror(errno));
+		alogf("TLS initialization error: %s\n", strerror(errno));
 		return 1;
 	}
 
 	if(2 != argc || '-' == argv[1][0]) {
-		fprintf(stderr, "Usage:\n\t" "%s repo\n", argv[0]);
+		alogf("Usage:\n\t" "%s repo\n", argv[0]);
 		return 1;
 	}
 	path = argv[1];

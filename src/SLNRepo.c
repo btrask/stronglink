@@ -247,12 +247,12 @@ static int createDBConnection(SLNRepoRef const repo) {
 	int rc = db_env_create(&repo->db);
 	rc = rc < 0 ? rc : db_env_set_mapsize(repo->db, 1024 * 1024 * 1024 * 1);
 	if(rc < 0) {
-		fprintf(stderr, "Database setup error (%s)\n", sln_strerror(rc));
+		alogf("Database setup error (%s)\n", sln_strerror(rc));
 		return rc;
 	}
 	rc = db_env_open(repo->db, repo->DBPath, 0, 0600);
 	if(rc < 0) {
-		fprintf(stderr, "Database open error (%s)\n", sln_strerror(rc));
+		alogf("Database open error (%s)\n", sln_strerror(rc));
 		return rc;
 	}
 
@@ -262,7 +262,7 @@ static int createDBConnection(SLNRepoRef const repo) {
 	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
 	if(rc < 0) {
 		SLNRepoDBClose(repo, &db);
-		fprintf(stderr, "Database transaction error (%s)\n", sln_strerror(rc));
+		alogf("Database transaction error (%s)\n", sln_strerror(rc));
 		return rc;
 	}
 
@@ -270,13 +270,13 @@ static int createDBConnection(SLNRepoRef const repo) {
 	if(DB_VERSION_MISMATCH == rc) {
 		db_txn_abort(txn); txn = NULL;
 		SLNRepoDBClose(repo, &db);
-		fprintf(stderr, "Database incompatible with this software version\n");
+		alogf("Database incompatible with this software version\n");
 		return rc;
 	}
 	if(rc < 0) {
 		db_txn_abort(txn); txn = NULL;
 		SLNRepoDBClose(repo, &db);
-		fprintf(stderr, "Database schema layer error (%s)\n", sln_strerror(rc));
+		alogf("Database schema layer error (%s)\n", sln_strerror(rc));
 		return rc;
 	}
 
@@ -287,7 +287,7 @@ static int createDBConnection(SLNRepoRef const repo) {
 	if(rc < 0) {
 		db_txn_abort(txn); txn = NULL;
 		SLNRepoDBClose(repo, &db);
-		fprintf(stderr, "Database cursor error (%s)\n", sln_strerror(rc));
+		alogf("Database cursor error (%s)\n", sln_strerror(rc));
 		return rc;
 	}
 
@@ -300,14 +300,14 @@ static int createDBConnection(SLNRepoRef const repo) {
 	if(rc < 0) {
 		db_txn_abort(txn); txn = NULL;
 		SLNRepoDBClose(repo, &db);
-		fprintf(stderr, "Database user error (%s)\n", sln_strerror(rc));
+		alogf("Database user error (%s)\n", sln_strerror(rc));
 		return rc;
 	}
 
 	rc = db_txn_commit(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
 	if(rc < 0) {
-		fprintf(stderr, "Database commit error (%s)\n", sln_strerror(rc));
+		alogf("Database commit error (%s)\n", sln_strerror(rc));
 		return rc;
 	}
 	return 0;

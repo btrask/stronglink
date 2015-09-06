@@ -91,7 +91,7 @@ static void connection(uv_stream_t *const socket) {
 	int rc = HTTPConnectionCreateIncomingSecure(socket, server->secure, 0, &conn);
 	if(UV_EOF == rc) return;
 	if(rc < 0) {
-		fprintf(stderr, "Incoming connection error: %s\n", uv_strerror(rc));
+		alogf("Incoming connection error: %s\n", uv_strerror(rc));
 		return;
 	}
 	assert(conn);
