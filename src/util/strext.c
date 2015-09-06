@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "../async/async.h"
 #include "strext.h"
 
@@ -52,5 +53,15 @@ void alogf(char const *const fmt, ...) {
 	va_start(ap, fmt);
 	valogf(fmt, ap);
 	va_end(ap);
+}
+
+int uripathcmp(char const *const literal, char const *const input, char const **const qs) {
+	size_t const len = strlen(literal);
+	assert(len);
+	if(0 != strncmp(literal, input, len)) return -1;
+	// We don't ignore trailing / because it's significant.
+	if('\0' != input[len] && '?' != input[len]) return -1;
+	if(qs) *qs = input+len;
+	return 0;
 }
 

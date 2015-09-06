@@ -12,23 +12,11 @@
 #define QUERY_BATCH_SIZE 50
 #define AUTH_FORM_MAX (1023+1)
 
-// TODO: Put this somewhere.
-bool URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs) {
-	size_t len = prefix(path, URI);
-	if(!len) return false;
-	// TODO: It turns out /path and /path/ are different.
-	// We should eventually redirect.
-//	if('/' == URI[len]) len++;
-	if('\0' != URI[len] && '?' != URI[len]) return false;
-	if(qs) *qs = URI + len;
-	return true;
-}
-
 
 // TODO: Some sort of token-based API auth system, like OAuth?
 /*static int POST_auth(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return -1;
-	if(!URIPath(URI, "/sln/auth", NULL)) return -1;
+	if(0 != uripathcmp("/sln/auth", URI, NULL)) return -1;
 
 	str_t formdata[AUTH_FORM_MAX];
 	ssize_t len = HTTPConnectionReadBodyStatic(conn, (byte_t *)formdata, sizeof(formdata)-1);
@@ -205,7 +193,7 @@ cleanup:
 }
 static int POST_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return -1;
-	if(!URIPath(URI, "/sln/file", NULL)) return -1;
+	if(0 != uripathcmp("/sln/file", URI, NULL)) return -1;
 
 	return accept_sub(session, NULL, conn, headers);
 }
@@ -300,7 +288,7 @@ static int parseFilter(SLNSessionRef const session, HTTPConnectionRef const conn
 static int GET_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
 	strarg_t qs;
-	if(!URIPath(URI, "/sln/query", &qs)) return -1;
+	if(0 != uripathcmp("/sln/query", URI, &qs)) return -1;
 
 	SLNFilterRef filter = NULL;
 	int rc;
@@ -321,7 +309,7 @@ static int GET_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 static int POST_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return -1;
 	strarg_t qs;
-	if(!URIPath(URI, "/sln/query", &qs)) return -1;
+	if(0 != uripathcmp("/sln/query", URI, &qs)) return -1;
 
 	SLNFilterRef filter;
 	int rc = parseFilter(session, conn, method, headers, &filter);
@@ -334,7 +322,7 @@ static int POST_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPCo
 static int GET_metafiles(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
 	strarg_t qs;
-	if(!URIPath(URI, "/sln/metafiles", &qs)) return -1;
+	if(0 != uripathcmp("/sln/metafiles", URI, &qs)) return -1;
 
 	SLNFilterRef filter;
 	int rc = SLNFilterCreate(session, SLNMetaFileFilterType, &filter);
@@ -347,7 +335,7 @@ static int GET_metafiles(SLNRepoRef const repo, SLNSessionRef const session, HTT
 static int GET_all(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
 	strarg_t qs;
-	if(!URIPath(URI, "/sln/all", &qs)) return -1;
+	if(0 != uripathcmp("/sln/all", URI, &qs)) return -1;
 
 	SLNFilterRef filter;
 	int rc = SLNFilterCreate(session, SLNAllFilterType, &filter);

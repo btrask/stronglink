@@ -12,12 +12,7 @@
 #define BUFFER_SIZE (1024 * 8)
 #define AUTH_FORM_MAX (1023+1)
 
-// TODO: Real public API.
-bool URIPath(strarg_t const URI, strarg_t const path, strarg_t *const qs);
 
-static bool emptystr(strarg_t const str) {
-	return !str || '\0' == str[0];
-}
 static str_t *BlogCopyPreviewPath(BlogRef const blog, strarg_t const hash) {
 	return aasprintf("%s/%.2s/%s", blog->cacheDir, hash, hash);
 }
@@ -110,7 +105,7 @@ static int send_preview(BlogRef const blog, HTTPConnectionRef const conn, SLNSes
 static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
 	strarg_t qs = NULL;
-	if(!URIPath(URI, "/", &qs)) return -1;
+	if(0 != uripathcmp("/", URI, &qs)) return -1;
 
 	// TODO: This is the most complicated function in the whole program.
 	// It's unbearable.
@@ -310,7 +305,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 // TODO: Lots of duplication here
 static int GET_compose(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
-	if(!URIPath(URI, "/compose", NULL)) return -1;
+	if(0 != uripathcmp("/compose", URI, NULL)) return -1;
 
 	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return 403;
 
@@ -335,7 +330,7 @@ static int GET_compose(BlogRef const blog, SLNSessionRef const session, HTTPConn
 }
 static int GET_upload(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
-	if(!URIPath(URI, "/upload", NULL)) return -1;
+	if(0 != uripathcmp("/upload", URI, NULL)) return -1;
 
 	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return 403;
 
@@ -454,7 +449,7 @@ static int POST_post(BlogRef const blog,
                      HTTPHeadersRef const headers)
 {
 	if(HTTP_POST != method) return -1;
-	if(!URIPath(URI, "/post", NULL)) return -1;
+	if(0 != uripathcmp("/post", URI, NULL)) return -1;
 
 	// TODO: CSRF token
 	strarg_t const formtype = HTTPHeadersGet(headers, "content-type"); 
@@ -580,7 +575,7 @@ cleanup:
 
 static int GET_account(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_GET != method) return -1;
-	if(!URIPath(URI, "/account", NULL)) return -1;
+	if(0 != uripathcmp("/account", URI, NULL)) return -1;
 
 	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(blog->repo));
 	if(!reponame_HTMLSafe) return 500;
@@ -605,7 +600,7 @@ static int GET_account(BlogRef const blog, SLNSessionRef const session, HTTPConn
 }
 static int POST_auth(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
 	if(HTTP_POST != method) return -1;
-	if(!URIPath(URI, "/auth", NULL)) return -1;
+	if(0 != uripathcmp("/auth", URI, NULL)) return -1;
 
 	// TODO: Check that Content-Type is application/x-www-form-urlencoded.
 
