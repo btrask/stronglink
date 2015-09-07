@@ -112,6 +112,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	str_t *query = NULL;
 	str_t *query_HTMLSafe = NULL;
+	str_t *parsed_HTMLSafe = NULL;
 	SLNFilterRef filter = NULL;
 	int rc;
 
@@ -139,7 +140,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	str_t tmp[URI_MAX];
 
 	SLNFilterToUserFilterString(filter, tmp, sizeof(tmp), 0);
-	str_t *parsed_HTMLSafe = htmlenc(tmp);
+	parsed_HTMLSafe = htmlenc(tmp);
 
 	str_t *primaryURI = NULL;
 	SLNFilterRef core = SLNFilterUnwrap(filter);
@@ -173,6 +174,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	if(count < 0) {
 		FREE(&query);
 		FREE(&query_HTMLSafe);
+		FREE(&parsed_HTMLSafe);
 		SLNFilterFree(&filter);
 		if(DB_NOTFOUND == count) return 404; // TODO: Probably invalid start parameter.
 		alogf("Filter error: %s\n", sln_strerror(count));
