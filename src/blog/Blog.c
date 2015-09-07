@@ -171,10 +171,11 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	ssize_t const count = SLNFilterCopyURIs(filter, session, pos, outdir, false, URIs, (size_t)max);
 	SLNFilterPositionCleanup(pos);
 	if(count < 0) {
-		alogf("Filter error: %s\n", sln_strerror(count));
 		FREE(&query);
 		FREE(&query_HTMLSafe);
 		SLNFilterFree(&filter);
+		if(DB_NOTFOUND == count) return 404; // TODO: Probably invalid start parameter.
+		alogf("Filter error: %s\n", sln_strerror(count));
 		return 500;
 	}
 	SLNFilterFree(&filter);
