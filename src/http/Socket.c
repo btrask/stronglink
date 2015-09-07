@@ -182,9 +182,13 @@ static int tls_poll(uv_stream_t *const stream, int const event) {
 		uv_buf_t buf;
 		rc = async_read(stream, 0, &buf);
 		if(UV_ENOBUFS == rc) rc = 0;
+		if(rc < 0) alogf("tls_poll read %s\n", uv_strerror(rc));
+		rc = 0;
 	} else if(TLS_WRITE_AGAIN == event) {
 		uv_buf_t buf = uv_buf_init(NULL, 0);
 		rc = async_write(stream, &buf, 1);
+		if(rc < 0) alogf("tls_poll write %s\n", uv_strerror(rc));
+		rc = 0;
 	} else {
 		rc = -errno; // TODO: Might have problems on Windows?
 		if(rc >= 0) rc = UV_EOF; // Most common case, is this guaranteed?
