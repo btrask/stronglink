@@ -121,9 +121,9 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	};
 	str_t *values[numberof(fields)] = {};
 	QSValuesParse(qs, values, fields, numberof(fields));
-	query = values[0] ? strdup(values[0]) : NULL;
+	query = values[0]; values[0] = NULL;
 	query_HTMLSafe = htmlenc(values[0]);
-	rc = SLNUserFilterParse(session, values[0], &filter);
+	rc = SLNUserFilterParse(session, query, &filter);
 	QSValuesCleanup(values, numberof(values));
 	if(DB_EACCES == rc) {
 		FREE(&query);
