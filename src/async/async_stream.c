@@ -92,3 +92,50 @@ int async_tcp_connect(uv_tcp_t *const stream, struct sockaddr const *const addr)
 	return state->status;
 }
 
+
+struct poll_state {
+	async_t *thread;
+	int status;
+	int events;
+};
+static void poll_cb(uv_poll_t *const handle, int const status, int const events) {
+	struct poll_state *const state = handle->data;
+	state->status = status;
+	state->events = events;
+	async_switch(state->thread);
+}
+int async_poll_fd(int const fd, int *const events) {
+	assert(events);
+	struct poll_state state[1];
+	state->thread = async_active();
+	state->status = 0;
+	state->events = 0;
+	uv_poll_t poll[1];
+	poll->data = state;
+	int rc = uv_poll_init(async_loop, poll, fd);
+	if(rc < 0) return rc;
+	rc = uv_poll_start(poll, *events, poll_cb);
+	if(rc < 0) return rc;
+	async_yield();
+	async_close((uv_handle_t *)poll);
+	*events = state->events;
+	return state->status;
+}
+int async_poll_socket(uv_os_sock_t const socket, int *const events) {
+	assert(events);
+	struct poll_state state[1];
+	state->thread = async_active();
+	state->status = 0;
+	state->events = 0;
+	uv_poll_t poll[1];
+	poll->data = state;
+	int rc = uv_poll_init_socket(async_loop, poll, socket);
+	if(rc < 0) return rc;
+	rc = uv_poll_start(poll, *events, poll_cb);
+	if(rc < 0) return rc;
+	async_yield();
+	async_close((uv_handle_t *)poll);
+	*events = state->events;
+	return state->status;
+}
+
