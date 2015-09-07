@@ -240,7 +240,7 @@ $CP $libcrypto_regress/pqueue/expected.txt tests/pq_expected.txt
 # copy libc tests
 $CP $libc_regress/arc4random-fork/arc4random-fork.c tests/arc4randomforktest.c
 $CP $libc_regress/explicit_bzero/explicit_bzero.c tests
-$CP $libc_src/string/memmem.c tests
+$CP_LIBC $libc_src/string/memmem.c tests
 $CP $libc_regress/timingsafe/timingsafe.c tests
 
 # copy libssl tests
@@ -289,7 +289,8 @@ done
 
 # copy manpages
 echo "copying manpages"
-echo dist_man_MANS= > man/Makefile.am
+echo EXTRA_DIST = CMakeLists.txt > man/Makefile.am
+echo dist_man_MANS = >> man/Makefile.am
 
 $CP $openssl_app_src/openssl.1 man
 echo "dist_man_MANS += openssl.1" >> man/Makefile.am

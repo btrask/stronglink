@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-# HACK: This lets us work offline. Run update.sh manually if you want it.
+#HACK
 #./update.sh
 mkdir -p m4
 autoreconf -i -f
