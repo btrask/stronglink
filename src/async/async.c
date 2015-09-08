@@ -172,8 +172,8 @@ int async_getaddrinfo(char const *const node, char const *const service, struct 
 		state->thread = async_active();
 		cb = getaddrinfo_cb;
 	}
-	int const err = uv_getaddrinfo(async_loop, req, cb, node, service, hints);
-	if(err < 0) return err;
+	int rc = uv_getaddrinfo(async_loop, req, cb, node, service, hints);
+	if(rc < 0) return rc;
 	if(cb) async_yield();
 	if(res) *res = state->res;
 	return state->status;
@@ -190,12 +190,11 @@ int async_sleep(uint64_t const milliseconds) {
 	// TODO: Pool timers together.
 	uv_timer_t timer[1];
 	timer->data = async_active();
-	int err;
-	err = uv_timer_init(async_loop, timer);
-	if(err < 0) return err;
+	int rc = uv_timer_init(async_loop, timer);
+	if(rc < 0) return rc;
 	if(milliseconds > 0) {
-		err = uv_timer_start(timer, timer_cb, milliseconds, 0);
-		if(err < 0) return err;
+		rc = uv_timer_start(timer, timer_cb, milliseconds, 0);
+		if(rc < 0) return rc;
 		async_yield();
 	}
 	uv_close((uv_handle_t *)timer, async_close_cb);
