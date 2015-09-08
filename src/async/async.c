@@ -180,14 +180,13 @@ int async_getaddrinfo(char const *const node, char const *const service, struct 
 #endif
 }
 
-static void async_close_cb(uv_handle_t *const handle) {
+static void close_cb(uv_handle_t *const handle) {
 	async_switch(handle->data);
 }
 static void timer_cb(uv_timer_t *const timer) {
 	async_switch(timer->data);
 }
 int async_sleep(uint64_t const milliseconds) {
-	// TODO: Pool timers together.
 	uv_timer_t timer[1];
 	timer->data = async_active();
 	int rc = uv_timer_init(async_loop, timer);
@@ -197,15 +196,17 @@ int async_sleep(uint64_t const milliseconds) {
 		if(rc < 0) return rc;
 		async_yield();
 	}
-	async_close((uv_handle_t *)timer);
+	// Not worth calling async_close.
+	uv_close((uv_handle_t *)timer, close_cb);
+	async_yield();
 	return 0;
 }
 void async_close(uv_handle_t *const handle) {
 	if(UV_UNKNOWN_HANDLE == handle->type) return;
 	handle->data = async_active();
-	uv_close(handle, async_close_cb);
+	uv_close(handle, close_cb);
 	async_yield();
 	memset(handle, 0, uv_handle_size(handle->type));
-	// Luckily UV_UNKNOWN_HANDLE is 0
+	// Luckily UV_UNKNOWN_HANDLE is 0.
 }
 
