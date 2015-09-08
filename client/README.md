@@ -1,5 +1,7 @@
 # StrongLink Client API Information
 
+This interface is used for syncing and is the recommended way for applications to talk to StrongLink repositories.
+
 **GET /sln/file/[algo]/[hash]**  
 Returns the data of a given file. Clients should be aware this is arbitrary user data and potentially malicious.
 
