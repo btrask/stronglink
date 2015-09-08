@@ -185,8 +185,12 @@ static int tls_poll(uv_stream_t *const stream, int const event) {
 		if(rc < 0) alogf("tls_poll read %s\n", uv_strerror(rc));
 		rc = 0;
 	} else if(TLS_WRITE_AGAIN == event) {
-		uv_buf_t buf = uv_buf_init(NULL, 0);
-		rc = async_write(stream, &buf, 1);
+		// TODO: libuv provides NO WAY to wait until a stream is
+		// writable! Even our zero-length write hack doesn't work.
+		// uv_poll can't be used on uv's own stream fds.
+		rc = async_sleep(50);
+//		uv_buf_t buf = uv_buf_init(NULL, 0);
+//		rc = async_write(stream, &buf, 1);
 		if(rc < 0) alogf("tls_poll write %s\n", uv_strerror(rc));
 		rc = 0;
 	} else {
