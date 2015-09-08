@@ -197,8 +197,7 @@ int async_sleep(uint64_t const milliseconds) {
 		if(rc < 0) return rc;
 		async_yield();
 	}
-	uv_close((uv_handle_t *)timer, async_close_cb);
-	async_yield();
+	async_close((uv_handle_t *)timer);
 	return 0;
 }
 void async_close(uv_handle_t *const handle) {
