@@ -103,11 +103,12 @@ int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFi
 void SLNFileInfoCleanup(SLNFileInfo *const info);
 int SLNSessionGetValueForField(SLNSessionRef const session, str_t value[], size_t const max, strarg_t const fileURI, strarg_t const field);
 
-int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const knownURI, strarg_t const type, SLNSubmissionRef *const out);
+int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const knownURI, SLNSubmissionRef *const out);
 int SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const knownURI, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, SLNSubmissionRef *const out);
 void SLNSubmissionFree(SLNSubmissionRef *const subptr);
 SLNRepoRef SLNSubmissionGetRepo(SLNSubmissionRef const sub);
 strarg_t SLNSubmissionGetType(SLNSubmissionRef const sub);
+int SLNSubmissionSetType(SLNSubmissionRef const sub, strarg_t const type);
 uv_file SLNSubmissionGetFile(SLNSubmissionRef const sub);
 int SLNSubmissionWrite(SLNSubmissionRef const sub, byte_t const *const buf, size_t const len);
 int SLNSubmissionEnd(SLNSubmissionRef const sub);

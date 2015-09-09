@@ -26,10 +26,9 @@ struct SLNSubmission {
 
 int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID, DB_txn *const txn, uint64_t *const out);
 
-int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const knownURI, strarg_t const type, SLNSubmissionRef *const out) {
+int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const knownURI, SLNSubmissionRef *const out) {
 	assert(out);
 	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return UV_EACCES;
-	if(!type) return UV_EINVAL;
 
 	SLNSubmissionRef sub = calloc(1, sizeof(struct SLNSubmission));
 	if(!sub) return UV_ENOMEM;
@@ -41,9 +40,7 @@ int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const knownURI, st
 		if(!sub->knownURI) rc = UV_ENOMEM;
 		if(rc < 0) goto cleanup;
 	}
-	sub->type = strdup(type);
-	if(!sub->type) rc = UV_ENOMEM;
-	if(rc < 0) goto cleanup;
+	sub->type = NULL;
 
 	sub->tmppath = SLNRepoCopyTempPath(SLNSessionGetRepo(session));
 	if(!sub->tmppath) rc = UV_ENOMEM;
@@ -65,10 +62,17 @@ cleanup:
 	return rc;
 }
 int SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const knownURI, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, SLNSubmissionRef *const out) {
-	int rc = SLNSubmissionCreate(session, knownURI, type, out);
+	assert(out);
+	SLNSubmissionRef sub = NULL;
+	int rc = SLNSubmissionCreate(session, knownURI, &sub);
 	if(rc < 0) return rc;
-	rc = SLNSubmissionWriteFrom(*out, read, context);
-	if(rc < 0) SLNSubmissionFree(out);
+	rc = SLNSubmissionSetType(sub, type);
+	if(rc < 0) goto cleanup;
+	rc = SLNSubmissionWriteFrom(sub, read, context);
+	if(rc < 0) goto cleanup;
+	*out = sub; sub = NULL;
+cleanup:
+	SLNSubmissionFree(&sub);
 	return rc;
 }
 void SLNSubmissionFree(SLNSubmissionRef *const subptr) {
@@ -105,6 +109,14 @@ strarg_t SLNSubmissionGetType(SLNSubmissionRef const sub) {
 	if(!sub) return NULL;
 	return sub->type;
 }
+int SLNSubmissionSetType(SLNSubmissionRef const sub, strarg_t const type) {
+	if(!sub) return UV_EINVAL;
+	if(!type) return UV_EINVAL;
+	FREE(&sub->type);
+	sub->type = strdup(type);
+	if(!sub->type) return UV_ENOMEM;
+	return 0;
+}
 uv_file SLNSubmissionGetFile(SLNSubmissionRef const sub) {
 	if(!sub) return UV_EINVAL;
 	return sub->tmpfile;
@@ -113,6 +125,7 @@ uv_file SLNSubmissionGetFile(SLNSubmissionRef const sub) {
 int SLNSubmissionWrite(SLNSubmissionRef const sub, byte_t const *const buf, size_t const len) {
 	if(!sub) return 0;
 	assert(sub->tmpfile >= 0);
+	assert(sub->type);
 
 	uv_buf_t parts[] = { uv_buf_init((char *)buf, len) };
 	int rc = async_fs_writeall(sub->tmpfile, parts, numberof(parts), -1);
@@ -142,6 +155,7 @@ int SLNSubmissionEnd(SLNSubmissionRef const sub) {
 	if(sub->size <= 0) return UV_EINVAL;
 	assert(sub->tmppath);
 	assert(sub->tmpfile >= 0);
+	assert(sub->type);
 
 	sub->URIs = SLNHasherEnd(sub->hasher);
 	sub->internalHash = strdup(SLNHasherGetInternalHash(sub->hasher));

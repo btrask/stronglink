@@ -163,7 +163,9 @@ static int accept_sub(SLNSessionRef const session, strarg_t const knownURI, HTTP
 	if(!type) return 415; // Unsupported Media Type
 
 	SLNSubmissionRef sub = NULL;
-	int rc = SLNSubmissionCreate(session, knownURI, type, &sub);
+	int rc = SLNSubmissionCreate(session, knownURI, &sub);
+	if(rc < 0) goto cleanup;
+	rc = SLNSubmissionSetType(sub, type);
 	if(rc < 0) goto cleanup;
 	for(;;) {
 		uv_buf_t buf[1] = {};

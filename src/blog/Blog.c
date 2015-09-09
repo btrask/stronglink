@@ -408,7 +408,9 @@ static int parse_file(BlogRef const blog,
 		for(size_t i = 0; i < numberof(v); i++) FREE(&v[i]);
 	}
 
-	rc = SLNSubmissionCreate(session, NULL, type, &file);
+	rc = SLNSubmissionCreate(session, NULL, &file);
+	if(rc < 0) goto cleanup;
+	rc = SLNSubmissionSetType(file, type);
 	if(rc < 0) goto cleanup;
 	for(;;) {
 		uv_buf_t buf[1];
@@ -485,7 +487,9 @@ static int POST_post(BlogRef const blog,
 	str_t *target_QSEscaped = NULL;
 	str_t *location = NULL;
 
-	rc = SLNSubmissionCreate(session, NULL, SLN_META_TYPE, &extra);
+	rc = SLNSubmissionCreate(session, NULL, &extra);
+	if(rc < 0) goto cleanup;
+	rc = SLNSubmissionSetType(extra, SLN_META_TYPE);
 	if(rc < 0) goto cleanup;
 
 	strarg_t const target = SLNSubmissionGetPrimaryURI(sub);
