@@ -105,6 +105,10 @@ SLNRepoRef SLNSubmissionGetRepo(SLNSubmissionRef const sub) {
 	if(!sub) return NULL;
 	return SLNSessionGetRepo(sub->session);
 }
+strarg_t SLNSubmissionGetKnownURI(SLNSubmissionRef const sub) {
+	if(!sub) return NULL;
+	return sub->knownURI;
+}
 strarg_t SLNSubmissionGetType(SLNSubmissionRef const sub) {
 	if(!sub) return NULL;
 	return sub->type;
