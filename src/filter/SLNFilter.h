@@ -181,6 +181,9 @@ static uint64_t invalid(int const dir) {
 	assert(0 && "Invalid dir");
 	return 0;
 }
+static bool validage(SLNAgeRange const age) {
+	return age.min < age.max;
+}
 
 static void indent(size_t const depth) {
 	for(size_t i = 0; i < depth; i++) fputc('\t', stderr);
