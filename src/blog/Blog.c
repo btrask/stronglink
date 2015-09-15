@@ -177,10 +177,12 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		FREE(&query_HTMLSafe);
 		FREE(&parsed_HTMLSafe);
 		SLNFilterFree(&filter);
+		if(DB_NOTFOUND == count) {
+			// Possibly a filter age-function bug.
+			alogf("Invalid start parameter? %s\n", URI);
+			return 500;
+		}
 		alogf("Filter error: %s\n", sln_strerror(count));
-		// DB_NOTFOUND probably means an invalid start parameter. This
-		// shouldn't result from any URLs we generate, and if it does
-		// might indicate a filter age-function bug.
 		return 500;
 	}
 	SLNFilterFree(&filter);
