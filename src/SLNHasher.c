@@ -24,7 +24,7 @@ struct SLNHasher {
 };
 
 SLNHasherRef SLNHasherCreate(strarg_t const type) {
-	if(!type) return NULL;
+	assert(type);
 	SLNHasherRef hasher = calloc(1, sizeof(struct SLNHasher));
 	if(!hasher) return NULL;
 

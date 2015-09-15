@@ -49,10 +49,6 @@ int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const knownURI, SL
 	if(rc < 0) goto cleanup;
 	sub->tmpfile = rc;
 
-	sub->hasher = SLNHasherCreate(sub->type);
-	if(!sub->hasher) rc = UV_ENOMEM;
-	if(rc < 0) goto cleanup;
-
 	sub->metaFileID = 0;
 
 	*out = sub; sub = NULL;
@@ -116,9 +112,15 @@ strarg_t SLNSubmissionGetType(SLNSubmissionRef const sub) {
 int SLNSubmissionSetType(SLNSubmissionRef const sub, strarg_t const type) {
 	if(!sub) return UV_EINVAL;
 	if(!type) return UV_EINVAL;
+	assert(!sub->hasher);
+
 	FREE(&sub->type);
 	sub->type = strdup(type);
 	if(!sub->type) return UV_ENOMEM;
+
+	sub->hasher = SLNHasherCreate(sub->type);
+	if(!sub->hasher) return UV_ENOMEM;
+
 	return 0;
 }
 uv_file SLNSubmissionGetFile(SLNSubmissionRef const sub) {
@@ -130,6 +132,7 @@ int SLNSubmissionWrite(SLNSubmissionRef const sub, byte_t const *const buf, size
 	if(!sub) return 0;
 	assert(sub->tmpfile >= 0);
 	assert(sub->type);
+	assert(sub->hasher);
 
 	uv_buf_t parts[] = { uv_buf_init((char *)buf, len) };
 	int rc = async_fs_writeall(sub->tmpfile, parts, numberof(parts), -1);
@@ -160,6 +163,7 @@ int SLNSubmissionEnd(SLNSubmissionRef const sub) {
 	assert(sub->tmppath);
 	assert(sub->tmpfile >= 0);
 	assert(sub->type);
+	assert(sub->hasher);
 
 	sub->URIs = SLNHasherEnd(sub->hasher);
 	sub->internalHash = strdup(SLNHasherGetInternalHash(sub->hasher));
