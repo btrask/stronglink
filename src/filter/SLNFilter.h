@@ -182,7 +182,7 @@ static uint64_t invalid(int const dir) {
 	return 0;
 }
 static bool validage(SLNAgeRange const age) {
-	return age.min < age.max;
+	return valid(age.min) && age.min <= age.max;
 }
 
 static void indent(size_t const depth) {
