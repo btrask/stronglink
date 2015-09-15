@@ -165,6 +165,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	SLNFilterParseOptions(qs, pos, &max, &outdir, NULL);
 	if(max < 1) max = 1;
 	if(max > RESULTS_MAX) max = RESULTS_MAX;
+	bool const has_start = !!pos->URI;
 
 	uint64_t const t1 = uv_hrtime();
 
@@ -263,15 +264,12 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		} else if(DB_NOTFOUND == rc) {
 			TemplateWriteHTTPChunk(blog->notfound, &TemplateStaticCBs, args, conn);
 		}
-		if(count) {
+		if(count || has_start) {
 			TemplateWriteHTTPChunk(blog->backlinks, &TemplateStaticCBs, args, conn);
 		}
 	}
 
-	bool const broadest_possible_filter =
-		SLNVisibleFilterType == filtertype ||
-		SLNAllFilterType == filtertype;
-	if(0 == count && !primaryURI && !broadest_possible_filter) {
+	if(0 == count && (!primaryURI || has_start)) {
 		TemplateWriteHTTPChunk(blog->noresults, &TemplateStaticCBs, args, conn);
 	}
 	for(size_t i = 0; i < count; i++) {
