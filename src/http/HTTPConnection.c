@@ -590,13 +590,11 @@ int HTTPConnectionSendMessage(HTTPConnectionRef const conn, uint16_t const statu
 	rc = rc < 0 ? rc : HTTPConnectionWriteHeader(conn, "Content-Type", "text/plain; charset=utf-8");
 	rc = rc < 0 ? rc : HTTPConnectionWriteContentLength(conn, len+1);
 	rc = rc < 0 ? rc : HTTPConnectionBeginBody(conn);
-	// TODO: Check how HEAD responses should look.
-	if(HTTP_HEAD != conn->parser->method) { // TODO: Expose method? What?
+	if(HTTP_HEAD != conn->parser->method) {
 		rc = rc < 0 ? rc : HTTPConnectionWrite(conn, (byte_t const *)str, len);
 		rc = rc < 0 ? rc : HTTPConnectionWrite(conn, (byte_t const *)STR_LEN("\n"));
 	}
 	rc = rc < 0 ? rc : HTTPConnectionEnd(conn);
-//	if(status >= 400) alogf("%s: %d %s\n", HTTPConnectionGetRequestURI(conn), (int)status, str);
 	return rc;
 }
 int HTTPConnectionSendStatus(HTTPConnectionRef const conn, uint16_t const status) {
@@ -641,7 +639,9 @@ int HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path, st
 	rc = rc < 0 ? rc : HTTPConnectionWriteHeader(conn, "Cache-Control", "max-age=604800, public"); // TODO: Just cache all static files for one week, for now.
 	if(type) rc = rc < 0 ? rc : HTTPConnectionWriteHeader(conn, "Content-Type", type);
 	rc = rc < 0 ? rc : HTTPConnectionBeginBody(conn);
-	rc = rc < 0 ? rc : HTTPConnectionWriteFile(conn, file);
+	if(HTTP_HEAD != conn->parser->method) {
+		rc = rc < 0 ? rc : HTTPConnectionWriteFile(conn, file);
+	}
 	rc = rc < 0 ? rc : HTTPConnectionEnd(conn);
 
 cleanup:
