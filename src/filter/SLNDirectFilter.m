@@ -30,12 +30,12 @@
 	}
 	return DB_EINVAL;
 }
-- (void)print:(size_t const)depth {
-	indent(depth);
-	fprintf(stderr, "(uri \"%s\")\n", URI);
+- (void)printSexp:(FILE *const)file :(size_t const)depth {
+	indent(file, depth);
+	fprintf(file, "(uri \"%s\")\n", URI);
 }
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth {
-	return wr(data, size, URI);
+- (void)printUser:(FILE *const)file :(size_t const)depth {
+	fprintf(file, "%s", URI);
 }
 
 - (int)prepare:(DB_txn *const)txn {
@@ -120,15 +120,12 @@
 	}
 	return DB_EINVAL;
 }
-- (void)print:(size_t const)depth {
-	indent(depth);
-	fprintf(stderr, "(target \"%s\")\n", targetURI);
+- (void)printSexp:(FILE *const)file :(size_t const)depth {
+	indent(file, depth);
+	fprintf(file, "(target \"%s\")\n", targetURI);
 }
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth {
-	size_t len = 0;
-	len += wr(data+len, size-len, "target=");
-	len += wr(data+len, size-len, targetURI);
-	return len;
+- (void)printUser:(FILE *const)file :(size_t const)depth {
+	fprintf(file, "target=%s", targetURI);
 }
 
 - (int)prepare:(DB_txn *const)txn {
@@ -195,12 +192,12 @@
 - (SLNFilterType)type {
 	return SLNAllFilterType;
 }
-- (void)print:(size_t const)depth {
-	indent(depth);
-	fprintf(stderr, "(all)\n");
+- (void)printSexp:(FILE *const)file :(size_t const)depth {
+	indent(file, depth);
+	fprintf(file, "(all)\n");
 }
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth {
-	return wr(data, size, "*");
+- (void)printUser:(FILE *const)file :(size_t const)depth {
+	fprintf(file, "*");
 }
 
 - (int)prepare:(DB_txn *const)txn {

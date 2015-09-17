@@ -15,13 +15,12 @@
 - (SLNFilter *)unwrap {
 	return self;
 }
-- (void)print:(size_t const)depth {
-	indent(depth);
-	fprintf(stderr, "(meta)\n");
+- (void)printSexp:(size_t const)depth :(FILE *const)file {
+	indent(file, depth);
+	fprintf(file, "(meta)\n");
 }
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth {
-	assert(0);
-	return wr(data, size, "");
+- (void)printUser:(size_t const)depth :(FILE *const)file {
+	assert(!"print meta-file filter");
 }
 
 - (int)prepare:(DB_txn *const)txn {

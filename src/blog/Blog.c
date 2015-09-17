@@ -138,8 +138,15 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	}
 
 	str_t tmp[URI_MAX];
-
-	SLNFilterToUserFilterString(filter, tmp, sizeof(tmp), 0);
+	FILE *parsed = fmemopen(tmp, sizeof(tmp), "w");
+	if(!parsed) {
+		FREE(&query);
+		FREE(&query_HTMLSafe);
+		return 500;
+	}
+	SLNFilterPrintUser(filter, parsed, 0);
+	fclose(parsed);
+	tmp[sizeof(tmp)-1] = '\0'; // fmemopen(3) says this isn't guaranteed.
 	parsed_HTMLSafe = htmlenc(tmp);
 
 	str_t *primaryURI = NULL;

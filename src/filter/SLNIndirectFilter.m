@@ -152,13 +152,13 @@
 - (SLNFilterType)type {
 	return SLNVisibleFilterType;
 }
-- (void)print:(size_t const)depth {
-	indent(depth);
-	fprintf(stderr, "(visible)\n");
+- (void)printSexp:(FILE *const)file :(size_t const)depth {
+	indent(file, depth);
+	fprintf(file, "(visible)\n");
 }
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth {
-	if(depth) return wr(data, size, "*");
-	return wr(data, size, "");
+- (void)printUser:(FILE *const)file :(size_t const)depth {
+	if(0 == depth) return;
+	fprintf(file, "*");
 }
 
 - (int)prepare:(DB_txn *const)txn {
@@ -261,12 +261,12 @@
 	if(!count) return DB_EINVAL;
 	return 0;
 }
-- (void)print:(size_t const)depth {
-	indent(depth);
-	fprintf(stderr, "(fulltext %s)\n", term);
+- (void)printSexp:(FILE *const)file :(size_t const)depth {
+	indent(file, depth);
+	fprintf(file, "(fulltext %s)\n", term);
 }
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth {
-	return wr(data, size, term);
+- (void)printUser:(FILE *const)file :(size_t const)depth {
+	fprintf(file, "%s", term);
 }
 
 - (int)prepare:(DB_txn *const)txn {
@@ -360,16 +360,20 @@
 	}
 	return DB_EINVAL;
 }
-- (void)print:(size_t const)depth {
-	indent(depth);
-	fprintf(stderr, "(metadata \"%s\" \"%s\")\n", field, value);
+- (void)printSexp:(FILE *const)file :(size_t const)depth {
+	indent(file, depth);
+	fprintf(file, "(metadata \"%s\" \"%s\")\n", field, value);
 }
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth {
-	size_t len = 0;
-	len += wr_quoted(data+len, size-len, field);
-	len += wr(data+len, size-len, "=");
-	len += wr_quoted(data+len, size-len, value);
-	return len;
+- (void)printUser:(FILE *const)file :(size_t const)depth {
+	bool const fq = needs_quotes(field);
+	if(fq) fprintf(file, "\"");
+	fprintf(file, "%s", field);
+	if(fq) fprintf(file, "\"");
+	fprintf(file, "=");
+	bool const vq = needs_quotes(value);
+	if(vq) fprintf(file, "\"");
+	fprintf(file, "%s", value);
+	if(vq) fprintf(file, "\"");
 }
 
 - (int)prepare:(DB_txn *const)txn {

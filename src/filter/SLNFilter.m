@@ -92,13 +92,13 @@ int SLNFilterAddFilterArg(SLNFilterRef const filter, SLNFilterRef const subfilte
 	assert(filter);
 	return [(SLNFilter *)filter addFilterArg:(SLNFilter *)subfilter];
 }
-void SLNFilterPrint(SLNFilterRef const filter, size_t const depth) {
+void SLNFilterPrintSexp(SLNFilterRef const filter, FILE *const file, size_t const depth) {
 	assert(filter);
-	return [(SLNFilter *)filter print:depth];
+	return [(SLNFilter *)filter printSexp:file :depth];
 }
-size_t SLNFilterToUserFilterString(SLNFilterRef const filter, str_t *const data, size_t const size, size_t const depth) {
+void SLNFilterPrintUser(SLNFilterRef const filter, FILE *const file, size_t const depth) {
 	assert(filter);
-	return [(SLNFilter *)filter getUserFilter:data :size :depth];
+	return [(SLNFilter *)filter printUser:file :depth];
 }
 int SLNFilterPrepare(SLNFilterRef const filter, DB_txn *const txn) {
 	assert(filter);

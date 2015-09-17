@@ -31,8 +31,8 @@
 - (strarg_t)stringArg:(size_t const)i;
 - (int)addStringArg:(strarg_t const)str :(size_t const)len;
 - (int)addFilterArg:(SLNFilter *const)filter;
-- (void)print:(size_t const)depth;
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth;
+- (void)printSexp:(FILE *const)file :(size_t const)depth; // Debug use only?
+- (void)printUser:(FILE *const)file :(size_t const)depth;
 
 - (int)prepare:(DB_txn *const)txn;
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
@@ -185,8 +185,8 @@ static bool validage(SLNAgeRange const age) {
 	return valid(age.min) && age.min <= age.max;
 }
 
-static void indent(size_t const depth) {
-	for(size_t i = 0; i < depth; i++) fputc('\t', stderr);
+static void indent(FILE *const file, size_t const depth) {
+	for(size_t i = 0; i < depth; i++) fputc('\t', file);
 }
 static bool needs_quotes(strarg_t const str) {
 	// TODO: Kind of a hack.
@@ -194,16 +194,5 @@ static bool needs_quotes(strarg_t const str) {
 		if(isspace(str[i]) || '=' == str[i]) return true;
 	}
 	return false;
-}
-static size_t wr(str_t *const data, size_t const size, strarg_t const str) {
-	return strlcpy(data, str, size);
-}
-static size_t wr_quoted(str_t *const data, size_t const size, strarg_t const str) {
-	size_t len = 0;
-	bool const quoted = needs_quotes(str);
-	if(quoted) len += wr(data+len, size-len, "\"");
-	len += wr(data+len, size-len, str);
-	if(quoted) len += wr(data+len, size-len, "\"");
-	return len;
 }
 

@@ -93,12 +93,12 @@ cleanup:
 	}
 	return DB_EINVAL;
 }
-- (void)print:(size_t const)depth {
-	indent(depth);
-	fprintf(stderr, "(links-to \"%s\")\n", URI);
+- (void)printSexp:(size_t const)depth :(FILE *const)file {
+	indent(file, depth);
+	fprintf(file, "(links-to \"%s\")\n", URI);
 }
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth {
-	return wr(data, size, URI);
+- (void)printUser:(size_t const)depth :(FILE *const)file {
+	fprintf(file, "%s", URI);
 }
 
 - (int)prepare:(DB_txn *const)txn {

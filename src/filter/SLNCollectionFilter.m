@@ -107,23 +107,21 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 - (SLNFilterType)type {
 	return SLNIntersectionFilterType;
 }
-- (void)print:(size_t const)depth {
-	indent(depth);
-	fprintf(stderr, "(intersection\n");
-	for(size_t i = 0; i < count; i++) [filters[i] print:depth+1];
-	indent(depth);
-	fprintf(stderr, ")\n");
+- (void)printSexp:(FILE *const)file :(size_t const)depth {
+	indent(file, depth);
+	fprintf(file, "(intersection\n");
+	for(size_t i = 0; i < count; i++) [filters[i] printSexp:file :depth+1];
+	indent(file, depth);
+	fprintf(file, ")\n");
 }
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth {
-	if(!count) return wr(data, size, "");
-	size_t len = 0;
-	if(depth) len += wr(data+len, size-len, "(");
+- (void)printUser:(FILE *const)file :(size_t const)depth {
+	if(!count) return;
+	if(depth) fprintf(file, "(");
 	for(size_t i = 0; i < count; i++) {
-		if(i) len += wr(data+len, size-len, " ");
-		len += [filters[i] getUserFilter:data+len :size-len :depth+1];
+		if(i) fprintf(file, " ");
+		[filters[i] printUser:file :depth+1];
 	}
-	if(depth) len += wr(data+len, size-len, ")");
-	return len;
+	if(depth) fprintf(file, ")");
 }
 
 - (SLNAgeRange)fullAge:(uint64_t const)fileID {
@@ -152,20 +150,18 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 - (SLNFilterType)type {
 	return SLNUnionFilterType;
 }
-- (void)print:(size_t const)depth {
-	indent(depth);
-	fprintf(stderr, "(union\n");
-	for(size_t i = 0; i < count; i++) [filters[i] print:depth+1];
-	indent(depth);
-	fprintf(stderr, ")\n");
+- (void)printSexp:(FILE *const)file :(size_t const)depth {
+	indent(file, depth);
+	fprintf(file, "(union\n");
+	for(size_t i = 0; i < count; i++) [filters[i] printSexp:file :depth+1];
+	indent(file, depth);
+	fprintf(file, ")\n");
 }
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth {
-	size_t len = 0;
+- (void)printUser:(FILE *const)file :(size_t const)depth {
 	for(size_t i = 0; i < count; i++) {
-		if(i) len += wr(data+len, size-len, " or ");
-		len += [filters[i] getUserFilter:data+len :size-len :depth+1];
+		if(i) fprintf(file, " or ");
+		[filters[i] printUser:file :depth+1];
 	}
-	return len;
 }
 
 - (SLNAgeRange)fullAge:(uint64_t const)fileID {

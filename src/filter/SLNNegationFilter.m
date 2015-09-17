@@ -26,18 +26,16 @@
 	subfilter = filter;
 	return 0;
 }
-- (void)print:(size_t const)depth {
-	indent(depth);
-	fprintf(stderr, "(negation\n");
-	[subfilter print:depth+1];
-	indent(depth);
-	fprintf(stderr, ")\n");
+- (void)printSexp:(size_t const)depth :(FILE *const)file {
+	indent(file, depth);
+	fprintf(file, "(negation\n");
+	[subfilter printSexp:file :depth+1];
+	indent(file, depth);
+	fprintf(file, ")\n");
 }
-- (size_t)getUserFilter:(str_t *const)data :(size_t const)size :(size_t const)depth {
-	size_t len = 0;
-	len += wr(data+len, size-len, "-");
-	len += [subfilter getUserFilter:data+len :size-len :depth+1];
-	return len;
+- (void)printUser:(size_t const)depth :(FILE *const)file {
+	fprintf(file, "-");
+	[subfilter printUser:file :depth+1];
 }
 
 - (int)prepare:(DB_txn *const)txn {
