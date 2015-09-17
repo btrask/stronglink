@@ -31,6 +31,8 @@ Practices in use (pro tip: contributing guidelines):
 	- Hash tables are randomly salted on startup
 	- Use assertions to assert obvious invariants
 	- Ship with assertions on
+	- Use comments to highlight security-critical statements
+	- Use labels in the bug tracker to highlight security issues and nothing else
 	- Test under Valgrind
 	- Test under Clang static analyzer
 	- Test under [Facebook Infer](http://fbinfer.com/) static analyzer
@@ -53,6 +55,7 @@ Planned (pro tip: places bugs might be hiding):
 - Write a simple new template system based on [Google's Gumbo HTML parser](https://github.com/google/gumbo-parser)
 - Release a set of contributing guidelines (more than just the above)
 - Contribute some new compiler warnings to Clang and/or GCC
+- Reproducible builds
 
 Rejected:
 
