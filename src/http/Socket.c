@@ -1,6 +1,7 @@
 // Copyright 2015 Ben Trask
 // MIT licensed (see LICENSE for details)
 
+#include "../../deps/libressl-portable/include/compat/string.h"
 #include "Socket.h"
 
 #define READ_BUFFER (1024 * 8)
@@ -133,6 +134,23 @@ int SocketFlush(SocketRef const socket, bool const more) {
 	if(!more) FREE(&socket->wr->base);
 	socket->wr->len = 0;
 	return rc;
+}
+
+
+int SocketGetPeerInfo(SocketRef const socket, char *const out, size_t const max) {
+	assert(max > 0);
+	assert(out);
+	if(!socket) return UV_EINVAL;
+	struct sockaddr_storage peer[1];
+	int len = sizeof(*peer);
+	int rc = uv_tcp_getpeername(socket->stream, (struct sockaddr *)peer, &len);
+	if(rc < 0) return rc;
+
+	uv_getnameinfo_t req[1];
+	rc = async_getnameinfo(req, (struct sockaddr *)peer, NI_NUMERICSERV);
+	if(rc < 0) return rc;
+	strlcpy(out, req->host, max);
+	return 0;
 }
 
 

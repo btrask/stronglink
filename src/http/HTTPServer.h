@@ -6,7 +6,7 @@
 
 #include "../../deps/libressl-portable/include/tls.h"
 #include "../common.h"
-#include "HTTPConnection.h"
+#include "HTTP.h"
 
 typedef struct HTTPServer* HTTPServerRef;
 

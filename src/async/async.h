@@ -52,6 +52,7 @@ void async_cancel(async_t *const thread);
 
 int async_random(unsigned char *const buf, size_t const len);
 int async_getaddrinfo(char const *const node, char const *const service, struct addrinfo const *const hints, struct addrinfo **const res);
+int async_getnameinfo(uv_getnameinfo_t *const req, struct sockaddr const *const addr, int const flags);
 int async_sleep(uint64_t const milliseconds);
 
 void async_close(uv_handle_t *const handle);

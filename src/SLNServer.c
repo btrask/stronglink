@@ -4,8 +4,7 @@
 #include <assert.h>
 #include "common.h"
 #include "StrongLink.h"
-#include "http/HTTPServer.h"
-#include "http/HTTPHeaders.h"
+#include "http/HTTP.h"
 #include "http/MultipartForm.h"
 #include "http/QueryString.h"
 

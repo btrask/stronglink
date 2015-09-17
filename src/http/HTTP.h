@@ -20,6 +20,7 @@ typedef enum {
 } HTTPEvent;
 
 typedef struct HTTPConnection* HTTPConnectionRef;
+typedef struct HTTPHeaders* HTTPHeadersRef;
 
 int HTTPConnectionCreateIncoming(uv_stream_t *const ssocket, unsigned const flags, HTTPConnectionRef *const out);
 int HTTPConnectionCreateIncomingSecure(uv_stream_t *const ssocket, struct tls *const ssecure, unsigned const flags, HTTPConnectionRef *const out);
@@ -62,6 +63,16 @@ int HTTPConnectionSendString(HTTPConnectionRef const conn, uint16_t const status
 int HTTPConnectionSendStatus(HTTPConnectionRef const conn, uint16_t const status);
 int HTTPConnectionSendRedirect(HTTPConnectionRef const conn, uint16_t const status, strarg_t const location);
 int HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path, strarg_t const type, int64_t size);
+
+// Logging
+void HTTPConnectionLog(HTTPConnectionRef const conn, strarg_t const URI, strarg_t const username, HTTPHeadersRef const headers, FILE *const log);
+
+// Headers
+int HTTPHeadersCreate(HTTPHeadersRef *const out);
+int HTTPHeadersCreateFromConnection(HTTPConnectionRef const conn, HTTPHeadersRef *const out);
+void HTTPHeadersFree(HTTPHeadersRef *const hptr);
+int HTTPHeadersLoad(HTTPHeadersRef const h, HTTPConnectionRef const conn);
+strarg_t HTTPHeadersGet(HTTPHeadersRef const h, strarg_t const field);
 
 
 // TODO: Get rid of this.

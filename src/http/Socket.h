@@ -19,3 +19,5 @@ void SocketPop(SocketRef const socket, size_t const len);
 int SocketWrite(SocketRef const socket, uv_buf_t const *const buf);
 int SocketFlush(SocketRef const socket, bool const more);
 
+int SocketGetPeerInfo(SocketRef const socket, char *const out, size_t const max);
+

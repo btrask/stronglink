@@ -4,8 +4,7 @@
 #include <assert.h>
 #include "StrongLink.h"
 #include "db/db_schema.h"
-#include "http/HTTPConnection.h"
-#include "http/HTTPHeaders.h"
+#include "http/HTTP.h"
 #include "http/QueryString.h"
 
 // TODO: This entire file is obsolete.

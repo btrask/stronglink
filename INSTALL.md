@@ -45,6 +45,7 @@ Right now there is no configuration interface whatsoever (not even a config file
 - Repo name: by default the name of the directory, but override `reponame` in `src/blog/main.c`
 - Internal algorithm: `SLN_INTERNAL_ALGO` in `src/StrongLink.h` (only change for new repos!)
 - Number of bcrypt rounds: `BCRYPT_ROUNDS` in `src/util/pass.c` (default 13)
+- Logging: `SERVER_LOG_FILE` in `src/blog/main.c` (`stdout` or `NULL` for disabled)
 
 Database Backends
 -----------------

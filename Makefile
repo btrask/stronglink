@@ -71,9 +71,8 @@ HEADERS := \
 	$(SRC_DIR)/db/db_schema.h \
 	$(SRC_DIR)/http/status.h \
 	$(SRC_DIR)/http/Socket.h \
-	$(SRC_DIR)/http/HTTPConnection.h \
+	$(SRC_DIR)/http/HTTP.h \
 	$(SRC_DIR)/http/HTTPServer.h \
-	$(SRC_DIR)/http/HTTPHeaders.h \
 	$(SRC_DIR)/http/MultipartForm.h \
 	$(SRC_DIR)/http/QueryString.h \
 	$(SRC_DIR)/util/fts.h \
@@ -128,8 +127,8 @@ OBJECTS := \
 	$(BUILD_DIR)/db/db_schema.o \
 	$(BUILD_DIR)/http/Socket.o \
 	$(BUILD_DIR)/http/HTTPConnection.o \
-	$(BUILD_DIR)/http/HTTPServer.o \
 	$(BUILD_DIR)/http/HTTPHeaders.o \
+	$(BUILD_DIR)/http/HTTPServer.o \
 	$(BUILD_DIR)/http/MultipartForm.o \
 	$(BUILD_DIR)/http/QueryString.o \
 	$(BUILD_DIR)/util/fts.o \

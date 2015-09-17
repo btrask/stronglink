@@ -180,6 +180,21 @@ int async_getaddrinfo(char const *const node, char const *const service, struct 
 #endif
 }
 
+static void getnameinfo_cb(uv_getnameinfo_t *const req, int const status, char const *const hostname, char const *const service) {
+	async_switch(req->data);
+}
+int async_getnameinfo(uv_getnameinfo_t *const req, struct sockaddr const *const addr, int const flags) {
+	uv_getnameinfo_cb cb = NULL;
+	if(async_main) {
+		req->data = async_active();
+		cb = getnameinfo_cb;
+	}
+	int rc = uv_getnameinfo(async_loop, req, cb, addr, flags);
+	if(rc < 0) return rc;
+	if(cb) async_yield();
+	return req->retcode;
+}
+
 static void close_cb(uv_handle_t *const handle) {
 	async_switch(handle->data);
 }

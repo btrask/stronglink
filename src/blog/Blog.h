@@ -1,8 +1,8 @@
 // Copyright 2014-2015 Ben Trask
 // MIT licensed (see LICENSE for details)
 
+#include "../http/HTTP.h"
 #include "../http/HTTPServer.h"
-#include "../http/HTTPHeaders.h"
 #include "../http/MultipartForm.h"
 #include "../http/QueryString.h"
 #include "../StrongLink.h"

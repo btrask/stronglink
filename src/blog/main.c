@@ -14,6 +14,7 @@
 #define SERVER_ADDRESS NULL // NULL = public, "localhost" = private
 #define SERVER_PORT_RAW "8000" // HTTP default 80, NULL for disabled
 #define SERVER_PORT_TLS NULL // HTTPS default 443, NULL for disabled
+#define SERVER_LOG_FILE stdout // stdout or NULL for disabled
 
 // https://wiki.mozilla.org/Security/Server_Side_TLS
 // https://wiki.mozilla.org/index.php?title=Security/Server_Side_TLS&oldid=1080944
@@ -35,10 +36,9 @@ static uv_signal_t sigpipe[1] = {};
 static uv_signal_t sigint[1] = {};
 static int sig = 0;
 
-static int listener0(void *ctx, HTTPServerRef const server, HTTPConnectionRef const conn) {
+static int listener0(HTTPServerRef const server, HTTPConnectionRef const conn, str_t *const URI, size_t const URIMax, HTTPHeadersRef *const outheaders, SLNSessionRef *const outsession) {
 	HTTPMethod method;
-	str_t URI[URI_MAX];
-	ssize_t len = HTTPConnectionReadRequest(conn, &method, URI, sizeof(URI));
+	ssize_t len = HTTPConnectionReadRequest(conn, &method, URI, URIMax);
 	if(UV_EOF == len) return 0;
 	if(UV_ECONNRESET == len) return 0;
 	if(UV_EMSGSIZE == len) return 414; // Request-URI Too Large
@@ -47,12 +47,11 @@ static int listener0(void *ctx, HTTPServerRef const server, HTTPConnectionRef co
 		return 500;
 	}
 
-	HTTPHeadersRef headers;
-	int rc = HTTPHeadersCreateFromConnection(conn, &headers);
+	int rc = HTTPHeadersCreateFromConnection(conn, outheaders);
 	if(UV_EMSGSIZE == rc) return 431; // Request Header Fields Too Large
 	if(rc < 0) return 500;
 
-	strarg_t const host = HTTPHeadersGet(headers, "host");
+	strarg_t const host = HTTPHeadersGet(*outheaders, "host");
 	str_t domain[1023+1]; domain[0] = '\0';
 	if(host) sscanf(host, "%1023[^:]", domain);
 	// TODO: Verify Host header to prevent DNS rebinding.
@@ -69,27 +68,30 @@ static int listener0(void *ctx, HTTPServerRef const server, HTTPConnectionRef co
 		return 0;
 	}
 
-	strarg_t const cookie = HTTPHeadersGet(headers, "cookie");
+	strarg_t const cookie = HTTPHeadersGet(*outheaders, "cookie");
 	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);
-	SLNSessionRef session = NULL;
-	rc = SLNSessionCacheCopyActiveSession(cache, cookie, &session);
+	rc = SLNSessionCacheCopyActiveSession(cache, cookie, outsession);
 	if(rc < 0) return 500;
 	// Note: null session is valid (zero permissions).
 
 	rc = -1;
-	rc = rc >= 0 ? rc : SLNServerDispatch(repo, session, conn, method, URI, headers);
-	rc = rc >= 0 ? rc : BlogDispatch(blog, session, conn, method, URI, headers);
-
-	SLNSessionRelease(&session);
-	HTTPHeadersFree(&headers);
+	rc = rc >= 0 ? rc : SLNServerDispatch(repo, *outsession, conn, method, URI, *outheaders);
+	rc = rc >= 0 ? rc : BlogDispatch(blog, *outsession, conn, method, URI, *outheaders);
 	return rc;
 }
 static void listener(void *ctx, HTTPServerRef const server, HTTPConnectionRef const conn) {
 	assert(server);
 	assert(conn);
-	int rc = listener0(ctx, server, conn);
+	str_t URI[URI_MAX]; URI[0] = '\0';
+	HTTPHeadersRef headers = NULL;
+	SLNSessionRef session = NULL;
+	int rc = listener0(server, conn, URI, sizeof(URI), &headers, &session);
 	if(rc < 0) rc = 404;
 	if(rc > 0) HTTPConnectionSendStatus(conn, rc);
+	strarg_t const username = SLNSessionGetUsername(session);
+	HTTPConnectionLog(conn, URI, username, headers, SERVER_LOG_FILE);
+	SLNSessionRelease(&session);
+	HTTPHeadersFree(&headers);
 }
 
 static void ignore(uv_signal_t *const signal, int const signum) {

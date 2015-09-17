@@ -2,9 +2,11 @@
 // MIT licensed (see LICENSE for details)
 
 #include <assert.h>
-#include "HTTPConnection.h"
-#include "status.h"
+#include <ctype.h>
+#include "../../deps/libressl-portable/include/compat/string.h"
 #include "../util/strext.h"
+#include "HTTP.h"
+#include "status.h"
 
 #define BUFFER_SIZE (1024 * 8)
 
@@ -20,6 +22,10 @@ struct HTTPConnection {
 	HTTPEvent type;
 	uv_buf_t out[1];
 	unsigned flags;
+
+	// For logging.
+	uint16_t res_status;
+	uint64_t res_length;
 };
 
 int HTTPConnectionCreateIncoming(uv_stream_t *const ssocket, unsigned const flags, HTTPConnectionRef *const out) {
@@ -32,6 +38,8 @@ int HTTPConnectionCreateIncomingSecure(uv_stream_t *const ssocket, struct tls *c
 	if(rc < 0) goto cleanup;
 	http_parser_init(conn->parser, HTTP_REQUEST);
 	conn->parser->data = conn;
+	conn->res_status = 0;
+	conn->res_length = UINT64_MAX;
 	*out = conn; conn = NULL;
 cleanup:
 	HTTPConnectionFree(&conn);
@@ -100,6 +108,9 @@ void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
 	*conn->out = uv_buf_init(NULL, 0);
 
 	conn->flags = 0;
+
+	conn->res_status = 0;
+	conn->res_length = 0;
 
 	assert_zeroed(conn, 1);
 	FREE(connptr); conn = NULL;
@@ -402,6 +413,8 @@ int HTTPConnectionWriteResponse(HTTPConnectionRef const conn, uint16_t const sta
 	assertf(status >= 100 && status < 600, "Invalid HTTP status %d", (int)status);
 	if(!conn) return 0;
 
+	conn->res_status = status;
+
 	str_t status_str[4+1];
 	int status_len = snprintf(status_str, sizeof(status_str), "%d", status);
 	assert(3 == status_len);
@@ -429,6 +442,9 @@ int HTTPConnectionWriteHeader(HTTPConnectionRef const conn, strarg_t const field
 }
 int HTTPConnectionWriteContentLength(HTTPConnectionRef const conn, uint64_t const length) {
 	if(!conn) return 0;
+
+	conn->res_length = length;
+
 	str_t str[16];
 	int const len = snprintf(str, sizeof(str), "%llu", (unsigned long long)length);
 	uv_buf_t parts[] = {
@@ -650,6 +666,92 @@ cleanup:
 }
 
 
+static void ensafen(str_t *const out, size_t const max, strarg_t const str) {
+	assert(max >= 31+1);
+	if(!str) return (void)strlcpy(out, "-", max);
+	for(size_t i = 0; str[i]; i++) if(!isalnum(str[i])) {
+		return (void)strlcpy(out, "(unsafe-value)", max);
+	}
+	strlcpy(out, str, max);
+}
+static void escapen(str_t *const out, size_t const max, strarg_t const str) {
+	assert(max >= 31+1);
+	if(!str) return (void)strlcpy(out, "-", max);
+	// TODO: Proper escaping.
+	if(strchr(str, '"')) return (void)strlcpy(out, "\"(unsafe value)\"", max);
+	out[0] = '\0';
+	strlcat(out, "\"", max);
+	strlcat(out, str, max);
+	size_t len = strlcat(out, "\"", max);
+	if(len >= max) return (void)strlcpy(out, "\"(overflow)\"", max);
+}
+void HTTPConnectionLog(HTTPConnectionRef const conn, strarg_t const URI, strarg_t const username, HTTPHeadersRef const headers, FILE *const log) {
+	if(!conn) return;
+	if(!log) return;
+	if(0 == conn->res_status) return; // No response sent.
+	assert(URI);
+	async_pool_enter(NULL);
+
+	// https://httpd.apache.org/docs/1.3/logs.html
+	// http://www.loganalyzer.net/log-analyzer/apache-combined-log.html
+
+	time_t const now = time(NULL);
+	struct tm t[1];
+	gmtime_r(&now, t); // TODO: Error checking?
+	str_t time[31+1];
+	size_t len = strftime(time, sizeof(time), "[%d/%b/%Y:%T %z]", t);
+	if(0 == len) strlcpy(time, "-", sizeof(time)); // TODO: "[-]"?
+
+	str_t peer[255+1];
+	int rc = SocketGetPeerInfo(conn->socket, peer, sizeof(peer));
+	str_t peer_escaped[255+1];
+	if(rc < 0) {
+		strlcpy(peer_escaped, "-", sizeof(peer_escaped));
+	} else {
+		ensafen(peer_escaped, sizeof(peer_escaped), peer);
+	}
+
+	str_t username_escaped[63+1];
+	ensafen(username_escaped, sizeof(username_escaped), username);
+
+	strarg_t const method = http_method_str(conn->parser->method);
+
+	// TODO: Is this check necessary? Depends on what http_parser will accept.
+	strarg_t const URI_escaped = strchr(URI, '"') ? "/unsafe-path" : URI;
+
+	str_t contentlength[20+1]; // Maximum is 18446744073709551615.
+	if(UINT64_MAX == conn->res_length) {
+		strlcpy(contentlength, "-", sizeof(contentlength));
+	} else {
+		snprintf(contentlength, sizeof(contentlength), "%llu", (unsigned long long)conn->res_length);
+	}
+
+	strarg_t const referer = HTTPHeadersGet(headers, "referer");
+	str_t referer_escaped[1023+1];
+	escapen(referer_escaped, sizeof(referer_escaped), referer);
+
+	strarg_t const useragent = HTTPHeadersGet(headers, "user-agent");
+	str_t useragent_escaped[1023+1];
+	escapen(useragent_escaped, sizeof(useragent_escaped), useragent);
+
+	fprintf(log, "%s %s %s %s \"%s %s %s\" %u %s %s %s %s\n",
+		peer_escaped,
+		"-",
+		username_escaped,
+		time,
+		method,
+		URI_escaped,
+		"HTTP/1.1", // http_parser doesn't seem to report this.
+		conn->res_status,
+		contentlength,
+		referer_escaped,
+		useragent_escaped,
+		"-" // We don't log cookies because they can contain sensitive data.
+	);
+	async_pool_leave(NULL);
+}
+
+
 static int on_message_begin(http_parser *const parser) {
 	HTTPConnectionRef const conn = parser->data;
 	assert(!(HTTPMessageIncomplete & conn->flags));
@@ -700,6 +802,14 @@ static int on_message_complete(http_parser *const parser) {
 	conn->type = HTTPMessageEnd;
 	*conn->out = uv_buf_init(NULL, 0);
 	conn->flags &= ~HTTPMessageIncomplete;
+
+	// Don't wait for a message to begin to clear these.
+	// They need to be cleared if we disconnect between messages too.
+	// In theory this might clear a response that has already been written,
+	// but in practice no one responds and then keeps reading.
+	conn->res_status = 0;
+	conn->res_length = UINT64_MAX;
+
 	http_parser_pause(parser, 1);
 	return 0;
 }

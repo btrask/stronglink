@@ -1,7 +1,7 @@
 // Copyright 2014-2015 Ben Trask
 // MIT licensed (see LICENSE for details)
 
-#include "HTTPConnection.h"
+#include "HTTP.h"
 
 #define MULTIPART_FIELD_MAX 80
 
