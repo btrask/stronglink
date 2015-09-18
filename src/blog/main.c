@@ -10,6 +10,7 @@
 #include "../http/HTTPServer.h"
 #include "../StrongLink.h"
 #include "Blog.h"
+#include "RSSServer.h"
 
 #define SERVER_ADDRESS NULL // NULL = public, "localhost" = private
 #define SERVER_PORT_RAW "8000" // HTTP default "80", NULL for disabled
@@ -29,6 +30,7 @@ int SLNServerDispatch(SLNRepoRef const repo, SLNSessionRef const session, HTTPCo
 
 static strarg_t path = NULL;
 static SLNRepoRef repo = NULL;
+static RSSServerRef rss = NULL;
 static BlogRef blog = NULL;
 static HTTPServerRef server_raw = NULL;
 static HTTPServerRef server_tls = NULL;
@@ -76,6 +78,7 @@ static int listener0(HTTPServerRef const server, HTTPConnectionRef const conn, s
 
 	rc = -1;
 	rc = rc >= 0 ? rc : SLNServerDispatch(repo, *outsession, conn, method, URI, *outheaders);
+	rc = rc >= 0 ? rc : RSSServerDispatch(rss, *outsession, conn, method, URI, *outheaders);
 	rc = rc >= 0 ? rc : BlogDispatch(blog, *outsession, conn, method, URI, *outheaders);
 	return rc;
 }
@@ -195,6 +198,11 @@ static void init(void *const unused) {
 		alogf("Repository could not be opened\n");
 		return;
 	}
+	rc = RSSServerCreate(repo, &rss);
+	if(rc < 0) {
+		alogf("RSS server error: %s\n", sln_strerror(rc));
+		return;
+	}
 	blog = BlogCreate(repo);
 	if(!blog) {
 		alogf("Blog server could not be initialized\n");
@@ -236,6 +244,7 @@ static void term(void *const unused) {
 static void cleanup(void *const unused) {
 	HTTPServerFree(&server_raw);
 	HTTPServerFree(&server_tls);
+	RSSServerFree(&rss);
 	BlogFree(&blog);
 	SLNRepoFree(&repo);
 

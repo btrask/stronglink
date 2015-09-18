@@ -238,6 +238,8 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	FREE(&p);
 	FREE(&n);
 
+	str_t *qs_HTMLSafe = htmlenc(qs);
+
 	TemplateStaticArg const args[] = {
 		{"reponame", reponame_HTMLSafe},
 		{"querytime", querytime_HTMLSafe},
@@ -248,6 +250,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		{"prevpage", prevpage_HTMLSafe},
 		{"nextpage", nextpage_HTMLSafe},
 		{"lastpage", lastpage_HTMLSafe},
+		{"qs", qs_HTMLSafe},
 		{NULL, NULL},
 	};
 
@@ -305,6 +308,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	FREE(&prevpage_HTMLSafe);
 	FREE(&nextpage_HTMLSafe);
 	FREE(&lastpage_HTMLSafe);
+	FREE(&qs_HTMLSafe);
 
 	HTTPConnectionWriteChunkEnd(conn);
 	HTTPConnectionEnd(conn);

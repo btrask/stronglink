@@ -157,6 +157,7 @@ endif
 # Blog server
 HEADERS += \
 	$(SRC_DIR)/blog/Blog.h \
+	$(SRC_DIR)/blog/RSSServer.h \
 	$(SRC_DIR)/blog/converter.h \
 	$(SRC_DIR)/blog/Template.h \
 	$(DEPS_DIR)/content-disposition/content-disposition.h \
@@ -168,6 +169,7 @@ OBJECTS += \
 	$(BUILD_DIR)/blog/main.o \
 	$(BUILD_DIR)/blog/Blog.o \
 	$(BUILD_DIR)/blog/BlogConvert.o \
+	$(BUILD_DIR)/blog/RSSServer.o \
 	$(BUILD_DIR)/blog/Template.o \
 	$(BUILD_DIR)/blog/plaintext.o \
 	$(BUILD_DIR)/blog/markdown.o \

@@ -1,0 +1,7 @@
+<item>
+<title>{{title}}</title>
+<link>{{queryURI}}</link>
+<description>{{description}}</description>
+<guid>{{queryURI}}</guid>
+<content:encoded><![CDATA[
+
