@@ -682,9 +682,8 @@ static bool load_template(BlogRef const blog, strarg_t const name, TemplateRef *
 	if(rc < 0 || rc >= sizeof(path)) return false;
 	TemplateRef t = TemplateCreateFromPath(path);
 	if(!t) {
-		alogf("Blog couldn't load template at '%s'\n", path);
-		alogf("(Make sure the StrongLink resource files are properly installed or try manually copying the 'res/blog' directory to '%s')\n",
-			blog->dir);
+		alogf("Couldn't load blog template at '%s'\n", path);
+		alogf("(Try reinstalling the resource files.)\n");
 		return false;
 	}
 	*out = t;

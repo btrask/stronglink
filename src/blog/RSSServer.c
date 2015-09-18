@@ -10,12 +10,30 @@
 
 struct RSSServer {
 	SLNRepoRef repo;
+	str_t *dir;
+	str_t *cacheDir;
 	TemplateRef head;
 	TemplateRef tail;
 	TemplateRef item_start;
 	TemplateRef item_end;
 };
 
+static int load_template(RSSServerRef const rss, strarg_t const name, TemplateRef *const out) {
+	assert(rss);
+	assert(rss->dir);
+	assert(out);
+	str_t tmp[PATH_MAX];
+	int rc = snprintf(tmp, sizeof(tmp), "%s/template/rss/%s", rss->dir, name);
+	if(rc < 0 || rc >= sizeof(tmp)) return UV_ENAMETOOLONG;
+	TemplateRef t = TemplateCreateFromPath(tmp);
+	if(!t) {
+		alogf("Couldn't load RSS template at '%s'\n", tmp);
+		alogf("(Try reinstalling the resource files.)\n");
+		return UV_ENOENT; // TODO
+	}
+	*out = t;
+	return 0;
+}
 int RSSServerCreate(SLNRepoRef const repo, RSSServerRef *const out) {
 	assert(repo);
 	RSSServerRef rss = calloc(1, sizeof(struct RSSServer));
@@ -23,17 +41,16 @@ int RSSServerCreate(SLNRepoRef const repo, RSSServerRef *const out) {
 	int rc = 0;
 
 	rss->repo = repo;
-	strarg_t const repodir = SLNRepoGetDir(repo);
-	str_t tmp[PATH_MAX];
+	rss->dir = aasprintf("%s/blog", SLNRepoGetDir(repo));
+	rss->cacheDir = aasprintf("%s/rss", SLNRepoGetCacheDir(repo));
+	if(!rss->dir || !rss->cacheDir) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
 
-	snprintf(tmp, sizeof(tmp), "%s/%s", repodir, "blog/template/rss/head.xml");
-	rss->head = TemplateCreateFromPath(tmp);
-	snprintf(tmp, sizeof(tmp), "%s/%s", repodir, "blog/template/rss/tail.xml");
-	rss->tail = TemplateCreateFromPath(tmp);
-	snprintf(tmp, sizeof(tmp), "%s/%s", repodir, "blog/template/rss/item-start.xml");
-	rss->item_start = TemplateCreateFromPath(tmp);
-	snprintf(tmp, sizeof(tmp), "%s/%s", repodir, "blog/template/rss/item-end.xml");
-	rss->item_end = TemplateCreateFromPath(tmp);
+	rc = rc < 0 ? rc : load_template(rss, "head.xml", &rss->head);
+	rc = rc < 0 ? rc : load_template(rss, "tail.xml", &rss->tail);
+	rc = rc < 0 ? rc : load_template(rss, "item-start.xml", &rss->item_start);
+	rc = rc < 0 ? rc : load_template(rss, "item-end.xml", &rss->item_end);
+	if(rc < 0) goto cleanup;
 
 	*out = rss; rss = NULL;
 cleanup:
@@ -44,6 +61,8 @@ void RSSServerFree(RSSServerRef *const rssptr) {
 	RSSServerRef rss = *rssptr;
 	if(!rss) return;
 	rss->repo = NULL;
+	FREE(&rss->dir);
+	FREE(&rss->cacheDir);
 	TemplateFree(&rss->head);
 	TemplateFree(&rss->tail);
 	TemplateFree(&rss->item_start);
