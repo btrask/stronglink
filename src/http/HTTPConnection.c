@@ -669,8 +669,11 @@ cleanup:
 static void ensafen(str_t *const out, size_t const max, strarg_t const str) {
 	assert(max >= 31+1);
 	if(!str) return (void)strlcpy(out, "-", max);
-	for(size_t i = 0; str[i]; i++) if(!isalnum(str[i])) {
-		return (void)strlcpy(out, "(unsafe-value)", max);
+	for(size_t i = 0; str[i]; i++) {
+		char const x = str[i];
+		if(!isalnum(x) && '-' != x && '.' != x) {
+			return (void)strlcpy(out, "(unsafe-value)", max);
+		}
 	}
 	strlcpy(out, str, max);
 }
