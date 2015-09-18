@@ -225,6 +225,10 @@ static void term(void *const unused) {
 	HTTPServerClose(server_raw);
 	HTTPServerClose(server_tls);
 
+	async_pool_enter(NULL);
+	fflush(NULL); // Everything.
+	async_pool_leave(NULL);
+
 	uv_ref((uv_handle_t *)sigpipe);
 	uv_signal_stop(sigpipe);
 	uv_close((uv_handle_t *)sigpipe, NULL);
@@ -234,6 +238,10 @@ static void cleanup(void *const unused) {
 	HTTPServerFree(&server_tls);
 	BlogFree(&blog);
 	SLNRepoFree(&repo);
+
+	async_pool_enter(NULL);
+	fflush(NULL); // Everything.
+	async_pool_leave(NULL);
 
 	async_pool_destroy_shared();
 }
