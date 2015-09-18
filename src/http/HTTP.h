@@ -64,7 +64,8 @@ int HTTPConnectionSendStatus(HTTPConnectionRef const conn, uint16_t const status
 int HTTPConnectionSendRedirect(HTTPConnectionRef const conn, uint16_t const status, strarg_t const location);
 int HTTPConnectionSendFile(HTTPConnectionRef const conn, strarg_t const path, strarg_t const type, int64_t size);
 
-// Logging
+// Misc
+strarg_t HTTPConnectionGetProtocol(HTTPConnectionRef const conn);
 void HTTPConnectionLog(HTTPConnectionRef const conn, strarg_t const URI, strarg_t const username, HTTPHeadersRef const headers, FILE *const log);
 
 // Headers

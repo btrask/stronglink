@@ -666,6 +666,11 @@ cleanup:
 }
 
 
+strarg_t HTTPConnectionGetProtocol(HTTPConnectionRef const conn) {
+	if(!conn) return NULL;
+	return SocketIsSecure(conn->socket) ? "https" : "http";
+}
+
 static void ensafen(str_t *const out, size_t const max, strarg_t const str) {
 	assert(max >= 31+1);
 	if(!str) return (void)strlcpy(out, "-", max);

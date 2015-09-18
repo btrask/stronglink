@@ -124,6 +124,10 @@ static int GET_feed(RSSServerRef const rss, SLNSessionRef const session, HTTPCon
 	}
 	SLNFilterFree(&filter);
 
+	// TODO: Load all meta-data up front, in the same transaction?
+	// How are we going to handle coming up with titles and descriptions for everything?
+	// Also we need to escape the content for the CDATA section...
+
 
 	HTTPConnectionWriteResponse(conn, 200, "OK");
 	HTTPConnectionWriteHeader(conn, "Content-Type", "application/rss+xml");
@@ -135,25 +139,46 @@ static int GET_feed(RSSServerRef const rss, SLNSessionRef const session, HTTPCon
 	}
 	HTTPConnectionBeginBody(conn);
 
+	str_t *reponame_encoded = htmlenc(SLNRepoGetName(rss->repo));
 	TemplateStaticArg const args[] = {
-		{"reponame", "reponame"},
-		{"title", "title"},
-		{"description", "description"},
-		{"queryURI", "http://example.com"},
+		{"reponame", reponame_encoded},
 		{NULL, NULL},
 	};
 
 	TemplateWriteHTTPChunk(rss->head, &TemplateStaticCBs, args, conn);
 
 	for(size_t i = 0; i < count; i++) {
-		TemplateWriteHTTPChunk(rss->item_start, &TemplateStaticCBs, args, conn);
+
+		str_t tmp[URI_MAX];
+		// It's insane that RSS apparently doesn't support relative URLs.
+		strarg_t const proto = HTTPConnectionGetProtocol(conn);
+		strarg_t const host = HTTPHeadersGet(headers, "host");
+		str_t *escaped = QSEscape(URIs[i], strlen(URIs[i]), true);
+		snprintf(tmp, sizeof(tmp), "%s://%s/?q=%s", proto, host, escaped);
+		FREE(&escaped);
+		str_t *queryURI_encoded = htmlenc(tmp);
+
+		str_t *hashURI_encoded = htmlenc(URIs[i]);
+		TemplateStaticArg const itemargs[] = {
+			{"title", "(title)"},
+			{"description", "(description)"},
+			{"queryURI", queryURI_encoded},
+			{"hashURI", hashURI_encoded},
+			{NULL, NULL},
+		};
+
+		TemplateWriteHTTPChunk(rss->item_start, &TemplateStaticCBs, itemargs, conn);
 		uv_buf_t x = uv_buf_init((char *)STR_LEN("test"));
 		HTTPConnectionWriteChunkv(conn, &x, 1);
-		TemplateWriteHTTPChunk(rss->item_end, &TemplateStaticCBs, args, conn);
+		TemplateWriteHTTPChunk(rss->item_end, &TemplateStaticCBs, itemargs, conn);
+
+		FREE(&queryURI_encoded);
+		FREE(&hashURI_encoded);
 	}
 
 
 	TemplateWriteHTTPChunk(rss->tail, &TemplateStaticCBs, args, conn);
+	FREE(&reponame_encoded);
 
 	HTTPConnectionWriteChunkEnd(conn);
 	HTTPConnectionEnd(conn);
