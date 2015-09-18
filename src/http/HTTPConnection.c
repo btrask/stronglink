@@ -679,14 +679,10 @@ static void ensafen(str_t *const out, size_t const max, strarg_t const str) {
 }
 static void escapen(str_t *const out, size_t const max, strarg_t const str) {
 	assert(max >= 31+1);
-	if(!str) return (void)strlcpy(out, "-", max);
+	if(!str) return (void)strlcpy(out, "", max);
 	// TODO: Proper escaping.
-	if(strchr(str, '"')) return (void)strlcpy(out, "\"(unsafe value)\"", max);
-	out[0] = '\0';
-	strlcat(out, "\"", max);
-	strlcat(out, str, max);
-	size_t len = strlcat(out, "\"", max);
-	if(len >= max) return (void)strlcpy(out, "\"(overflow)\"", max);
+	if(strchr(str, '"')) return (void)strlcpy(out, "(unsafe value)", max);
+	strlcpy(out, str, max);
 }
 void HTTPConnectionLog(HTTPConnectionRef const conn, strarg_t const URI, strarg_t const username, HTTPHeadersRef const headers, FILE *const log) {
 	if(!conn) return;
@@ -737,7 +733,9 @@ void HTTPConnectionLog(HTTPConnectionRef const conn, strarg_t const URI, strarg_
 	str_t useragent_escaped[1023+1];
 	escapen(useragent_escaped, sizeof(useragent_escaped), useragent);
 
-	fprintf(log, "%s %s %s %s \"%s %s %s\" %u %s %s %s %s\n",
+	strarg_t const cookie_escaped = ""; // Don't log sensitive data.
+
+	fprintf(log, "%s %s %s %s \"%s %s %s\" %u %s \"%s\" \"%s\" \"%s\"\n",
 		peer_escaped,
 		"-",
 		username_escaped,
@@ -749,7 +747,7 @@ void HTTPConnectionLog(HTTPConnectionRef const conn, strarg_t const URI, strarg_
 		contentlength,
 		referer_escaped,
 		useragent_escaped,
-		"-" // We don't log cookies because they can contain sensitive data.
+		cookie_escaped
 	);
 	async_pool_leave(NULL);
 }
