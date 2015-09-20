@@ -200,6 +200,7 @@ typedef int (*SLNFilterWriteCB)(void *ctx, uv_buf_t const parts[], unsigned int 
 typedef int (*SLNFilterFlushCB)(void *ctx);
 
 void SLNFilterParseOptions(strarg_t const qs, SLNFilterPosition *const start, uint64_t *const count, int *const dir, bool *const wait);
+SLNFilterPosition SLNFilterPositionInit(int const dir);
 void SLNFilterPositionCleanup(SLNFilterPosition *const pos);
 
 int SLNFilterSeekToPosition(SLNFilterRef const filter, SLNFilterPosition const *const pos, DB_txn *const txn);

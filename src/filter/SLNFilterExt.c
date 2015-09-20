@@ -70,6 +70,14 @@ void SLNFilterParseOptions(strarg_t const qs, SLNFilterPosition *const start, ui
 	if(wait) *wait = parse_wait(values[3]);
 	QSValuesCleanup(values, numberof(values));
 }
+SLNFilterPosition SLNFilterPositionInit(int const dir) {
+	return (SLNFilterPosition){
+		.URI = NULL,
+		.dir = dir,
+		.sortID = invalid(-dir),
+		.fileID = invalid(-dir),
+	};
+}
 void SLNFilterPositionCleanup(SLNFilterPosition *const pos) {
 	assert(pos);
 	pos->dir = 0;
