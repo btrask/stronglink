@@ -152,12 +152,6 @@ static int GET_feed(RSSServerRef const rss, SLNSessionRef const session, HTTPCon
 	count = SLNFilterCopyURIs(filter, session, pos, -1, false, URIs, RESULTS_MAX);
 	SLNFilterPositionCleanup(pos);
 	if(count < 0) {
-		if(DB_NOTFOUND == count) {
-			// Possibly a filter age-function bug.
-			alogf("Invalid start parameter? %s\n", URI);
-			status = 500;
-			goto cleanup;
-		}
 		alogf("Filter error: %s\n", sln_strerror(count));
 		status = 500;
 		goto cleanup;
