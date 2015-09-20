@@ -147,17 +147,9 @@ static int GET_feed(RSSServerRef const rss, SLNSessionRef const session, HTTPCon
 	}
 
 
-
-
-	SLNFilterPosition pos[1] = {{ .dir = -1 }};
-	uint64_t max = RESULTS_MAX;
-	int outdir = -1;
-	SLNFilterParseOptions(qs, pos, &max, &outdir, NULL);
-	if(max < 1) max = 1;
-	if(max > RESULTS_MAX) max = RESULTS_MAX;
-	FREE(&pos->URI); // Start position doesn't make much sense for RSS...?
-
-	count = SLNFilterCopyURIs(filter, session, pos, outdir, false, URIs, (size_t)max);
+	SLNFilterPosition pos[1] = {};
+	pos->dir = -1;
+	count = SLNFilterCopyURIs(filter, session, pos, -1, false, URIs, RESULTS_MAX);
 	SLNFilterPositionCleanup(pos);
 	if(count < 0) {
 		if(DB_NOTFOUND == count) {
