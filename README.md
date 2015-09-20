@@ -74,6 +74,14 @@ StrongLink supports several hash lengths. By default, long hashes are used (32 b
 
 In the event of a hash collision, StrongLink always uses the oldest file with the given hash, which theoretically allows "squatting" but prevents unexpected overwriting or other abuse.
 
+**What happens if something "immutable" is changed?**  
+There are two basic immutable "things" in StrongLink:
+
+- Files: StrongLink follows the [end-to-end principle](https://en.wikipedia.org/wiki/End_to_end_principle), meaning that hashes are expected to be checked _by the receiver_. If a file within a repository is modified, that repository itself will not notice, but other repositories and validating clients will. StrongLink is not intended to replace filesystem-level redundancy or integrity checks such as from RAID or ZFS.
+- Logs: Modifying StrongLink's append-only log after it has been written is actually mostly harmless. Depending the client, insertions may either be appended to the client's log or missed entirely entirely, but they won't get out of sync. Deletions are ignored in either case.
+
+StrongLink marks immutable files as read-only on systems that support it.
+
 **Will it ever support mutability?**  
 Hopefully, yes. The plan is to build a mutable interface layer on top of the immutable data store. This will keep StrongLink's sync protocol simple and reliable while gradually supporting a broader range of uses. Mutable tags will come first, and then eventually mutable files (using diffs rather than block deduplication).
 
