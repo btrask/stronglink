@@ -18,20 +18,23 @@ struct RSSServer {
 	TemplateRef item_end;
 };
 
+// TODO: Basically identical to version in Blog.c.
 static int load_template(RSSServerRef const rss, strarg_t const name, TemplateRef *const out) {
 	assert(rss);
 	assert(rss->dir);
 	assert(out);
 	str_t tmp[PATH_MAX];
 	int rc = snprintf(tmp, sizeof(tmp), "%s/template/rss/%s", rss->dir, name);
-	if(rc < 0 || rc >= sizeof(tmp)) return UV_ENAMETOOLONG;
-	TemplateRef t = TemplateCreateFromPath(tmp);
-	if(!t) {
-		alogf("Couldn't load RSS template at '%s'\n", tmp);
-		alogf("(Try reinstalling the resource files.)\n");
+	if(rc < 0) return rc; // TODO: snprintf(3) error reporting?
+	if(rc >= sizeof(tmp)) return UV_ENAMETOOLONG;
+	TemplateRef t = NULL;
+	rc = TemplateCreateFromPath(tmp, &t);
+	if(rc < 0) {
+		alogf("Error loading template at '%s': %s\n", tmp, uv_strerror(rc));
+		if(UV_ENOENT == rc) alogf("(Try reinstalling the resource files.)\n");
 		return UV_ENOENT; // TODO
 	}
-	*out = t;
+	*out = t; t = NULL;
 	return 0;
 }
 int RSSServerCreate(SLNRepoRef const repo, RSSServerRef *const out) {

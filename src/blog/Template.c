@@ -17,9 +17,9 @@ struct Template {
 	TemplateStep *steps;
 };
 
-TemplateRef TemplateCreate(strarg_t const str) {
+int TemplateCreate(strarg_t const str, TemplateRef *const out) {
 	TemplateRef t = calloc(1, sizeof(struct Template));
-	if(!t) return NULL;
+	if(!t) return UV_ENOMEM;
 	t->count = 0;
 	t->steps = NULL;
 	size_t size = 0;
@@ -34,7 +34,7 @@ TemplateRef TemplateCreate(strarg_t const str) {
 			if(!t->steps) {
 				regfree(exp);
 				TemplateFree(&t);
-				return NULL;
+				return UV_ENOMEM;
 			}
 		}
 
@@ -57,33 +57,35 @@ TemplateRef TemplateCreate(strarg_t const str) {
 	}
 	regfree(exp);
 
-	return t;
+	*out = t;
+	return 0;
 }
-TemplateRef TemplateCreateFromPath(strarg_t const path) {
-	uv_file const file = async_fs_open(path, O_RDONLY, 0000);
-	if(file < 0) return NULL;
+int TemplateCreateFromPath(strarg_t const path, TemplateRef *const out) {
+	int rc = 0;
+	str_t *str = NULL;
+	uv_file file = async_fs_open(path, O_RDONLY, 0000);
+	if(file < 0) rc = (int)file;
+	if(rc < 0) goto cleanup;
 	uv_fs_t req;
-	if(async_fs_fstat(file, &req) < 0) {
-		async_fs_close(file);
-		return NULL;
-	}
+	rc = async_fs_fstat(file, &req);
+	if(rc < 0) goto cleanup;
 	int64_t const size = req.statbuf.st_size;
-	if(size > TEMPLATE_MAX) {
-		async_fs_close(file);
-		return NULL;
-	}
-	str_t *str = malloc((size_t)size+1);
-	if(!str) {
-		async_fs_close(file);
-		return NULL;
-	}
+	if(size > TEMPLATE_MAX) rc = UV_EFBIG;
+	if(rc < 0) goto cleanup;
+	str = malloc((size_t)size+1);
+	if(!str) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
 	uv_buf_t info = uv_buf_init(str, size);
-	async_fs_read(file, &info, 1, 0); // TODO: Loop
-	async_fs_close(file);
+	ssize_t len = async_fs_readall_simple(file, &info);
+	if(len < 0) rc = (int)len;
+	if(rc < 0) goto cleanup;
 	str[size] = '\0';
-	TemplateRef const t = TemplateCreate(str);
+	rc = TemplateCreate(str, out);
+cleanup:
+	if(file >= 0) async_fs_close(file);
+	file = -1;
 	FREE(&str);
-	return t;
+	return rc;
 }
 void TemplateFree(TemplateRef *const tptr) {
 	TemplateRef t = *tptr;

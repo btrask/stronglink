@@ -13,8 +13,8 @@ typedef struct {
 
 typedef int (*TemplateWritev)(void *, uv_buf_t[], unsigned int);
 
-TemplateRef TemplateCreate(strarg_t const str);
-TemplateRef TemplateCreateFromPath(strarg_t const path);
+int TemplateCreate(strarg_t const str, TemplateRef *const out);
+int TemplateCreateFromPath(strarg_t const path, TemplateRef *const out);
 void TemplateFree(TemplateRef *const tptr);
 int TemplateWrite(TemplateRef const t, TemplateArgCBs const *const cbs, void const *const actx, TemplateWritev const writev, void *wctx);
 int TemplateWriteHTTPChunk(TemplateRef const t, TemplateArgCBs const *const cbs, void const *actx, HTTPConnectionRef const conn);

@@ -682,20 +682,23 @@ static int POST_auth(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 void BlogFree(BlogRef *const blogptr);
 
-static bool load_template(BlogRef const blog, strarg_t const name, TemplateRef *const out) {
+// TODO: Basically identical to version in RSSServer.c.
+static int load_template(BlogRef const blog, strarg_t const name, TemplateRef *const out) {
 	assert(out);
 	assert(blog->dir);
 	str_t path[PATH_MAX];
 	int rc = snprintf(path, sizeof(path), "%s/template/%s", blog->dir, name);
-	if(rc < 0 || rc >= sizeof(path)) return false;
-	TemplateRef t = TemplateCreateFromPath(path);
-	if(!t) {
-		alogf("Couldn't load blog template at '%s'\n", path);
-		alogf("(Try reinstalling the resource files.)\n");
-		return false;
+	if(rc < 0) return rc; // TODO: snprintf(3) error reporting?
+	if(rc >= sizeof(path)) return UV_ENAMETOOLONG;
+	TemplateRef t = NULL;
+	rc = TemplateCreateFromPath(path, &t);
+	if(rc < 0) {
+		alogf("Error loading template at '%s': %s\n", path, uv_strerror(rc));
+		if(UV_ENOENT == rc) alogf("(Try reinstalling the resource files.)\n");
+		return rc;
 	}
-	*out = t;
-	return true;
+	*out = t; t = NULL;
+	return 0;
 }
 BlogRef BlogCreate(SLNRepoRef const repo) {
 	assertf(repo, "Blog requires valid repo");
@@ -716,24 +719,23 @@ BlogRef BlogCreate(SLNRepoRef const repo) {
 	// If not, we'll find out when we try to load a template.
 	(void)async_fs_symlink(INSTALL_PREFIX "/share/stronglink/blog", blog->dir, 0);
 
-	if(
-		!load_template(blog, "header.html", &blog->header) ||
-		!load_template(blog, "footer.html", &blog->footer) ||
-		!load_template(blog, "backlinks.html", &blog->backlinks) ||
-		!load_template(blog, "entry-start.html", &blog->entry_start) ||
-		!load_template(blog, "entry-end.html", &blog->entry_end) ||
-		!load_template(blog, "preview.html", &blog->preview) ||
-		!load_template(blog, "empty.html", &blog->empty) ||
-		!load_template(blog, "compose.html", &blog->compose) ||
-		!load_template(blog, "upload.html", &blog->upload) ||
-		!load_template(blog, "login.html", &blog->login) ||
-		!load_template(blog, "notfound.html", &blog->notfound) ||
-		!load_template(blog, "noresults.html", &blog->noresults)
-	) {
+	int rc = 0;
+	rc = rc < 0 ? rc : load_template(blog, "header.html", &blog->header);
+	rc = rc < 0 ? rc : load_template(blog, "footer.html", &blog->footer);
+	rc = rc < 0 ? rc : load_template(blog, "backlinks.html", &blog->backlinks);
+	rc = rc < 0 ? rc : load_template(blog, "entry-start.html", &blog->entry_start);
+	rc = rc < 0 ? rc : load_template(blog, "entry-end.html", &blog->entry_end);
+	rc = rc < 0 ? rc : load_template(blog, "preview.html", &blog->preview);
+	rc = rc < 0 ? rc : load_template(blog, "empty.html", &blog->empty);
+	rc = rc < 0 ? rc : load_template(blog, "compose.html", &blog->compose);
+	rc = rc < 0 ? rc : load_template(blog, "upload.html", &blog->upload);
+	rc = rc < 0 ? rc : load_template(blog, "login.html", &blog->login);
+	rc = rc < 0 ? rc : load_template(blog, "notfound.html", &blog->notfound);
+	rc = rc < 0 ? rc : load_template(blog, "noresults.html", &blog->noresults);
+	if(rc < 0) {
 		BlogFree(&blog);
 		return NULL;
 	}
-
 
 	async_mutex_init(blog->pending_mutex, 0);
 	async_cond_init(blog->pending_cond, 0);

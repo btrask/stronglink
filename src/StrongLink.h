@@ -41,8 +41,8 @@ static strarg_t sln_strerror(int const rc) {
 	switch(rc) {
 		case SLN_HASHMISMATCH: return "Hash mismatch";
 	}
-	strarg_t x = db_strerror(rc);
-	if(!x) x = uv_strerror(rc);
+	strarg_t x = uv_strerror(rc);
+	if(!x) x = db_strerror(rc);
 	return x;
 }
 
