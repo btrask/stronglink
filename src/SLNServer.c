@@ -234,7 +234,7 @@ cleanup:
 	return 0;
 }
 
-static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, strarg_t const qs, bool const meta, HTTPConnectionRef const conn) {
+static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, strarg_t const qs, bool const meta, HTTPConnectionRef const conn, HTTPMethod const method) {
 	SLNFilterPosition pos[1] = {{ .dir = +1 }};
 	uint64_t count = UINT64_MAX;
 	bool wait = true;
@@ -255,12 +255,14 @@ static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, 
 	HTTPConnectionWriteHeader(conn, "Vary", "*");
 	HTTPConnectionBeginBody(conn);
 
-	int rc = SLNFilterWriteURIs(filter, session, pos, meta, count, wait, (SLNFilterWriteCB)HTTPConnectionWriteChunkv, (SLNFilterFlushCB)HTTPConnectionFlush, conn);
-	if(rc < 0) {
-		alogf("Query response error: %s\n", sln_strerror(rc));
+	if(HTTP_HEAD != method) {
+		int rc = SLNFilterWriteURIs(filter, session, pos, meta, count, wait, (SLNFilterWriteCB)HTTPConnectionWriteChunkv, (SLNFilterFlushCB)HTTPConnectionFlush, conn);
+		if(rc < 0) {
+			alogf("Query response error: %s\n", sln_strerror(rc));
+		}
+		HTTPConnectionWriteChunkEnd(conn);
 	}
 
-	HTTPConnectionWriteChunkEnd(conn);
 	HTTPConnectionEnd(conn);
 	SLNFilterPositionCleanup(pos);
 }
@@ -303,7 +305,7 @@ static int GET_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 	if(DB_EACCES == rc) return 403;
 	if(rc < 0) return 500;
 
-	sendURIList(session, filter, qs, false, conn);
+	sendURIList(session, filter, qs, false, conn, method);
 	SLNFilterFree(&filter);
 	return 0;
 }
@@ -316,12 +318,12 @@ static int POST_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPCo
 	int rc = parseFilter(session, conn, method, headers, &filter);
 	if(DB_EACCES == rc) return 403;
 	if(rc < 0) return 500;
-	sendURIList(session, filter, qs, false, conn);
+	sendURIList(session, filter, qs, false, conn, method);
 	SLNFilterFree(&filter);
 	return 0;
 }
 static int GET_metafiles(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
-	if(HTTP_GET != method) return -1;
+	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
 	strarg_t qs;
 	if(0 != uripathcmp("/sln/metafiles", URI, &qs)) return -1;
 
@@ -329,12 +331,12 @@ static int GET_metafiles(SLNRepoRef const repo, SLNSessionRef const session, HTT
 	int rc = SLNFilterCreate(session, SLNMetaFileFilterType, &filter);
 	if(DB_EACCES == rc) return 403;
 	if(rc < 0) return 500;
-	sendURIList(session, filter, qs, true, conn);
+	sendURIList(session, filter, qs, true, conn, method);
 	SLNFilterFree(&filter);
 	return 0;
 }
 static int GET_all(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
-	if(HTTP_GET != method) return -1;
+	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
 	strarg_t qs;
 	if(0 != uripathcmp("/sln/all", URI, &qs)) return -1;
 
@@ -342,7 +344,7 @@ static int GET_all(SLNRepoRef const repo, SLNSessionRef const session, HTTPConne
 	int rc = SLNFilterCreate(session, SLNAllFilterType, &filter);
 	if(DB_EACCES == rc) return 403;
 	if(rc < 0) return 500;
-	sendURIList(session, filter, qs, false, conn);
+	sendURIList(session, filter, qs, false, conn, method);
 	SLNFilterFree(&filter);
 	return 0;
 }

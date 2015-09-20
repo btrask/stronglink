@@ -103,9 +103,11 @@ static int send_preview(BlogRef const blog, HTTPConnectionRef const conn, SLNSes
 }
 
 static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
-	if(HTTP_GET != method) return -1;
+	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
 	strarg_t qs = NULL;
 	if(0 != uripathcmp("/", URI, &qs)) return -1;
+
+	if(HTTP_HEAD == method) return 501; // TODO
 
 	// TODO: This is the most complicated function in the whole program.
 	// It's unbearable.
@@ -320,7 +322,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 // TODO: Lots of duplication here
 static int GET_compose(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
-	if(HTTP_GET != method) return -1;
+	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
 	if(0 != uripathcmp("/compose", URI, NULL)) return -1;
 
 	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return 403;
@@ -337,15 +339,17 @@ static int GET_compose(BlogRef const blog, SLNSessionRef const session, HTTPConn
 	HTTPConnectionWriteHeader(conn, "Content-Type", "text/html; charset=utf-8");
 	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
 	HTTPConnectionBeginBody(conn);
-	TemplateWriteHTTPChunk(blog->compose, &TemplateStaticCBs, args, conn);
-	HTTPConnectionWriteChunkEnd(conn);
+	if(HTTP_HEAD != method) {
+		TemplateWriteHTTPChunk(blog->compose, &TemplateStaticCBs, args, conn);
+		HTTPConnectionWriteChunkEnd(conn);
+	}
 	HTTPConnectionEnd(conn);
 
 	FREE(&reponame_HTMLSafe);
 	return 0;
 }
 static int GET_upload(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
-	if(HTTP_GET != method) return -1;
+	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
 	if(0 != uripathcmp("/upload", URI, NULL)) return -1;
 
 	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return 403;
@@ -362,8 +366,10 @@ static int GET_upload(BlogRef const blog, SLNSessionRef const session, HTTPConne
 	HTTPConnectionWriteHeader(conn, "Content-Type", "text/html; charset=utf-8");
 	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
 	HTTPConnectionBeginBody(conn);
-	TemplateWriteHTTPChunk(blog->upload, &TemplateStaticCBs, args, conn);
-	HTTPConnectionWriteChunkEnd(conn);
+	if(HTTP_HEAD != method) {
+		TemplateWriteHTTPChunk(blog->upload, &TemplateStaticCBs, args, conn);
+		HTTPConnectionWriteChunkEnd(conn);
+	}
 	HTTPConnectionEnd(conn);
 
 	FREE(&reponame_HTMLSafe);
@@ -594,7 +600,7 @@ cleanup:
 }
 
 static int GET_account(BlogRef const blog, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
-	if(HTTP_GET != method) return -1;
+	if(HTTP_GET != method && HTTP_HEAD != method) return -1;
 	if(0 != uripathcmp("/account", URI, NULL)) return -1;
 
 	str_t *reponame_HTMLSafe = htmlenc(SLNRepoGetName(blog->repo));
@@ -611,8 +617,10 @@ static int GET_account(BlogRef const blog, SLNSessionRef const session, HTTPConn
 	HTTPConnectionWriteHeader(conn, "Content-Type", "text/html; charset=utf-8");
 	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
 	HTTPConnectionBeginBody(conn);
-	TemplateWriteHTTPChunk(blog->login, &TemplateStaticCBs, args, conn);
-	HTTPConnectionWriteChunkEnd(conn);
+	if(HTTP_HEAD != method) {
+		TemplateWriteHTTPChunk(blog->login, &TemplateStaticCBs, args, conn);
+		HTTPConnectionWriteChunkEnd(conn);
+	}
 	HTTPConnectionEnd(conn);
 
 	FREE(&reponame_HTMLSafe);
