@@ -78,6 +78,7 @@ int TemplateCreateFromPath(strarg_t const path, TemplateRef *const out) {
 	uv_buf_t info = uv_buf_init(str, size);
 	ssize_t len = async_fs_readall_simple(file, &info);
 	if(len < 0) rc = (int)len;
+	else if(size != len) rc = UV_EBUSY; // Detect race condition.
 	if(rc < 0) goto cleanup;
 	str[size] = '\0';
 	rc = TemplateCreate(str, out);
