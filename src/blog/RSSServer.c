@@ -8,6 +8,31 @@
 
 #define RESULTS_MAX 10
 
+static int write_cdata(HTTPConnectionRef const conn, uv_buf_t const *const buf) {
+	if(!buf->len) return 0;
+	char const *pos = buf->base;
+	for(size_t i = 0; i < buf->len; i++) {
+		if(i+0 >= buf->len || ']' != buf->base[i+0]) continue;
+		if(i+1 >= buf->len || ']' != buf->base[i+1]) continue;
+		if(i+2 >= buf->len || '>' != buf->base[i+2]) continue;
+		i += 2;
+		uv_buf_t parts[] = {
+			uv_buf_init((char *)STR_LEN("<![CDATA[")),
+			uv_buf_init((char *)pos, i-(pos-buf->base)),
+			uv_buf_init((char *)STR_LEN("]]>")),
+		};
+		int rc = HTTPConnectionWriteChunkv(conn, parts, numberof(parts));
+		if(rc < 0) return rc;
+		pos = buf->base+i;
+	}
+	uv_buf_t last[] = {
+		uv_buf_init((char *)STR_LEN("<![CDATA[")),
+		uv_buf_init((char *)pos, buf->len-(pos-buf->base)),
+		uv_buf_init((char *)STR_LEN("]]>")),
+	};
+	return HTTPConnectionWriteChunkv(conn, last, numberof(last));
+}
+
 struct RSSServer {
 	SLNRepoRef repo;
 	str_t *dir;
@@ -171,8 +196,8 @@ static int GET_feed(RSSServerRef const rss, SLNSessionRef const session, HTTPCon
 		};
 
 		TemplateWriteHTTPChunk(rss->item_start, &TemplateStaticCBs, itemargs, conn);
-		uv_buf_t x = uv_buf_init((char *)STR_LEN("test"));
-		HTTPConnectionWriteChunkv(conn, &x, 1);
+		uv_buf_t x = uv_buf_init((char *)STR_LEN("test]]>asdf"));
+		write_cdata(conn, &x);
 		TemplateWriteHTTPChunk(rss->item_end, &TemplateStaticCBs, itemargs, conn);
 
 		FREE(&queryURI_encoded);

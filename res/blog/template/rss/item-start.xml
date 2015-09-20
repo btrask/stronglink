@@ -3,5 +3,4 @@
 <link>{{queryURI}}</link>
 <description>{{description}}</description>
 <guid>{{queryURI}}</guid>
-<content:encoded><![CDATA[
-
+<content:encoded>
