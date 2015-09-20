@@ -169,16 +169,16 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 //	SLNFilterPrint(filter, 0); // DEBUG
 
 	SLNFilterPosition pos[1] = {{ .dir = -1 }};
-	uint64_t max = RESULTS_MAX;
+	str_t *URIs[RESULTS_MAX];
+	uint64_t max = numberof(URIs);
 	int outdir = -1;
 	SLNFilterParseOptions(qs, pos, &max, &outdir, NULL);
 	if(max < 1) max = 1;
-	if(max > RESULTS_MAX) max = RESULTS_MAX;
+	if(max > numberof(URIs)) max = numberof(URIs);
 	bool const has_start = !!pos->URI;
 
 	uint64_t const t1 = uv_hrtime();
 
-	str_t *URIs[RESULTS_MAX];
 	ssize_t const count = SLNFilterCopyURIs(filter, session, pos, outdir, false, URIs, (size_t)max);
 	SLNFilterPositionCleanup(pos);
 	if(count < 0) {
