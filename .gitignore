@@ -54,6 +54,7 @@ res/async_sqlite.c linguist-documentation
 /deps/snappy/snappy_unittest
 /deps/snappy/stamp-h1
 
+/deps/libressl-portable/**/Makefile
 /deps/libressl-portable/**/*.o
 /deps/libressl-portable/**/*.lo
 /deps/libressl-portable/**/.deps
@@ -61,3 +62,8 @@ res/async_sqlite.c linguist-documentation
 /deps/libressl-portable/**/*.la
 /deps/libressl-portable/apps/nc/nc
 /deps/libressl-portable/apps/openssl/openssl
+/deps/libressl-portable/autom4te.cache/*
+/deps/libressl-portable/config.log
+/deps/libressl-portable/config.status
+/deps/libressl-portable/libtool
+/deps/libressl-portable/Makefile.in
