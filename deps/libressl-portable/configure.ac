@@ -52,8 +52,6 @@ CHECK_LIBC_COMPAT
 CHECK_LIBC_CRYPTO_COMPAT
 CHECK_VA_COPY
 
-AC_CHECK_HEADERS([err.h])
-
 AC_ARG_WITH([openssldir],
 	AS_HELP_STRING([--with-openssldir],
 		       [Set the default openssl directory]),
@@ -86,6 +84,10 @@ case $host_cpu in
 		AS_IF([test "x$BSWAP4" = "xyes"],,
 		    CPPFLAGS="$CPPFLAGS -D__STRICT_ALIGNMENT")
 		;;
+	*amd64*)
+		host_cpu=x86_64
+		;;
+
 esac
 
 AC_MSG_CHECKING([if .gnu.warning accepts long strings])
@@ -119,6 +121,8 @@ AC_CONFIG_FILES([
 	tls/Makefile
 	tests/Makefile
 	apps/Makefile
+	apps/openssl/Makefile
+	apps/nc/Makefile
 	man/Makefile
 	libcrypto.pc
 	libssl.pc

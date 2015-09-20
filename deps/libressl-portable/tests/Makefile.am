@@ -3,11 +3,13 @@ include $(top_srcdir)/Makefile.am.common
 AM_CPPFLAGS += -I $(top_srcdir)/crypto/modes
 AM_CPPFLAGS += -I $(top_srcdir)/crypto/asn1
 AM_CPPFLAGS += -I $(top_srcdir)/ssl
-AM_CPPFLAGS += -I $(top_srcdir)/apps
+AM_CPPFLAGS += -I $(top_srcdir)/apps/openssl
+AM_CPPFLAGS += -I $(top_srcdir)/apps/openssl/compat
 
 LDADD = $(PLATFORM_LDADD) $(PROG_LDADD)
 LDADD += $(top_builddir)/ssl/libssl.la
 LDADD += $(top_builddir)/crypto/libcrypto.la
+LDADD += $(top_builddir)/tls/libtls.la
 
 TESTS =
 check_PROGRAMS =
@@ -88,6 +90,11 @@ noinst_HEADERS = tests.h
 TESTS += cipherstest
 check_PROGRAMS += cipherstest
 cipherstest_SOURCES = cipherstest.c
+
+# clienttest
+TESTS += clienttest
+check_PROGRAMS += clienttest
+clienttest_SOURCES = clienttest.c
 
 # cts128test
 TESTS += cts128test
@@ -208,9 +215,10 @@ pbkdf2_SOURCES = pbkdf2.c
 # pidwraptest relies on an OS-specific way to give out pids and is generally
 # awkward on systems with slow fork
 if ENABLE_EXTRATESTS
-TESTS += pidwraptest
+TESTS += pidwraptest.sh
 check_PROGRAMS += pidwraptest
 pidwraptest_SOURCES = pidwraptest.c
+EXTRA_DIST += pidwraptest.sh
 endif
 
 # pkcs7test
@@ -265,11 +273,6 @@ TESTS += sha512test
 check_PROGRAMS += sha512test
 sha512test_SOURCES = sha512test.c
 
-# shatest
-TESTS += shatest
-check_PROGRAMS += shatest
-shatest_SOURCES = shatest.c
-
 # ssltest
 TESTS += ssltest.sh
 check_PROGRAMS += ssltest
@@ -300,3 +303,7 @@ TESTS += utf8test
 check_PROGRAMS += utf8test
 utf8test_SOURCES = utf8test.c
 
+# verifytest
+TESTS += verifytest
+check_PROGRAMS += verifytest
+verifytest_SOURCES = verifytest.c

@@ -25,7 +25,8 @@ libcrypto_regress=$CWD/openbsd/src/regress/lib/libcrypto
 libssl_src=$CWD/openbsd/src/lib/libssl
 libssl_regress=$CWD/openbsd/src/regress/lib/libssl
 libtls_src=$CWD/openbsd/src/lib/libtls
-openssl_app_src=$CWD/openbsd/src/usr.bin/openssl
+libtls_regress=$CWD/openbsd/src/regress/lib/libtls
+app_src=$CWD/openbsd/src/usr.bin
 
 # load library versions
 . $libcrypto_src/crypto/shlib_version
@@ -65,7 +66,6 @@ $CP $libssl_src/src/LICENSE COPYING
 
 $CP $libcrypto_src/crypto/arch/amd64/opensslconf.h include/openssl
 $CP $libssl_src/src/crypto/opensslfeatures.h include/openssl
-$CP $libssl_src/src/e_os2.h include/openssl
 $CP $libssl_src/src/ssl/pqueue.h include
 
 $CP $libtls_src/tls.h include
@@ -209,15 +209,28 @@ $CP m4/check*.m4 \
 sed -e "s/compat\///" crypto/Makefile.am.arc4random > \
 	libtls-standalone/compat/Makefile.am.arc4random
 
+# copy nc(1) source
+echo "copying nc(1) source"
+$CP $app_src/nc/nc.1 apps/nc
+rm -f apps/nc/*.c apps/nc/*.h
+$CP_LIBC $libc_src/stdlib/strtonum.c apps/nc/compat
+for i in `awk '/SOURCES|HEADERS|MANS/ { print $3 }' apps/nc/Makefile.am` ; do
+	if [ -e $app_src/nc/$i ]; then
+		$CP $app_src/nc/$i apps/nc
+	fi
+done
+
 # copy openssl(1) source
 echo "copying openssl(1) source"
-$CP $libc_src/stdlib/strtonum.c apps
-$CP $libcrypto_src/cert.pem apps
-$CP $libcrypto_src/openssl.cnf apps
-$CP $libcrypto_src/x509v3.cnf apps
-for i in `awk '/SOURCES|HEADERS/ { print $3 }' apps/Makefile.am` ; do
-	if [ -e $openssl_app_src/$i ]; then
-		$CP $openssl_app_src/$i apps
+$CP $app_src/openssl/openssl.1 apps/openssl
+rm -f apps/openssl/*.c apps/openssl/*.h
+$CP_LIBC $libc_src/stdlib/strtonum.c apps/openssl/compat
+$CP $libcrypto_src/cert.pem apps/openssl
+$CP $libcrypto_src/openssl.cnf apps/openssl
+$CP $libcrypto_src/x509v3.cnf apps/openssl
+for i in `awk '/SOURCES|HEADERS|MANS/ { print $3 }' apps/openssl/Makefile.am` ; do
+	if [ -e $app_src/openssl/$i ]; then
+		$CP $app_src/openssl/$i apps/openssl
 	fi
 done
 
@@ -251,6 +264,11 @@ done
 $CP $libssl_regress/unit/tests.h tests
 $CP $libssl_regress/certs/ca.pem tests
 $CP $libssl_regress/certs/server.pem tests
+
+# copy libtls tests
+for i in `find $libtls_regress -name '*.c'`; do
+	 $CP "$i" tests
+done
 
 chmod 755 tests/testssl
 
@@ -291,9 +309,6 @@ done
 echo "copying manpages"
 echo EXTRA_DIST = CMakeLists.txt > man/Makefile.am
 echo dist_man_MANS = >> man/Makefile.am
-
-$CP $openssl_app_src/openssl.1 man
-echo "dist_man_MANS += openssl.1" >> man/Makefile.am
 
 $CP $libtls_src/tls_init.3 man
 echo "dist_man_MANS += tls_init.3" >> man/Makefile.am

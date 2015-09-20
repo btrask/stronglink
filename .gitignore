@@ -53,3 +53,11 @@ res/async_sqlite.c linguist-documentation
 /deps/snappy/snappy-stubs-public.h
 /deps/snappy/snappy_unittest
 /deps/snappy/stamp-h1
+
+/deps/libressl-portable/**/*.o
+/deps/libressl-portable/**/*.lo
+/deps/libressl-portable/**/.deps
+/deps/libressl-portable/**/.libs
+/deps/libressl-portable/**/*.la
+/deps/libressl-portable/apps/nc/nc
+/deps/libressl-portable/apps/openssl/openssl

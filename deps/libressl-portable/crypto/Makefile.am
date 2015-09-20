@@ -419,7 +419,6 @@ noinst_HEADERS += ec/ec_lcl.h
 libcrypto_la_SOURCES += ecdh/ech_err.c
 libcrypto_la_SOURCES += ecdh/ech_key.c
 libcrypto_la_SOURCES += ecdh/ech_lib.c
-libcrypto_la_SOURCES += ecdh/ech_ossl.c
 noinst_HEADERS += ecdh/ech_locl.h
 
 # ecdsa
@@ -502,7 +501,6 @@ libcrypto_la_SOURCES += evp/m_md4.c
 libcrypto_la_SOURCES += evp/m_md5.c
 libcrypto_la_SOURCES += evp/m_null.c
 libcrypto_la_SOURCES += evp/m_ripemd.c
-libcrypto_la_SOURCES += evp/m_sha.c
 libcrypto_la_SOURCES += evp/m_sha1.c
 libcrypto_la_SOURCES += evp/m_sigver.c
 libcrypto_la_SOURCES += evp/m_streebog.c
@@ -696,8 +694,6 @@ libcrypto_la_SOURCES += sha/sha1_one.c
 libcrypto_la_SOURCES += sha/sha1dgst.c
 libcrypto_la_SOURCES += sha/sha256.c
 libcrypto_la_SOURCES += sha/sha512.c
-libcrypto_la_SOURCES += sha/sha_dgst.c
-libcrypto_la_SOURCES += sha/sha_one.c
 noinst_HEADERS += sha/sha_locl.h
 
 # stack

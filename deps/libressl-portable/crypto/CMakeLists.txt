@@ -263,7 +263,6 @@ set(
 	ecdh/ech_err.c
 	ecdh/ech_key.c
 	ecdh/ech_lib.c
-	ecdh/ech_ossl.c
 	ecdsa/ecs_asn1.c
 	ecdsa/ecs_err.c
 	ecdsa/ecs_lib.c
@@ -335,7 +334,6 @@ set(
 	evp/m_md5.c
 	evp/m_null.c
 	evp/m_ripemd.c
-	evp/m_sha.c
 	evp/m_sha1.c
 	evp/m_sigver.c
 	evp/m_streebog.c
@@ -473,8 +471,6 @@ set(
 	sha/sha1dgst.c
 	sha/sha256.c
 	sha/sha512.c
-	sha/sha_dgst.c
-	sha/sha_one.c
 	stack/stack.c
 	ts/ts_asn1.c
 	ts/ts_conf.c
@@ -638,16 +634,16 @@ if(NOT HAVE_TIMINGSAFE_MEMCMP)
 	set(CRYPTO_SRC ${CRYPTO_SRC} compat/timingsafe_memcmp.c)
 endif()
 
-add_library(crypto-objects OBJECT ${CRYPTO_SRC})
-set_property(TARGET crypto-objects PROPERTY POSITION_INDEPENDENT_CODE 1)
-add_library(crypto STATIC $<TARGET_OBJECTS:crypto-objects>)
-set(CRYPTO_TARGETS crypto)
-
 if (BUILD_SHARED)
+	add_library(crypto-objects OBJECT ${CRYPTO_SRC})
+	add_library(crypto STATIC $<TARGET_OBJECTS:crypto-objects>)
 	add_library(crypto-shared SHARED $<TARGET_OBJECTS:crypto-objects>)
 	set_target_properties(crypto-shared PROPERTIES OUTPUT_NAME crypto)
-	set_target_properties(crypto-shared PROPERTIES VERSION ${CRYPTO_VERSION} SOVERSION ${CRYPTO_MAJOR_VERSION})
-	set(CRYPTO_TARGETS ${CRYPTO_TARGETS} crypto-shared)
+	set_target_properties(crypto-shared PROPERTIES VERSION
+		${CRYPTO_VERSION} SOVERSION ${CRYPTO_MAJOR_VERSION})
+	install(TARGETS crypto crypto-shared DESTINATION lib)
+else()
+	add_library(crypto STATIC ${CRYPTO_SRC})
+	install(TARGETS crypto DESTINATION lib)
 endif()
 
-install(TARGETS ${CRYPTO_TARGETS} DESTINATION lib)

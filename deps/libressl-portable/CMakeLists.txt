@@ -1,5 +1,6 @@
 cmake_minimum_required (VERSION 2.8)
 include(CheckFunctionExists)
+include(CheckLibraryExists)
 include(CheckIncludeFiles)
 
 project (LibreSSL)
@@ -35,6 +36,8 @@ endif()
 add_definitions(-DLIBRESSL_INTERNAL)
 add_definitions(-DOPENSSL_NO_HW_PADLOCK)
 add_definitions(-DOPENSSL_NO_ASM)
+
+set(CMAKE_POSITION_INDEPENDENT_CODE true)
 
 if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
 	add_definitions(-Wno-pointer-sign)
@@ -156,6 +159,12 @@ endif()
 set(OPENSSL_LIBS ssl crypto)
 if(CMAKE_HOST_WIN32)
 	set(OPENSSL_LIBS ${OPENSSL_LIBS} ws2_32)
+endif()
+if(CMAKE_SYSTEM_NAME MATCHES "Linux")
+	check_library_exists(rt clock_gettime "time.h" HAVE_CLOCK_GETTIME)
+	if (HAVE_CLOCK_GETTIME)
+		set(OPENSSL_LIBS ${OPENSSL_LIBS} rt)
+	endif()
 endif()
 
 if(NOT (CMAKE_SYSTEM_NAME MATCHES "Darwin" OR MSVC))
