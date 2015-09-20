@@ -147,7 +147,7 @@ static int sha1init(char const *const type, void **const algo) {
 	assert(algo);
 	*algo = calloc(1, sizeof(SHA_CTX));
 	if(!*algo) return -1;
-	int rc = SHA_Init(*algo);
+	int rc = SHA1_Init(*algo);
 	if(rc < 0) return rc;
 	return 0;
 }
