@@ -32,6 +32,25 @@ static int write_cdata(HTTPConnectionRef const conn, uv_buf_t const *const buf) 
 	};
 	return HTTPConnectionWriteChunkv(conn, last, numberof(last));
 }
+// TODO: HACK
+#define BUFFER_SIZE (1024*8)
+static int write_file_cdata(HTTPConnectionRef const conn, uv_file const file) {
+	if(!conn) return 0;
+	char *buf = malloc(BUFFER_SIZE);
+	if(!buf) return UV_ENOMEM;
+	uv_buf_t const info = uv_buf_init(buf, BUFFER_SIZE);
+	int rc;
+	for(;;) {
+		ssize_t const len = rc = async_fs_readall_simple(file, &info);
+		if(0 == len) break;
+		if(rc < 0) break;
+		uv_buf_t write = uv_buf_init(buf, len);
+		rc = write_cdata(conn, &write);
+		if(rc < 0) break;
+	}
+	FREE(&buf);
+	return rc;
+}
 
 struct RSSServer {
 	SLNRepoRef repo;
@@ -196,8 +215,18 @@ static int GET_feed(RSSServerRef const rss, SLNSessionRef const session, HTTPCon
 		};
 
 		TemplateWriteHTTPChunk(rss->item_start, &TemplateStaticCBs, itemargs, conn);
-		uv_buf_t x = uv_buf_init((char *)STR_LEN("test]]>asdf"));
-		write_cdata(conn, &x);
+
+		// TODO: HACK
+		str_t algo[SLN_ALGO_SIZE]; // SLN_INTERNAL_ALGO
+		str_t hash[SLN_HASH_SIZE];
+		SLNParseURI(URIs[i], algo, hash);
+		str_t path[PATH_MAX];
+		snprintf(path, sizeof(path), "%s/blog/%.2s/%s", SLNRepoGetCacheDir(rss->repo), hash, hash);
+
+		uv_file file = async_fs_open(path, O_RDONLY, 0000);
+		write_file_cdata(conn, file);
+		async_fs_close(file);
+
 		TemplateWriteHTTPChunk(rss->item_end, &TemplateStaticCBs, itemargs, conn);
 
 		FREE(&queryURI_encoded);
