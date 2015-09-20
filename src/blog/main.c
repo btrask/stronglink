@@ -1,9 +1,10 @@
 // Copyright 2014-2015 Ben Trask
 // MIT licensed (see LICENSE for details)
 
-#include <libgen.h> /* basename(3) */
+#include <libgen.h> // basename(3)
 #include <limits.h>
 #include <signal.h>
+#include <unistd.h> // Work around bad includes in libtls
 #include <tls.h>
 #include "../util/fts.h"
 #include "../util/raiserlimit.h"

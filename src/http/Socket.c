@@ -161,15 +161,17 @@ static int sock_read(SocketRef const socket, size_t const size, uv_buf_t *const 
 	if(!out->base) return UV_ENOMEM;
 	size_t total = 0;
 	for(;;) {
-		size_t partial = 0;
-		int event = tls_read(socket->secure, out->base+total, size-total, &partial);
-		total += partial;
-		if(0 == event) break;
-		int rc = tls_poll((uv_stream_t *)socket->stream, event);
-		if(rc < 0) {
-			FREE(&out->base);
-			return rc;
+		ssize_t len = tls_read(socket->secure, out->base+total, size-total);
+		if(0 == len) break;
+		if(len < 0) {
+			int rc = tls_poll((uv_stream_t *)socket->stream, (int)len);
+			if(rc < 0) {
+				FREE(&out->base);
+				return rc;
+			}
+			continue;
 		}
+		total += len;
 	}
 	if(0 == total) {
 		FREE(&out->base);
@@ -182,27 +184,29 @@ static int sock_write(SocketRef const socket, uv_buf_t const *const buf) {
 	if(!socket->secure) return async_write((uv_stream_t *)socket->stream, buf, 1);
 	size_t total = 0;
 	for(;;) {
-		size_t partial = 0;
-		int event = tls_write(socket->secure,
+		ssize_t len = tls_write(socket->secure,
 			buf->base + total,
-			buf->len - total, &partial);
-		total += partial;
-		if(0 == event) break;
-		int rc = tls_poll((uv_stream_t *)socket->stream, event);
-		if(rc < 0) return rc;
+			buf->len - total);
+		if(0 == len) break;
+		if(len < 0) {
+			int rc = tls_poll((uv_stream_t *)socket->stream, (int)len);
+			if(rc < 0) return rc;
+			continue;
+		}
+		total += len;
 	}
 	return 0;
 }
 
 static int tls_poll(uv_stream_t *const stream, int const event) {
 	int rc;
-	if(TLS_READ_AGAIN == event) {
+	if(TLS_WANT_POLLIN == event) {
 		uv_buf_t buf;
 		rc = async_read(stream, 0, &buf);
 		if(UV_ENOBUFS == rc) rc = 0;
 		if(rc < 0) alogf("tls_poll read %s\n", uv_strerror(rc));
 		rc = 0;
-	} else if(TLS_WRITE_AGAIN == event) {
+	} else if(TLS_WANT_POLLOUT == event) {
 		// TODO: libuv provides NO WAY to wait until a stream is
 		// writable! Even our zero-length write hack doesn't work.
 		// uv_poll can't be used on uv's own stream fds.
