@@ -30,12 +30,13 @@ int TemplateCreate(strarg_t const str, TemplateRef *const out) {
 	for(;;) {
 		if(t->count >= size) {
 			size = MAX(10, size * 2);
-			t->steps = reallocarray(t->steps, size, sizeof(TemplateStep));
-			if(!t->steps) {
+			TemplateStep *x = reallocarray(t->steps, size, sizeof(TemplateStep));
+			if(!x) {
 				regfree(exp);
 				TemplateFree(&t);
 				return UV_ENOMEM;
 			}
+			t->steps = x; x = NULL;
 		}
 
 		regmatch_t match[1];
