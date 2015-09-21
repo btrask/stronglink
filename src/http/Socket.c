@@ -31,8 +31,10 @@ int SocketAccept(uv_stream_t *const sstream, struct tls *const ssecure, SocketRe
 		uv_os_fd_t fd;
 		rc = uv_fileno((uv_handle_t *)socket->stream, &fd);
 		if(rc < 0) goto cleanup;
+		rc = tls_accept_socket(ssecure, &socket->secure, fd);
+		if(rc < 0) goto cleanup;
 		for(;;) {
-			int event = tls_accept_socket(ssecure, &socket->secure, fd);
+			int event = tls_handshake(socket->secure);
 			if(0 == event) break;
 			rc = tls_poll((uv_stream_t *)socket->stream, event);
 			if(rc < 0) goto cleanup;
