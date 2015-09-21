@@ -85,6 +85,7 @@ str_t **SLNHasherEnd(SLNHasherRef const hasher) {
 	str_t **URIs = calloc(count+1, sizeof(str_t *));
 	if(!URIs) return NULL;
 
+	// TODO: Do this on a worker thread too?
 	for(size_t i = 0; i < hasher->count; i++) {
 		byte_t bin[HASHLEN_MAX];
 		ssize_t len = algos[i]->final(hasher->algos[i], bin, sizeof(bin));
