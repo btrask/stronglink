@@ -67,11 +67,14 @@ int SLNHasherWrite(SLNHasherRef const hasher, byte_t const *const buf, size_t co
 	if(!hasher) return 0;
 	if(!len) return 0;
 	assert(buf);
+	async_pool_enter(NULL);
+	int rc = 0;
 	for(size_t i = 0; i < hasher->count; i++) {
-		int rc = algos[i]->update(hasher->algos[i], buf, len);
-		if(rc < 0) return -1;
+		rc = algos[i]->update(hasher->algos[i], buf, len);
+		if(rc < 0) break;
 	}
-	return 0;
+	async_pool_leave(NULL);
+	return rc;
 }
 
 str_t **SLNHasherEnd(SLNHasherRef const hasher) {
