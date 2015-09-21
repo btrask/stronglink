@@ -159,25 +159,21 @@ static int sock_read(SocketRef const socket, size_t const size, uv_buf_t *const 
 
 	out->base = malloc(size);
 	if(!out->base) return UV_ENOMEM;
-	size_t total = 0;
+	ssize_t len = 0;
 	for(;;) {
-		ssize_t len = tls_read(socket->secure, out->base+total, size-total);
-		if(0 == len) break;
-		if(len < 0) {
-			int rc = tls_poll((uv_stream_t *)socket->stream, (int)len);
-			if(rc < 0) {
-				FREE(&out->base);
-				return rc;
-			}
-			continue;
+		len = tls_read(socket->secure, out->base, size);
+		if(len >= 0) break;
+		int rc = tls_poll((uv_stream_t *)socket->stream, (int)len);
+		if(rc < 0) {
+			FREE(&out->base);
+			return rc;
 		}
-		total += len;
 	}
-	if(0 == total) {
+	if(0 == len) {
 		FREE(&out->base);
 		return UV_EOF;
 	}
-	out->len = total;
+	out->len = len;
 	return 0;
 }
 static int sock_write(SocketRef const socket, uv_buf_t const *const buf) {
@@ -187,13 +183,13 @@ static int sock_write(SocketRef const socket, uv_buf_t const *const buf) {
 		ssize_t len = tls_write(socket->secure,
 			buf->base + total,
 			buf->len - total);
-		if(0 == len) break;
 		if(len < 0) {
 			int rc = tls_poll((uv_stream_t *)socket->stream, (int)len);
 			if(rc < 0) return rc;
 			continue;
 		}
 		total += len;
+		if(buf->len == total) break;
 	}
 	return 0;
 }
