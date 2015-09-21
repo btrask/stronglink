@@ -25,10 +25,9 @@ A semi-recent version of [Node.js](https://nodejs.org/) or [io.js](https://iojs.
 Basic Installation
 ------------------
 
-1. `cd deps/libressl-portable && ./update.sh` (TODO: make this step go away)
-2. `./configure && make`
-3. `sudo make install`
-4. `stronglink /repo-dir`
+1. `./configure && make`
+2. `sudo make install`
+3. `stronglink /repo-dir`
 
 If you don't want to run `make install`, you will need to manually symlink or copy the `res/blog` directory into the repo directory before running. For example: `ln -s res/blog /repo-dir/`
 
