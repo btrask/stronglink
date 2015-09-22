@@ -42,6 +42,7 @@ static uint64_t parse_count(strarg_t const str, uint64_t const count) {
 	return (uint64_t)x;
 }
 static int parse_dir(strarg_t const str, int const dir) {
+	assert(0 != dir);
 	if(!str) return dir;
 	if('a' == str[0]) return +1;
 	if('z' == str[0]) return -1;
@@ -70,13 +71,16 @@ void SLNFilterParseOptions(strarg_t const qs, SLNFilterPosition *const start, ui
 	if(wait) *wait = parse_wait(values[3]);
 	QSValuesCleanup(values, numberof(values));
 }
-SLNFilterPosition SLNFilterPositionInit(int const dir) {
-	return (SLNFilterPosition){
-		.URI = NULL,
-		.dir = dir,
-		.sortID = invalid(-dir),
-		.fileID = invalid(-dir),
-	};
+void SLNFilterPositionInit(SLNFilterPosition *const pos, int const dir) {
+	assert(0 != dir);
+	// Note: We're trying to clear the padding for assert_zeroed
+	// without calling memset. This is only a problem for structs
+	// that aren't allocated with calloc.
+	*pos = (SLNFilterPosition){0};
+	pos->dir = dir;
+	pos->URI = NULL,
+	pos->sortID = invalid(-dir);
+	pos->fileID = invalid(-dir);
 }
 void SLNFilterPositionCleanup(SLNFilterPosition *const pos) {
 	assert(pos);

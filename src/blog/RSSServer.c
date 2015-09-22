@@ -147,9 +147,10 @@ static int GET_feed(RSSServerRef const rss, SLNSessionRef const session, HTTPCon
 	}
 
 
-	SLNFilterPosition pos = SLNFilterPositionInit(-1);
-	count = SLNFilterCopyURIs(filter, session, &pos, -1, false, URIs, numberof(URIs));
-	SLNFilterPositionCleanup(&pos);
+	SLNFilterPosition pos[1];
+	SLNFilterPositionInit(pos, -1);
+	count = SLNFilterCopyURIs(filter, session, pos, -1, false, URIs, numberof(URIs));
+	SLNFilterPositionCleanup(pos);
 	if(count < 0) {
 		alogf("Filter error: %s\n", sln_strerror(count));
 		status = 500;
