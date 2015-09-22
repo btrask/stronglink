@@ -47,11 +47,13 @@ typedef str_t const *strarg_t; // A string that belongs to someone else.
 		abort(); \
 	} \
 } while(0)
-#define assert_zeroed(buf, count) do { \
-	for(size_t __i = 0; __i < sizeof(*(buf)) * (count); ++__i) { \
-		if(0 == ((byte_t const *)(buf))[__i]) continue; \
-		fprintf(stderr, "%s:%d Buffer at %p not zeroed (%ld)\n", \
-			__FILE__, __LINE__, (buf), __i); \
+#define assert_zeroed(ptr, count) do { \
+	void const *const __p = (ptr); \
+	size_t const __c = (count); \
+	for(size_t __i = 0; __i < sizeof(*(ptr)) * __c; __i++) { \
+		if(0 == ((unsigned char const *)__p)[__i]) continue; \
+		fprintf(stderr, "%s:%d Buffer at %p not zeroed (%zu of %zu * %zu)\n", \
+			__FILE__, __LINE__, __p, __i, sizeof(*(ptr)), __c); \
 		abort(); \
 	} \
 } while(0)
