@@ -73,10 +73,7 @@ void SLNFilterParseOptions(strarg_t const qs, SLNFilterPosition *const start, ui
 }
 void SLNFilterPositionInit(SLNFilterPosition *const pos, int const dir) {
 	assert(0 != dir);
-	// Note: We're trying to clear the padding for assert_zeroed
-	// without calling memset. This is only a problem for structs
-	// that aren't allocated with calloc.
-	*pos = (SLNFilterPosition){0};
+	memset(pos, 0, sizeof(*pos)); // Clear padding for assert_zeroed.
 	pos->dir = dir;
 	pos->URI = NULL,
 	pos->sortID = invalid(-dir);
