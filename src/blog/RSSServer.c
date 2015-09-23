@@ -11,11 +11,10 @@
 static int write_cdata(HTTPConnectionRef const conn, uv_buf_t const *const buf) {
 	if(!buf->len) return 0;
 	char const *pos = buf->base;
-	for(size_t i = 0; i < buf->len; i++) {
-		if(i+0 >= buf->len || ']' != buf->base[i+0]) continue;
-		if(i+1 >= buf->len || ']' != buf->base[i+1]) continue;
-		if(i+2 >= buf->len || '>' != buf->base[i+2]) continue;
-		i += 2;
+	for(size_t i = 2; i < buf->len; i++) {
+		if(']' != buf->base[i-2]) continue;
+		if(']' != buf->base[i-1]) continue;
+		if('>' != buf->base[i-0]) continue;
 		uv_buf_t parts[] = {
 			uv_buf_init((char *)STR_LEN("<![CDATA[")),
 			uv_buf_init((char *)pos, i-(pos-buf->base)),
