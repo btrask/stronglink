@@ -45,6 +45,7 @@ Right now there is no configuration interface whatsoever (not even a config file
 - Internal algorithm: `SLN_INTERNAL_ALGO` in `src/StrongLink.h` (only change for new repos!)
 - Number of bcrypt rounds: `BCRYPT_ROUNDS` in `src/util/pass.c` (default 13)
 - Logging: `SERVER_LOG_FILE` in `src/blog/main.c` (`stdout` or `NULL` for disabled)
+- TLS ciphers and protocols: `TLS_CIPHERS` and `TLS_PROTOCOLS` in `src/blog/main.c`
 
 Database Backends
 -----------------
