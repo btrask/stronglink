@@ -673,7 +673,7 @@ strarg_t HTTPConnectionGetProtocol(HTTPConnectionRef const conn) {
 
 static void ensafen(str_t *const out, size_t const max, strarg_t const str) {
 	assert(max >= 31+1);
-	if(!str) return (void)strlcpy(out, "-", max);
+	if(!str || '\0' == str[0]) return (void)strlcpy(out, "-", max);
 	for(size_t i = 0; str[i]; i++) {
 		char const x = str[i];
 		if(!isalnum(x) && '-' != x && '.' != x) {
@@ -684,7 +684,7 @@ static void ensafen(str_t *const out, size_t const max, strarg_t const str) {
 }
 static void escapen(str_t *const out, size_t const max, strarg_t const str) {
 	assert(max >= 31+1);
-	if(!str) return (void)strlcpy(out, "", max);
+	if(!str || '\0' == str[0]) return (void)strlcpy(out, "-", max);
 	// TODO: Proper escaping.
 	if(strchr(str, '"')) return (void)strlcpy(out, "(unsafe value)", max);
 	strlcpy(out, str, max);
@@ -738,7 +738,7 @@ void HTTPConnectionLog(HTTPConnectionRef const conn, strarg_t const URI, strarg_
 	str_t useragent_escaped[1023+1];
 	escapen(useragent_escaped, sizeof(useragent_escaped), useragent);
 
-	strarg_t const cookie_escaped = ""; // Don't log sensitive data.
+	strarg_t const cookie_escaped = "-"; // Don't log sensitive data.
 
 	fprintf(log, "%s %s %s %s \"%s %s %s\" %u %s \"%s\" \"%s\" \"%s\"\n",
 		peer_escaped,
