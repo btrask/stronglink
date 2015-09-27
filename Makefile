@@ -234,41 +234,41 @@ $(YAJL_BUILD_DIR)/include/yajl/*.h: | yajl
 $(YAJL_BUILD_DIR)/lib/libyajl_s.a: | yajl
 .PHONY: yajl
 yajl:
-	make yajl_s/fast -C $(DEPS_DIR)/yajl/build --no-print-directory
+	$(MAKE) yajl_s/fast -C $(DEPS_DIR)/yajl/build --no-print-directory
 
 $(DEPS_DIR)/lsmdb/liblmdb/liblmdb.a: | mdb
 .PHONY: mdb
 mdb:
-	make -C $(DEPS_DIR)/lsmdb/liblmdb --no-print-directory
+	$(MAKE) -C $(DEPS_DIR)/lsmdb/liblmdb --no-print-directory
 
 $(DEPS_DIR)/leveldb/libleveldb.a: | leveldb
 .PHONY: leveldb
 leveldb:
-	make -C $(DEPS_DIR)/leveldb --no-print-directory
+	$(MAKE) -C $(DEPS_DIR)/leveldb --no-print-directory
 
 $(DEPS_DIR)/libressl-portable/crypto/.libs/libcrypto.a: | libressl
 $(DEPS_DIR)/libressl-portable/ssl/.libs/libssl.a: | libressl
 $(DEPS_DIR)/libressl-portable/tls/.libs/libtls.a: | libressl
 .PHONY: libressl
 libressl:
-	make -C $(DEPS_DIR)/libressl-portable --no-print-directory
+	$(MAKE) -C $(DEPS_DIR)/libressl-portable --no-print-directory
 
 $(DEPS_DIR)/snappy/.libs/libsnappy.a: | snappy
 .PHONY: snappy
 snappy:
-	make -C $(DEPS_DIR)/snappy --no-print-directory
+	$(MAKE) -C $(DEPS_DIR)/snappy --no-print-directory
 
 $(DEPS_DIR)/cmark/build/src/*.h: | cmark
 $(DEPS_DIR)/cmark/build/src/libcmark.a: | cmark
 .PHONY: cmark
 cmark:
-	make -C $(DEPS_DIR)/cmark --no-print-directory
+	$(MAKE) -C $(DEPS_DIR)/cmark --no-print-directory
 
 $(DEPS_DIR)/uv/.libs/libuv.a: | libuv
 .PHONY: libuv
 libuv:
-	make -C $(DEPS_DIR)/uv --no-print-directory
-#	make -C $(DEPS_DIR)/uv check --no-print-directory
+	$(MAKE) -C $(DEPS_DIR)/uv --no-print-directory
+#	$(MAKE) -C $(DEPS_DIR)/uv check --no-print-directory
 
 $(BUILD_DIR)/deps/crypt/%.S.o: $(DEPS_DIR)/crypt_blowfish/%.S
 	@- mkdir -p $(dir $@)
@@ -373,11 +373,11 @@ clean:
 
 .PHONY: distclean
 distclean: clean
-	- make distclean -C $(DEPS_DIR)/cmark
-	- make clean -C $(DEPS_DIR)/leveldb
-	- make clean -C $(DEPS_DIR)/lsmdb/liblmdb
-	- make distclean -C $(DEPS_DIR)/libressl-portable
-	- make distclean -C $(DEPS_DIR)/snappy
-	- make distclean -C $(DEPS_DIR)/uv
-	- make distclean -C $(DEPS_DIR)/yajl
+	- $(MAKE) distclean -C $(DEPS_DIR)/cmark
+	- $(MAKE) clean -C $(DEPS_DIR)/leveldb
+	- $(MAKE) clean -C $(DEPS_DIR)/lsmdb/liblmdb
+	- $(MAKE) distclean -C $(DEPS_DIR)/libressl-portable
+	- $(MAKE) distclean -C $(DEPS_DIR)/snappy
+	- $(MAKE) distclean -C $(DEPS_DIR)/uv
+	- $(MAKE) distclean -C $(DEPS_DIR)/yajl
 
