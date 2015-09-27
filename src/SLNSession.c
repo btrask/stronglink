@@ -202,6 +202,9 @@ int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFi
 	}
 
 	if(info) {
+		// Clear padding for later assert_zeroed.
+		memset(info, 0, sizeof(*info));
+
 		strarg_t const internalHash = db_read_string(file_val, txn);
 		strarg_t const type = db_read_string(file_val, txn);
 		uint64_t const size = db_read_uint64(file_val);
