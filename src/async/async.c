@@ -31,7 +31,6 @@ int async_init(void) {
 	return 0;
 }
 void async_destroy(void) {
-	assert(async_loop);
 	co_delete(trampoline); trampoline = NULL;
 	uv_loop_close(async_loop);
 	memset(async_loop, 0, sizeof(async_loop));
