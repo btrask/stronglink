@@ -20,7 +20,11 @@ CFLAGS += -g -fno-omit-frame-pointer
 CFLAGS += -DLIBCO_MP
 CFLAGS += -DINSTALL_PREFIX=\"$(PREFIX)\"
 
-WARNINGS := -Werror -Wall -Wextra -Wshadow -Wuninitialized
+WARNINGS := -Werror -Wall -Wextra -Wuninitialized
+
+# Disabled because it causes a lot of problems on Raspbian (GCC 4.6.3)
+# without much perceivable benefit.
+#WARNINGS += -Wshadow
 
 # Causes all string literals to be marked const.
 # This would be way too annoying if we don't use const everywhere already.
