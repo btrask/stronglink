@@ -11,11 +11,18 @@
 #error "Database assertions not configured for NDEBUG" // TODO
 #endif
 
+// "Blind write" support. There shouldn't be a collision
+// but in some cases we don't want to pay for the lookup.
 #if 0
 #define DB_NOOVERWRITE_FAST DB_NOOVERWRITE
 #else
 #define DB_NOOVERWRITE_FAST 0
 #endif
+
+// FASTHIT expects a collision and pays the read to avoid the write.
+// FASTMISS expects a miss and always writes to avoid the read.
+#define DB_NOOVERWRITE_FASTHIT DB_NOOVERWRITE
+#define DB_NOOVERWRITE_FASTMISS DB_NOOVERWRITE_FAST
 
 #define DB_VAL_STORAGE(val, len) \
 	uint8_t __buf_##val[(len)]; \
