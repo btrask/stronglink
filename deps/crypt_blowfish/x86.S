@@ -196,8 +196,10 @@ BF_die:
 	hlt
 	jmp BF_die
 
-#endif
 
+/* HACK for compiling on Raspbian: move this into the __i386__ block. */
 #if defined(__ELF__) && defined(__linux__)
 .section .note.GNU-stack,"",@progbits
+#endif
+
 #endif
