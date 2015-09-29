@@ -19,8 +19,9 @@ CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=500
 CFLAGS += -g -fno-omit-frame-pointer
 CFLAGS += -DLIBCO_MP
 CFLAGS += -DINSTALL_PREFIX=\"$(PREFIX)\"
+CFLAGS += -fstack-protector
 
-WARNINGS := -Werror -Wall -Wextra -Wuninitialized
+WARNINGS := -Werror -Wall -Wextra -Wuninitialized -Wlogical-op -Wvla
 
 # Disabled because it causes a lot of problems on Raspbian (GCC 4.6.3)
 # without much perceivable benefit.
