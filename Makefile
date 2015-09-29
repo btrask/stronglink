@@ -59,6 +59,9 @@ WARNINGS += -Wno-type-limits
 # or a constant that I don't want to stick a "u" on.
 WARNINGS += -Wno-sign-compare
 
+# Checks that format strings are literals amongst other things.
+WARNINGS += -Wformat=2
+
 ifdef RELEASE
 CFLAGS += -O2
 #CFLAGS += -DNDEBUG
