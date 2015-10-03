@@ -78,7 +78,7 @@ Long hashes make collisions extremely unlikely. For instance, in the old SHA-1 a
 There are two basic immutable "things" in StrongLink:
 
 - Files: StrongLink follows the [end-to-end principle](https://en.wikipedia.org/wiki/End_to_end_principle), meaning that hashes are expected to be checked _by the receiver_. If a file within a repository is modified, that repository itself will not notice, but other repositories and validating clients will. StrongLink is not intended to replace filesystem-level redundancy or integrity checks such as from RAID or ZFS.
-- Logs: Modifying StrongLink's append-only log after it has been written is actually mostly harmless. Depending the client, insertions may either be appended to the client's log or missed entirely entirely, but they won't get out of sync. Deletions are ignored in either case.
+- Logs: Modifying StrongLink's append-only log after it has been written should only be done with care. Inserting or deleting files is mostly harmless, but reordering files could mess up remote clients.
 
 StrongLink marks immutable files as read-only on systems that support it.
 
