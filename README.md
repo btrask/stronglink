@@ -1,7 +1,7 @@
 StrongLink - a searchable, syncable, content-addressable notetaking system
 ==========================================================================
 
-StrongLink is a notetaking/blogging system that supports search and sync. You can use content addresses (hash links) to link between entries, regardless of where they were created or where they're being viewed. Entries can't be edited after they've been written, which you can think of like writing in ink.
+StrongLink is a notetaking/blogging system that supports search and sync. You can use content addresses (hash links) to link between entries, regardless of where they were created or where they're being viewed. Currently, entries can't be edited after they've been written, which you can think of like writing in ink.
 
 A raw hash link in StrongLink looks like this:
 
@@ -14,7 +14,7 @@ A raw hash link in StrongLink looks like this:
 
 Content addresses are unique in that they are _statically_ assigned by a _decentralized_ authority (the hash algorithm, which anyone can run). "Static" means the content for a given hash can never change once the algorithm is created. "Decentralized" means the same file will always be assigned the same hash, even by two people (or computers) without talking to each other. This is different from URLs, which are dynamically assigned by a centralized web server (although you can have many servers), and also different from ISBNs which are assigned dynamically by a central authority but then never changed.
 
-With StrongLink, you resolve hash links using your own repository, which you can run locally (or wherever you want: mobile, desktop or server).
+With StrongLink, you resolve hash links using your own repository, which you can run locally (or wherever you want: desktop, server, or eventually mobile).
 
 StrongLink is currently in alpha. Features are missing and some things may be broken. Check the [open issues](https://github.com/btrask/stronglink/issues), where most of the major problems are documented.
 
