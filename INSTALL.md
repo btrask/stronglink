@@ -82,6 +82,55 @@ You can set up any number of repositories and the names (like "main" above) are 
 
 You can also use URLs instead of pre-configured names. The session will be `null` (public access).
 
+What can I do with it?
+----------------------
+
+Once you install StrongLink, you will have an empty repository, which most people won't find very interesting. Here are some simple things you can do to play with it.
+
+**Sync from my website using the `sln-pipe` tool**  
+This is at least a cool demo even if it's not very useful. After configuring a local repository named "main" as above:
+
+```sh
+# Sync everything
+./client/node-sln-client/examples/sln-pipe https://bentrask.com main
+# Sync files matching a specific query
+./client/node-sln-client/examples/sln-pipe https://bentrask.com main "query"
+```
+
+**Import files**  
+You can import arbitrary files into the repository. You can tag and search them, although the interface/tools for this are currently kind of lacking. Full support is provided for plain text and Markdown files.
+
+```sh
+./client/node-sln-client/examples/sln-import main /path/to/files
+```
+
+**Add tags**  
+Simple tagging is possible, although this isn't very friendly yet.
+
+```sh
+./client/node-sln-client/examples/sln-add-tags main tag "query"
+```
+
+**Look up a file by content hash on the command line**  
+The `sln-cat` tool just takes a hash link and writes the content to standard output.
+
+```sh
+# Load a file from my site
+./client/node-sln-client/examples/sln-cat https://bentrask.com hash://sha256/6834b5440fc88e00a1e7fec197f9f42c72fd92600275ba1afc7704e8e3bcd1ee
+# Load a file from your own repo
+./client/node-sln-client/examples/sln-cat main hash://sha256/address-of-your-file
+```
+
+**Write a custom importer**  
+If you want to import your notes from an existing notetaking system, you might be able to export them and reimport them as files (see above), or you might need to write a new script. This should be pretty easy and the API is documented [here](https://github.com/btrask/stronglink/blob/master/client/README.md). Also take a look at the `sln-import` and `sln-blog-reimport` scripts.
+
+**Start writing notes**  
+StrongLink will be most useful to you if you use it for notetaking or blogging.
+
+You can set up multiple repositories and sync notes between them. If you want bi-directional sync, you will need to run `sln-pipe` in each direction.
+
+Please remember StrongLink is still alpha-quality software, and while it's generally pretty reliable, it's still very incomplete. The `sln-pipe` tool will eventually be replaced with a much faster native sync system, there will be an interface for seeing and modifying tags, etc.
+
 Feedback
 --------
 
