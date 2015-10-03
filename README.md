@@ -49,7 +49,7 @@ Since it's designed to search a single repository rather than the entire web, it
 
 Your searches never leave your machine. It can index private files without exposing them to a third party.
 
-A major challenge of the design is being able to sync a large index quickly between repositories. After a lot of blood, sweat and [tears](https://github.com/btrask/lsmdb/), we have some solid sync performance, but there's still room for improvement.
+A major challenge of the design is being able to sync a large index quickly between repositories. After a lot of blood, sweat and [tears](https://github.com/btrask/lsmdb/), we at least have the understanding needed to make syncing relatively efficient.
 
 **How does it compare to other content addressing systems?**  
 StrongLink follows my [Principles of Content Addressing](https://bentrask.com/notes/content-addressing.html). It focuses on providing content addresses as regular links you can use between your files.
