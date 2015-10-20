@@ -69,6 +69,8 @@ CFLAGS += -O2
 else
 CFLAGS += -O2
 CFLAGS += -DHTTP_PARSER_DEBUG
+# TODO: We want to enable this but it adds a dependency on libubsan.
+#CFLAGS += -fsanitize=undefined
 endif
 
 # TODO: Use compiler -M to track header dependencies automatically
