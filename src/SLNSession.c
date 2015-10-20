@@ -233,6 +233,36 @@ void SLNFileInfoCleanup(SLNFileInfo *const info) {
 	assert_zeroed(info, 1);
 }
 
+int SLNSessionCopyLastSubmissionURIs(SLNSessionRef const session, DB_txn *const txn, str_t **const outFileURI, str_t **const outMetaURI) {
+	assert(outFileURI);
+	assert(outMetaURI);
+	int rc;
+
+	strarg_t file_uri = NULL;
+	DB_val file_key[1], file_val[1];
+	DB_VAL_STORAGE(file_key, DB_VARINT_MAX*2);
+	db_bind_uint64(file_key, SLNLastFileURIBySessionID);
+	db_bind_uint64(file_key, session->sessionID);
+	DB_VAL_STORAGE_VERIFY(file_key);
+	rc = db_get(txn, file_key, file_val);
+	if(rc >= 0) file_uri = db_read_string(file_val, txn);
+	else if(DB_NOTFOUND != rc) return rc;
+
+	strarg_t meta_uri = NULL;
+	DB_val meta_key[1], meta_val[1];
+	DB_VAL_STORAGE(meta_key, DB_VARINT_MAX*2);
+	db_bind_uint64(meta_key, SLNLastMetaURIBySessionID);
+	db_bind_uint64(meta_key, session->sessionID);
+	DB_VAL_STORAGE_VERIFY(meta_key);
+	rc = db_get(txn, meta_key, meta_val);
+	if(rc >= 0) meta_uri = db_read_string(meta_val, txn);
+	else if(DB_NOTFOUND != rc) return rc;
+
+	*outFileURI = file_uri ? strdup(file_uri) : NULL;
+	*outMetaURI = meta_uri ? strdup(meta_uri) : NULL;
+	return 0;
+}
+
 
 int SLNSessionGetValueForField(SLNSessionRef const session, str_t value[], size_t const max, strarg_t const fileURI, strarg_t const field) {
 	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;

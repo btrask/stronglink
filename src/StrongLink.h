@@ -101,6 +101,7 @@ int SLNSessionCreateUser(SLNSessionRef const session, DB_txn *const txn, strarg_
 int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn, strarg_t const username, strarg_t const password, SLNMode const mode_unsafe);
 int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFileInfo *const info);
 void SLNFileInfoCleanup(SLNFileInfo *const info);
+int SLNSessionCopyLastSubmissionURIs(SLNSessionRef const session, DB_txn *const txn, str_t **const outFileURI, str_t **const outMetaURI);
 int SLNSessionGetValueForField(SLNSessionRef const session, str_t value[], size_t const max, strarg_t const fileURI, strarg_t const field);
 
 int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const knownURI, SLNSubmissionRef *const out);

@@ -30,6 +30,11 @@ enum {
 
 	// It's expected that values less than ~240 should fit in one byte
 	// Depending on the varint format, of course
+
+	// Single value tables
+	// Multi-byte table IDs aren't a big deal
+	SLNLastFileURIBySessionID = 1000,
+	SLNLastMetaURIBySessionID = 1001,
 };
 
 
