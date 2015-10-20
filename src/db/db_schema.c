@@ -169,7 +169,12 @@ void db_bind_string(DB_val *const val, char const *const str, DB_txn *const txn)
 }
 void db_bind_string_len(DB_val *const val, char const *const str, size_t const len, int const nulterm, DB_txn *const txn) {
 	assert(val);
-	assert(len == strnlen(str, len) && "Embedded nuls");
+
+	// Be careful to avoid insidious undefined behavior here.
+	// strnlen() is undefined if str is null, which GCC was using
+	// to skip the NULL check, causing us to store "" instead.
+	assert((!str || len == strnlen(str, len)) && "Embedded nuls");
+
 	unsigned char *const out = val->data;
 	if(0 == len) {
 		out[val->size++] = '\0';
