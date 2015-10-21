@@ -48,17 +48,24 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	uv_buf_t buf[1] = {};
 	DB_txn *subtxn = NULL;
 	parser_t ctx[1] = {};
+	ctx->depth = -1;
 	yajl_handle parser = NULL;
 
 	buf->base = malloc(BUF_LEN);
-	if(!buf->base) { rc = DB_ENOMEM; goto cleanup; }
+	if(!buf->base) rc = DB_ENOMEM;
+	if(rc < 0) goto cleanup;
 
-	buf->len = URI_MAX;
+	buf->len = URI_MAX-1; // Binary buffer, not nul terminated.
 	int64_t pos = 0;
-	ssize_t len = async_fs_read(fd, buf, 1, pos);
+	ssize_t len = async_fs_read(fd, buf, 1, 0); // TODO: Can't use readall because we're not at the beginning of the file...
 	if(len < 0) {
 		alogf("Submission meta-file read error: %s\n", sln_strerror(len));
-		rc = DB_EIO;
+		rc = (int)len;
+		goto cleanup;
+	}
+	if(0 == len) {
+		alogf("Submission empty (no target)\n");
+		rc = SLN_INVALIDTARGET;
 		goto cleanup;
 	}
 
@@ -66,21 +73,23 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	for(i = 0; i < len; i++) {
 		char const c = buf->base[i];
 		if('\r' == c || '\n' == c) break;
+		if('\0' == c) {
+			rc = SLN_INVALIDTARGET;
+			goto cleanup;
+		}
 	}
-	if(i >= len) {
-		alogf("Submission meta-file parse error (invalid target URI)\n");
-		rc = DB_EIO;
+	str_t targetURI[URI_MAX];
+	if(i >= sizeof(targetURI)) {
+		rc = SLN_INVALIDTARGET;
 		goto cleanup;
 	}
-	assert(i < len);
-	str_t targetURI[URI_MAX];
 	memcpy(targetURI, buf->base, i);
 	targetURI[i] = '\0';
 	pos += i;
 
 	strarg_t const knownTarget = SLNSubmissionGetKnownTarget(sub);
 	if(knownTarget) {
-		if(0 != strcmp(knownTarget, targetURI)) rc = SLN_TARGETMISMATCH;
+		if(0 != strcmp(knownTarget, targetURI)) rc = SLN_INVALIDTARGET;
 		if(rc < 0) goto cleanup;
 	}
 
@@ -98,7 +107,6 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	ctx->txn = subtxn;
 	ctx->metaFileID = metaFileID;
 	ctx->targetURI = targetURI;
-	ctx->depth = -1;
 	parser = yajl_alloc(&callbacks, NULL, ctx);
 	if(!parser) rc = DB_ENOMEM;
 	if(rc < 0) goto cleanup;
@@ -111,7 +119,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 		len = async_fs_read(fd, buf, 1, pos);
 		if(len < 0) {
 			alogf("Submission meta-file read error: %s\n", sln_strerror(len));
-			rc = DB_EIO;
+			rc = (int)len;
 			goto cleanup;
 		}
 		if(0 == len) break;

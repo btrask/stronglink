@@ -34,13 +34,14 @@ typedef struct SLNPull* SLNPullRef;
 // BerkeleyDB uses -30800 to -30999
 // MDB uses -30600 to -30799?
 #define SLN_HASHMISMATCH (-30599)
-#define SLN_TARGETMISMATCH (-30598)
-#define SLN_LAST_ERRCODE SLN_TARGETMISMATCH
+#define SLN_INVALIDTARGET (-30598)
+#define SLN_LAST_ERRCODE SLN_INVALIDTARGET
 
 static strarg_t sln_strerror(int const rc) {
 	if(rc >= 0) return "No error";
 	switch(rc) {
 		case SLN_HASHMISMATCH: return "Hash mismatch";
+		case SLN_INVALIDTARGET: return "Invalid meta-file target";
 	}
 	strarg_t x = uv_strerror(rc);
 	if(!x) x = db_strerror(rc);
