@@ -133,7 +133,7 @@
 .\" ========================================================================
 .\"
 .IX Title "PKCS7_sign 3"
-.TH PKCS7_sign 3 "2015-09-20" "LibreSSL " "LibreSSL"
+.TH PKCS7_sign 3 "2015-10-21" "LibreSSL " "LibreSSL"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -150,7 +150,7 @@ PKCS7_sign \- create a PKCS#7 signedData structure
 .SH "DESCRIPTION"
 .IX Header "DESCRIPTION"
 \&\fIPKCS7_sign()\fR creates and returns a PKCS#7 signedData structure. \fBsigncert\fR is
-the certificate to sign with, \fBpkey\fR is the corresponsding private key.
+the certificate to sign with, \fBpkey\fR is the corresponding private key.
 \&\fBcerts\fR is an optional additional set of certificates to include in the PKCS#7
 structure (for example any intermediate CAs in the chain).
 .PP
@@ -182,7 +182,7 @@ required by the S/MIME specifications) if \fB\s-1PKCS7_BINARY\s0\fR is set no tr
 occurs. This option should be used if the supplied data is in binary format
 otherwise the translation will corrupt it.
 .PP
-The signedData structure includes several PKCS#7 autenticatedAttributes
+The signedData structure includes several PKCS#7 authenticatedAttributes
 including the signing time, the PKCS#7 content type and the supported list of
 ciphers in an SMIMECapabilities attribute. If \fB\s-1PKCS7_NOATTR\s0\fR is set then no
 authenticatedAttributes will be used. If \fB\s-1PKCS7_NOSMIMECAP\s0\fR is set then just

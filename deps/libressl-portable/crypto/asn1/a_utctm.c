@@ -1,4 +1,4 @@
-/* $OpenBSD: a_utctm.c,v 1.26 2014/07/10 13:58:22 jsing Exp $ */
+/* $OpenBSD: a_utctm.c,v 1.31 2015/10/08 02:29:11 beck Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -64,66 +64,14 @@
 #include <openssl/err.h>
 
 #include "o_time.h"
+#include "asn1_locl.h"
 
 int
 ASN1_UTCTIME_check(ASN1_UTCTIME *d)
 {
-	static const int min[8] = {0, 1, 1, 0, 0, 0, 0, 0};
-	static const int max[8] = {99, 12, 31, 23, 59, 59, 12, 59};
-	char *a;
-	int n, i, l, o;
-
 	if (d->type != V_ASN1_UTCTIME)
 		return (0);
-	l = d->length;
-	a = (char *)d->data;
-	o = 0;
-
-	if (l < 11)
-
-		goto err;
-	for (i = 0; i < 6; i++) {
-		if ((i == 5) && ((a[o] == 'Z') ||
-		    (a[o] == '+') || (a[o] == '-'))) {
-			i++;
-			break;
-		}
-		if ((a[o] < '0') || (a[o] > '9'))
-			goto err;
-		n = a[o]-'0';
-		if (++o > l)
-			goto err;
-		if ((a[o] < '0') || (a[o] > '9'))
-			goto err;
-		n = (n * 10) + a[o] - '0';
-		if (++o > l)
-			goto err;
-		if ((n < min[i]) || (n > max[i]))
-			goto err;
-	}
-	if (a[o] == 'Z')
-		o++;
-	else if ((a[o] == '+') || (a[o] == '-')) {
-		o++;
-		if (o + 4 > l)
-			goto err;
-		for (i = 6; i < 8; i++) {
-			if ((a[o] < '0') || (a[o] > '9'))
-				goto err;
-			n = a[o] -'0';
-			o++;
-			if ((a[o] < '0') || (a[o] > '9'))
-				goto err;
-			n = (n * 10) + a[o] - '0';
-			if ((n < min[i]) || (n > max[i]))
-				goto err;
-			o++;
-		}
-	}
-	return (o == l);
-
-err:
-	return (0);
+	return(d->type == asn1_time_parse(d->data, d->length, NULL, d->type));
 }
 
 int
@@ -159,7 +107,6 @@ ASN1_UTCTIME_adj_internal(ASN1_UTCTIME *s, time_t t, int offset_day,
 	char *p;
 	struct tm *ts;
 	struct tm data;
-	size_t len = 20;
 
 	ts = gmtime_r(&t, &data);
 	if (ts == NULL)
@@ -170,23 +117,14 @@ ASN1_UTCTIME_adj_internal(ASN1_UTCTIME *s, time_t t, int offset_day,
 			return NULL;
 	}
 
-	if ((ts->tm_year < 50) || (ts->tm_year >= 150))
-		return NULL;
-
-	p = (char *)s->data;
-	if ((p == NULL) || ((size_t)s->length < len)) {
-		p = malloc(len);
-		if (p == NULL) {
-			ASN1err(ASN1_F_ASN1_UTCTIME_ADJ, ERR_R_MALLOC_FAILURE);
-			return (NULL);
-		}
-		free(s->data);
-		s->data = (unsigned char *)p;
+	if ((p = utctime_string_from_tm(ts)) == NULL) {
+		ASN1err(ASN1_F_ASN1_UTCTIME_ADJ, ERR_R_MALLOC_FAILURE);
+		return (NULL);
 	}
-
-	snprintf(p, len, "%02d%02d%02d%02d%02d%02dZ", ts->tm_year % 100,
-	    ts->tm_mon + 1, ts->tm_mday, ts->tm_hour, ts->tm_min, ts->tm_sec);
+	free(s->data);
+	s->data = p;
 	s->length = strlen(p);
+
 	s->type = V_ASN1_UTCTIME;
 	return (s);
 }
@@ -197,7 +135,7 @@ ASN1_UTCTIME_adj(ASN1_UTCTIME *s, time_t t, int offset_day, long offset_sec)
 	ASN1_UTCTIME *tmp = NULL, *ret;
 
 	if (s == NULL) {
-		tmp = M_ASN1_UTCTIME_new();
+		tmp = ASN1_UTCTIME_new();
 		if (tmp == NULL)
 			return NULL;
 		s = tmp;
@@ -205,45 +143,31 @@ ASN1_UTCTIME_adj(ASN1_UTCTIME *s, time_t t, int offset_day, long offset_sec)
 
 	ret = ASN1_UTCTIME_adj_internal(s, t, offset_day, offset_sec);
 	if (ret == NULL && tmp != NULL)
-		M_ASN1_UTCTIME_free(tmp);
+		ASN1_UTCTIME_free(tmp);
 
 	return ret;
 }
 
 int
-ASN1_UTCTIME_cmp_time_t(const ASN1_UTCTIME *s, time_t t)
+ASN1_UTCTIME_cmp_time_t(const ASN1_UTCTIME *s, time_t t2)
 {
-	struct tm *tm;
-	struct tm data;
-	int offset;
-	int year;
+	struct tm tm1;
+	time_t t1;
 
-#define g2(p) (((p)[0]-'0')*10+(p)[1]-'0')
+	/*
+	 * This function has never handled failure conditions properly
+	 * and should be deprecated. BoringSSL makes it return -2 on
+	 * failures, the OpenSSL version follows NULL pointers instead.
+	 */
+	if (asn1_time_parse(s->data, s->length, &tm1, V_ASN1_UTCTIME) == -1)
+		return (-2); /* XXX */
 
-	if (s->data[12] == 'Z')
-		offset = 0;
-	else {
-		offset = g2(s->data + 13)*60 + g2(s->data + 15);
-		if (s->data[12] == '-')
-			offset = -offset;
-	}
+	if ((t1 = timegm(&tm1)) == -1)
+		return (-2); /* XXX */
 
-	t -= offset * 60; /* FIXME: may overflow in extreme cases */
-
-	tm = gmtime_r(&t, &data);
-
-#define return_cmp(a,b) if ((a)<(b)) return -1; else if ((a)>(b)) return 1
-	year = g2(s->data);
-	if (year < 50)
-		year += 100;
-	return_cmp(year, tm->tm_year);
-	return_cmp(g2(s->data + 2) - 1, tm->tm_mon);
-	return_cmp(g2(s->data + 4), tm->tm_mday);
-	return_cmp(g2(s->data + 6), tm->tm_hour);
-	return_cmp(g2(s->data + 8), tm->tm_min);
-	return_cmp(g2(s->data + 10), tm->tm_sec);
-#undef g2
-#undef return_cmp
-
-	return 0;
+	if (t1 < t2)
+		return (-1);
+	if (t1 > t2)
+		return (1);
+	return (0);
 }

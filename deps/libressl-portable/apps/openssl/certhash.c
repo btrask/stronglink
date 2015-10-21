@@ -474,7 +474,7 @@ static int
 certhash_link(struct dirent *dep, struct hashinfo **links)
 {
 	struct hashinfo *hi = NULL;
-	char target[MAXPATHLEN];
+	char target[PATH_MAX];
 	struct stat sb;
 	int n;
 
@@ -648,6 +648,13 @@ certhash_main(int argc, char **argv)
 {
 	int argsused;
 	int i, cwdfd, ret = 0;
+
+	if (single_execution) {
+		if (pledge("stdio rpath wpath cpath", NULL) == -1) {
+			perror("pledge");
+			exit(1);
+		}
+	}
 
 	memset(&certhash_config, 0, sizeof(certhash_config));
 

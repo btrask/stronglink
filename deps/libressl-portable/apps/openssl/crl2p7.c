@@ -1,4 +1,4 @@
-/* $OpenBSD: crl2p7.c,v 1.3 2015/07/12 16:32:21 doug Exp $ */
+/* $OpenBSD: crl2p7.c,v 1.5 2015/10/10 22:28:51 doug Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -168,6 +168,13 @@ crl2pkcs7_main(int argc, char **argv)
 	STACK_OF(X509_CRL) *crl_stack = NULL;
 	STACK_OF(X509) *cert_stack = NULL;
 	int ret = 1;
+
+	if (single_execution) {
+		if (pledge("stdio rpath wpath cpath", NULL) == -1) {
+			perror("pledge");
+			exit(1);
+		}
+	}
 
 	memset(&crl2p7_config, 0, sizeof(crl2p7_config));
 

@@ -1,4 +1,4 @@
-/* $OpenBSD: tls_verify.c,v 1.12 2015/09/11 12:56:55 beck Exp $ */
+/* $OpenBSD: tls_verify.c,v 1.14 2015/09/29 10:17:04 deraadt Exp $ */
 /*
  * Copyright (c) 2014 Jeremie Courreges-Anglas <jca@openbsd.org>
  *
@@ -88,7 +88,7 @@ static int
 tls_check_subject_altname(struct tls *ctx, X509 *cert, const char *name)
 {
 	STACK_OF(GENERAL_NAME) *altname_stack = NULL;
-	union { struct in_addr ip4; struct in6_addr ip6; } addrbuf;
+	union tls_addr addrbuf;
 	int addrlen, type;
 	int count, i;
 	int rv = -1;
@@ -199,9 +199,9 @@ tls_check_common_name(struct tls *ctx, X509 *cert, const char *name)
 {
 	X509_NAME *subject_name;
 	char *common_name = NULL;
+	union tls_addr addrbuf;
 	int common_name_len;
 	int rv = -1;
-	union { struct in_addr ip4; struct in6_addr ip6; } addrbuf;
 
 	subject_name = X509_get_subject_name(cert);
 	if (subject_name == NULL)

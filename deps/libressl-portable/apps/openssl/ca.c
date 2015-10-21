@@ -1,4 +1,4 @@
-/* $OpenBSD: ca.c,v 1.13 2015/09/11 18:07:06 beck Exp $ */
+/* $OpenBSD: ca.c,v 1.18 2015/10/17 07:51:10 semarie Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -132,7 +132,7 @@ static const char *ca_usage[] = {
 	" -startdate YYMMDDHHMMSSZ  - certificate validity notBefore\n",
 	" -enddate YYMMDDHHMMSSZ    - certificate validity notAfter (overrides -days)\n",
 	" -days arg       - number of days to certify the certificate for\n",
-	" -md arg         - md to use, one of md2, md5, sha or sha1\n",
+	" -md arg         - md to use, one of md5 or sha1\n",
 	" -policy arg     - The CA 'policy' to support\n",
 	" -keyfile arg    - private key file\n",
 	" -keyform arg    - private key file format (PEM)\n",
@@ -285,6 +285,13 @@ ca_main(int argc, char **argv)
 	char *tofree = NULL;
 	const char *errstr = NULL;
 	DB_ATTR db_attr;
+
+	if (single_execution) {
+		if (pledge("stdio rpath wpath cpath tty", NULL) == -1) {
+			perror("pledge");
+			exit(1);
+		}
+	}
 
 	conf = NULL;
 	key = NULL;
@@ -1928,7 +1935,7 @@ again2:
 
 	tm = X509_get_notAfter(ret);
 	row[DB_exp_date] = malloc(tm->length + 1);
-	if (row[DB_exp_date] == NULL) {
+	if (row[DB_type] == NULL || row[DB_exp_date] == NULL) {
 		BIO_printf(bio_err, "Memory allocation failure\n");
 		goto err;
 	}
@@ -2181,7 +2188,7 @@ do_revoke(X509 * x509, CA_DB * db, int type, char *value)
 
 		tm = X509_get_notAfter(x509);
 		row[DB_exp_date] = malloc(tm->length + 1);
-		if (row[DB_exp_date] == NULL) {
+		if (row[DB_type] == NULL || row[DB_exp_date] == NULL) {
 			BIO_printf(bio_err, "Memory allocation failure\n");
 			goto err;
 		}

@@ -133,13 +133,13 @@
 .\" ========================================================================
 .\"
 .IX Title "X509_verify_cert 3"
-.TH X509_verify_cert 3 "2015-09-20" "LibreSSL " "LibreSSL"
+.TH X509_verify_cert 3 "2015-10-21" "LibreSSL " "LibreSSL"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .SH "NAME"
-X509_verify_cert \- discover and verify X509 certificte chain
+X509_verify_cert \- discover and verify X509 certificate chain
 .SH "SYNOPSIS"
 .IX Header "SYNOPSIS"
 .Vb 1
@@ -174,7 +174,7 @@ for <= 0 return value on error.
 .SH "BUGS"
 .IX Header "BUGS"
 This function uses the header \fBx509.h\fR as opposed to most chain verification
-functiosn which use \fBx509_vfy.h\fR.
+functions which use \fBx509_vfy.h\fR.
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
 \&\fIX509_STORE_CTX_get_error\fR\|(3)

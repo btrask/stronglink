@@ -1,4 +1,4 @@
-/* $OpenBSD: dsa.c,v 1.4 2015/08/22 16:36:05 jsing Exp $ */
+/* $OpenBSD: dsa.c,v 1.7 2015/10/17 07:51:10 semarie Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -239,6 +239,13 @@ dsa_main(int argc, char **argv)
 	int i;
 	BIO *in = NULL, *out = NULL;
 	char *passin = NULL, *passout = NULL;
+
+	if (single_execution) {
+		if (pledge("stdio rpath wpath cpath tty", NULL) == -1) {
+			perror("pledge");
+			exit(1);
+		}
+	}
 
 	memset(&dsa_config, 0, sizeof(dsa_config));
 

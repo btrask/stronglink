@@ -36,6 +36,11 @@ add_executable(asn1test asn1test.c)
 target_link_libraries(asn1test ${OPENSSL_LIBS})
 add_test(asn1test asn1test)
 
+# asn1time
+add_executable(asn1time asn1time.c)
+target_link_libraries(asn1time ${OPENSSL_LIBS})
+add_test(asn1time asn1time)
+
 # base64test
 add_executable(base64test base64test.c)
 target_link_libraries(base64test ${OPENSSL_LIBS})
@@ -221,6 +226,11 @@ add_test(rc2test rc2test)
 add_executable(rc4test rc4test.c)
 target_link_libraries(rc4test ${OPENSSL_LIBS})
 add_test(rc4test rc4test)
+
+# rfc5280time
+add_executable(rfc5280time rfc5280time.c)
+target_link_libraries(rfc5280time ${OPENSSL_LIBS})
+add_test(rfc5280time rfc5280time)
 
 # rmdtest
 add_executable(rmdtest rmdtest.c)

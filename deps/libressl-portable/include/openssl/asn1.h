@@ -1,4 +1,4 @@
-/* $OpenBSD: asn1.h,v 1.28 2014/06/12 15:49:27 deraadt Exp $ */
+/* $OpenBSD: asn1.h,v 1.33 2015/10/08 02:42:58 beck Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -535,6 +535,7 @@ typedef struct BIT_STRING_BITNAME_st {
 	const char *sname;
 } BIT_STRING_BITNAME;
 
+#ifndef LIBRESSL_INTERNAL
 
 #define M_ASN1_STRING_length(x)	((x)->length)
 #define M_ASN1_STRING_length_set(x, n)	((x)->length = (n))
@@ -579,35 +580,6 @@ typedef struct BIT_STRING_BITNAME_st {
 #define M_i2d_ASN1_OCTET_STRING(a,pp) \
 		i2d_ASN1_bytes((ASN1_STRING *)a,pp,V_ASN1_OCTET_STRING,\
 		V_ASN1_UNIVERSAL)
-
-#define B_ASN1_TIME \
-			B_ASN1_UTCTIME | \
-			B_ASN1_GENERALIZEDTIME
-
-#define B_ASN1_PRINTABLE \
-			B_ASN1_NUMERICSTRING| \
-			B_ASN1_PRINTABLESTRING| \
-			B_ASN1_T61STRING| \
-			B_ASN1_IA5STRING| \
-			B_ASN1_BIT_STRING| \
-			B_ASN1_UNIVERSALSTRING|\
-			B_ASN1_BMPSTRING|\
-			B_ASN1_UTF8STRING|\
-			B_ASN1_SEQUENCE|\
-			B_ASN1_UNKNOWN
-
-#define B_ASN1_DIRECTORYSTRING \
-			B_ASN1_PRINTABLESTRING| \
-			B_ASN1_TELETEXSTRING|\
-			B_ASN1_BMPSTRING|\
-			B_ASN1_UNIVERSALSTRING|\
-			B_ASN1_UTF8STRING
-
-#define B_ASN1_DISPLAYTEXT \
-			B_ASN1_IA5STRING| \
-			B_ASN1_VISIBLESTRING| \
-			B_ASN1_BMPSTRING|\
-			B_ASN1_UTF8STRING
 
 #define M_ASN1_PRINTABLE_new()	ASN1_STRING_type_new(V_ASN1_T61STRING)
 #define M_ASN1_PRINTABLE_free(a)	ASN1_STRING_free((ASN1_STRING *)a)
@@ -733,6 +705,37 @@ typedef struct BIT_STRING_BITNAME_st {
 		(ASN1_UTF8STRING *)d2i_ASN1_type_bytes\
 		((ASN1_STRING **)a,pp,l,B_ASN1_UTF8STRING)
 
+#endif
+
+#define B_ASN1_TIME \
+			B_ASN1_UTCTIME | \
+			B_ASN1_GENERALIZEDTIME
+
+#define B_ASN1_PRINTABLE \
+			B_ASN1_NUMERICSTRING| \
+			B_ASN1_PRINTABLESTRING| \
+			B_ASN1_T61STRING| \
+			B_ASN1_IA5STRING| \
+			B_ASN1_BIT_STRING| \
+			B_ASN1_UNIVERSALSTRING|\
+			B_ASN1_BMPSTRING|\
+			B_ASN1_UTF8STRING|\
+			B_ASN1_SEQUENCE|\
+			B_ASN1_UNKNOWN
+
+#define B_ASN1_DIRECTORYSTRING \
+			B_ASN1_PRINTABLESTRING| \
+			B_ASN1_TELETEXSTRING|\
+			B_ASN1_BMPSTRING|\
+			B_ASN1_UNIVERSALSTRING|\
+			B_ASN1_UTF8STRING
+
+#define B_ASN1_DISPLAYTEXT \
+			B_ASN1_IA5STRING| \
+			B_ASN1_VISIBLESTRING| \
+			B_ASN1_BMPSTRING|\
+			B_ASN1_UTF8STRING
+
 /* for the is_set parameter to i2d_ASN1_SET */
 #define IS_SEQUENCE	0
 #define IS_SET		1
@@ -809,8 +812,9 @@ ASN1_UTCTIME *ASN1_UTCTIME_set(ASN1_UTCTIME *s, time_t t);
 ASN1_UTCTIME *ASN1_UTCTIME_adj(ASN1_UTCTIME *s, time_t t,
     int offset_day, long offset_sec);
 int ASN1_UTCTIME_set_string(ASN1_UTCTIME *s, const char *str);
+#ifndef LIBRESSL_INTERNAL
 int ASN1_UTCTIME_cmp_time_t(const ASN1_UTCTIME *s, time_t t);
-
+#endif
 int ASN1_GENERALIZEDTIME_check(ASN1_GENERALIZEDTIME *a);
 ASN1_GENERALIZEDTIME *ASN1_GENERALIZEDTIME_set(ASN1_GENERALIZEDTIME *s,
     time_t t);
@@ -910,6 +914,10 @@ void ASN1_put_object(unsigned char **pp, int constructed, int length, int tag,
 int ASN1_put_eoc(unsigned char **pp);
 int ASN1_object_size(int constructed, int length, int tag);
 
+void *ASN1_item_dup(const ASN1_ITEM *it, void *x);
+
+#ifndef LIBRESSL_INTERNAL
+
 /* Used to implement other functions */
 void *ASN1_dup(i2d_of_void *i2d, d2i_of_void *d2i, void *x);
 
@@ -923,13 +931,13 @@ void *ASN1_dup(i2d_of_void *i2d, d2i_of_void *d2i, void *x);
 		     CHECKED_D2I_OF(type, d2i), \
 		     CHECKED_PTR_OF(const type, x)))
 
-void *ASN1_item_dup(const ASN1_ITEM *it, void *x);
-
 /* ASN1 alloc/free macros for when a type is only used internally */
 
 #define M_ASN1_new_of(type) (type *)ASN1_item_new(ASN1_ITEM_rptr(type))
 #define M_ASN1_free_of(x, type) \
 		ASN1_item_free(CHECKED_PTR_OF(type, x), ASN1_ITEM_rptr(type))
+
+#endif
 
 void *ASN1_d2i_fp(void *(*xnew)(void), d2i_of_void *d2i, FILE *in, void **x);
 

@@ -1,4 +1,4 @@
-/* $OpenBSD: x509.c,v 1.5 2015/08/22 16:36:05 jsing Exp $ */
+/* $OpenBSD: x509.c,v 1.11 2015/10/17 07:51:10 semarie Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -135,7 +135,7 @@ static const char *x509_usage[] = {
 	" -set_serial     - serial number to use\n",
 	" -text           - print the certificate in text form\n",
 	" -C              - print out C code forms\n",
-	" -md2/-md5/-sha1 - digest to use\n",
+	" -md5/-sha1      - digest to use\n",
 	" -extfile        - configuration file with X509V3 extensions to add\n",
 	" -extensions     - section from config file with X509V3 extensions to add\n",
 	" -clrext         - delete extensions before signing and input certificate\n",
@@ -197,6 +197,13 @@ x509_main(int argc, char **argv)
 	int checkend = 0, checkoffset = 0;
 	unsigned long nmflag = 0, certflag = 0;
 	const char *errstr = NULL;
+
+	if (single_execution) {
+		if (pledge("stdio rpath wpath cpath tty", NULL) == -1) {
+			perror("pledge");
+			exit(1);
+		}
+	}
 
 	reqfile = 0;
 
@@ -295,7 +302,7 @@ x509_main(int argc, char **argv)
 		} else if (strcmp(*argv, "-set_serial") == 0) {
 			if (--argc < 1)
 				goto bad;
-			M_ASN1_INTEGER_free(sno);
+			ASN1_INTEGER_free(sno);
 			if (!(sno = s2i_ASN1_INTEGER(NULL, *(++argv))))
 				goto bad;
 		} else if (strcmp(*argv, "-addtrust") == 0) {
@@ -721,6 +728,10 @@ bad:
 
 				z = i2d_X509(x, NULL);
 				m = malloc(z);
+				if (m == NULL) {
+					BIO_printf(bio_err, "out of mem\n");
+					goto end;
+				}
 
 				d = (unsigned char *) m;
 				z = i2d_X509_NAME(X509_get_subject_name(x), &d);

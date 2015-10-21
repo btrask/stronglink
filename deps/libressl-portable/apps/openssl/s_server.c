@@ -1,4 +1,4 @@
-/* $OpenBSD: s_server.c,v 1.17 2015/09/11 14:30:23 bcook Exp $ */
+/* $OpenBSD: s_server.c,v 1.21 2015/10/17 07:51:10 semarie Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -147,7 +147,6 @@
 #endif
 
 #include <sys/types.h>
-#include <sys/ioctl.h>
 #include <sys/socket.h>
 
 #include <assert.h>
@@ -604,6 +603,14 @@ s_server_main(int argc, char *argv[])
 	tlsextnextprotoctx next_proto = { NULL, 0 };
 	const char *alpn_in = NULL;
 	tlsextalpnctx alpn_ctx = { NULL, 0 };
+
+	if (single_execution) {
+		if (pledge("stdio inet rpath tty", NULL) == -1) {
+			perror("pledge");
+			exit(1);
+		}
+	}
+
 	meth = SSLv23_server_method();
 
 	local_argc = argc;

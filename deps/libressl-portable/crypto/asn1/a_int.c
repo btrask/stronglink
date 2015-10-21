@@ -1,4 +1,4 @@
-/* $OpenBSD: a_int.c,v 1.27 2015/07/19 18:29:31 miod Exp $ */
+/* $OpenBSD: a_int.c,v 1.28 2015/07/29 14:58:34 jsing Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -196,9 +196,8 @@ c2i_ASN1_INTEGER(ASN1_INTEGER **a, const unsigned char **pp, long len)
 	int i;
 
 	if ((a == NULL) || ((*a) == NULL)) {
-		if ((ret = M_ASN1_INTEGER_new()) == NULL)
+		if ((ret = ASN1_INTEGER_new()) == NULL)
 			return (NULL);
-		ret->type = V_ASN1_INTEGER;
 	} else
 		ret = (*a);
 
@@ -269,7 +268,7 @@ c2i_ASN1_INTEGER(ASN1_INTEGER **a, const unsigned char **pp, long len)
 err:
 	ASN1err(ASN1_F_C2I_ASN1_INTEGER, i);
 	if (a == NULL || *a != ret)
-		M_ASN1_INTEGER_free(ret);
+		ASN1_INTEGER_free(ret);
 	return (NULL);
 }
 
@@ -290,9 +289,8 @@ d2i_ASN1_UINTEGER(ASN1_INTEGER **a, const unsigned char **pp, long length)
 	int i;
 
 	if ((a == NULL) || ((*a) == NULL)) {
-		if ((ret = M_ASN1_INTEGER_new()) == NULL)
+		if ((ret = ASN1_INTEGER_new()) == NULL)
 			return (NULL);
-		ret->type = V_ASN1_INTEGER;
 	} else
 		ret = (*a);
 
@@ -336,7 +334,7 @@ d2i_ASN1_UINTEGER(ASN1_INTEGER **a, const unsigned char **pp, long length)
 err:
 	ASN1err(ASN1_F_D2I_ASN1_UINTEGER, i);
 	if (a == NULL || *a != ret)
-		M_ASN1_INTEGER_free(ret);
+		ASN1_INTEGER_free(ret);
 	return (NULL);
 }
 
@@ -414,7 +412,7 @@ BN_to_ASN1_INTEGER(const BIGNUM *bn, ASN1_INTEGER *ai)
 	int len, j;
 
 	if (ai == NULL)
-		ret = M_ASN1_INTEGER_new();
+		ret = ASN1_INTEGER_new();
 	else
 		ret = ai;
 	if (ret == NULL) {
@@ -446,7 +444,7 @@ BN_to_ASN1_INTEGER(const BIGNUM *bn, ASN1_INTEGER *ai)
 
 err:
 	if (ret != ai)
-		M_ASN1_INTEGER_free(ret);
+		ASN1_INTEGER_free(ret);
 	return (NULL);
 }
 

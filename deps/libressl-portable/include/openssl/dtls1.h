@@ -60,7 +60,11 @@
 #ifndef HEADER_DTLS1_H
 #define HEADER_DTLS1_H
 
+#if defined(_WIN32)
+#include <winsock2.h>
+#else
 #include <sys/time.h>
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>

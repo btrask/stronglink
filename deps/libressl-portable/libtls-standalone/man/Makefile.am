@@ -42,6 +42,8 @@ install-data-hook:
 	ln -sf tls_init.3 $(DESTDIR)$(mandir)/man3/tls_peer_cert_contains_name.3
 	ln -sf tls_init.3 $(DESTDIR)$(mandir)/man3/tls_peer_cert_hash.3
 	ln -sf tls_init.3 $(DESTDIR)$(mandir)/man3/tls_peer_cert_issuer.3
+	ln -sf tls_init.3 $(DESTDIR)$(mandir)/man3/tls_peer_cert_notafter.3
+	ln -sf tls_init.3 $(DESTDIR)$(mandir)/man3/tls_peer_cert_notbefore.3
 	ln -sf tls_init.3 $(DESTDIR)$(mandir)/man3/tls_peer_cert_provided.3
 	ln -sf tls_init.3 $(DESTDIR)$(mandir)/man3/tls_peer_cert_subject.3
 	ln -sf tls_init.3 $(DESTDIR)$(mandir)/man3/tls_read.3
@@ -92,6 +94,8 @@ uninstall-local:
 	-rm -f $(DESTDIR)$(mandir)/man3/tls_peer_cert_contains_name.3
 	-rm -f $(DESTDIR)$(mandir)/man3/tls_peer_cert_hash.3
 	-rm -f $(DESTDIR)$(mandir)/man3/tls_peer_cert_issuer.3
+	-rm -f $(DESTDIR)$(mandir)/man3/tls_peer_cert_notafter.3
+	-rm -f $(DESTDIR)$(mandir)/man3/tls_peer_cert_notbefore.3
 	-rm -f $(DESTDIR)$(mandir)/man3/tls_peer_cert_provided.3
 	-rm -f $(DESTDIR)$(mandir)/man3/tls_peer_cert_subject.3
 	-rm -f $(DESTDIR)$(mandir)/man3/tls_read.3

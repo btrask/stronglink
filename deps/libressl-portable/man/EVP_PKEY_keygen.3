@@ -133,7 +133,7 @@
 .\" ========================================================================
 .\"
 .IX Title "EVP_PKEY_keygen 3"
-.TH EVP_PKEY_keygen 3 "2015-09-20" "LibreSSL " "LibreSSL"
+.TH EVP_PKEY_keygen 3 "2015-10-21" "LibreSSL " "LibreSSL"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -166,7 +166,7 @@ EVP_PKEY_CTX_get_app_data \- key and parameter generation functions
 .SH "DESCRIPTION"
 .IX Header "DESCRIPTION"
 The \fIEVP_PKEY_keygen_init()\fR function initializes a public key algorithm
-context using key \fBpkey\fR for a key genration operation.
+context using key \fBpkey\fR for a key generation operation.
 .PP
 The \fIEVP_PKEY_keygen()\fR function performs a key generation operation, the
 generated key is written to \fBppkey\fR.
@@ -184,7 +184,7 @@ parameters available is returned. Any non negative value returns the value of
 that parameter. \fIEVP_PKEY_CTX_gen_keygen_info()\fR with a non-negative value for
 \&\fBidx\fR should only be called within the generation callback.
 .PP
-If the callback returns 0 then the key genration operation is aborted and an
+If the callback returns 0 then the key generation operation is aborted and an
 error occurs. This might occur during a time consuming operation where
 a user clicks on a \*(L"cancel\*(R" button.
 .PP
@@ -203,7 +203,7 @@ once on the same context if several operations are performed using the same
 parameters.
 .PP
 The meaning of the parameters passed to the callback will depend on the
-algorithm and the specifiic implementation of the algorithm. Some might not
+algorithm and the specific implementation of the algorithm. Some might not
 give any useful information at all during key or parameter generation. Others
 might not even call the callback.
 .PP

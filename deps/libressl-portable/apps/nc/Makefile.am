@@ -11,7 +11,7 @@ nc_LDADD += $(top_builddir)/crypto/libcrypto.la
 nc_LDADD += $(top_builddir)/ssl/libssl.la
 nc_LDADD += $(top_builddir)/tls/libtls.la
 
-CPPFLAGS += -I$(top_srcdir)/apps/nc/compat
+AM_CPPFLAGS += -I$(top_srcdir)/apps/nc/compat
 
 nc_SOURCES = atomicio.c
 nc_SOURCES += netcat.c
@@ -20,6 +20,10 @@ noinst_HEADERS = atomicio.h
 noinst_HEADERS += compat/sys/socket.h
 
 nc_SOURCES += compat/socket.c
+
+if !HAVE_B64_NTOP
+nc_SOURCES += compat/base64.c
+endif
 
 if !HAVE_ACCEPT4
 nc_SOURCES += compat/accept4.c

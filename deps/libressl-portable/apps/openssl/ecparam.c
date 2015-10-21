@@ -1,4 +1,4 @@
-/* $OpenBSD: ecparam.c,v 1.12 2015/08/22 16:36:05 jsing Exp $ */
+/* $OpenBSD: ecparam.c,v 1.14 2015/10/10 22:28:51 doug Exp $ */
 /*
  * Written by Nils Larsch for the OpenSSL project.
  */
@@ -258,6 +258,13 @@ ecparam_main(int argc, char **argv)
 	unsigned char *buffer = NULL;
 	BIO *in = NULL, *out = NULL;
 	int i, ret = 1;
+
+	if (single_execution) {
+		if (pledge("stdio rpath wpath cpath", NULL) == -1) {
+			perror("pledge");
+			exit(1);
+		}
+	}
 
 	memset(&ecparam_config, 0, sizeof(ecparam_config));
 	ecparam_config.asn1_flag = OPENSSL_EC_NAMED_CURVE;

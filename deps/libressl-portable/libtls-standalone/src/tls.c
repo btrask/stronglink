@@ -1,4 +1,4 @@
-/* $OpenBSD: tls.c,v 1.31 2015/09/14 12:29:16 jsing Exp $ */
+/* $OpenBSD: tls.c,v 1.33 2015/09/29 10:17:04 deraadt Exp $ */
 /*
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
  *
@@ -285,7 +285,7 @@ tls_configure_ssl_verify(struct tls *ctx, int verify)
 			goto err;
 		}
 	} else if (SSL_CTX_load_verify_locations(ctx->ssl_ctx,
-            ctx->config->ca_file, ctx->config->ca_path) != 1) {
+	    ctx->config->ca_file, ctx->config->ca_path) != 1) {
 		tls_set_errorx(ctx, "ssl verify setup failure");
 		goto err;
 	}
@@ -400,10 +400,11 @@ tls_handshake(struct tls *ctx)
 	else if ((ctx->flags & TLS_SERVER_CONN) != 0)
 		rv = tls_handshake_server(ctx);
 
-	if (rv == 0 &&
-	    (ctx->ssl_peer_cert = SSL_get_peer_certificate(ctx->ssl_conn)) &&
-	    (tls_get_conninfo(ctx) == -1))
-		rv = -1;
+	if (rv == 0) {
+		ctx->ssl_peer_cert =  SSL_get_peer_certificate(ctx->ssl_conn);
+		if (tls_get_conninfo(ctx) == -1)
+		    rv = -1;
+	}
  out:
 	/* Prevent callers from performing incorrect error handling */
 	errno = 0;

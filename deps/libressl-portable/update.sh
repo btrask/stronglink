@@ -223,7 +223,6 @@ done
 # copy openssl(1) source
 echo "copying openssl(1) source"
 $CP $app_src/openssl/openssl.1 apps/openssl
-rm -f apps/openssl/*.c apps/openssl/*.h
 $CP_LIBC $libc_src/stdlib/strtonum.c apps/openssl/compat
 $CP $libcrypto_src/cert.pem apps/openssl
 $CP $libcrypto_src/openssl.cnf apps/openssl
@@ -300,7 +299,7 @@ add_man_links() {
 	done
 }
 
-# apply local patches (Windows support)
+# apply local patches
 for i in patches/*.patch; do
     patch -p0 < $i
 done

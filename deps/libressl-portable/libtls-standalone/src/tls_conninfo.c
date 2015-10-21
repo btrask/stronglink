@@ -1,4 +1,4 @@
-/* $OpenBSD: tls_conninfo.c,v 1.1 2015/09/12 21:00:38 beck Exp $ */
+/* $OpenBSD: tls_conninfo.c,v 1.4 2015/10/07 23:25:45 beck Exp $ */
 /*
  * Copyright (c) 2015 Joel Sing <jsing@openbsd.org>
  * Copyright (c) 2015 Bob Beck <beck@openbsd.org>
@@ -119,9 +119,40 @@ tls_get_peer_cert_subject(struct tls *ctx, char **subject)
 	return (0);
 }
 
+static int
+tls_get_peer_cert_times(struct tls *ctx, time_t *notbefore, time_t *notafter)
+{
+	struct tm before_tm, after_tm;
+	ASN1_TIME *before, *after;
+	int rv = -1;
+
+	memset(&before_tm, 0, sizeof(before_tm));
+	memset(&after_tm, 0, sizeof(after_tm));
+
+	if (ctx->ssl_peer_cert != NULL) {
+		if ((before = X509_get_notBefore(ctx->ssl_peer_cert)) == NULL)
+			goto err;
+		if ((after = X509_get_notAfter(ctx->ssl_peer_cert)) == NULL)
+			goto err;
+		if (asn1_time_parse(before->data, before->length, &before_tm, 0)
+		    == -1)
+			goto err;
+		if (asn1_time_parse(after->data, after->length, &after_tm, 0)
+		    == -1)
+			goto err;
+		if ((*notbefore = timegm(&before_tm)) == -1)
+			goto err;
+		if ((*notafter = timegm(&after_tm)) == -1)
+			goto err;
+	}
+	rv = 0;
+ err:
+	return (rv);
+}
+
 int
 tls_get_conninfo(struct tls *ctx) {
-	int rv = -1;
+	const char * tmp;
 	if (ctx->ssl_peer_cert != NULL) {
 		if (tls_get_peer_cert_hash(ctx, &ctx->conninfo->hash) == -1)
 			goto err;
@@ -130,16 +161,24 @@ tls_get_conninfo(struct tls *ctx) {
 			goto err;
 		if (tls_get_peer_cert_issuer(ctx, &ctx->conninfo->issuer) == -1)
 			goto err;
-		ctx->conninfo->version = strdup(SSL_get_version(ctx->ssl_conn));
-		if (ctx->conninfo->version == NULL)
-			goto err;
-		ctx->conninfo->cipher = strdup(SSL_get_cipher(ctx->ssl_conn));
-		if (ctx->conninfo->cipher == NULL)
+		if (tls_get_peer_cert_times(ctx, &ctx->conninfo->notbefore,
+		    &ctx->conninfo->notafter) == -1)
 			goto err;
 	}
-	rv = 0;
+	if ((tmp = SSL_get_version(ctx->ssl_conn)) == NULL)
+		goto err;
+	ctx->conninfo->version = strdup(tmp);
+	if (ctx->conninfo->version == NULL)
+		goto err;
+	if ((tmp = SSL_get_cipher(ctx->ssl_conn)) == NULL)
+		goto err;
+	ctx->conninfo->cipher = strdup(tmp);
+	if (ctx->conninfo->cipher == NULL)
+		goto err;
+	return (0);
 err:
-	return (rv);
+	tls_free_conninfo(ctx->conninfo);
+	return (-1);
 }
 
 void
@@ -161,15 +200,15 @@ tls_free_conninfo(struct tls_conninfo *conninfo) {
 const char *
 tls_conn_cipher(struct tls *ctx)
 {
-	if (ctx->conninfo)
-		return (ctx->conninfo->cipher);
-	return NULL;
+	if (ctx->conninfo == NULL)
+		return (NULL);
+	return (ctx->conninfo->cipher);
 }
 
 const char *
 tls_conn_version(struct tls *ctx)
 {
-	if (ctx->conninfo)
-		return (ctx->conninfo->version);
-	return NULL;
+	if (ctx->conninfo == NULL)
+		return (NULL);
+	return (ctx->conninfo->version);
 }

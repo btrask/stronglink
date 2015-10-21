@@ -1,4 +1,4 @@
-/* $OpenBSD: s_time.c,v 1.11 2015/09/11 02:08:34 lteo Exp $ */
+/* $OpenBSD: s_time.c,v 1.13 2015/10/10 22:28:51 doug Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -257,6 +257,13 @@ s_time_main(int argc, char **argv)
 	int ret = 1, i;
 	char buf[1024 * 8];
 	int ver;
+
+	if (single_execution) {
+		if (pledge("stdio inet rpath", NULL) == -1) {
+			perror("pledge");
+			exit(1);
+		}
+	}
 
 	s_time_meth = SSLv23_client_method();
 

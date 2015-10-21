@@ -1,4 +1,4 @@
-/* $OpenBSD: obj_dat.c,v 1.30 2014/07/11 08:44:49 jsing Exp $ */
+/* $OpenBSD: obj_dat.c,v 1.34 2015/10/14 21:25:16 beck Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -491,7 +491,6 @@ OBJ_obj2txt(char *buf, int buf_len, const ASN1_OBJECT *a, int no_name)
 {
 	int i, ret = 0, len, nid, first = 1, use_bn;
 	BIGNUM *bl = NULL;
-	char *bndec = NULL;
 	unsigned long l;
 	const unsigned char *p;
 
@@ -566,15 +565,21 @@ OBJ_obj2txt(char *buf, int buf_len, const ASN1_OBJECT *a, int no_name)
 			ret++;
 		}
 
+		if (buf_len <= 0) {
+			ret = 0;
+			goto out;
+		}
 		if (use_bn) {
+			char *bndec;
+
 			bndec = BN_bn2dec(bl);
 			if (!bndec)
 				goto err;
 			i = snprintf(buf, buf_len, ".%s", bndec);
+			free(bndec);
 			if (i == -1)
 				goto err;
 			if (i >= buf_len) {
-				buf += buf_len;
 				buf_len = 0;
 			} else {
 				buf += i;
@@ -586,7 +591,6 @@ OBJ_obj2txt(char *buf, int buf_len, const ASN1_OBJECT *a, int no_name)
 			if (i == -1)
 				goto err;
 			if (i >= buf_len) {
-				buf += buf_len;
 				buf_len = 0;
 			} else {
 				buf += i;
@@ -598,13 +602,11 @@ OBJ_obj2txt(char *buf, int buf_len, const ASN1_OBJECT *a, int no_name)
 	}
 
 out:
-	free(bndec);
 	BN_free(bl);
 	return ret;
 
 err:
 	ret = 0;
-	buf[0] = '\0';
 	goto out;
 }
 

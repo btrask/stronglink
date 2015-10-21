@@ -1,4 +1,3 @@
-# This must be called before AC_PROG_CC
 AC_DEFUN([CHECK_OS_OPTIONS], [
 
 CFLAGS="$CFLAGS -Wall -std=gnu99 -fno-strict-aliasing"
@@ -18,7 +17,6 @@ case $host_os in
 		BUILD_NC=yes
 		HOST_OS=darwin
 		HOST_ABI=macosx
-		AC_SUBST([PROG_LDADD], ['-lresolv'])
 		;;
 	*freebsd*)
 		HOST_OS=freebsd
@@ -40,7 +38,6 @@ case $host_os in
 		HOST_OS=linux
 		HOST_ABI=elf
 		CPPFLAGS="$CPPFLAGS -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_POSIX_SOURCE -D_GNU_SOURCE"
-		AC_SUBST([PROG_LDADD], ['-lresolv'])
 		;;
 	*netbsd*)
 		HOST_OS=netbsd

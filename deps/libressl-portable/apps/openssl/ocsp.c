@@ -1,4 +1,4 @@
-/* $OpenBSD: ocsp.c,v 1.3 2015/08/22 16:36:05 jsing Exp $ */
+/* $OpenBSD: ocsp.c,v 1.6 2015/10/10 22:28:51 doug Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 2000.
  */
@@ -145,6 +145,13 @@ ocsp_main(int argc, char **argv)
 	int nmin = 0, ndays = -1;
 	const EVP_MD *cert_id_md = NULL;
 	const char *errstr = NULL;
+
+	if (single_execution) {
+		if (pledge("stdio inet rpath wpath cpath", NULL) == -1) {
+			perror("pledge");
+			exit(1);
+		}
+	}
 
 	args = argv + 1;
 	reqnames = sk_OPENSSL_STRING_new_null();
@@ -1110,7 +1117,7 @@ query_responder(BIO * err, BIO * cbio, char *path,
 		BIO_puts(err, "Error connecting BIO\n");
 		return NULL;
 	}
-	if (BIO_get_fd(cbio, &fd) <= 0) {
+	if (BIO_get_fd(cbio, &fd) < 0) {
 		BIO_puts(err, "Can't get connection fd\n");
 		goto err;
 	}

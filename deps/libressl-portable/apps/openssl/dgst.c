@@ -1,4 +1,4 @@
-/* $OpenBSD: dgst.c,v 1.5 2015/09/10 16:01:06 jsing Exp $ */
+/* $OpenBSD: dgst.c,v 1.8 2015/10/17 07:51:10 semarie Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -122,6 +122,13 @@ dgst_main(int argc, char **argv)
 	char *hmac_key = NULL;
 	char *mac_name = NULL;
 	STACK_OF(OPENSSL_STRING) * sigopts = NULL, *macopts = NULL;
+
+	if (single_execution) {
+		if (pledge("stdio rpath wpath cpath tty", NULL) == -1) {
+			perror("pledge");
+			exit(1);
+		}
+	}
 
 	if ((buf = malloc(BUFSIZE)) == NULL) {
 		BIO_printf(bio_err, "out of memory\n");

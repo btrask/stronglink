@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-# HACK
+#HACK
 #./update.sh
 mkdir -p m4
 autoreconf -i -f

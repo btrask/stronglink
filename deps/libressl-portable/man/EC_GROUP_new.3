@@ -133,7 +133,7 @@
 .\" ========================================================================
 .\"
 .IX Title "EC_GROUP_new 3"
-.TH EC_GROUP_new 3 "2015-09-20" "LibreSSL " "LibreSSL"
+.TH EC_GROUP_new 3 "2015-10-21" "LibreSSL " "LibreSSL"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -185,8 +185,8 @@ EC_GROUP_set_curve_GFp sets the curve parameters \fBp\fR, \fBa\fR and \fBb\fR fo
 EC_group_get_curve_GFp obtains the previously set curve parameters.
 .PP
 EC_GROUP_set_curve_GF2m sets the equivalent curve parameters for a curve over F2^m. In this case \fBp\fR represents
-the irreducible polybnomial \- each bit represents a term in the polynomial. Therefore there will either be three
-or five bits set dependant on whether the polynomial is a trinomial or a pentanomial.
+the irreducible polynomial \- each bit represents a term in the polynomial. Therefore there will either be three
+or five bits set dependent on whether the polynomial is a trinomial or a pentanomial.
 EC_group_get_curve_GF2m obtains the previously set curve parameters.
 .PP
 The functions EC_GROUP_new_curve_GFp and EC_GROUP_new_curve_GF2m are shortcuts for calling EC_GROUP_new and the

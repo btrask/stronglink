@@ -133,7 +133,7 @@
 .\" ========================================================================
 .\"
 .IX Title "X509_STORE_CTX_new 3"
-.TH X509_STORE_CTX_new 3 "2015-09-20" "LibreSSL " "LibreSSL"
+.TH X509_STORE_CTX_new 3 "2015-10-21" "LibreSSL " "LibreSSL"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -189,7 +189,7 @@ all of the \fBstore\fR, \fBx509\fR and \fBchain\fR parameters can be \fB\s-1NULL
 to \fBsk\fR. This is an alternative way of specifying trusted certificates
 instead of using an \fBX509_STORE\fR.
 .PP
-\&\fIX509_STORE_CTX_set_cert()\fR sets the certificate to be vertified in \fBctx\fR to
+\&\fIX509_STORE_CTX_set_cert()\fR sets the certificate to be verified in \fBctx\fR to
 \&\fBx\fR.
 .PP
 \&\fIX509_STORE_CTX_set_chain()\fR sets the additional certificate chain used by \fBctx\fR
@@ -201,10 +201,10 @@ enabled in the associated \fBX509_VERIFY_PARAM\fR structure. This might be
 used where additional \*(L"useful\*(R" CRLs are supplied as part of a protocol,
 for example in a PKCS#7 structure.
 .PP
-X509_VERIFY_PARAM *\fIX509_STORE_CTX_get0_param()\fR retrieves an intenal pointer
+X509_VERIFY_PARAM *\fIX509_STORE_CTX_get0_param()\fR retrieves an internal pointer
 to the verification parameters associated with \fBctx\fR.
 .PP
-\&\fIX509_STORE_CTX_set0_param()\fR sets the intenal verification parameter pointer
+\&\fIX509_STORE_CTX_set0_param()\fR sets the internal verification parameter pointer
 to \fBparam\fR. After this call \fBparam\fR should not be used.
 .PP
 \&\fIX509_STORE_CTX_set_default()\fR looks up and sets the default verification

@@ -133,7 +133,7 @@
 .\" ========================================================================
 .\"
 .IX Title "PKCS7_sign_add_signer 3"
-.TH PKCS7_sign_add_signer 3 "2015-09-20" "LibreSSL " "LibreSSL"
+.TH PKCS7_sign_add_signer 3 "2015-10-21" "LibreSSL " "LibreSSL"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -174,7 +174,7 @@ Any of the following flags (ored together) can be passed in the \fBflags\fR
 parameter.
 .PP
 If \fB\s-1PKCS7_REUSE_DIGEST\s0\fR is set then an attempt is made to copy the content
-digest value from the \s-1PKCS7\s0 struture: to add a signer to an existing structure.
+digest value from the \s-1PKCS7\s0 structure: to add a signer to an existing structure.
 An error occurs if a matching digest value cannot be found to copy. The
 returned \s-1PKCS7\s0 structure will be valid and finalized when this flag is set.
 .PP
@@ -189,7 +189,7 @@ If \fB\s-1PKCS7_NOCERTS\s0\fR is set the signer's certificate will not be includ
 signers certificate can be obtained by other means: for example a previously
 signed message.
 .PP
-The signedData structure includes several PKCS#7 autenticatedAttributes
+The signedData structure includes several PKCS#7 authenticatedAttributes
 including the signing time, the PKCS#7 content type and the supported list of
 ciphers in an SMIMECapabilities attribute. If \fB\s-1PKCS7_NOATTR\s0\fR is set then no
 authenticatedAttributes will be used. If \fB\s-1PKCS7_NOSMIMECAP\s0\fR is set then just

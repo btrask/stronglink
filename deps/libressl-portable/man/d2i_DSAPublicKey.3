@@ -133,7 +133,7 @@
 .\" ========================================================================
 .\"
 .IX Title "d2i_DSAPublicKey 3"
-.TH d2i_DSAPublicKey 3 "2015-09-20" "LibreSSL " "LibreSSL"
+.TH d2i_DSAPublicKey 3 "2015-10-21" "LibreSSL " "LibreSSL"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -204,7 +204,7 @@ If \fBwrite_params\fR is zero then only the \fBpub_key\fR field is encoded as an
 \&\fB\s-1INTEGER\s0\fR. If \fBwrite_params\fR is 1 then a \fB\s-1SEQUENCE\s0\fR consisting of the
 \&\fBp\fR, \fBq\fR, \fBg\fR and \fBpub_key\fR respectively fields are encoded.
 .PP
-The \fBDSAPrivateKey\fR functions also use a non standard structure consiting
+The \fBDSAPrivateKey\fR functions also use a non standard structure consisting
 consisting of a \s-1SEQUENCE\s0 containing the \fBp\fR, \fBq\fR, \fBg\fR and \fBpub_key\fR and
 \&\fBpriv_key\fR fields respectively.
 .SH "SEE ALSO"

@@ -1,4 +1,4 @@
-/* $OpenBSD: passwd.c,v 1.3 2015/01/05 15:25:39 jsing Exp $ */
+/* $OpenBSD: passwd.c,v 1.6 2015/10/17 07:51:10 semarie Exp $ */
 
 #if defined OPENSSL_NO_MD5
 #define NO_MD5CRYPT_1
@@ -144,6 +144,13 @@ passwd_main(int argc, char **argv)
 	size_t pw_maxlen = 0;
 	int argsused;
 	int ret = 1;
+
+	if (single_execution) {
+		if (pledge("stdio rpath wpath cpath tty", NULL) == -1) {
+			perror("pledge");
+			exit(1);
+		}
+	}
 
 	memset(&passwd_config, 0, sizeof(passwd_config));
 

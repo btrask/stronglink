@@ -133,7 +133,7 @@
 .\" ========================================================================
 .\"
 .IX Title "X509_NAME_get_index_by_NID 3"
-.TH X509_NAME_get_index_by_NID 3 "2015-09-20" "LibreSSL " "LibreSSL"
+.TH X509_NAME_get_index_by_NID 3 "2015-10-21" "LibreSSL " "LibreSSL"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -187,7 +187,7 @@ of space needed in \fBbuf\fR (excluding the final null) is returned.
 legacy functions which have various limitations which make them
 of minimal use in practice. They can only find the first matching
 entry and will copy the contents of the field verbatim: this can
-be highly confusing if the target is a muticharacter string type
+be highly confusing if the target is a multicharacter string type
 like a BMPString or a UTF8String.
 .PP
 For a more general solution \fIX509_NAME_get_index_by_NID()\fR or

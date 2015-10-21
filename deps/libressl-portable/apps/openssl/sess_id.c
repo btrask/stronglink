@@ -1,4 +1,4 @@
-/* $OpenBSD: sess_id.c,v 1.4 2015/02/08 10:22:45 doug Exp $ */
+/* $OpenBSD: sess_id.c,v 1.6 2015/10/10 22:28:51 doug Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -157,6 +157,13 @@ sess_id_main(int argc, char **argv)
 	X509 *peer = NULL;
 	int ret = 1, i;
 	BIO *out = NULL;
+
+	if (single_execution) {
+		if (pledge("stdio rpath wpath cpath", NULL) == -1) {
+			perror("pledge");
+			exit(1);
+		}
+	}
 
 	memset(&sess_id_config, 0, sizeof(sess_id_config));
 

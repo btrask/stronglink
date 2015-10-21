@@ -133,7 +133,7 @@
 .\" ========================================================================
 .\"
 .IX Title "ui_compat 3"
-.TH ui_compat 3 "2015-09-20" "LibreSSL " "LibreSSL"
+.TH ui_compat 3 "2015-10-21" "LibreSSL " "LibreSSL"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -156,12 +156,12 @@ Compatibility user interface functions
 .SH "DESCRIPTION"
 .IX Header "DESCRIPTION"
 The \s-1DES\s0 library contained a few routines to prompt for passwords.  These
-aren't necessarely dependent on \s-1DES,\s0 and have therefore become part of the
+aren't necessarily dependent on \s-1DES,\s0 and have therefore become part of the
 \&\s-1UI\s0 compatibility library.
 .PP
 \&\fIdes_read_pw()\fR writes the string specified by \fIprompt\fR to standard output
 turns echo off and reads an input string from the terminal.  The string is
-returned in \fIbuf\fR, which must have spac for at least \fIsize\fR bytes.
+returned in \fIbuf\fR, which must have space for at least \fIsize\fR bytes.
 If \fIverify\fR is set, the user is asked for the password twice and unless
 the two copies match, an error is returned.  The second password is stored
 in \fIbuff\fR, which must therefore also be at least \fIsize\fR bytes.  A return

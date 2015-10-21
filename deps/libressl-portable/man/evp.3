@@ -133,7 +133,7 @@
 .\" ========================================================================
 .\"
 .IX Title "evp 3"
-.TH evp 3 "2015-09-20" "LibreSSL " "LibreSSL"
+.TH evp 3 "2015-10-21" "LibreSSL " "LibreSSL"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -161,6 +161,9 @@ functions.
 .PP
 Symmetric encryption is available with the \fBEVP_Encrypt\fR\fI...\fR
 functions.  The \fBEVP_Digest\fR\fI...\fR functions provide message digests.
+.PP
+Authenticated encryption with additional data (\s-1AEAD\s0) is available with
+the \fB\s-1EVP_AEAD\s0\fR\fI...\fR functions.
 .PP
 The \fB\s-1EVP_PKEY\s0\fR\fI...\fR functions provide a high level interface to
 asymmetric algorithms. To create a new \s-1EVP_PKEY\s0 see
@@ -206,6 +209,7 @@ using the high level interface.
 .IX Header "SEE ALSO"
 \&\fIEVP_DigestInit\fR\|(3),
 \&\fIEVP_EncryptInit\fR\|(3),
+\&\fIEVP_AEAD_CTX_init\fR\|(3),
 \&\fIEVP_OpenInit\fR\|(3),
 \&\fIEVP_SealInit\fR\|(3),
 \&\fIEVP_DigestSignInit\fR\|(3),

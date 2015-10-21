@@ -133,7 +133,7 @@
 .\" ========================================================================
 .\"
 .IX Title "X509_VERIFY_PARAM_set_flags 3"
-.TH X509_VERIFY_PARAM_set_flags 3 "2015-09-20" "LibreSSL " "LibreSSL"
+.TH X509_VERIFY_PARAM_set_flags 3 "2015-10-21" "LibreSSL " "LibreSSL"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -261,7 +261,7 @@ If \fBX509_V_FLAG_USE_DELTAS\fR ise set delta CRLs (if present) are used to
 determine certificate status. If not set deltas are ignored.
 .PP
 \&\fBX509_V_FLAG_CHECK_SS_SIGNATURE\fR enables checking of the root \s-1CA\s0 self signed
-cerificate signature. By default this check is disabled because it doesn't
+certificate signature. By default this check is disabled because it doesn't
 add any additional security but in some cases applications might want to
 check the signature anyway. A side effect of not checking the root \s-1CA\s0
 signature is that disabled or unsupported message digests on the root \s-1CA\s0

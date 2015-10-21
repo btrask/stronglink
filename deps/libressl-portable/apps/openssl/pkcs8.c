@@ -1,4 +1,4 @@
-/* $OpenBSD: pkcs8.c,v 1.5 2015/08/19 18:25:31 deraadt Exp $ */
+/* $OpenBSD: pkcs8.c,v 1.8 2015/10/17 07:51:10 semarie Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 1999-2004.
  */
@@ -225,6 +225,13 @@ pkcs8_main(int argc, char **argv)
 	EVP_PKEY *pkey = NULL;
 	char pass[50], *passin = NULL, *passout = NULL, *p8pass = NULL;
 	int ret = 1;
+
+	if (single_execution) {
+		if (pledge("stdio rpath wpath cpath tty", NULL) == -1) {
+			perror("pledge");
+			exit(1);
+		}
+	}
 
 	memset(&pkcs8_config, 0, sizeof(pkcs8_config));
 

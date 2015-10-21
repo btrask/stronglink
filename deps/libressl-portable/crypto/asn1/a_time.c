@@ -1,4 +1,4 @@
-/* $OpenBSD: a_time.c,v 1.23 2015/02/09 15:05:59 jsing Exp $ */
+/* $OpenBSD: a_time.c,v 1.25 2015/09/30 18:04:02 jsing Exp $ */
 /* ====================================================================
  * Copyright (c) 1999 The OpenSSL Project.  All rights reserved.
  *
@@ -68,7 +68,7 @@
 #include <openssl/err.h>
 
 #include "o_time.h"
-
+#include "asn1_locl.h"
 
 const ASN1_ITEM ASN1_TIME_it = {
 	.itype = ASN1_ITYPE_MSTRING,
@@ -135,11 +135,9 @@ ASN1_TIME_adj(ASN1_TIME *s, time_t t, int offset_day, long offset_sec)
 int
 ASN1_TIME_check(ASN1_TIME *t)
 {
-	if (t->type == V_ASN1_GENERALIZEDTIME)
-		return ASN1_GENERALIZEDTIME_check(t);
-	else if (t->type == V_ASN1_UTCTIME)
-		return ASN1_UTCTIME_check(t);
-	return 0;
+	if (t->type != V_ASN1_GENERALIZEDTIME && t->type != V_ASN1_UTCTIME)
+		return 0;
+	return (t->type == asn1_time_parse(t->data, t->length, NULL, t->type));
 }
 
 /* Convert an ASN1_TIME structure to GeneralizedTime */
@@ -173,7 +171,7 @@ ASN1_TIME_to_generalizedtime_internal(ASN1_TIME *t, ASN1_GENERALIZEDTIME **out)
 	i = snprintf(str, newlen, "%s%s", (t->data[0] >= '5') ? "19" : "20",
 	    (char *) t->data);
 	if (i == -1 || i >= newlen) {
-		M_ASN1_GENERALIZEDTIME_free(ret);
+		ASN1_GENERALIZEDTIME_free(ret);
 		*out = NULL;
 		return NULL;
 	}
@@ -210,13 +208,12 @@ ASN1_TIME_set_string(ASN1_TIME *s, const char *str)
 	t.data = (unsigned char *)str;
 	t.flags = 0;
 
-	t.type = V_ASN1_UTCTIME;
-
-	if (!ASN1_TIME_check(&t)) {
-		t.type = V_ASN1_GENERALIZEDTIME;
-		if (!ASN1_TIME_check(&t))
-			return 0;
-	}
+	t.type = asn1_time_parse(t.data, t.length, NULL, V_ASN1_UTCTIME);
+	if (t.type == -1)
+		t.type = asn1_time_parse(t.data, t.length, NULL,
+		    V_ASN1_GENERALIZEDTIME);
+	if (t.type == -1)
+		return 0;
 
 	if (s && !ASN1_STRING_copy((ASN1_STRING *)s, (ASN1_STRING *)&t))
 		return 0;

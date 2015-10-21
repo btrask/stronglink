@@ -133,7 +133,7 @@
 .\" ========================================================================
 .\"
 .IX Title "PKCS7_verify 3"
-.TH PKCS7_verify 3 "2015-09-20" "LibreSSL " "LibreSSL"
+.TH PKCS7_verify 3 "2015-10-21" "LibreSSL " "LibreSSL"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -153,7 +153,7 @@ PKCS7_verify, PKCS7_get0_signers \- verify a PKCS#7 signedData structure
 .IX Header "DESCRIPTION"
 \&\fIPKCS7_verify()\fR verifies a PKCS#7 signedData structure. \fBp7\fR is the \s-1PKCS7\s0
 structure to verify. \fBcerts\fR is a set of certificates in which to search for
-the signer's certificate. \fBstore\fR is a trusted certficate store (used for
+the signer's certificate. \fBstore\fR is a trusted certificate store (used for
 chain verification). \fBindata\fR is the signed data if the content is not
 present in \fBp7\fR (that is it is detached). The content is written to \fBout\fR
 if it is not \s-1NULL.\s0
