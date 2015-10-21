@@ -10,6 +10,7 @@
 struct SLNSubmission {
 	SLNSessionRef session;
 	str_t *knownURI;
+	str_t *knownTarget;
 	str_t *type;
 
 	str_t *tmppath;
@@ -26,7 +27,7 @@ struct SLNSubmission {
 
 int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID, DB_txn *const txn, uint64_t *const out);
 
-int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const knownURI, SLNSubmissionRef *const out) {
+int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const knownURI, strarg_t const knownTarget, SLNSubmissionRef *const out) {
 	assert(out);
 	if(!SLNSessionHasPermission(session, SLN_WRONLY)) return UV_EACCES;
 
@@ -38,6 +39,11 @@ int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const knownURI, SL
 	if(knownURI) {
 		sub->knownURI = strdup(knownURI);
 		if(!sub->knownURI) rc = UV_ENOMEM;
+		if(rc < 0) goto cleanup;
+	}
+	if(knownTarget) {
+		sub->knownTarget = strdup(knownTarget);
+		if(!sub->knownTarget) rc = UV_ENOMEM;
 		if(rc < 0) goto cleanup;
 	}
 	sub->type = NULL;
@@ -57,10 +63,10 @@ cleanup:
 	SLNSubmissionFree(&sub);
 	return rc;
 }
-int SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const knownURI, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, SLNSubmissionRef *const out) {
+int SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const knownURI, strarg_t const knownTarget, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, SLNSubmissionRef *const out) {
 	assert(out);
 	SLNSubmissionRef sub = NULL;
-	int rc = SLNSubmissionCreate(session, knownURI, &sub);
+	int rc = SLNSubmissionCreate(session, knownURI, knownTarget, &sub);
 	if(rc < 0) return rc;
 	rc = SLNSubmissionSetType(sub, type);
 	if(rc < 0) goto cleanup;
@@ -77,6 +83,7 @@ void SLNSubmissionFree(SLNSubmissionRef *const subptr) {
 
 	sub->session = NULL;
 	FREE(&sub->knownURI);
+	FREE(&sub->knownTarget);
 	FREE(&sub->type);
 
 	if(sub->tmppath) async_fs_unlink(sub->tmppath);
@@ -104,6 +111,10 @@ SLNRepoRef SLNSubmissionGetRepo(SLNSubmissionRef const sub) {
 strarg_t SLNSubmissionGetKnownURI(SLNSubmissionRef const sub) {
 	if(!sub) return NULL;
 	return sub->knownURI;
+}
+strarg_t SLNSubmissionGetKnownTarget(SLNSubmissionRef const sub) {
+	if(!sub) return NULL;
+	return sub->knownTarget;
 }
 strarg_t SLNSubmissionGetType(SLNSubmissionRef const sub) {
 	if(!sub) return NULL;

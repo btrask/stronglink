@@ -427,7 +427,7 @@ static int parse_file(BlogRef const blog,
 		for(size_t i = 0; i < numberof(v); i++) FREE(&v[i]);
 	}
 
-	rc = SLNSubmissionCreate(session, NULL, &file);
+	rc = SLNSubmissionCreate(session, NULL, NULL, &file);
 	if(rc < 0) goto cleanup;
 	rc = SLNSubmissionSetType(file, type);
 	if(rc < 0) goto cleanup;
@@ -506,16 +506,16 @@ static int POST_post(BlogRef const blog,
 	str_t *target_QSEscaped = NULL;
 	str_t *location = NULL;
 
-	rc = SLNSubmissionCreate(session, NULL, &extra);
-	if(rc < 0) goto cleanup;
-	rc = SLNSubmissionSetType(extra, SLN_META_TYPE);
-	if(rc < 0) goto cleanup;
-
 	strarg_t const target = SLNSubmissionGetPrimaryURI(sub);
 	if(!target) rc = UV_ENOMEM;
 	if(rc < 0) goto cleanup;
 	target_QSEscaped = QSEscape(target, strlen(target), true);
 	if(!target_QSEscaped) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
+
+	rc = SLNSubmissionCreate(session, NULL, target, &extra);
+	if(rc < 0) goto cleanup;
+	rc = SLNSubmissionSetType(extra, SLN_META_TYPE);
 	if(rc < 0) goto cleanup;
 
 	SLNSubmissionWrite(extra, (byte_t const *)target, strlen(target));

@@ -34,7 +34,8 @@ typedef struct SLNPull* SLNPullRef;
 // BerkeleyDB uses -30800 to -30999
 // MDB uses -30600 to -30799?
 #define SLN_HASHMISMATCH (-30599)
-#define SLN_LAST_ERRCODE SLN_HASHMISMATCH
+#define SLN_TARGETMISMATCH (-30598)
+#define SLN_LAST_ERRCODE SLN_TARGETMISMATCH
 
 static strarg_t sln_strerror(int const rc) {
 	if(rc >= 0) return "No error";
@@ -104,11 +105,12 @@ void SLNFileInfoCleanup(SLNFileInfo *const info);
 int SLNSessionCopyLastSubmissionURIs(SLNSessionRef const session, DB_txn *const txn, str_t **const outFileURI, str_t **const outMetaURI);
 int SLNSessionGetValueForField(SLNSessionRef const session, str_t value[], size_t const max, strarg_t const fileURI, strarg_t const field);
 
-int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const knownURI, SLNSubmissionRef *const out);
-int SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const knownURI, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, SLNSubmissionRef *const out);
+int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const knownURI, strarg_t const knownTarget, SLNSubmissionRef *const out);
+int SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const knownURI, strarg_t const knownTarget, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, SLNSubmissionRef *const out);
 void SLNSubmissionFree(SLNSubmissionRef *const subptr);
 SLNRepoRef SLNSubmissionGetRepo(SLNSubmissionRef const sub);
 strarg_t SLNSubmissionGetKnownURI(SLNSubmissionRef const sub);
+strarg_t SLNSubmissionGetKnownTarget(SLNSubmissionRef const sub);
 strarg_t SLNSubmissionGetType(SLNSubmissionRef const sub);
 int SLNSubmissionSetType(SLNSubmissionRef const sub, strarg_t const type);
 uv_file SLNSubmissionGetFile(SLNSubmissionRef const sub);

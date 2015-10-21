@@ -78,6 +78,12 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	targetURI[i] = '\0';
 	pos += i;
 
+	strarg_t const knownTarget = SLNSubmissionGetKnownTarget(sub);
+	if(knownTarget) {
+		if(0 != strcmp(knownTarget, targetURI)) rc = SLN_TARGETMISMATCH;
+		if(rc < 0) goto cleanup;
+	}
+
 	// TODO: Support sub-transactions in LevelDB backend.
 	// TODO: db_txn_begin should support NULL env.
 //	rc = db_txn_begin(NULL, txn, DB_RDWR, &subtxn);
