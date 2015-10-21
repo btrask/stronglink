@@ -47,8 +47,8 @@ Right now there is no configuration interface whatsoever (not even a config file
 - Logging: `SERVER_LOG_FILE` in `src/blog/main.c` (`stdout` or `NULL` for disabled)
 - TLS ciphers and protocols: `TLS_CIPHERS` and `TLS_PROTOCOLS` in `src/blog/main.c`
 
-Database Backends
------------------
+Alternate Database Backends
+---------------------------
 
 StrongLink supports several database backends including MDB (the default), LevelDB, RocksDB, and HyperLevelDB. MDB is the smallest and most stable, and it has the best read performance (making it good for public-facing sites). LevelDB has better write performance and compression (so the database storage can take 1/5th the space).
 
