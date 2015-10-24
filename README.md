@@ -54,7 +54,7 @@ A major challenge of the design is being able to sync a large index quickly betw
 **How does it compare to other content addressing systems?**  
 StrongLink follows my [Principles of Content Addressing](https://bentrask.com/notes/content-addressing.html). It focuses on providing content addresses as regular links you can use between your files.
 
-Since StrongLink doesn't rely on centralized servers, it tries to move application logic out of the files and into the host layer. That means that each node provides its own full text search and other features.
+Since StrongLink doesn't rely on centralized servers, it can't rely on server-side logic. Instead of putting application logic into the files themselves, it tries to provide general-purpose logic itself. That means that each node provides its own full text search and other features. Specialized applications would run on individual nodes and use shared data through StrongLink as a database server/library.
 
 **What is the status of the project?**  
 I've been using StrongLink (and earlier prototypes) for my own notes for years. So far I haven't lost any data (although there have been some close calls).
