@@ -2,6 +2,8 @@
 
 This interface is used for syncing and is the recommended way for applications to talk to StrongLink repositories.
 
+Currently only a subset of endpoints are supported, although it's enough to use all of the basic features.
+
 **GET /sln/file/[algo]/[hash]**  
 Returns the data of a given file. Clients should be aware this is arbitrary user data and potentially malicious.
 
@@ -12,6 +14,18 @@ In the event of a hash collision, it's undefined which version will be returned.
 Planned features: content negotiation, range requests
 
 Implementation status: working but incomplete
+
+**GET /sln/file**  
+Returns the data of a file selected by an arbitrary query. The first matching file will be used. For example, without any parameters returns the data of the newest file in the repository.
+
+Using this endpoint plus queries on mutable meta-data (not fully supported yet), clients can implement simple mutable files.
+
+Parameters:
+- `q`: the query string
+- `lang`: language of the query string
+- `dir`: `a` (ascending) or `z` (descending) direction (default `z`)
+
+Implementation status:  not implemented
 
 **GET /sln/meta/[algo]/[hash]**  
 Returns the current, cumulative meta-data snapshot of a given file in JSON format.
