@@ -70,7 +70,7 @@ In the event of a hash collision, StrongLink always uses the oldest file with th
 
 StrongLink supports several hash lengths. By default, long hashes are used (32 bytes), which are as secure as possible. Medium length hashes (24 bytes) are still secure but slightly shorter. Short hashes (12 bytes) are robust against accidental collisions and convenient to speak, type, or write down.
 
-The first ever collision of a SHA-1 hash was [recently published by a group of researchers](https://www.schneier.com/blog/archives/2015/10/sha-1_freestart.html). StrongLink's primary algorithm was switched to SHA-2 (SHA-256, a widely accepted industry standard) over a year ago. Over time we have plans to migrate to SHA-3 without breaking old links.
+A full SHA-1 collision has never been found, although [we're getting closer](https://www.schneier.com/blog/archives/2015/10/sha-1_freestart.html) and it'll probably happen in the next few years. StrongLink's primary algorithm was switched to SHA-2 (SHA-256, a widely accepted industry standard) over a year ago. Over time we have plans to migrate to SHA-3 without breaking old links.
 
 **What happens if something "immutable" is changed?**  
 There are two basic immutable "things" in StrongLink:
