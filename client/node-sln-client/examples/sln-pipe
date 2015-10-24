@@ -42,6 +42,12 @@ var query = process.argv[4] || "";
 // could also atomically check that it needs a file and begin transferring
 // it (to avoid the thundering herd).
 
+// Warning: There is a heartbeat between this script and src. This script
+// will abort on a connection error. There is no heartbeat with dst and
+// disconnections on that side may not be noticed in a timely matter. If
+// the dst repo is replaced or reset while this script is running, it
+// probably won't notice and could result in an incomplete sync.
+
 
 var files = {}; // URI -> 1
 var metas = {}; // target -> [meta-URIs]
