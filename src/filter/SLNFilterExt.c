@@ -186,8 +186,8 @@ ssize_t SLNFilterCopyURIs(SLNFilterRef const filter, SLNSessionRef const session
 	DB_txn *txn = NULL;
 	ssize_t rc = 0;
 
-	SLNRepoRef const repo = SLNSessionGetRepo(session);
-	SLNRepoDBOpen(repo, &db);
+	rc = SLNSessionDBOpen(session, SLN_RDONLY, &db);
+	if(rc < 0) goto cleanup;
 	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	if(rc < 0) goto cleanup;
 
@@ -222,7 +222,7 @@ ssize_t SLNFilterCopyURIs(SLNFilterRef const filter, SLNSessionRef const session
 
 cleanup:
 	db_txn_abort(txn); txn = NULL;
-	SLNRepoDBClose(repo, &db);
+	SLNSessionDBClose(session, &db);
 
 	return rc;
 }

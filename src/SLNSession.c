@@ -120,6 +120,17 @@ str_t *SLNSessionCopyCookie(SLNSessionRef const session) {
 	return aasprintf("s=%llu:%s", (unsigned long long)session->sessionID, hex);
 }
 
+int SLNSessionDBOpen(SLNSessionRef const session, SLNMode const mode, DB_env **const dbptr) {
+	if(!SLNSessionHasPermission(session, mode)) return DB_EACCES;
+	assert(session);
+	SLNRepoDBOpenUnsafe(SLNSessionGetRepo(session), dbptr);
+	return 0;
+}
+void SLNSessionDBClose(SLNSessionRef const session, DB_env **const dbptr) {
+	assert(session);
+	SLNRepoDBClose(SLNSessionGetRepo(session), dbptr);
+}
+
 
 int SLNSessionCreateUser(SLNSessionRef const session, DB_txn *const txn, strarg_t const username, strarg_t const password) {
 	SLNRepoRef const repo = SLNSessionGetRepo(session);
@@ -162,16 +173,13 @@ int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn,
 }
 
 int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFileInfo *const info) {
-	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
-	if(!URI) return DB_EINVAL;
-
-	SLNRepoRef const repo = SLNSessionGetRepo(session);
 	DB_env *db = NULL;
-	SLNRepoDBOpen(repo, &db);
+	int rc = SLNSessionDBOpen(session, SLN_RDONLY, &db);
+	if(rc < 0) return rc;
 	DB_txn *txn = NULL;
-	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	if(rc < 0) {
-		SLNRepoDBClose(repo, &db);
+		SLNSessionDBClose(session, &db);
 		return rc;
 	}
 
@@ -197,7 +205,7 @@ int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFi
 	}
 	if(rc < 0) {
 		db_txn_abort(txn); txn = NULL;
-		SLNRepoDBClose(repo, &db);
+		SLNSessionDBClose(session, &db);
 		return rc;
 	}
 
@@ -209,19 +217,19 @@ int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFi
 		strarg_t const type = db_read_string(file_val, txn);
 		uint64_t const size = db_read_uint64(file_val);
 		info->hash = strdup(internalHash);
-		info->path = SLNRepoCopyInternalPath(repo, internalHash);
+		info->path = SLNRepoCopyInternalPath(SLNSessionGetRepo(session), internalHash);
 		info->type = strdup(type);
 		info->size = size;
 		if(!info->hash || !info->path || !info->type) {
 			SLNFileInfoCleanup(info);
 			db_txn_abort(txn); txn = NULL;
-			SLNRepoDBClose(repo, &db);
+			SLNSessionDBClose(session, &db);
 			return DB_ENOMEM;
 		}
 	}
 
 	db_txn_abort(txn); txn = NULL;
-	SLNRepoDBClose(repo, &db);
+	SLNSessionDBClose(session, &db);
 	return 0;
 }
 void SLNFileInfoCleanup(SLNFileInfo *const info) {
@@ -265,17 +273,14 @@ int SLNSessionCopyLastSubmissionURIs(SLNSessionRef const session, DB_txn *const 
 
 
 int SLNSessionGetValueForField(SLNSessionRef const session, str_t value[], size_t const max, strarg_t const fileURI, strarg_t const field) {
-	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
-	if(!field) return DB_EINVAL;
-
 	if(max) value[0] = '\0';
 	int rc = 0;
 	DB_cursor *metafiles = NULL;
 	DB_cursor *values = NULL;
 
-	SLNRepoRef const repo = SLNSessionGetRepo(session);
 	DB_env *db = NULL;
-	SLNRepoDBOpen(repo, &db);
+	rc = SLNSessionDBOpen(session, SLN_RDONLY, &db);
+	if(rc < 0) goto done;
 	DB_txn *txn = NULL;
 	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	if(rc < 0) goto done;
@@ -320,7 +325,7 @@ done:
 	db_cursor_close(metafiles); metafiles = NULL;
 
 	db_txn_abort(txn); txn = NULL;
-	SLNRepoDBClose(repo, &db);
+	SLNSessionDBClose(session, &db);
 	return rc;
 }
 

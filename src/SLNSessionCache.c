@@ -134,7 +134,7 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 
 	SLNRepoRef const repo = cache->repo;
 	DB_env *db = NULL;
-	SLNRepoDBOpen(repo, &db);
+	SLNRepoDBOpenUnsafe(repo, &db);
 	DB_txn *txn = NULL;
 	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	if(rc < 0) {
@@ -192,7 +192,7 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 	tohex(key_str, key_enc, SESSION_KEY_LEN);
 	key_str[SESSION_KEY_HEX] = '\0';
 
-	SLNRepoDBOpen(repo, &db);
+	SLNRepoDBOpenUnsafe(repo, &db);
 	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
 	if(rc < 0) return rc;
 
@@ -252,7 +252,7 @@ static int session_lookup(SLNSessionCacheRef const cache, uint64_t const id, byt
 static int session_load(SLNSessionCacheRef const cache, uint64_t const id, byte_t const *const key, SLNSessionRef *const out) {
 	SLNRepoRef const repo = cache->repo;
 	DB_env *db = NULL;
-	SLNRepoDBOpen(repo, &db);
+	SLNRepoDBOpenUnsafe(repo, &db);
 	DB_txn *txn = NULL;
 	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	if(rc < 0) return rc;

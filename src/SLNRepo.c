@@ -165,7 +165,7 @@ SLNSessionCacheRef SLNRepoGetSessionCache(SLNRepoRef const repo) {
 	return repo->session_cache;
 }
 
-void SLNRepoDBOpen(SLNRepoRef const repo, DB_env **const dbptr) {
+void SLNRepoDBOpenUnsafe(SLNRepoRef const repo, DB_env **const dbptr) {
 	assert(repo);
 	assert(dbptr);
 	async_pool_enter(NULL);
@@ -257,7 +257,7 @@ static int createDBConnection(SLNRepoRef const repo) {
 	}
 
 	DB_env *db = NULL;
-	SLNRepoDBOpen(repo, &db);
+	SLNRepoDBOpenUnsafe(repo, &db);
 	DB_txn *txn = NULL;
 	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
 	if(rc < 0) {
@@ -315,7 +315,7 @@ static int createDBConnection(SLNRepoRef const repo) {
 static void loadPulls(SLNRepoRef const repo) {
 	assert(repo);
 	DB_env *db = NULL;
-	SLNRepoDBOpen(repo, &db);
+	SLNRepoDBOpenUnsafe(repo, &db);
 	DB_txn *txn = NULL;
 	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
 	assert(rc >= 0);

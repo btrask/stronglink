@@ -327,15 +327,16 @@ int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn) {
 }
 int SLNSubmissionStoreBatch(SLNSubmissionRef const *const list, size_t const count) {
 	if(!count) return 0;
-	// Session permissions were already checked when the sub was created.
 
-	SLNRepoRef const repo = SLNSessionGetRepo(list[0]->session);
+	SLNSessionRef const session = list[0]->session;
+	SLNRepoRef const repo = SLNSessionGetRepo(session);
 	DB_env *db = NULL;
-	SLNRepoDBOpen(repo, &db);
+	int rc = SLNSessionDBOpen(session, SLN_WRONLY, &db);
+	if(rc < 0) return rc;
 	DB_txn *txn = NULL;
-	int rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
+	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
 	if(rc < 0) {
-		SLNRepoDBClose(repo, &db);
+		SLNSessionDBClose(session, &db);
 		return rc;
 	}
 	uint64_t sortID = 0;
@@ -353,7 +354,7 @@ int SLNSubmissionStoreBatch(SLNSubmissionRef const *const list, size_t const cou
 	} else {
 		db_txn_abort(txn); txn = NULL;
 	}
-	SLNRepoDBClose(repo, &db);
+	SLNSessionDBClose(session, &db);
 	if(rc >= 0) SLNRepoSubmissionEmit(repo, sortID);
 	return rc;
 }
