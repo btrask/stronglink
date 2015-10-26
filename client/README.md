@@ -122,7 +122,7 @@ By default, long-polling APIs will send a blank line every minute or less during
 
 ## Meta-files
 
-MIME type: `application/vnd.stronglink.meta` (pending registration)
+MIME type: `application/vnd.stronglink.meta` (pending registration)  
 Encoding: always UTF-8
 
 The first line is the URI of the meta-file's target. Only hash links are recognized. The URI is followed by two line breaks (a blank line). LF is recommended (it's the most common for JSON) but CRLF and CR are also recognized. By putting this field first, more efficient single-pass parsing is possible during syncing.
