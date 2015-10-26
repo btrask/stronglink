@@ -300,7 +300,12 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 
 	FREE(&primaryURI);
 
-	TemplateWriteHTTPChunk(blog->footer, &TemplateStaticCBs, args, conn);
+	// TODO: HACK
+	// Hide the pagination buttons when there are no results.
+	if(count > 0 || has_start) {
+		TemplateWriteHTTPChunk(blog->footer, &TemplateStaticCBs, args, conn);
+	}
+
 	FREE(&reponame_HTMLSafe);
 	FREE(&querytime_HTMLSafe);
 	FREE(&account_HTMLSafe);
