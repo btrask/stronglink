@@ -2,6 +2,7 @@
 // MIT licensed (see LICENSE for details)
 
 #include <openssl/sha.h>
+#include "../deps/libressl-portable/include/compat/string.h"
 #include "util/pass.h"
 #include "StrongLink.h"
 #include "SLNDB.h"
@@ -272,18 +273,10 @@ int SLNSessionCopyLastSubmissionURIs(SLNSessionRef const session, DB_txn *const 
 }
 
 
-int SLNSessionGetValueForField(SLNSessionRef const session, str_t value[], size_t const max, strarg_t const fileURI, strarg_t const field) {
-	if(max) value[0] = '\0';
+int SLNSessionGetValueForField(SLNSessionRef const session, DB_txn *const txn, strarg_t const fileURI, strarg_t const field, str_t *out, size_t const max) {
 	int rc = 0;
 	DB_cursor *metafiles = NULL;
 	DB_cursor *values = NULL;
-
-	DB_env *db = NULL;
-	rc = SLNSessionDBOpen(session, SLN_RDONLY, &db);
-	if(rc < 0) goto done;
-	DB_txn *txn = NULL;
-	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	if(rc < 0) goto done;
 
 	rc = db_cursor_open(txn, &metafiles);
 	if(rc < 0) goto done;
@@ -311,11 +304,8 @@ int SLNSessionGetValueForField(SLNSessionRef const session, str_t value[], size_
 			SLNMetaFileIDFieldAndValueKeyUnpack(value_val, txn, &m, &f, &v);
 			assert(metaFileID == m);
 			assert(0 == strcmp(field, f));
-			if(!v) continue;
-			if(0 == strcmp("", v)) continue;
-			size_t const len = strlen(v);
-			memcpy(value, v, MIN(len, max-1));
-			value[MIN(len, max-1)] = '\0';
+			if(!v || '\0' == v[0]) continue;
+			strlcpy(out, v, max);
 			goto done;
 		}
 	}
@@ -323,9 +313,6 @@ int SLNSessionGetValueForField(SLNSessionRef const session, str_t value[], size_
 done:
 	db_cursor_close(values); values = NULL;
 	db_cursor_close(metafiles); metafiles = NULL;
-
-	db_txn_abort(txn); txn = NULL;
-	SLNSessionDBClose(session, &db);
 	return rc;
 }
 

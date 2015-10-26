@@ -217,8 +217,19 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 	if(unsafe) return htmlenc(unsafe);
 
 	str_t value[1024 * 4];
-	rc = SLNSessionGetValueForField(state->session, value, sizeof(value), state->fileURI, var);
-	if(rc >= 0 && '\0' != value[0]) unsafe = value;
+	// TODO: Load all vars for the template in one transaction.
+	DB_env *db = NULL;
+	rc = SLNSessionDBOpen(state->session, SLN_RDONLY, &db);
+	if(rc >= 0) {
+		DB_txn *txn = NULL;
+		rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+		if(rc >= 0) {
+			rc = SLNSessionGetValueForField(state->session, txn, state->fileURI, var, value, sizeof(value));
+			if(rc >= 0 && '\0' != value[0]) unsafe = value;
+			db_txn_abort(txn); txn = NULL;
+		}
+		SLNSessionDBClose(state->session, &db);
+	}
 
 	if(!unsafe) {
 		if(0 == strcmp(var, "thumbnailURI")) unsafe = "/file.png";
