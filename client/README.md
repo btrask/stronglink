@@ -23,7 +23,7 @@ Using this endpoint plus queries on mutable meta-data (not fully supported yet),
 Parameters:
 - `q`: the query string
 - `lang`: language of the query string
-- `dir`: `a` (ascending) or `z` (descending) direction (default `z`)
+- `dir`: `a` (ascending) or `z` (descending) direction (default `a`)
 
 Implementation status:  not implemented
 
