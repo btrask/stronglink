@@ -316,3 +316,55 @@ done:
 	return rc;
 }
 
+int SLNSessionGetNextMetaMapURI(SLNSessionRef const session, strarg_t const targetURI, uint64_t *const metaMapID, str_t *out, size_t const max) {
+	// TODO: We should handle URI synonyms.
+	// That might mean accepting a fileID instead of targetURI...
+
+	assert(metaMapID);
+	assert(out);
+
+	uint64_t const sessionID = SLNSessionGetID(session);
+	DB_env *db = NULL;
+	DB_txn *txn = NULL;
+	DB_cursor *cursor = NULL;
+	int rc = 0;
+	size_t count = 0;
+
+	rc = SLNSessionDBOpen(session, SLN_RDONLY, &db);
+	if(rc < 0) goto cleanup;
+	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	if(rc < 0) goto cleanup;
+
+	rc = db_cursor_open(txn, &cursor);
+	if(rc < 0) goto cleanup;
+
+	DB_range range[1];
+	DB_val key[1];
+	SLNTargetURISessionIDAndMetaMapIDRange2(range, txn, targetURI, sessionID);
+	SLNTargetURISessionIDAndMetaMapIDKeyPack(key, txn, targetURI, sessionID, *metaMapID);
+	rc = db_cursor_seekr(cursor, range, key, NULL, +1);
+	if(rc < 0) goto cleanup;
+
+	strarg_t u;
+	uint64_t s;
+	SLNTargetURISessionIDAndMetaMapIDKeyUnpack(key, txn, &u, &s, metaMapID);
+
+	DB_val row[1], val[1];
+	SLNSessionIDAndMetaMapIDToMetaURIAndTargetURIKeyPack(row, txn, sessionID, *metaMapID);
+	rc = db_get(txn, row, val);
+	if(rc < 0) goto cleanup;
+
+	strarg_t metaURI, t;
+	SLNSessionIDAndMetaMapIDToMetaURIAndTargetURIValUnpack(val, txn, &metaURI, &t);
+	db_assert(metaURI);
+
+	strlcpy(out, metaURI, max); // TODO: Handle err
+
+cleanup:
+	db_cursor_close(cursor); cursor = NULL;
+	db_txn_abort(txn); txn = NULL;
+	SLNSessionDBClose(session, &db);
+	if(rc < 0) return rc;
+	return count;
+}
+
