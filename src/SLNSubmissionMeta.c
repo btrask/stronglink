@@ -35,11 +35,15 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	if(!txn) return DB_EINVAL;
 
 	strarg_t const type = SLNSubmissionGetType(sub);
-	if(!type) return 0;
-	if(0 != strcasecmp(SLN_META_TYPE, type) &&
-	   0 != strcasecmp("text/x-sln-meta+json; charset=utf-8", type) &&
-	   0 != strcasecmp("text/efs-meta+json; charset=utf-8", type)) return 0;
+	strarg_t const knownTarget = SLNSubmissionGetKnownTarget(sub);
 	// TODO: Get rid of these obsolete types.
+	if(!type || (
+	   0 != strcasecmp(SLN_META_TYPE, type) &&
+	   0 != strcasecmp("text/x-sln-meta+json; charset=utf-8", type) &&
+	   0 != strcasecmp("text/efs-meta+json; charset=utf-8", type))) {
+		if(knownTarget) return SLN_INVALIDTARGET;
+		return 0;
+	}
 
 	uv_file const fd = SLNSubmissionGetFile(sub);
 	if(fd < 0) return DB_EINVAL;
@@ -87,7 +91,6 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	targetURI[i] = '\0';
 	pos += i;
 
-	strarg_t const knownTarget = SLNSubmissionGetKnownTarget(sub);
 	if(knownTarget) {
 		if(0 != strcmp(knownTarget, targetURI)) rc = SLN_INVALIDTARGET;
 		if(rc < 0) goto cleanup;
