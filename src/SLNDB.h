@@ -383,6 +383,27 @@ static void SLNSessionIDAndMetaMapIDToMetaURIAndTargetURIKeyUnpack(DB_val *const
 	*sessionID = db_read_uint64(val);
 	*metaMapID = db_read_uint64(val);
 }
+static uint64_t SLNNextMetaMapID(DB_txn *const txn, uint64_t const sessionID) {
+	DB_cursor *cursor = NULL;
+	int rc = db_txn_cursor(txn, &cursor);
+	if(rc < 0) return 0;
+
+	DB_range range[1];
+	DB_val key[1];
+	SLNSessionIDAndMetaMapIDToMetaURIAndTargetURIRange1(range, txn, sessionID);
+	rc = db_cursor_firstr(cursor, range, key, NULL, -1);
+	if(DB_NOTFOUND == rc) return 1;
+	if(rc < 0) return 0;
+	uint64_t s, lastID;
+	SLNSessionIDAndMetaMapIDToMetaURIAndTargetURIKeyUnpack(key, txn, &s, &lastID);
+	return lastID+1;
+}
+
+#define SLNSessionIDAndMetaMapIDToMetaURIAndTargetURIValPack(val, txn, metaURI, targetURI) \
+	DB_VAL_STORAGE(val, DB_INLINE_MAX*2); \
+	db_bind_string((val), (metaURI), (txn)); \
+	db_bind_string((val), (targetURI), (txn)); \
+	DB_VAL_STORAGE_VERIFY(val);
 static void SLNSessionIDAndMetaMapIDToMetaURIAndTargetURIValUnpack(DB_val *const val, DB_txn *const txn, strarg_t *const metaURI, strarg_t *const targetURI) {
 	*metaURI = db_read_string(val, txn);
 	*targetURI = db_read_string(val, txn);
