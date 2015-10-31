@@ -284,18 +284,28 @@ int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn) {
 		fileID = db_read_uint64(dupFileID_val);
 	} else return rc;
 
+	DB_val null[1];
+
+	uint64_t const sessionID = SLNSessionGetID(sub->session);
+	DB_val session_key[1];
+	SLNFileIDAndSessionIDKeyPack(session_key, txn, fileID, sessionID);
+	db_nullval(null);
+	rc = db_put(txn, session_key, null, 0);
+	if(rc < 0) return rc;
+
 	for(size_t i = 0; sub->URIs[i]; ++i) {
 		strarg_t const URI = sub->URIs[i];
-		DB_val null = { 0, NULL };
 
 		DB_val fwd[1];
 		SLNFileIDAndURIKeyPack(fwd, txn, fileID, URI);
-		rc = db_put(txn, fwd, &null, DB_NOOVERWRITE_FAST);
+		db_nullval(null);
+		rc = db_put(txn, fwd, null, DB_NOOVERWRITE_FAST);
 		if(rc < 0 && DB_KEYEXIST != rc) return rc;
 
 		DB_val rev[1];
 		SLNURIAndFileIDKeyPack(rev, txn, URI, fileID);
-		rc = db_put(txn, rev, &null, DB_NOOVERWRITE_FAST);
+		db_nullval(null);
+		rc = db_put(txn, rev, null, DB_NOOVERWRITE_FAST);
 		if(rc < 0 && DB_KEYEXIST != rc) return rc;
 	}
 

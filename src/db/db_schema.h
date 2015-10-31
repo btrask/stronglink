@@ -69,3 +69,8 @@ void db_bind_string_len(DB_val *const val, char const *const str, size_t const l
 // Assumes lexicographic ordering. Don't use it if you changed cmp functions.
 void db_range_genmax(DB_range *const range);
 
+static void db_nullval(DB_val *const val) {
+	val->size = 0;
+	val->data = NULL;
+}
+
