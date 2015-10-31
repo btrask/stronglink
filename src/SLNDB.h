@@ -28,8 +28,9 @@ enum {
 	SLNTermMetaFileIDAndPosition = 65,
 	SLNFirstUniqueMetaFileID = 66,
 
-	SLNTargetURISessionIDAndIndexToMetaURI = 80,
-	SLNMetaURIAndSessionIDToTargetURIAndIndex = 81,
+	SLNFileIDAndSessionID = 80,
+	SLNTargetURISessionIDAndIndexToMetaURI = 81,
+	SLNMetaURIAndSessionIDToTargetURIAndIndex = 82,
 
 	// It's expected that values less than ~240 should fit in one byte
 	// Depending on the varint format, of course
@@ -343,6 +344,25 @@ static void SLNFirstUniqueMetaFileIDKeyUnpack(DB_val *const val, DB_txn *const t
 }
 
 ///
+
+#define SLNFileIDAndSessionIDKeyPack(val, txn, fileID, sessionID) \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX*3); \
+	db_bind_uint64((val), SLNFileIDAndSessionID); \
+	db_bind_uint64((val), (fileID)); \
+	db_bind_uint64((val), (sessionID)); \
+	DB_VAL_STORAGE_VERIFY(val);
+#define SLNFileIDAndSessionIDRange1(range, txn, fileID) \
+	DB_RANGE_STORAGE(range, DB_VARINT_MAX*2); \
+	db_bind_uint64((range)->min, SLNFileIDAndSessionID); \
+	db_bind_uint64((range)->min, (fileID)); \
+	db_range_genmax((range)); \
+	DB_RANGE_STORAGE_VERIFY(range);
+static void SLNFileIDAndSessionIDKeyUnpack(DB_val *const val, DB_txn *const txn, uint64_t *const fileID, uint64_t *const sessionID) {
+	uint64_t const table = db_read_uint64(val);
+	assert(SLNFileIDAndSessionID == table);
+	*fileID = db_read_uint64(val);
+	*sessionID = db_read_uint64(val);
+}
 
 #define SLNTargetURISessionIDAndIndexToMetaURIKeyPack(val, txn, targetURI, sessionID, index) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX*3 + DB_INLINE_MAX*1); \
