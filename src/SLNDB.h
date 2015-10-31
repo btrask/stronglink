@@ -371,6 +371,12 @@ static void SLNFileIDAndSessionIDKeyUnpack(DB_val *const val, DB_txn *const txn,
 	db_bind_uint64((val), (sessionID)); \
 	db_bind_uint64((val), (metaMapID)); \
 	DB_VAL_STORAGE_VERIFY(val);
+#define SLNSessionIDAndMetaMapIDToMetaURIAndTargetURIRange1(range, txn, sessionID) \
+	DB_RANGE_STORAGE(range, DB_VARINT_MAX*2); \
+	db_bind_uint64((range)->min, SLNSessionIDAndMetaMapIDToMetaURIAndTargetURI); \
+	db_bind_uint64((range)->min, (sessionID)); \
+	db_range_genmax((range)); \
+	DB_RANGE_STORAGE_VERIFY(range);
 static void SLNSessionIDAndMetaMapIDToMetaURIAndTargetURIKeyUnpack(DB_val *const val, DB_txn *const txn, uint64_t *const sessionID, uint64_t *const metaMapID) {
 	uint64_t const table = db_read_uint64(val);
 	assert(SLNSessionIDAndMetaMapIDToMetaURIAndTargetURI == table);
