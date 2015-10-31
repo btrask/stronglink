@@ -421,6 +421,11 @@ static void SLNMetaURIAndSessionIDToMetaMapIDKeyUnpack(DB_val *const val, DB_txn
 	*metaURI = db_read_string(val, txn);
 	*sessionID = db_read_uint64(val);
 }
+#define SLNMetaURIAndSessionIDToMetaMapIDValPack(val, txn, metaMapID) \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX); \
+	db_bind_uint64((val), (metaMapID)); \
+	DB_VAL_STORAGE_VERIFY(val);
+
 
 #define SLNTargetURISessionIDAndMetaMapIDKeyPack(val, txn, targetURI, sessionID, metaMapID) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX*3 + DB_INLINE_MAX*1); \
