@@ -28,6 +28,9 @@ enum {
 	SLNTermMetaFileIDAndPosition = 65,
 	SLNFirstUniqueMetaFileID = 66,
 
+	SLNTargetURISessionIDAndIndexToMetaURI = 80,
+	SLNMetaURIAndSessionIDToTargetURIAndIndex = 81,
+
 	// It's expected that values less than ~240 should fit in one byte
 	// Depending on the varint format, of course
 
@@ -136,6 +139,8 @@ static void SLNPullByIDValUnpack(DB_val *const val, DB_txn *const txn, uint64_t 
 	*query = db_read_string(val, txn);
 }
 
+///
+
 #define SLNFileByIDKeyPack(val, txn, fileID) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_VARINT_MAX); \
 	db_bind_uint64((val), SLNFileByID); \
@@ -201,6 +206,8 @@ static void SLNURIAndFileIDKeyUnpack(DB_val *const val, DB_txn *const txn, strar
 	*URI = db_read_string(val, txn);
 	*fileID = db_read_uint64(val);
 }
+
+///
 
 #define SLNMetaFileByIDKeyPack(val, txn, metaFileID) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_VARINT_MAX); \
@@ -333,5 +340,52 @@ static void SLNFirstUniqueMetaFileIDKeyUnpack(DB_val *const val, DB_txn *const t
 	uint64_t const table = db_read_uint64(val);
 	assert(SLNFirstUniqueMetaFileID == table);
 	*metaFileID = db_read_uint64(val);
+}
+
+///
+
+#define SLNTargetURISessionIDAndIndexToMetaURIKeyPack(val, txn, targetURI, sessionID, index) \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX*3 + DB_INLINE_MAX*1); \
+	db_bind_uint64((val), SLNTargetURISessionIDAndIndexToMetaURI); \
+	db_bind_string((val), (targetURI), (txn)); \
+	db_bind_uint64((val), (sessionID)); \
+	db_bind_uint64((val), (index)); \
+	DB_VAL_STORAGE_VERIFY(val);
+#define SLNTargetURISessionIDAndIndexToMetaURIRange2(range, txn, targetURI, sessionID) \
+	DB_RANGE_STORAGE(range, DB_VARINT_MAX*2 + DB_INLINE_MAX*1); \
+	db_bind_uint64((range)->min, SLNTargetURISessionIDAndIndexToMetaURI); \
+	db_bind_string((range)->min, (targetURI), (txn)); \
+	db_bind_uint64((range)->min, (sessionID)); \
+	db_range_genmax((range)); \
+	DB_RANGE_STORAGE_VERIFY(range);
+static void SLNTargetURISessionIDAndIndexToMetaURIKeyUnpack(DB_val *const val, DB_txn *const txn, strarg_t *const targetURI, uint64_t *const sessionID, uint64_t *const index) {
+	uint64_t const table = db_read_uint64(val);
+	assert(SLNTargetURISessionIDAndIndexToMetaURI == table);
+	*targetURI = db_read_string(val, txn);
+	*sessionID = db_read_uint64(val);
+	*index = db_read_uint64(val);
+}
+
+#define SLNMetaURIAndSessionIDToTargetURIAndIndexKeyPack(val, txn, metaURI, sessionID) \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX*2 + DB_INLINE_MAX*1); \
+	db_bind_uint64((val), SLNMetaURIAndSessionIDToTargetURIAndIndex); \
+	db_bind_string((val), (metaURI), (txn)); \
+	db_bind_uint64((val), (sessionID)); \
+	DB_VAL_STORAGE_VERIFY(val);
+static void SLNMetaURIAndSessionIDToTargetURIAndIndexKeyUnpack(DB_val *const val, DB_txn *const txn, strarg_t *const metaURI, uint64_t *const sessionID) {
+	uint64_t const table = db_read_uint64(val);
+	assert(SLNMetaURIAndSessionIDToTargetURIAndIndex == table);
+	*metaURI = db_read_string(val, txn);
+	*sessionID = db_read_uint64(val);
+}
+#define SLNMetaURIAndSessionIDToTargetURIAndIndexValPack(val, txn, targetURI, index) \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX*2 + DB_INLINE_MAX*1); \
+	db_bind_uint64((val), SLNMetaURIAndSessionIDToTargetURIAndIndex); \
+	db_bind_string((val), (targetURI), (txn)); \
+	db_bind_uint64((val), (index)); \
+	DB_VAL_STORAGE_VERIFY(val);
+static void SLNMetaURIAndSessionIDToTargetURIAndIndexValUnpack(DB_val *const val, DB_txn *const txn, strarg_t *const targetURI, uint64_t *const index) {
+	*targetURI = db_read_string(val, txn);
+	*index = db_read_uint64(val);
 }
 
