@@ -107,6 +107,8 @@ int SLNSessionCreateUser(SLNSessionRef const session, DB_txn *const txn, strarg_
 int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn, strarg_t const username, strarg_t const password, SLNMode const mode_unsafe);
 int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFileInfo *const info);
 void SLNFileInfoCleanup(SLNFileInfo *const info);
+int SLNSessionGetSubmittedFile(SLNSessionRef const session, DB_txn *const txn, strarg_t const URI); // Relevant results are DB_NOTFOUND and SLN_NOSESSION.
+int SLNSessionSetSubmittedFile(SLNSessionRef const session, DB_txn *const txn, strarg_t const URI);
 int SLNSessionCopyLastSubmissionURIs(SLNSessionRef const session, DB_txn *const txn, str_t **const outFileURI, str_t **const outMetaURI);
 int SLNSessionGetValueForField(SLNSessionRef const session, DB_txn *const txn, strarg_t const fileURI, strarg_t const field, str_t *out, size_t const max);
 int SLNSessionGetNextMetaMapURI(SLNSessionRef const session, strarg_t const targetURI, uint64_t *const metaMapID, str_t *out, size_t const max);
