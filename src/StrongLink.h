@@ -29,6 +29,7 @@ typedef struct SLNSubmission* SLNSubmissionRef;
 typedef struct SLNHasher* SLNHasherRef;
 typedef struct SLNFilter* SLNFilterRef;
 typedef struct SLNJSONFilterParser* SLNJSONFilterParserRef;
+typedef struct SLNSync* SLNSyncRef;
 typedef struct SLNPull* SLNPullRef;
 
 // BerkeleyDB uses -30800 to -30999
@@ -231,6 +232,14 @@ SLNFilterRef SLNJSONFilterParserEnd(SLNJSONFilterParserRef const parser);
 SLNFilterType SLNFilterTypeFromString(strarg_t const type, size_t const len);
 
 int SLNUserFilterParse(SLNSessionRef const session, strarg_t const query, SLNFilterRef *const out);
+
+int SLNSyncCreate(SLNSessionRef const session, SLNSyncRef *const out);
+void SLNSyncFree(SLNSyncRef *const syncptr);
+int SLNSyncFileAvailable(SLNSyncRef const sync, strarg_t const URI, strarg_t const targetURI);
+int SLNSyncIngestFileURI(SLNSyncRef const sync, strarg_t const fileURI);
+int SLNSyncIngestMetaURI(SLNSyncRef const sync, strarg_t const metaURI, strarg_t const targetURI);
+int SLNSyncWorkAwait(SLNSyncRef const sync, SLNSubmissionRef *const out);
+int SLNSyncWorkDone(SLNSyncRef const sync, SLNSubmissionRef const sub);
 
 SLNPullRef SLNRepoCreatePull(SLNRepoRef const repo, uint64_t const pullID, uint64_t const userID, strarg_t const host, strarg_t const sessionid, strarg_t const query);
 void SLNPullFree(SLNPullRef *const pullptr);

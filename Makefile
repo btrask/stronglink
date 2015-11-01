@@ -112,6 +112,7 @@ OBJECTS := \
 	$(BUILD_DIR)/SLNSubmission.o \
 	$(BUILD_DIR)/SLNSubmissionMeta.o \
 	$(BUILD_DIR)/SLNHasher.o \
+	$(BUILD_DIR)/SLNSync.o \
 	$(BUILD_DIR)/SLNPull.o \
 	$(BUILD_DIR)/SLNServer.o \
 	$(BUILD_DIR)/filter/SLNFilter.o \
