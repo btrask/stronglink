@@ -415,4 +415,42 @@ cleanup:
 	if(rc < 0) return rc;
 	return count;
 }
+int SLNSessionAddMetaMap(SLNSessionRef const session, strarg_t const metaURI, strarg_t const targetURI) {
+	uint64_t const sessionID = SLNSessionGetID(session);
+
+	DB_env *db = NULL;
+	DB_txn *txn = NULL;
+	int rc = SLNSessionDBOpen(session, SLN_RDWR, &db);
+	if(rc < 0) goto cleanup;
+	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
+	if(rc < 0) goto cleanup;
+
+	uint64_t nextID = SLNNextMetaMapID(txn, sessionID);
+	if(!nextID) rc = DB_EIO;
+	if(rc < 0) goto cleanup;
+
+	DB_val mainkey[1], mainval[1];
+	SLNSessionIDAndMetaMapIDToMetaURIAndTargetURIKeyPack(mainkey, txn, sessionID, nextID);
+	SLNSessionIDAndMetaMapIDToMetaURIAndTargetURIValPack(mainval, txn, metaURI, targetURI);
+	rc = db_put(txn, mainkey, mainval, DB_NOOVERWRITE_FAST);
+	if(rc < 0) goto cleanup;
+
+	DB_val fwdkey[1], fwdval[1];
+	SLNMetaURIAndSessionIDToMetaMapIDKeyPack(fwdkey, txn, metaURI, sessionID);
+	SLNMetaURIAndSessionIDToMetaMapIDValPack(fwdval, txn, nextID);
+	rc = db_put(txn, fwdkey, fwdval, DB_NOOVERWRITE_FAST);
+	if(rc < 0) goto cleanup;
+
+	DB_val revkey[1], revval[1];
+	SLNTargetURISessionIDAndMetaMapIDKeyPack(revkey, txn, targetURI, sessionID, nextID);
+	db_nullval(revval);
+	rc = db_put(txn, revkey, revval, DB_NOOVERWRITE_FAST);
+	if(rc < 0) goto cleanup;
+
+	rc = db_txn_commit(txn); txn = NULL;
+cleanup:
+	db_txn_abort(txn); txn = NULL;
+	SLNSessionDBClose(session, &db);
+	return rc;
+}
 
