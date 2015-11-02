@@ -1,5 +1,14 @@
 # -*- coding: utf-8 -*-
-from html.parser import HTMLParser, HTMLParseError
+from html.parser import HTMLParser
+
+try:
+    from html.parser import HTMLParseError
+except ImportError:
+    # HTMLParseError was removed in Python 3.5. It could never be
+    # thrown, so we define a placeholder instead.
+    class HTMLParseError(Exception):
+        pass
+
 from html.entities import name2codepoint
 import sys
 import re
@@ -12,6 +21,7 @@ whitespace_re = re.compile('\s+')
 class MyHTMLParser(HTMLParser):
     def __init__(self):
         HTMLParser.__init__(self)
+        self.convert_charrefs = False
         self.last = "starttag"
         self.in_pre = False
         self.output = ""

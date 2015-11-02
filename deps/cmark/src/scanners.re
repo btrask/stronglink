@@ -6,11 +6,17 @@ bufsize_t _scan_at(bufsize_t (*scanner)(const unsigned char *), cmark_chunk *c, 
 {
 	bufsize_t res;
 	unsigned char *ptr = (unsigned char *)c->data;
-	unsigned char lim = ptr[c->len];
+        unsigned char zero = '\0';
 
-	ptr[c->len] = '\0';
-	res = scanner(ptr + offset);
-	ptr[c->len] = lim;
+        if (ptr == NULL) {
+          res = scanner(&zero);
+        } else {
+	  unsigned char lim = ptr[c->len];
+
+	  ptr[c->len] = '\0';
+	  res = scanner(ptr + offset);
+	  ptr[c->len] = lim;
+        }
 
 	return res;
 }
@@ -32,7 +38,7 @@ bufsize_t _scan_at(bufsize_t (*scanner)(const unsigned char *), cmark_chunk *c, 
 
   tagname = [A-Za-z][A-Za-z0-9-]*;
 
-  blocktagname = 'address'|'article'|'aside'|'base'|'basefont'|'blockquote'|'body'|'caption'|'center'|'col'|'colgroup'|'dd'|'details'|'dialog'|'dir'|'div'|'dl'|'dt'|'fieldset'|'figcaption'|'figure'|'footer'|'form'|'frame'|'frameset'|'h1'|'head'|'header'|'hr'|'html'|'legend'|'li'|'link'|'main'|'menu'|'menuitem'|'meta'|'nav'|'noframes'|'ol'|'optgroup'|'option'|'p'|'param'|'section'|'source'|'title'|'summary'|'table'|'tbody'|'td'|'tfoot'|'th'|'thead'|'title'|'tr'|'track'|'ul';
+  blocktagname = 'address'|'article'|'aside'|'base'|'basefont'|'blockquote'|'body'|'caption'|'center'|'col'|'colgroup'|'dd'|'details'|'dialog'|'dir'|'div'|'dl'|'dt'|'fieldset'|'figcaption'|'figure'|'footer'|'form'|'frame'|'frameset'|'h1'|'head'|'header'|'hr'|'html'|'iframe'|'legend'|'li'|'link'|'main'|'menu'|'menuitem'|'meta'|'nav'|'noframes'|'ol'|'optgroup'|'option'|'p'|'param'|'section'|'source'|'title'|'summary'|'table'|'tbody'|'td'|'tfoot'|'th'|'thead'|'title'|'tr'|'track'|'ul';
 
   attributename = [a-zA-Z_:][a-zA-Z0-9:._-]*;
 

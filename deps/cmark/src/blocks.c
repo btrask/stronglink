@@ -774,7 +774,7 @@ static void S_process_line(cmark_parser *parser, const unsigned char *buffer,
       container->as.code.fenced = true;
       container->as.code.fence_char = peek_at(&input, parser->first_nonspace);
       container->as.code.fence_length = matched;
-      container->as.code.fence_offset = parser->first_nonspace - parser->offset;
+      container->as.code.fence_offset = (int8_t)(parser->first_nonspace - parser->offset);
       container->as.code.info = cmark_chunk_literal("");
       S_advance_offset(parser, &input,
                        parser->first_nonspace + matched - parser->offset,
@@ -812,7 +812,6 @@ static void S_process_line(cmark_parser *parser, const unsigned char *buffer,
       // it's only now that we know the line is not part of a setext header:
       container =
           add_child(parser, container, NODE_HRULE, parser->first_nonspace + 1);
-      container = finalize(parser, container);
       S_advance_offset(parser, &input, input.len - 1 - parser->offset, false);
 
     } else if ((matched =
@@ -898,6 +897,7 @@ static void S_process_line(cmark_parser *parser, const unsigned char *buffer,
   container->last_line_blank =
       (parser->blank && container->type != NODE_BLOCK_QUOTE &&
        container->type != NODE_HEADER &&
+       container->type != NODE_HRULE &&
        !(container->type == NODE_CODE_BLOCK && container->as.code.fenced) &&
        !(container->type == NODE_ITEM && container->first_child == NULL &&
          container->start_line == parser->line_number));
