@@ -8,11 +8,12 @@
 # platforms; you should not need to change any of these.
 # Read their descriptions in mdb.c if you do:
 #
-# - MDB_USE_POSIX_SEM
+# - MDB_USE_POSIX_MUTEX, MDB_USE_POSIX_SEM, MDB_USE_SYSV_SEM
 # - MDB_DSYNC
 # - MDB_FDATASYNC
 # - MDB_FDATASYNC_WORKS
 # - MDB_USE_PWRITEV
+# - MDB_USE_ROBUST
 #
 # There may be other macros in mdb.c of interest. You should
 # read mdb.c before changing any of them.
@@ -36,6 +37,10 @@ PROGS	= $(IPROGS) mtest mtest2 mtest3 mtest4 mtest5
 all:	$(ILIBS) $(PROGS)
 
 install: $(ILIBS) $(IPROGS) $(IHDRS)
+	mkdir -p $(DESTDIR)$(prefix)/bin
+	mkdir -p $(DESTDIR)$(prefix)/lib
+	mkdir -p $(DESTDIR)$(prefix)/include
+	mkdir -p $(DESTDIR)$(prefix)/man/man1
 	for f in $(IPROGS); do cp $$f $(DESTDIR)$(prefix)/bin; done
 	for f in $(ILIBS); do cp $$f $(DESTDIR)$(prefix)/lib; done
 	for f in $(IHDRS); do cp $$f $(DESTDIR)$(prefix)/include; done

@@ -97,7 +97,7 @@ HEADERS := \
 	$(DEPS_DIR)/fts3/fts3_tokenizer.h \
 	$(DEPS_DIR)/libco/libco.h \
 	$(DEPS_DIR)/http_parser/http_parser.h \
-	$(DEPS_DIR)/lsmdb/liblmdb/lmdb.h \
+	$(DEPS_DIR)/liblmdb/lmdb.h \
 	$(DEPS_DIR)/multipart-parser-c/multipart_parser.h \
 	$(DEPS_DIR)/libressl-portable/include/compat/stdlib.h \
 	$(DEPS_DIR)/libressl-portable/include/compat/string.h \
@@ -192,7 +192,7 @@ CFLAGS += -I$(DEPS_DIR)/cmark/build/src
 STATIC_LIBS += $(YAJL_BUILD_DIR)/lib/libyajl_s.a
 CFLAGS += -I$(YAJL_BUILD_DIR)/include
 
-STATIC_LIBS += $(DEPS_DIR)/lsmdb/liblmdb/liblmdb.a
+STATIC_LIBS += $(DEPS_DIR)/liblmdb/liblmdb.a
 
 STATIC_LIBS += $(DEPS_DIR)/uv/.libs/libuv.a
 
@@ -219,10 +219,6 @@ else ifeq ($(DB),hyper)
   LIBS += -lhyperleveldb
   LIBS += -lstdc++
   OBJECTS += $(BUILD_DIR)/db/db_base_leveldb.o
-else ifeq ($(DB),lsmdb)
-  HEADERS += $(DEPS_DIR)/lsmdb/lsmdb.h
-  OBJECTS += $(BUILD_DIR)/deps/lsmdb/lsmdb.o
-  OBJECTS += $(BUILD_DIR)/db/db_base_lsmdb.o
 else ifeq ($(DB),leveldb)
   CFLAGS += -I$(DEPS_DIR)/leveldb/include -I$(DEPS_DIR)/snappy/include
   STATIC_LIBS += $(DEPS_DIR)/leveldb/libleveldb.a $(DEPS_DIR)/snappy/.libs/libsnappy.a
@@ -247,10 +243,10 @@ $(YAJL_BUILD_DIR)/lib/libyajl_s.a: | yajl
 yajl:
 	$(MAKE) yajl_s/fast -C $(DEPS_DIR)/yajl/build --no-print-directory
 
-$(DEPS_DIR)/lsmdb/liblmdb/liblmdb.a: | mdb
+$(DEPS_DIR)/liblmdb/liblmdb.a: | mdb
 .PHONY: mdb
 mdb:
-	$(MAKE) -C $(DEPS_DIR)/lsmdb/liblmdb --no-print-directory
+	$(MAKE) -C $(DEPS_DIR)/liblmdb --no-print-directory
 
 $(DEPS_DIR)/leveldb/libleveldb.a: | leveldb
 .PHONY: leveldb
@@ -304,10 +300,6 @@ $(BUILD_DIR)/deps/libcoro/%.o: $(DEPS_DIR)/libcoro/%.c $(DEPS_DIR)/libcoro/coro.
 $(BUILD_DIR)/deps/multipart_parser.o: $(DEPS_DIR)/multipart-parser-c/multipart_parser.c $(DEPS_DIR)/multipart-parser-c/multipart_parser.h
 	@- mkdir -p $(dir $@)
 	$(CC) -c $(CFLAGS) -std=c89 -ansi -pedantic -Wall $< -o $@
-
-$(BUILD_DIR)/deps/lsmdb/%.o: $(DEPS_DIR)/lsmdb/%.c $(DEPS_DIR)/lsmdb/lsmdb.h $(DEPS_DIR)/lsmdb/liblmdb/lmdb.h
-	@- mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) $(WARNINGS) -Wno-format-extra-args $< -o $@
 
 $(BUILD_DIR)/deps/fts3/%.o: $(DEPS_DIR)/fts3/%.c $(DEPS_DIR)/fts3/fts3Int.h $(DEPS_DIR)/fts3/fts3_tokenizer.h $(DEPS_DIR)/fts3/sqlite3.h
 	@- mkdir -p $(dir $@)
@@ -386,7 +378,7 @@ clean:
 distclean: clean
 	- $(MAKE) distclean -C $(DEPS_DIR)/cmark
 	- $(MAKE) clean -C $(DEPS_DIR)/leveldb
-	- $(MAKE) clean -C $(DEPS_DIR)/lsmdb/liblmdb
+	- $(MAKE) clean -C $(DEPS_DIR)/liblmdb
 	- $(MAKE) distclean -C $(DEPS_DIR)/libressl-portable
 	- $(MAKE) distclean -C $(DEPS_DIR)/snappy
 	- $(MAKE) distclean -C $(DEPS_DIR)/uv

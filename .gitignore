@@ -10,9 +10,6 @@ deps/uv/uv.xcodeproj
 /res/experiments linguist-documentation
 res/async_sqlite.c linguist-documentation
 
-/deps/lsmdb/liblmdb/mdb_dump
-/deps/lsmdb/liblmdb/mdb_load
-
 /deps/yajl/test/parsing/cases/am_stuff.json.out
 /deps/yajl/test/parsing/cases/am_stuff.json.test
 

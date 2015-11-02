@@ -14,7 +14,7 @@
 #include <leveldb/c.h>
 #endif
 
-#include "../../deps/lsmdb/liblmdb/lmdb.h"
+#include "../../deps/liblmdb/lmdb.h"
 #include "db_base.h"
 
 // TODO

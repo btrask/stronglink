@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include "db_base.h"
-#include "../../deps/lsmdb/liblmdb/lmdb.h"
+#include "../../deps/liblmdb/lmdb.h"
 
 // MDB private definition but seems unlikely to change.
 // We double check it at run time and return an error if it's different.

@@ -133,7 +133,6 @@ Only libraries that StrongLink "bundles" count. Currently those libraries are:
 - leveldb
 - libco
 - libressl-portable
-- lsmdb
 - mdb
 - multipart-parser-c
 - mumurhash3
@@ -141,7 +140,7 @@ Only libraries that StrongLink "bundles" count. Currently those libraries are:
 - libuv
 - yajl
 
-libc and other system libraries are NOT included. libcoro is excluded because it is only used for debugging under Valgrind. lsmdb is included despite not being used by default (because I wrote it).
+libc and other system libraries are NOT included. libcoro is excluded because it is only used for debugging under Valgrind.
 
 In order to discourage "high frequency trading" of widely publicized upstream bug reports, the original discoverer of a published bug has 7 days to bring it to our attention. If we still haven't documented/fixed the issue after 7 days, anyone may report it and claim the bounty. If no bounty was awarded for a particular bug, the original discoverer may claim it at any time indefinitely, even after it was fixed.
 
