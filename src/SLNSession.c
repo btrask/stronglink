@@ -290,33 +290,53 @@ int SLNSessionSetSubmittedFile(SLNSessionRef const session, DB_txn *const txn, s
 	return rc;
 }
 
-int SLNSessionCopyLastSubmissionURIs(SLNSessionRef const session, DB_txn *const txn, str_t *const outFileURI, str_t *const outMetaURI) {
-	int rc;
+int SLNSessionCopyLastSubmissionURIs(SLNSessionRef const session, str_t *const outFileURI, str_t *const outMetaURI) {
+	DB_env *db = NULL;
+	DB_txn *txn = NULL;
+	int rc = SLNSessionDBOpen(session, SLN_RDWR, &db);
+	if(rc < 0) goto cleanup;
+	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	if(rc < 0) goto cleanup;
+
 	if(outFileURI) {
-		strarg_t file_uri = NULL;
-		DB_val file_key[1], file_val[1];
-		DB_VAL_STORAGE(file_key, DB_VARINT_MAX*2);
-		db_bind_uint64(file_key, SLNLastFileURIBySessionID);
-		db_bind_uint64(file_key, session->sessionID);
-		DB_VAL_STORAGE_VERIFY(file_key);
-		rc = db_get(txn, file_key, file_val);
-		if(rc >= 0) file_uri = db_read_string(file_val, txn);
-		else if(DB_NOTFOUND != rc) return rc;
-		strlcpy(outFileURI, file_uri, SLN_URI_MAX);
+		DB_val key[1], val[1];
+		DB_VAL_STORAGE(key, DB_VARINT_MAX*2);
+		db_bind_uint64(key, SLNLastFileURIBySessionID);
+		db_bind_uint64(key, session->sessionID);
+		DB_VAL_STORAGE_VERIFY(key);
+		rc = db_get(txn, key, val);
+		if(rc >= 0) {
+			strarg_t const URI = db_read_string(val, txn);
+			strlcpy(outFileURI, URI, SLN_URI_MAX);
+		} else if(DB_NOTFOUND == rc) {
+			outFileURI[0] = '\0';
+			rc = 0;
+		} else {
+			goto cleanup;
+		}
 	}
 	if(outMetaURI) {
-		strarg_t meta_uri = NULL;
-		DB_val meta_key[1], meta_val[1];
-		DB_VAL_STORAGE(meta_key, DB_VARINT_MAX*2);
-		db_bind_uint64(meta_key, SLNLastMetaURIBySessionID);
-		db_bind_uint64(meta_key, session->sessionID);
-		DB_VAL_STORAGE_VERIFY(meta_key);
-		rc = db_get(txn, meta_key, meta_val);
-		if(rc >= 0) meta_uri = db_read_string(meta_val, txn);
-		else if(DB_NOTFOUND != rc) return rc;
-		strlcpy(outMetaURI, meta_uri, SLN_URI_MAX);
+		DB_val key[1], val[1];
+		DB_VAL_STORAGE(key, DB_VARINT_MAX*2);
+		db_bind_uint64(key, SLNLastMetaURIBySessionID);
+		db_bind_uint64(key, session->sessionID);
+		DB_VAL_STORAGE_VERIFY(key);
+		rc = db_get(txn, key, val);
+		if(rc >= 0) {
+			strarg_t const URI = db_read_string(val, txn);
+			strlcpy(outMetaURI, URI, SLN_URI_MAX);
+		} else if(DB_NOTFOUND == rc) {
+			outMetaURI[0] = '\0';
+			rc = 0;
+		} else {
+			goto cleanup;
+		}
 	}
-	return 0;
+
+cleanup:
+	db_txn_abort(txn); txn = NULL;
+	SLNSessionDBClose(session, &db);
+	return rc;
 }
 
 

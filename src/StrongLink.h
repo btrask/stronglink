@@ -110,7 +110,7 @@ int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFi
 void SLNFileInfoCleanup(SLNFileInfo *const info);
 int SLNSessionGetSubmittedFile(SLNSessionRef const session, DB_txn *const txn, strarg_t const URI); // Relevant results are DB_NOTFOUND and SLN_NOSESSION.
 int SLNSessionSetSubmittedFile(SLNSessionRef const session, DB_txn *const txn, strarg_t const URI);
-int SLNSessionCopyLastSubmissionURIs(SLNSessionRef const session, DB_txn *const txn, str_t *const outFileURI, str_t *const outMetaURI);
+int SLNSessionCopyLastSubmissionURIs(SLNSessionRef const session, str_t *const outFileURI, str_t *const outMetaURI);
 int SLNSessionGetValueForField(SLNSessionRef const session, DB_txn *const txn, strarg_t const fileURI, strarg_t const field, str_t *out, size_t const max);
 int SLNSessionGetNextMetaMapURI(SLNSessionRef const session, strarg_t const targetURI, uint64_t *const metaMapID, str_t *out, size_t const max);
 int SLNSessionAddMetaMap(SLNSessionRef const session, strarg_t const metaURI, strarg_t const targetURI);
@@ -241,7 +241,7 @@ int SLNSyncIngestMetaURI(SLNSyncRef const sync, strarg_t const metaURI, strarg_t
 int SLNSyncWorkAwait(SLNSyncRef const sync, SLNSubmissionRef *const out);
 int SLNSyncWorkDone(SLNSyncRef const sync, SLNSubmissionRef const sub);
 
-SLNPullRef SLNRepoCreatePull(SLNRepoRef const repo, uint64_t const pullID, uint64_t const userID, strarg_t const host, strarg_t const sessionid, strarg_t const query);
+int SLNPullCreate(SLNSessionRef *const insession, strarg_t const host, strarg_t const path, strarg_t const query, strarg_t const cookie, SLNPullRef *const out);
 void SLNPullFree(SLNPullRef *const pullptr);
 int SLNPullStart(SLNPullRef const pull);
 void SLNPullStop(SLNPullRef const pull);

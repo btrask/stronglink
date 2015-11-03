@@ -1,413 +1,229 @@
-// Copyright 2014-2015 Ben Trask
+// Copyright 2015 Ben Trask
 // MIT licensed (see LICENSE for details)
 
 #include <assert.h>
-#include "StrongLink.h"
-#include "db/db_schema.h"
 #include "http/HTTP.h"
 #include "http/QueryString.h"
+#include "StrongLink.h"
 
-// TODO: This entire file is obsolete.
-// It implements the old sync algorithm using /sln/all, which
-// mixes files and meta-files. The correct algorithm is implemented in
-// the `sln-pipe` example script. On the other hand, this version is much
-// faster because it does concurrent transfers and batching.
-// This algorithm still works fine for full mirrors, but it doesn't work
-// with queries (partial mirrors).
-
-#define READER_COUNT 64
-#define QUEUE_SIZE 64 // TODO: Find a way to lower these without sacrificing performance, and perhaps automatically adjust them somehow.
+#define WORKER_COUNT 32
 
 struct SLNPull {
-	uint64_t pullID;
 	SLNSessionRef session;
+	SLNSyncRef sync;
 	str_t *host;
+	str_t *path;
+	str_t *query;
 	str_t *cookie;
-//	str_t *query;
-
-	async_mutex_t connlock[1];
-	HTTPConnectionRef conn;
-
-	async_mutex_t mutex[1];
-	async_cond_t cond[1];
-	bool stop;
-	size_t tasks;
-	SLNSubmissionRef queue[QUEUE_SIZE];
-	bool filled[QUEUE_SIZE];
-	size_t cur;
-	size_t count;
+	bool run;
 };
 
-static int reconnect(SLNPullRef const pull);
-static int import(SLNPullRef const pull, strarg_t const URI, size_t const pos, HTTPConnectionRef *const conn);
+int SLNPullCreate(SLNSessionRef *const insession, strarg_t const host, strarg_t const path, strarg_t const query, strarg_t const cookie, SLNPullRef *const out) {
+	assert(insession);
+	assert(out);
+	if(!*insession) return UV_EINVAL;
+	if(!host) return UV_EINVAL;
 
-SLNPullRef SLNRepoCreatePull(SLNRepoRef const repo, uint64_t const pullID, uint64_t const userID, strarg_t const host, strarg_t const sessionid, strarg_t const query) {
 	SLNPullRef pull = calloc(1, sizeof(struct SLNPull));
-	if(!pull) return NULL;
+	if(!pull) return UV_ENOMEM;
 
-	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);
-	pull->pullID = pullID;
-	pull->session = SLNSessionCreateInternal(cache, 0, NULL, NULL, userID, SLN_RDWR, NULL); // TODO: How to create this properly?
+	int rc = 0;
+
+	pull->session = *insession; *insession = NULL;
+
+	rc = SLNSyncCreate(pull->session, &pull->sync);
+	if(rc < 0) goto cleanup;
+
 	pull->host = strdup(host);
-	pull->cookie = aasprintf("s=%s", sessionid ? sessionid : "");
-//	pull->query = strdup(query);
-	assert(!query || '\0' == query[0]); // TODO
-	if(!pull->session || !pull->host || !pull->cookie) {
-		SLNPullFree(&pull);
-		return NULL;
-	}
+	pull->path = strdup(path ? path : ""); // TODO: Strip trailing /
+	pull->query = strdup(query ? query : "");
+	pull->cookie = aasprintf("s=%s", cookie ? cookie : "");
+	if(!pull->host || !pull->path || !pull->query || !pull->cookie) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
 
-	async_mutex_init(pull->connlock, 0);
-	async_mutex_init(pull->mutex, 0);
-	async_cond_init(pull->cond, 0);
-	pull->stop = true;
+	pull->run = false;
 
-	return pull;
+	*out = pull; pull = NULL;
+cleanup:
+	SLNPullFree(&pull);
+	return rc;
 }
 void SLNPullFree(SLNPullRef *const pullptr) {
+	assert(pullptr);
 	SLNPullRef pull = *pullptr;
 	if(!pull) return;
 
 	SLNPullStop(pull);
 
-	pull->pullID = 0;
 	SLNSessionRelease(&pull->session);
+	SLNSyncFree(&pull->sync);
 	FREE(&pull->host);
+	FREE(&pull->path);
+	FREE(&pull->query);
 	FREE(&pull->cookie);
-//	FREE(&pull->query);
-
-	async_mutex_destroy(pull->connlock);
-	async_mutex_destroy(pull->mutex);
-	async_cond_destroy(pull->cond);
-	pull->stop = false;
 
 	assert_zeroed(pull, 1);
 	FREE(pullptr); pull = NULL;
 }
 
-static void reader(SLNPullRef const pull) {
+
+static void reader(SLNPullRef const pull, bool const meta) {
 	HTTPConnectionRef conn = NULL;
-	int rc;
+	int rc = 0;
+
+	str_t fileURI[SLN_URI_MAX];
+	str_t metaURI[SLN_URI_MAX];
+	rc = SLNSessionCopyLastSubmissionURIs(pull->session, fileURI, metaURI);
+	if(rc < 0) goto cleanup;
+
+	str_t path[URI_MAX]; // TODO: Escaping
+	if(meta) {
+		rc = snprintf(path, sizeof(path), "%s/sln/metafiles?q=%s&start=%s",
+			pull->path, pull->query, metaURI);
+	} else {
+		rc = snprintf(path, sizeof(path), "%s/sln/query?q=%s&start=%s",
+			pull->path, pull->query, fileURI);
+	}
+	if(rc >= sizeof(path)) rc = UV_ENAMETOOLONG;
+	if(rc < 0) goto cleanup;
+
+	rc = rc < 0 ? rc : HTTPConnectionCreateOutgoing(pull->host, 0, &conn);
+	rc = rc < 0 ? rc : HTTPConnectionWriteRequest(conn, HTTP_GET, path, pull->host);
+	rc = rc < 0 ? rc : HTTPConnectionWriteHeader(conn, "Cookie", pull->cookie);
+	rc = rc < 0 ? rc : HTTPConnectionBeginBody(conn);
+	rc = rc < 0 ? rc : HTTPConnectionEnd(conn);
+	if(rc < 0) goto cleanup;
 
 	for(;;) {
-		if(pull->stop) goto stop;
+		if(!pull->run) goto cleanup;
 
-		str_t URI[URI_MAX];
+		str_t URI[SLN_URI_MAX*2];
+		rc = HTTPConnectionReadBodyLine(conn, URI, sizeof(URI));
+		if(rc < 0) goto cleanup;
 
-		async_mutex_lock(pull->connlock);
-
-		rc = HTTPConnectionReadBodyLine(pull->conn, URI, sizeof(URI));
-		if(rc < 0) {
-			for(;;) {
-				if(pull->stop) break;
-				if(reconnect(pull) >= 0) break;
-				if(pull->stop) break;
-				async_sleep(1000 * 5);
-			}
-			async_mutex_unlock(pull->connlock);
-			continue;
+		if(meta) {
+			str_t metaURI[SLN_URI_MAX]; metaURI[0] = '\0';
+			str_t targetURI[SLN_URI_MAX]; targetURI[0] = '\0';
+			int len = 0;
+			sscanf(URI, SLN_URI_FMT " -> " SLN_URI_FMT "%n",
+				metaURI, targetURI, &len);
+			if('\0' != URI[len]) rc = SLN_INVALIDTARGET; // TODO: Parse error?
+			if('\0' == metaURI[0]) rc = SLN_INVALIDTARGET; // TODO
+			if('\0' == targetURI[0]) rc = SLN_INVALIDTARGET;
+			if(rc < 0) goto cleanup;
+			rc = SLNSyncIngestMetaURI(pull->sync, metaURI, targetURI);
+			if(rc < 0) goto cleanup;
+		} else {
+			rc = SLNSyncIngestFileURI(pull->sync, URI);
+			if(rc < 0) goto cleanup;
 		}
-		if('#' == URI[0]) { // Comment line.
-			async_mutex_unlock(pull->connlock);
-			continue;
-		}
-
-		async_mutex_lock(pull->mutex);
-		while(pull->count + 1 > QUEUE_SIZE) {
-			async_cond_wait(pull->cond, pull->mutex);
-			if(pull->stop) {
-				async_mutex_unlock(pull->mutex);
-				async_mutex_unlock(pull->connlock);
-				goto stop;
-			}
-		}
-		size_t pos = (pull->cur + pull->count) % QUEUE_SIZE;
-		pull->count += 1;
-		async_mutex_unlock(pull->mutex);
-
-		async_mutex_unlock(pull->connlock);
-
-		for(;;) {
-			if(import(pull, URI, pos, &conn) >= 0) break;
-			if(pull->stop) goto stop;
-			async_sleep(1000 * 5);
-		}
-
 	}
 
-stop:
+cleanup:
+	pull->run = false;
+	if(rc < 0) {
+		alogf("Pull reader error: %s\n", sln_strerror(rc));
+	}
 	HTTPConnectionFree(&conn);
-	async_mutex_lock(pull->mutex);
-	assertf(pull->stop, "Reader ended early");
-	assert(pull->tasks > 0);
-	pull->tasks--;
-	async_cond_broadcast(pull->cond);
-	async_mutex_unlock(pull->mutex);
 }
-static void writer(SLNPullRef const pull) {
-	SLNSubmissionRef queue[QUEUE_SIZE];
-	size_t count = 0;
-	size_t skipped = 0;
-	double time = uv_now(async_loop) / 1000.0;
-	for(;;) {
-		if(pull->stop) goto stop;
+static void filereader(void *const arg) {
+	SLNPullRef const pull = arg;
+	reader(pull, false);
+}
+static void metareader(void *const arg) {
+	SLNPullRef const pull = arg;
+	reader(pull, true);
+}
 
-		async_mutex_lock(pull->mutex);
-		while(0 == count || (count < QUEUE_SIZE && pull->count > 0)) {
-			size_t const pos = pull->cur;
-			while(!pull->filled[pos]) {
-				async_cond_wait(pull->cond, pull->mutex);
-				if(pull->stop) {
-					async_mutex_unlock(pull->mutex);
-					goto stop;
-				}
-				if(!count) time = uv_now(async_loop) / 1000.0;
-			}
-			assert(pull->filled[pos]);
-			// Skip any bubbles in the queue.
-			if(pull->queue[pos]) queue[count++] = pull->queue[pos];
-			else skipped++;
-			pull->queue[pos] = NULL;
-			pull->filled[pos] = false;
-			pull->cur = (pull->cur + 1) % QUEUE_SIZE;
-			pull->count--;
-			async_cond_broadcast(pull->cond);
-		}
-		async_mutex_unlock(pull->mutex);
-		assert(count <= QUEUE_SIZE);
+static void worker(void *const arg) {
+	SLNPullRef const pull = arg;
+	HTTPConnectionRef conn = NULL;
+	HTTPHeadersRef headers = NULL;
+	int rc = 0;
+
+	rc = HTTPConnectionCreateOutgoing(pull->host, 0, &conn);
+	if(rc < 0) goto cleanup;
+
+	for(;;) {
+		if(!pull->run) goto cleanup;
+
+		SLNSubmissionRef sub = NULL;
+		rc = SLNSyncWorkAwait(pull->sync, &sub);
+		if(rc < 0) goto cleanup;
+
+		strarg_t const URI = SLNSubmissionGetKnownURI(sub);
+		str_t algo[SLN_ALGO_SIZE];
+		str_t hash[SLN_HASH_SIZE];
+		SLNParseURI(URI, algo, hash);
+		str_t path[URI_MAX];
+		rc = snprintf(path, sizeof(path), "%s/sln/file/%s/%s", pull->path, algo, hash);
+		if(rc >= sizeof(path)) rc = UV_ENAMETOOLONG;
+		if(rc < 0) goto cleanup;
+
+		rc = rc < 0 ? rc : HTTPConnectionWriteRequest(conn, HTTP_GET, path, pull->host);
+		rc = rc < 0 ? rc : HTTPConnectionWriteHeader(conn, "Cookie", pull->cookie);
+		rc = rc < 0 ? rc : HTTPConnectionBeginBody(conn);
+		rc = rc < 0 ? rc : HTTPConnectionEnd(conn);
+		if(rc < 0) goto cleanup;
+
+		int const status = HTTPConnectionReadResponseStatus(conn);
+		if(200 != status) goto cleanup;
+
+		// TODO: HTTPConnectionReadHeadersStatic?
+		rc = HTTPHeadersCreateFromConnection(conn, &headers);
+		if(rc < 0) goto cleanup;
+
+		strarg_t const type = HTTPHeadersGet(headers, "content-type");
+		rc = SLNSubmissionSetType(sub, type);
+		if(rc < 0) goto cleanup;
+
+		HTTPHeadersFree(&headers);
 
 		for(;;) {
-			int rc = SLNSubmissionStoreBatch(queue, count);
-			if(rc >= 0) break;
-			alogf("Submission error: %s (%d)\n", sln_strerror(rc), rc);
-			async_sleep(1000 * 5);
-		}
-		for(size_t i = 0; i < count; ++i) {
-			SLNSubmissionFree(&queue[i]);
+			if(!pull->run) goto cleanup;
+			uv_buf_t buf[1];
+			rc = HTTPConnectionReadBody(conn, buf);
+			if(rc < 0) goto cleanup;
+			if(0 == buf->len) goto cleanup;
+			rc = SLNSubmissionWrite(sub, (byte_t *)buf->base, buf->len);
+			if(rc < 0) goto cleanup;
 		}
 
-		double const now = uv_now(async_loop) / 1000.0;
-		alogf("Pulled %f files per second\n", count / (now - time));
-		time = now;
-		count = 0;
-		skipped = 0;
+		rc = SLNSubmissionEnd(sub);
+		if(rc < 0) goto cleanup;
+		rc = SLNSyncWorkDone(pull->sync, sub);
+		if(rc < 0) goto cleanup;
 
 	}
 
-stop:
-	for(size_t i = 0; i < count; ++i) {
-		SLNSubmissionFree(&queue[i]);
+cleanup:
+	pull->run = false;
+	if(rc < 0) {
+		alogf("Pull worker error: %s\n", sln_strerror(rc));
 	}
-	assert_zeroed(queue, count);
-
-	async_mutex_lock(pull->mutex);
-	assertf(pull->stop, "Writer ended early");
-	assert(pull->tasks > 0);
-	pull->tasks--;
-	async_cond_broadcast(pull->cond);
-	async_mutex_unlock(pull->mutex);
+	HTTPConnectionFree(&conn);
+	HTTPHeadersFree(&headers);
 }
+
 int SLNPullStart(SLNPullRef const pull) {
-	if(!pull) return 0;
-	if(!pull->stop) return 0;
-	assert(0 == pull->tasks);
-	pull->stop = false;
-	for(size_t i = 0; i < READER_COUNT; ++i) {
-		pull->tasks++;
-		async_spawn(STACK_DEFAULT, (void (*)())reader, pull);
+	if(!pull) return UV_EINVAL;
+	if(pull->run) return 0;
+
+	pull->run = true;
+
+	async_spawn(STACK_DEFAULT, filereader, pull);
+	async_spawn(STACK_DEFAULT, metareader, pull);
+
+	for(size_t i = 0; i < WORKER_COUNT; i++) {
+		async_spawn(STACK_DEFAULT, worker, pull);
 	}
-	pull->tasks++;
-	async_spawn(STACK_DEFAULT, (void (*)())writer, pull);
-	// TODO: It'd be even better to have one writer shared between all pulls...
 
 	return 0;
 }
 void SLNPullStop(SLNPullRef const pull) {
 	if(!pull) return;
-	if(pull->stop) return;
-
-	async_mutex_lock(pull->mutex);
-	pull->stop = true;
-	async_cond_broadcast(pull->cond);
-	while(pull->tasks > 0) {
-		async_cond_wait(pull->cond, pull->mutex);
-	}
-	async_mutex_unlock(pull->mutex);
-
-	HTTPConnectionFree(&pull->conn);
-
-	for(size_t i = 0; i < QUEUE_SIZE; ++i) {
-		SLNSubmissionFree(&pull->queue[i]);
-		pull->filled[i] = false;
-	}
-	pull->cur = 0;
-	pull->count = 0;
-}
-
-static int reconnect(SLNPullRef const pull) {
-	int rc;
-	HTTPConnectionFree(&pull->conn);
-
-	rc = HTTPConnectionCreateOutgoing(pull->host, 0, &pull->conn);
-	if(rc < 0) {
-		alogf("Pull couldn't connect to %s (%s)\n", pull->host, sln_strerror(rc));
-		return rc;
-	}
-
-//	str_t path[URI_MAX];
-//	str_t *query_encoded = NULL;
-//	if(pull->query) query_encoded = QSEscape(pull->query, strlen(pull->query), true);
-//	snprintf(path, sizeof(path), "/sln/query-obsolete?q=%s", query_encoded ?: "");
-//	FREE(&query_encoded);
-	HTTPConnectionWriteRequest(pull->conn, HTTP_GET, "/sln/all", pull->host);
-	// TODO
-	// - New API /sln/query and /sln/metafiles
-	// - Pagination ?start=[last URI seen]
-	// - Error handling
-	// - Query string formatter
-	HTTPConnectionWriteHeader(pull->conn, "Cookie", pull->cookie);
-	HTTPConnectionBeginBody(pull->conn);
-	rc = HTTPConnectionEnd(pull->conn);
-	if(rc < 0) {
-		alogf("Pull couldn't connect to %s (%s)\n", pull->host, sln_strerror(rc));
-		return rc;
-	}
-	int const status = HTTPConnectionReadResponseStatus(pull->conn);
-	if(status < 0) {
-		alogf("Pull connection error: %s\n", sln_strerror(status));
-		return status;
-	}
-	if(403 == status) {
-		alogf("Pull connection authentication failed\n");
-		return UV_EACCES;
-	}
-	if(status < 200 || status >= 300) {
-		alogf("Pull connection error: %d\n", status);
-		return UV_EPROTO;
-	}
-
-	// TODO: All this does is scan past the headers.
-	// We don't actually use them...
-	HTTPHeadersRef headers;
-	rc = HTTPHeadersCreateFromConnection(pull->conn, &headers);
-	assert(rc >= 0); // TODO
-	HTTPHeadersFree(&headers);
-/*	rc = HTTPConnectionReadHeaders(pull->conn, NULL, NULL, 0);
-	if(rc < 0) {
-		alogf("Pull connection error %s\n", sln_strerror(rc));
-		return rc;
-	}*/
-
-	return 0;
-}
-
-
-static int import(SLNPullRef const pull, strarg_t const URI, size_t const pos, HTTPConnectionRef *const conn) {
-	if(!pull) return 0;
-
-	// TODO: Even if there's nothing to do, we have to enqueue something to fill up our reserved slots. I guess it's better than doing a lot of work inside the connection lock, but there's got to be a better way.
-	SLNSubmissionRef sub = NULL;
-	HTTPHeadersRef headers = NULL;
-
-	if(!URI) goto enqueue;
-
-	str_t algo[SLN_ALGO_SIZE];
-	str_t hash[SLN_HASH_SIZE];
-	if(SLNParseURI(URI, algo, hash) < 0) goto enqueue;
-
-	int rc = SLNSessionGetFileInfo(pull->session, URI, NULL);
-	if(rc >= 0) goto enqueue;
-	db_assertf(DB_NOTFOUND == rc, "Database error: %s", sln_strerror(rc));
-
-	// TODO: We're logging out of order when we do it like this...
-//	alogf("Pulling %s\n", URI);
-
-	if(!*conn) {
-		rc = HTTPConnectionCreateOutgoing(pull->host, 0, conn);
-		if(rc < 0) {
-			alogf("Pull import connection error: %s\n", sln_strerror(rc));
-			goto fail;
-		}
-	}
-
-	str_t *path = aasprintf("/sln/file/%s/%s", algo, hash);
-	if(!path) {
-		alogf("Pull aasprintf error\n");
-		goto fail;
-	}
-	rc = HTTPConnectionWriteRequest(*conn, HTTP_GET, path, pull->host);
-	assert(rc >= 0); // TODO
-	FREE(&path);
-
-	HTTPConnectionWriteHeader(*conn, "Cookie", pull->cookie);
-	HTTPConnectionBeginBody(*conn);
-	rc = HTTPConnectionEnd(*conn);
-	if(rc < 0) {
-		alogf("Pull import request error: %s\n", sln_strerror(rc));
-		goto fail;
-	}
-	int const status = HTTPConnectionReadResponseStatus(*conn);
-	if(status < 0) {
-		alogf("Pull import response error: %s\n", sln_strerror(status));
-		goto fail;
-	}
-	if(status < 200 || status >= 300) {
-		alogf("Pull import status error: %d\n", status);
-		goto fail;
-	}
-
-	rc = HTTPHeadersCreateFromConnection(*conn, &headers);
-	assert(rc >= 0); // TODO
-/*	if(rc < 0) {
-		alogf("Pull import headers error %s\n", sln_strerror(rc));
-		goto fail;
-	}*/
-	strarg_t const type = HTTPHeadersGet(headers, "content-type");
-
-	rc = SLNSubmissionCreate(pull->session, URI, NULL, &sub);
-	if(rc < 0) {
-		alogf("Pull submission error: %s\n", sln_strerror(rc));
-		goto fail;
-	}
-	rc = SLNSubmissionSetType(sub, type);
-	if(rc < 0) {
-		alogf("Pull submission type error: %s\n", sln_strerror(rc));
-		goto fail;
-	}
-	for(;;) {
-		if(pull->stop) goto fail;
-		uv_buf_t buf[1] = {};
-		rc = HTTPConnectionReadBody(*conn, buf);
-		if(rc < 0) {
-			alogf("Pull download error: %s\n", sln_strerror(rc));
-			goto fail;
-		}
-		if(0 == buf->len) break;
-		rc = SLNSubmissionWrite(sub, (byte_t *)buf->base, buf->len);
-		if(rc < 0) {
-			alogf("Pull write error\n");
-			goto fail;
-		}
-	}
-	rc = SLNSubmissionEnd(sub);
-	if(rc < 0) {
-		alogf("Pull submission error: %s\n", sln_strerror(rc));
-		goto fail;
-	}
-
-enqueue:
-	HTTPHeadersFree(&headers);
-	async_mutex_lock(pull->mutex);
-	pull->queue[pos] = sub; sub = NULL;
-	pull->filled[pos] = true;
-	async_cond_broadcast(pull->cond);
-	async_mutex_unlock(pull->mutex);
-	return 0;
-
-fail:
-	HTTPHeadersFree(&headers);
-	SLNSubmissionFree(&sub);
-	HTTPConnectionFree(conn);
-	return -1;
+	if(!pull->run) return;
+	pull->run = false;
+	async_yield(); // TODO
 }
 
