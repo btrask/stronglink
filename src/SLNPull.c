@@ -11,6 +11,7 @@
 struct SLNPull {
 	SLNSessionRef session;
 	SLNSyncRef sync;
+	str_t *certhash; // TODO
 	str_t *host;
 	str_t *path;
 	str_t *query;
@@ -18,7 +19,7 @@ struct SLNPull {
 	bool run;
 };
 
-int SLNPullCreate(SLNSessionRef *const insession, strarg_t const host, strarg_t const path, strarg_t const query, strarg_t const cookie, SLNPullRef *const out) {
+int SLNPullCreate(SLNSessionRef *const insession, strarg_t const certhash, strarg_t const host, strarg_t const path, strarg_t const query, strarg_t const cookie, SLNPullRef *const out) {
 	assert(insession);
 	assert(out);
 	if(!*insession) return UV_EINVAL;
@@ -34,11 +35,13 @@ int SLNPullCreate(SLNSessionRef *const insession, strarg_t const host, strarg_t 
 	rc = SLNSyncCreate(pull->session, &pull->sync);
 	if(rc < 0) goto cleanup;
 
+	pull->certhash = certhash ? strdup(certhash) : NULL;
 	pull->host = strdup(host);
 	pull->path = strdup(path ? path : ""); // TODO: Strip trailing /
 	pull->query = strdup(query ? query : "");
 	pull->cookie = aasprintf("s=%s", cookie ? cookie : "");
-	if(!pull->host || !pull->path || !pull->query || !pull->cookie) rc = UV_ENOMEM;
+	if(!pull->certhash || !pull->host) rc = UV_ENOMEM;
+	if(!pull->path || !pull->query || !pull->cookie) rc = UV_ENOMEM;
 	if(rc < 0) goto cleanup;
 
 	pull->run = false;
@@ -57,6 +60,7 @@ void SLNPullFree(SLNPullRef *const pullptr) {
 
 	SLNSessionRelease(&pull->session);
 	SLNSyncFree(&pull->sync);
+	FREE(&pull->certhash);
 	FREE(&pull->host);
 	FREE(&pull->path);
 	FREE(&pull->query);

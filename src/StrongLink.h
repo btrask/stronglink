@@ -241,7 +241,7 @@ int SLNSyncIngestMetaURI(SLNSyncRef const sync, strarg_t const metaURI, strarg_t
 int SLNSyncWorkAwait(SLNSyncRef const sync, SLNSubmissionRef *const out);
 int SLNSyncWorkDone(SLNSyncRef const sync, SLNSubmissionRef const sub);
 
-int SLNPullCreate(SLNSessionRef *const insession, strarg_t const host, strarg_t const path, strarg_t const query, strarg_t const cookie, SLNPullRef *const out);
+int SLNPullCreate(SLNSessionRef *const insession, strarg_t const certhash, strarg_t const host, strarg_t const path, strarg_t const query, strarg_t const cookie, SLNPullRef *const out);
 void SLNPullFree(SLNPullRef *const pullptr);
 int SLNPullStart(SLNPullRef const pull);
 void SLNPullStop(SLNPullRef const pull);

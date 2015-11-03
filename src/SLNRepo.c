@@ -339,13 +339,14 @@ static void loadPulls(SLNRepoRef const repo) {
 		SLNPullByIDValUnpack(pull_val, txn, &userID, &host, &sessionid, &query);
 
 
+		strarg_t const certhash = NULL;
 		uint64_t const sessionID = 1; // TODO
 		strarg_t const username = "user"; // TODO
 		strarg_t const path = ""; // TODO
 		SLNSessionRef session = SLNSessionCreateInternal(repo->session_cache, sessionID, NULL, NULL, userID, SLN_RDWR, username);
 		if(!session) continue;
 		SLNPullRef pull = NULL;
-		int rc = SLNPullCreate(&session, host, path, query, sessionid, &pull);
+		int rc = SLNPullCreate(&session, certhash, host, path, query, sessionid, &pull);
 		assert(rc >= 0); // TODO
 
 		SLNSessionRelease(&session);
