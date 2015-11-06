@@ -232,29 +232,32 @@ static int session_lookup(SLNSessionCacheRef const cache, uint64_t const id, byt
 		uint16_t const x = i % cache->size;
 		if(id != cache->ids[x]) continue;
 		SLNSessionRef const s = cache->sessions[x];
-		if(0 != SLNSessionKeyCmp(s, key)) return DB_EACCES;
+		int rc = SLNSessionKeyValid(s, key);
+		if(rc < 0) return rc;
 		*out = SLNSessionRetain(s);
 		return 0;
 	}
 	return DB_NOTFOUND;
 }
-static int session_load(SLNSessionCacheRef const cache, uint64_t const id, byte_t const *const key, SLNSessionRef *const out) {
+
+int SLNSessionCacheLoadSessionUnsafe(SLNSessionCacheRef const cache, uint64_t const id, SLNSessionRef *const out) {
 	SLNRepoRef const repo = cache->repo;
 	DB_env *db = NULL;
-	SLNRepoDBOpenUnsafe(repo, &db);
 	DB_txn *txn = NULL;
-	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	if(rc < 0) return rc;
+	SLNMode mode = 0;
+	str_t *username = NULL;
+	byte_t key_enc[SESSION_KEY_LEN] = {0};
+	int rc;
+
+	SLNRepoDBOpenUnsafe(repo, &db);
+	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	if(rc < 0) goto cleanup;
 
 	DB_val sessionID_key[1];
 	SLNSessionByIDKeyPack(sessionID_key, txn, id);
 	DB_val session_val[1];
 	rc = db_get(txn, sessionID_key, session_val);
-	if(rc < 0) {
-		db_txn_abort(txn); txn = NULL;
-		SLNRepoDBClose(repo, &db);
-		return rc;
-	}
+	if(rc < 0) goto cleanup;
 	uint64_t userID;
 	strarg_t key_str;
 	SLNSessionByIDValUnpack(session_val, txn, &userID, &key_str);
@@ -265,44 +268,50 @@ static int session_load(SLNSessionCacheRef const cache, uint64_t const id, byte_
 	SLNUserByIDKeyPack(userID_key, txn, userID);
 	DB_val user_val[1];
 	rc = db_get(txn, userID_key, user_val);
-	if(rc < 0) {
-		db_txn_abort(txn); txn = NULL;
-		SLNRepoDBClose(repo, &db);
-		return rc;
-	}
+	if(rc < 0) goto cleanup;
 	strarg_t name, ignore2, ignore3;
 	uint64_t ignore4, ignore5;
-	SLNMode mode;
 	SLNUserByIDValUnpack(user_val, txn, &name, &ignore2,
 		&ignore3, &mode, &ignore4, &ignore5);
-	// TODO: Replace *Unpack with static functions and handle NULL outputs.
-	if(!mode) {
-		db_txn_abort(txn); txn = NULL;
-		SLNRepoDBClose(repo, &db);
-		return DB_EACCES;
-	}
+	// TODO: Handle NULL outputs.
 
-	str_t *username = strdup(name);
-	byte_t key_enc[SESSION_KEY_LEN];
+	if(!mode) rc = DB_EACCES;
+	if(rc < 0) goto cleanup;
+
+	username = strdup(name);
+	if(!username) rc = DB_ENOMEM;
+	if(rc < 0) goto cleanup;
+
 	tobin(key_enc, key_str, SESSION_KEY_HEX);
 
 	db_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
 
-	if(!username) return DB_ENOMEM;
-	if(0 != memcmp(key, key_enc, SESSION_KEY_LEN)) {
-		FREE(&username);
-		return DB_EACCES;
-	}
-
 	SLNSessionRef session = SLNSessionCreateInternal(cache, id, NULL, key_enc, userID, mode, username);
-	FREE(&username);
-	if(!session) return DB_ENOMEM;
-	session_cache(cache, session);
+	if(!session) rc = DB_ENOMEM;
+	if(rc < 0) goto cleanup;
 
-	*out = session;
-	return 0;
+	session_cache(cache, session);
+	*out = session; session = NULL;
+
+cleanup:
+	db_txn_abort(txn); txn = NULL;
+	SLNRepoDBClose(repo, &db);
+	FREE(&username);
+	return rc;
 }
+int SLNSessionCacheLoadSession(SLNSessionCacheRef const cache, uint64_t const id, byte_t const *const key, SLNSessionRef *const out) {
+	SLNSessionRef session = NULL;
+	int rc = SLNSessionCacheLoadSessionUnsafe(cache, id, &session);
+	if(rc < 0) goto cleanup;
+	rc = SLNSessionKeyValid(session, key);
+	if(rc < 0) goto cleanup;
+	*out = session; session = NULL;
+cleanup:
+	SLNSessionRelease(&session);
+	return rc;
+}
+
 int SLNSessionCacheCopyActiveSession(SLNSessionCacheRef const cache, strarg_t const cookie, SLNSessionRef *const out) {
 	assert(out);
 	if(!cache) {
@@ -325,7 +334,7 @@ int SLNSessionCacheCopyActiveSession(SLNSessionCacheRef const cache, strarg_t co
 	SLNSessionRef session = NULL;
 	rc = session_lookup(cache, sessionID, sessionKey, &session);
 	if(rc >= 0) {
-		*out = session;
+		*out = session; session = NULL;
 		return 0;
 	}
 	if(DB_EACCES == rc) {
@@ -337,9 +346,9 @@ int SLNSessionCacheCopyActiveSession(SLNSessionCacheRef const cache, strarg_t co
 		return rc;
 	}
 
-	rc = session_load(cache, sessionID, sessionKey, &session);
+	rc = SLNSessionCacheLoadSession(cache, sessionID, sessionKey, &session);
 	if(rc >= 0) {
-		*out = session;
+		*out = session; session = NULL;
 		return 0;
 	}
 	if(DB_EACCES == rc || DB_NOTFOUND == rc) {

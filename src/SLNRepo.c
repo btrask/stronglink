@@ -339,21 +339,16 @@ static void loadPulls(SLNRepoRef const repo) {
 		SLNPullByIDValUnpack(pull_val, txn, &userID, &host, &sessionid, &query);
 
 
+		// TODO
 		strarg_t const certhash = NULL;
-		uint64_t const sessionID = 1; // TODO
-		strarg_t const username = "user"; // TODO
-		strarg_t const path = ""; // TODO
-		SLNSessionRef session = SLNSessionCreateInternal(repo->session_cache, sessionID, NULL, NULL, userID, SLN_RDWR, username);
-		if(!session) continue;
+		strarg_t const path = "";
+
 		SLNPullRef pull = NULL;
-		int rc = SLNPullCreate(&session, certhash, host, path, query, sessionid, &pull);
+		int rc = SLNPullCreate(repo->session_cache, pullID, certhash, host, path, query, sessionid, &pull);
 		assert(rc >= 0); // TODO
 
-		SLNSessionRelease(&session);
 
 
-
-//		SLNPullRef const pull = SLNRepoCreatePull(repo, pullID, userID, host, sessionid, query);
 		if(repo->pull_count+1 > repo->pull_size) {
 			repo->pull_size = (repo->pull_count+1) * 2;
 			repo->pulls = reallocarray(repo->pulls, repo->pull_size, sizeof(SLNPullRef));

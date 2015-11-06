@@ -19,18 +19,23 @@ struct SLNPull {
 	bool run;
 };
 
-int SLNPullCreate(SLNSessionRef *const insession, strarg_t const certhash, strarg_t const host, strarg_t const path, strarg_t const query, strarg_t const cookie, SLNPullRef *const out) {
-	assert(insession);
+int SLNPullCreate(SLNSessionCacheRef const cache, uint64_t const sessionID, strarg_t const certhash, strarg_t const host, strarg_t const path, strarg_t const query, strarg_t const cookie, SLNPullRef *const out) {
 	assert(out);
-	if(!*insession) return UV_EINVAL;
+	if(!sessionID) return UV_EINVAL;
 	if(!host) return UV_EINVAL;
 
-	SLNPullRef pull = calloc(1, sizeof(struct SLNPull));
-	if(!pull) return UV_ENOMEM;
+	SLNSessionRef session = NULL;
+	SLNPullRef pull = NULL;
+	int rc;
 
-	int rc = 0;
+	rc = SLNSessionCacheLoadSessionUnsafe(cache, sessionID, &session);
+	if(rc < 0) goto cleanup;
 
-	pull->session = *insession; *insession = NULL;
+	pull = calloc(1, sizeof(struct SLNPull));
+	if(!pull) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
+
+	pull->session = session; session = NULL;
 
 	rc = SLNSyncCreate(pull->session, &pull->sync);
 	if(rc < 0) goto cleanup;
@@ -47,7 +52,9 @@ int SLNPullCreate(SLNSessionRef *const insession, strarg_t const certhash, strar
 	pull->run = false;
 
 	*out = pull; pull = NULL;
+
 cleanup:
+	SLNSessionRelease(&session);
 	SLNPullFree(&pull);
 	return rc;
 }

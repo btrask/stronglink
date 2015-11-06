@@ -80,6 +80,8 @@ int SLNSessionCacheCreate(SLNRepoRef const repo, uint16_t const size, SLNSession
 void SLNSessionCacheFree(SLNSessionCacheRef *const cacheptr);
 SLNRepoRef SLNSessionCacheGetRepo(SLNSessionCacheRef const cache);
 int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const username, strarg_t const password, SLNSessionRef *const out);
+int SLNSessionCacheLoadSessionUnsafe(SLNSessionCacheRef const cache, uint64_t const id, SLNSessionRef *const out);
+int SLNSessionCacheLoadSession(SLNSessionCacheRef const cache, uint64_t const id, byte_t const *const key, SLNSessionRef *const out);
 int SLNSessionCacheCopyActiveSession(SLNSessionCacheRef const cache, strarg_t const cookie, SLNSessionRef *const out);
 
 
@@ -97,7 +99,7 @@ void SLNSessionRelease(SLNSessionRef *const sessionptr);
 SLNSessionCacheRef SLNSessionGetCache(SLNSessionRef const session);
 SLNRepoRef SLNSessionGetRepo(SLNSessionRef const session);
 uint64_t SLNSessionGetID(SLNSessionRef const session);
-int SLNSessionKeyCmp(SLNSessionRef const session, byte_t const *const enc);
+int SLNSessionKeyValid(SLNSessionRef const session, byte_t const *const enc);
 uint64_t SLNSessionGetUserID(SLNSessionRef const session);
 bool SLNSessionHasPermission(SLNSessionRef const session, SLNMode const mask) __attribute__((warn_unused_result));
 strarg_t SLNSessionGetUsername(SLNSessionRef const session);
@@ -241,7 +243,7 @@ int SLNSyncIngestMetaURI(SLNSyncRef const sync, strarg_t const metaURI, strarg_t
 int SLNSyncWorkAwait(SLNSyncRef const sync, SLNSubmissionRef *const out);
 int SLNSyncWorkDone(SLNSyncRef const sync, SLNSubmissionRef const sub);
 
-int SLNPullCreate(SLNSessionRef *const insession, strarg_t const certhash, strarg_t const host, strarg_t const path, strarg_t const query, strarg_t const cookie, SLNPullRef *const out);
+int SLNPullCreate(SLNSessionCacheRef const cache, uint64_t const sessionID, strarg_t const certhash, strarg_t const host, strarg_t const path, strarg_t const query, strarg_t const cookie, SLNPullRef *const out);
 void SLNPullFree(SLNPullRef *const pullptr);
 int SLNPullStart(SLNPullRef const pull);
 void SLNPullStop(SLNPullRef const pull);

@@ -95,10 +95,15 @@ uint64_t SLNSessionGetID(SLNSessionRef const session) {
 	if(!session) return 0;
 	return session->sessionID;
 }
-int SLNSessionKeyCmp(SLNSessionRef const session, byte_t const *const enc) {
-	if(!session) return -1;
-	if(!session->sessionKeyEnc) return -1;
-	return memcmp(enc, session->sessionKeyEnc, SESSION_KEY_LEN);
+int SLNSessionKeyValid(SLNSessionRef const session, byte_t const *const enc) {
+	if(!session) return UV_EINVAL;
+	if(!enc) return UV_EINVAL;
+	if(!session->sessionKeyEnc) return UV_EACCES; // ???
+
+	// Note: We don't need to use constant-time comparison here
+	// because we are comparing hashes of the key.
+	if(0 != memcmp(enc, session->sessionKeyEnc, SESSION_KEY_LEN)) return UV_EACCES;
+	return 0;
 }
 uint64_t SLNSessionGetUserID(SLNSessionRef const session) {
 	if(!session) return -1;
