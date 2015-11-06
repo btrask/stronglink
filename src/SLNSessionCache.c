@@ -123,46 +123,40 @@ static void session_cache(SLNSessionCacheRef const cache, SLNSessionRef const se
 
 
 int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const username, strarg_t const password, SLNSessionRef *const out) {
+	assert(out);
 	if(!cache) return DB_EINVAL;
 	if(!username) return DB_EINVAL;
 	if(!password) return DB_EINVAL;
-	assert(out);
 
 	SLNRepoRef const repo = cache->repo;
 	DB_env *db = NULL;
-	SLNRepoDBOpenUnsafe(repo, &db);
 	DB_txn *txn = NULL;
-	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	if(rc < 0) {
-		SLNRepoDBClose(repo, &db);
-		return rc;
-	}
+	SLNMode mode = 0;
+	str_t *passhash = NULL;
+	byte_t key_raw[SESSION_KEY_LEN] = {0};
+	byte_t key_enc[SHA256_DIGEST_LENGTH] = {0};
+	int rc;
+
+	SLNRepoDBOpenUnsafe(repo, &db);
+	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	if(rc < 0) goto cleanup;
 
 	DB_val username_key[1], userID_val[1];
 	SLNUserIDByNameKeyPack(username_key, txn, username);
 	rc = db_get(txn, username_key, userID_val);
-	if(rc < 0) {
-		db_txn_abort(txn); txn = NULL;
-		SLNRepoDBClose(repo, &db);
-		return rc;
-	}
+	if(rc < 0) goto cleanup;
 	uint64_t const userID = db_read_uint64(userID_val);
 	db_assert(userID);
 
 	DB_val userID_key[1], user_val[1];
 	SLNUserByIDKeyPack(userID_key, txn, userID);
 	rc = db_get(txn, userID_key, user_val);
-	if(rc < 0) {
-		db_txn_abort(txn); txn = NULL;
-		SLNRepoDBClose(repo, &db);
-		return rc;
-	}
+	if(rc < 0) goto cleanup;
 	strarg_t u, p, ignore1;
-	SLNMode mode;
 	uint64_t ignore2, ignore3;
 	SLNUserByIDValUnpack(user_val, txn, &u, &p, &ignore1, &mode, &ignore2, &ignore3);
 	db_assert(0 == strcmp(username, u));
-	str_t *passhash = strdup(p);
+	passhash = strdup(p);
 
 	db_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
@@ -171,52 +165,47 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 	// Or it might be, but we sure ensure it instead of just
 	// counting on LibreSSL.
 
-	if(!mode) {
-		FREE(&passhash);
-		return DB_EACCES;
-	}
-	if(0 != pass_hashcmp(password, passhash)) {
-		FREE(&passhash);
-		return DB_EACCES;
-	}
+
+	if(!mode) rc = DB_EACCES;
+	if(0 != pass_hashcmp(password, passhash)) rc = DB_EACCES;
+	if(rc < 0) goto cleanup;
+
 	FREE(&passhash);
 
-	byte_t key_raw[SESSION_KEY_LEN];
 	rc = async_random(key_raw, sizeof(key_raw));
-	if(rc < 0) return DB_EIO;
+	if(rc < 0) goto cleanup;
 
-	byte_t key_enc[SHA256_DIGEST_LENGTH];
 	SHA256(key_raw, sizeof(key_raw), key_enc);
 
 	str_t key_str[SESSION_KEY_HEX+1];
 	tohex(key_str, key_enc, SESSION_KEY_LEN);
 	key_str[SESSION_KEY_HEX] = '\0';
 
+
 	SLNRepoDBOpenUnsafe(repo, &db);
 	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
-	if(rc < 0) return rc;
+	if(rc < 0) goto cleanup;
 
 	uint64_t const sessionID = db_next_id(SLNSessionByID, txn);
 	DB_val sessionID_key[1], session_val[1];
 	SLNSessionByIDKeyPack(sessionID_key, txn, sessionID);
 	SLNSessionByIDValPack(session_val, txn, userID, key_str);
 	rc = db_put(txn, sessionID_key, session_val, DB_NOOVERWRITE_FAST);
-	if(rc < 0) {
-		db_txn_abort(txn); txn = NULL;
-		SLNRepoDBClose(repo, &db);
-		return rc;
-	}
+	if(rc < 0) goto cleanup;
 
 	rc = db_txn_commit(txn); txn = NULL;
+cleanup:
+	db_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
+	FREE(&passhash);
 	if(rc < 0) return rc;
 
-
+	assert(mode);
 	SLNSessionRef session = SLNSessionCreateInternal(cache, sessionID, key_raw, key_enc, userID, mode, username);
 	if(!session) return DB_ENOMEM;
 	session_cache(cache, session);
-	*out = session;
-	return 0;
+	*out = session; session = NULL;
+	return rc;
 }
 
 

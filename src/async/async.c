@@ -139,7 +139,7 @@ int async_random(unsigned char *const buf, size_t const len) {
 //	async_pool_enter(NULL);
 	int const rc = RAND_bytes(buf, len);
 //	async_pool_leave(NULL);
-	if(rc <= 0) return -1; // Zero is an error too.
+	if(rc <= 0) return UV_EIO; // Zero is an error too.
 	return 0;
 }
 

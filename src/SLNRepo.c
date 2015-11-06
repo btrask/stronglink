@@ -227,7 +227,7 @@ static int create_admin(SLNRepoRef const repo, DB_txn *const txn) {
 
 	byte_t buf[PASS_LEN/2];
 	int rc = async_random(buf, sizeof(buf));
-	if(rc < 0) return DB_ENOMEM; // ???
+	if(rc < 0) return rc;
 	char password[PASS_LEN+1];
 	tohex(password, buf, sizeof(buf));
 	password[PASS_LEN] = '\0';
