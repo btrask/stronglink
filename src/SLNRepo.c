@@ -35,6 +35,7 @@ struct SLNRepo {
 static int connect_db(SLNRepoRef const repo);
 static int add_pull(SLNRepoRef const repo, SLNPullRef *const pull);
 static int load_pulls(SLNRepoRef const repo);
+static int debug_pulls(SLNRepoRef const repo);
 
 int SLNRepoCreate(strarg_t const dir, strarg_t const name, SLNRepoRef *const out) {
 	assert(dir);
@@ -70,6 +71,9 @@ int SLNRepoCreate(strarg_t const dir, strarg_t const name, SLNRepoRef *const out
 	if(rc < 0) goto cleanup;
 
 	rc = load_pulls(repo);
+	if(rc < 0) goto cleanup;
+
+	rc = debug_pulls(repo);
 	if(rc < 0) goto cleanup;
 
 	async_mutex_init(repo->sub_mutex, 0);
@@ -366,6 +370,15 @@ cleanup:
 	db_cursor_close(cur); cur = NULL;
 	db_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
+	SLNPullFree(&pull);
+	return rc;
+}
+static int debug_pulls(SLNRepoRef const repo) {
+	assert(repo);
+	SLNPullRef pull = NULL;
+	int rc = SLNPullCreate(repo->session_cache, 1, NULL, "localhost:7999", "", NULL, NULL, &pull);
+	if(rc < 0) return rc;
+	rc = add_pull(repo, &pull);
 	SLNPullFree(&pull);
 	return rc;
 }

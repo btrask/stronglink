@@ -40,12 +40,17 @@ int SLNPullCreate(SLNSessionCacheRef const cache, uint64_t const sessionID, stra
 	rc = SLNSyncCreate(pull->session, &pull->sync);
 	if(rc < 0) goto cleanup;
 
-	pull->certhash = certhash ? strdup(certhash) : NULL;
+	pull->certhash = NULL;
+	if(certhash) {
+		pull->certhash = strdup(certhash);
+		if(!pull->certhash) rc = UV_ENOMEM;
+		if(rc < 0) goto cleanup;
+	}
 	pull->host = strdup(host);
 	pull->path = strdup(path ? path : ""); // TODO: Strip trailing /
 	pull->query = strdup(query ? query : "");
 	pull->cookie = aasprintf("s=%s", cookie ? cookie : "");
-	if(!pull->certhash || !pull->host) rc = UV_ENOMEM;
+	if(!pull->host) rc = UV_ENOMEM;
 	if(!pull->path || !pull->query || !pull->cookie) rc = UV_ENOMEM;
 	if(rc < 0) goto cleanup;
 
