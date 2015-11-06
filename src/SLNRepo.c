@@ -34,8 +34,6 @@ struct SLNRepo {
 static int createDBConnection(SLNRepoRef const repo);
 static void loadPulls(SLNRepoRef const repo);
 
-static void debug_data(DB_env *const db);
-
 SLNRepoRef SLNRepoCreate(strarg_t const dir, strarg_t const name) {
 	assert(dir);
 	assert(name);
@@ -77,7 +75,6 @@ SLNRepoRef SLNRepoCreate(strarg_t const dir, strarg_t const name) {
 		return NULL;
 	}
 
-	debug_data(repo->db); // TODO
 	loadPulls(repo);
 
 	async_mutex_init(repo->sub_mutex, 0);
@@ -358,29 +355,5 @@ static void loadPulls(SLNRepoRef const repo) {
 	db_cursor_close(cur); cur = NULL;
 	db_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
-}
-static void debug_data(DB_env *const db) {
-	int rc;
-	DB_txn *txn = NULL;
-	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
-	assert(!rc);
-	assert(txn);
-
-/*	DB_val pullID_key[1];
-	SLNPullByIDKeyPack(pullID_key, txn, 1);
-	uint64_t const userID = 1;
-	char const *const certhash = NULL;
-	char const *const host = "localhost:8009";
-	char const *const path = "";
-	char const *const query = "";
-	char const *const sessionid = NULL;
-	DB_val pull_val[1];
-	SLNPullByIDValPack(pull_val, txn, userID, certhash, host, path, query, sessionid);
-
-	rc = db_put(txn, pullID_key, pull_val, 0);
-	assert(!rc);*/
-
-	rc = db_txn_commit(txn); txn = NULL;
-	assert(!rc);
 }
 
