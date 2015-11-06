@@ -219,14 +219,15 @@ void SLNRepoPullsStop(SLNRepoRef const repo) {
 #define PASS_LEN 16
 static int create_admin(SLNRepoRef const repo, DB_txn *const txn) {
 	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);
-	SLNSessionRef root = SLNSessionCreateInternal(cache, 0, NULL, NULL, 0, SLN_ROOT, NULL);
-	if(!root) return DB_ENOMEM;
+	SLNSessionRef root = NULL;
+	int rc = SLNSessionCreateInternal(cache, 0, NULL, NULL, 0, SLN_ROOT, NULL, &root);
+	if(rc < 0) return rc;
 
 	strarg_t username = getenv("USER"); // TODO: Portability?
 	if(!username) username = "admin";
 
 	byte_t buf[PASS_LEN/2];
-	int rc = async_random(buf, sizeof(buf));
+	rc = async_random(buf, sizeof(buf));
 	if(rc < 0) return rc;
 	char password[PASS_LEN+1];
 	tohex(password, buf, sizeof(buf));

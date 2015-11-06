@@ -42,8 +42,7 @@ int SLNSessionCacheCreate(SLNRepoRef const repo, uint16_t const size, SLNSession
 	cache->public = NULL;
 	SLNMode const pub_mode = SLNRepoGetPublicMode(repo);
 	if(pub_mode) {
-		cache->public = SLNSessionCreateInternal(cache, 0, NULL, NULL, 0, pub_mode, NULL);
-		if(!cache->public) rc = UV_ENOMEM;
+		rc = SLNSessionCreateInternal(cache, 0, NULL, NULL, 0, pub_mode, NULL, &cache->public);
 		if(rc < 0) goto cleanup;
 	}
 
@@ -158,8 +157,7 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 	if(0 != pass_hashcmp(password, passhash)) rc = DB_EACCES;
 	if(rc < 0) goto cleanup;
 
-	tmp = SLNSessionCreateInternal(cache, 0, NULL, NULL, userID, mode, username);
-	if(!tmp) rc = DB_ENOMEM;
+	rc = SLNSessionCreateInternal(cache, 0, NULL, NULL, userID, mode, username, &tmp);
 	if(rc < 0) goto cleanup;
 
 	db_txn_abort(txn); txn = NULL;
@@ -260,8 +258,8 @@ int SLNSessionCacheLoadSessionUnsafe(SLNSessionCacheRef const cache, uint64_t co
 	db_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
 
-	SLNSessionRef session = SLNSessionCreateInternal(cache, id, NULL, key_enc, userID, mode, username);
-	if(!session) rc = DB_ENOMEM;
+	SLNSessionRef session = NULL;
+	rc = SLNSessionCreateInternal(cache, id, NULL, key_enc, userID, mode, username, &session);
 	if(rc < 0) goto cleanup;
 
 	session_cache(cache, session);

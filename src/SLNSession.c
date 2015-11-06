@@ -13,6 +13,7 @@
 #define PASS_MAX 72
 
 struct SLNSession {
+	unsigned refcount; // atomic
 	SLNSessionCacheRef cache;
 	uint64_t sessionID;
 	byte_t *sessionKeyRaw;
@@ -20,23 +21,26 @@ struct SLNSession {
 	uint64_t userID;
 	SLNMode mode;
 	str_t *username;
-	unsigned refcount; // atomic
 };
 
-SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t const sessionID, byte_t const *const sessionKeyRaw, byte_t const *const sessionKeyEnc, uint64_t const userID, SLNMode const mode_trusted, strarg_t const username) {
+int SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t const sessionID, byte_t const *const sessionKeyRaw, byte_t const *const sessionKeyEnc, uint64_t const userID, SLNMode const mode_trusted, strarg_t const username, SLNSessionRef *const out) {
 	assert(cache);
-	if(!mode_trusted) return NULL; // TODO: return UV_EACCES;
+	assert(out);
+	// 0 == sessionID is valid for "temporary" sessions.
+	if(!mode_trusted) return UV_EACCES; // Even trusted code can't create a session without perms.
+
 	SLNSessionRef session = calloc(1, sizeof(struct SLNSession));
-	if(!session) return NULL;
+	if(!session) return UV_ENOMEM;
+	int rc = 0;
+
+	session->refcount = 1;
 	session->cache = cache;
 	session->sessionID = sessionID;
 
 	session->sessionKeyRaw = malloc(SESSION_KEY_LEN);
 	session->sessionKeyEnc = malloc(SESSION_KEY_LEN);
-	if(!session->sessionKeyRaw || !session->sessionKeyEnc) {
-		SLNSessionRelease(&session);
-		return NULL;
-	}
+	if(!session->sessionKeyRaw || !session->sessionKeyEnc) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
 	if(sessionKeyRaw) {
 		memcpy(session->sessionKeyRaw, sessionKeyRaw, SESSION_KEY_LEN);
 	} else {
@@ -55,8 +59,11 @@ SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t 
 	session->userID = userID;
 	session->mode = mode_trusted;
 	session->username = username ? strdup(username) : NULL;
-	session->refcount = 1;
-	return session;
+
+	*out = session; session = NULL;
+cleanup:
+	SLNSessionRelease(&session);
+	return rc;
 }
 SLNSessionRef SLNSessionRetain(SLNSessionRef const session) {
 	if(!session) return NULL;
@@ -216,8 +223,7 @@ int SLNSessionCreateSession(SLNSessionRef const session, SLNSessionRef *const ou
 	SLNSessionDBClose(session, &db);
 	if(rc < 0) goto cleanup;
 
-	alt = SLNSessionCreateInternal(cache, sessionID, key_raw, key_enc, userID, mode, username);
-	if(!alt) rc = DB_ENOMEM;
+	rc = SLNSessionCreateInternal(cache, sessionID, key_raw, key_enc, userID, mode, username, &alt);
 	if(rc < 0) goto cleanup;
 
 	*out = alt; alt = NULL;
