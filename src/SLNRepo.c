@@ -6,6 +6,7 @@
 #include "../deps/libressl-portable/include/compat/stdlib.h"
 
 #define CACHE_SIZE 1000
+#define PASS_LEN 16 // Default for auto-generated passwords
 
 struct SLNRepo {
 	str_t *dir;
@@ -31,8 +32,9 @@ struct SLNRepo {
 	size_t pull_size;
 };
 
-static int createDBConnection(SLNRepoRef const repo);
-static void loadPulls(SLNRepoRef const repo);
+static int connect_db(SLNRepoRef const repo);
+static int add_pull(SLNRepoRef const repo, SLNPullRef *const pull);
+static int load_pulls(SLNRepoRef const repo);
 
 SLNRepoRef SLNRepoCreate(strarg_t const dir, strarg_t const name) {
 	assert(dir);
@@ -69,16 +71,21 @@ SLNRepoRef SLNRepoCreate(strarg_t const dir, strarg_t const name) {
 		return NULL;
 	}
 
-	rc = createDBConnection(repo);
+	rc = connect_db(repo);
 	if(rc < 0) {
 		SLNRepoFree(&repo);
 		return NULL;
 	}
 
-	loadPulls(repo);
+	rc = load_pulls(repo);
+	if(rc < 0) {
+		SLNRepoFree(&repo);
+		return NULL;
+	}
 
 	async_mutex_init(repo->sub_mutex, 0);
 	async_cond_init(repo->sub_cond, 0);
+
 	return repo;
 }
 void SLNRepoFree(SLNRepoRef *const repoptr) {
@@ -213,7 +220,6 @@ void SLNRepoPullsStop(SLNRepoRef const repo) {
 }
 
 
-#define PASS_LEN 16
 static int create_admin(SLNRepoRef const repo, DB_txn *const txn) {
 	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);
 	SLNSessionRef root = NULL;
@@ -240,7 +246,7 @@ static int create_admin(SLNRepoRef const repo, DB_txn *const txn) {
 
 	return 0;
 }
-static int createDBConnection(SLNRepoRef const repo) {
+static int connect_db(SLNRepoRef const repo) {
 	assert(repo);
 	int rc = db_env_create(&repo->db);
 	rc = rc < 0 ? rc : db_env_set_mapsize(repo->db, 1024 * 1024 * 1024 * 1);
@@ -310,17 +316,32 @@ static int createDBConnection(SLNRepoRef const repo) {
 	}
 	return 0;
 }
-static void loadPulls(SLNRepoRef const repo) {
-	assert(repo);
-	DB_env *db = NULL;
-	SLNRepoDBOpenUnsafe(repo, &db);
-	DB_txn *txn = NULL;
-	int rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	assert(rc >= 0);
 
+static int add_pull(SLNRepoRef const repo, SLNPullRef *const pull) {
+	if(!repo) return UV_EINVAL;
+	if(repo->pull_count+1 > repo->pull_size) {
+		repo->pull_size = (repo->pull_count+1) * 2;
+		SLNPullRef *pulls = reallocarray(repo->pulls, repo->pull_size, sizeof(SLNPullRef));
+		if(!pulls) return UV_ENOMEM;
+		repo->pulls = pulls; pulls = NULL;
+	}
+	repo->pulls[repo->pull_count++] = *pull; *pull = NULL;
+	return 0;
+}
+static int load_pulls(SLNRepoRef const repo) {
+	assert(repo);
+
+	DB_env *db = NULL;
+	DB_txn *txn = NULL;
 	DB_cursor *cur = NULL;
+	SLNPullRef pull = NULL;
+	int rc;
+
+	SLNRepoDBOpenUnsafe(repo, &db);
+	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	if(rc < 0) goto cleanup;
 	rc = db_cursor_open(txn, &cur);
-	assertf(rc >= 0, "Database error %s\n", sln_strerror(rc));
+	if(rc < 0) goto cleanup;
 
 	DB_range pulls[1];
 	SLNPullByIDRange0(pulls, txn);
@@ -338,22 +359,22 @@ static void loadPulls(SLNRepoRef const repo) {
 		strarg_t cookie;
 		SLNPullByIDValUnpack(pull_val, txn, &userID, &certhash, &host, &path, &query, &cookie);
 
-		SLNPullRef pull = NULL;
-		int rc = SLNPullCreate(repo->session_cache, pullID, certhash, host, path, query, cookie, &pull);
-		assert(rc >= 0); // TODO
+		rc = SLNPullCreate(repo->session_cache, pullID, certhash, host, path, query, cookie, &pull);
+		if(rc < 0) goto cleanup;
 
+		rc = add_pull(repo, &pull);
+		if(rc < 0) goto cleanup;
 
-
-		if(repo->pull_count+1 > repo->pull_size) {
-			repo->pull_size = (repo->pull_count+1) * 2;
-			repo->pulls = reallocarray(repo->pulls, repo->pull_size, sizeof(SLNPullRef));
-			assert(repo->pulls); // TODO: Handle error
-		}
-		repo->pulls[repo->pull_count++] = pull;
+		SLNPullFree(&pull);
 	}
+	if(DB_NOTFOUND == rc) rc = 0;
+	if(rc < 0) goto cleanup;
 
+cleanup:
 	db_cursor_close(cur); cur = NULL;
 	db_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
+	SLNPullFree(&pull);
+	return rc;
 }
 
