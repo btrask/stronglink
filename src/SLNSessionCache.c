@@ -162,7 +162,7 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 	SLNRepoDBClose(repo, &db);
 	// TODO: We shouldn't need to close and reopen the DB.
 	// However, async_random currently isn't thread-safe.
-	// Or it might be, but we sure ensure it instead of just
+	// Or it might be, but we should ensure it instead of just
 	// counting on LibreSSL.
 
 
