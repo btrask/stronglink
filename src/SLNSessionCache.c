@@ -121,7 +121,6 @@ static void session_cache(SLNSessionCacheRef const cache, SLNSessionRef const se
 //	}
 }
 
-
 int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const username, strarg_t const password, SLNSessionRef *const out) {
 	assert(out);
 	if(!cache) return DB_EINVAL;
@@ -132,9 +131,7 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 	DB_env *db = NULL;
 	DB_txn *txn = NULL;
 	SLNMode mode = 0;
-	str_t *passhash = NULL;
-	byte_t key_raw[SESSION_KEY_LEN] = {0};
-	byte_t key_enc[SHA256_DIGEST_LENGTH] = {0};
+	SLNSessionRef tmp = NULL;
 	int rc;
 
 	SLNRepoDBOpenUnsafe(repo, &db);
@@ -152,54 +149,25 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 	SLNUserByIDKeyPack(userID_key, txn, userID);
 	rc = db_get(txn, userID_key, user_val);
 	if(rc < 0) goto cleanup;
-	strarg_t u, p, ignore1;
+	strarg_t u, passhash, ignore1;
 	uint64_t ignore2, ignore3;
-	SLNUserByIDValUnpack(user_val, txn, &u, &p, &ignore1, &mode, &ignore2, &ignore3);
+	SLNUserByIDValUnpack(user_val, txn, &u, &passhash, &ignore1, &mode, &ignore2, &ignore3);
 	db_assert(0 == strcmp(username, u));
-	passhash = strdup(p);
+	db_assert(passhash);
 
-	db_txn_abort(txn); txn = NULL;
-	SLNRepoDBClose(repo, &db);
-	// TODO: We shouldn't need to close and reopen the DB.
-	// However, async_random currently isn't thread-safe.
-	// Or it might be, but we should ensure it instead of just
-	// counting on LibreSSL.
-
-
-	if(!mode) rc = DB_EACCES;
-	if(rc < 0) goto cleanup;
 	if(0 != pass_hashcmp(password, passhash)) rc = DB_EACCES;
 	if(rc < 0) goto cleanup;
 
-	FREE(&passhash);
-
-	rc = async_random(key_raw, sizeof(key_raw));
+	tmp = SLNSessionCreateInternal(cache, 0, NULL, NULL, userID, mode, username);
+	if(!tmp) rc = DB_ENOMEM;
 	if(rc < 0) goto cleanup;
 
-	SHA256(key_raw, sizeof(key_raw), key_enc);
-
-	str_t key_str[SESSION_KEY_HEX+1];
-	tohex(key_str, key_enc, SESSION_KEY_LEN);
-	key_str[SESSION_KEY_HEX] = '\0';
-
-
-	SLNRepoDBOpenUnsafe(repo, &db);
-	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
-	if(rc < 0) goto cleanup;
-
-	uint64_t const sessionID = db_next_id(SLNSessionByID, txn);
-	DB_val sessionID_key[1], session_val[1];
-	SLNSessionByIDKeyPack(sessionID_key, txn, sessionID);
-	SLNSessionByIDValPack(session_val, txn, userID, key_str);
-	rc = db_put(txn, sessionID_key, session_val, DB_NOOVERWRITE_FAST);
-	if(rc < 0) goto cleanup;
-
-	rc = db_txn_commit(txn); txn = NULL;
+	db_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
-	if(rc < 0) goto cleanup;
 
-	SLNSessionRef session = SLNSessionCreateInternal(cache, sessionID, key_raw, key_enc, userID, mode, username);
-	if(!session) rc = DB_ENOMEM;
+
+	SLNSessionRef session = NULL;
+	rc = SLNSessionCreateSession(tmp, &session);
 	if(rc < 0) goto cleanup;
 
 	session_cache(cache, session);
@@ -208,7 +176,8 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 cleanup:
 	db_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
-	FREE(&passhash);
+	SLNSessionRelease(&tmp);
+	SLNSessionRelease(&session);
 	return rc;
 }
 

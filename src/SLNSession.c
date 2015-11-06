@@ -25,7 +25,7 @@ struct SLNSession {
 
 SLNSessionRef SLNSessionCreateInternal(SLNSessionCacheRef const cache, uint64_t const sessionID, byte_t const *const sessionKeyRaw, byte_t const *const sessionKeyEnc, uint64_t const userID, SLNMode const mode_trusted, strarg_t const username) {
 	assert(cache);
-	if(!mode_trusted) return NULL;
+	if(!mode_trusted) return NULL; // TODO: return UV_EACCES;
 	SLNSessionRef session = calloc(1, sizeof(struct SLNSession));
 	if(!session) return NULL;
 	session->cache = cache;
@@ -176,6 +176,57 @@ int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn,
 	if(rc < 0) return rc;
 
 	return 0;
+}
+int SLNSessionCreateSession(SLNSessionRef const session, SLNSessionRef *const out) {
+	assert(out);
+	if(!session) return DB_EACCES;
+
+	SLNSessionCacheRef const cache = session->cache;
+	uint64_t const userID = session->userID;
+	SLNMode const mode = session->mode;
+	strarg_t const username = session->username;
+	DB_env *db = NULL;
+	DB_txn *txn = NULL;
+	SLNSessionRef alt = NULL;
+
+	byte_t key_raw[SESSION_KEY_LEN];
+	int rc = async_random(key_raw, sizeof(key_raw));
+	if(rc < 0) goto cleanup;
+
+	byte_t key_enc[SHA256_DIGEST_LENGTH];
+	SHA256(key_raw, sizeof(key_raw), key_enc);
+
+	str_t key_str[SESSION_KEY_HEX+1];
+	tohex(key_str, key_enc, SESSION_KEY_LEN);
+	key_str[SESSION_KEY_HEX] = '\0';
+
+	rc = SLNSessionDBOpen(session, SLN_RDWR, &db); // TODO: Custom permission?
+	if(rc < 0) goto cleanup;
+	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
+	if(rc < 0) goto cleanup;
+
+	uint64_t const sessionID = db_next_id(SLNSessionByID, txn);
+	DB_val key[1], val[1];
+	SLNSessionByIDKeyPack(key, txn, sessionID);
+	SLNSessionByIDValPack(val, txn, userID, key_str);
+	rc = db_put(txn, key, val, DB_NOOVERWRITE_FAST);
+	if(rc < 0) goto cleanup;
+
+	rc = db_txn_commit(txn); txn = NULL;
+	SLNSessionDBClose(session, &db);
+	if(rc < 0) goto cleanup;
+
+	alt = SLNSessionCreateInternal(cache, sessionID, key_raw, key_enc, userID, mode, username);
+	if(!alt) rc = DB_ENOMEM;
+	if(rc < 0) goto cleanup;
+
+	*out = alt; alt = NULL;
+
+cleanup:
+	db_txn_abort(txn); txn = NULL;
+	SLNSessionDBClose(session, &db);
+	SLNSessionRelease(&alt);
+	return rc;
 }
 
 int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFileInfo *const info) {

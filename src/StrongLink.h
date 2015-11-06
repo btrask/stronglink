@@ -108,6 +108,7 @@ int SLNSessionDBOpen(SLNSessionRef const session, SLNMode const mode, DB_env **c
 void SLNSessionDBClose(SLNSessionRef const session, DB_env **const dbptr);
 int SLNSessionCreateUser(SLNSessionRef const session, DB_txn *const txn, strarg_t const username, strarg_t const password);
 int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn, strarg_t const username, strarg_t const password, SLNMode const mode_unsafe);
+int SLNSessionCreateSession(SLNSessionRef const session, SLNSessionRef *const out);
 int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFileInfo *const info);
 void SLNFileInfoCleanup(SLNFileInfo *const info);
 int SLNSessionGetSubmittedFile(SLNSessionRef const session, DB_txn *const txn, strarg_t const URI); // Relevant results are DB_NOTFOUND and SLN_NOSESSION.
