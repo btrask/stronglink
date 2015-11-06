@@ -167,6 +167,7 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 
 
 	if(!mode) rc = DB_EACCES;
+	if(rc < 0) goto cleanup;
 	if(0 != pass_hashcmp(password, passhash)) rc = DB_EACCES;
 	if(rc < 0) goto cleanup;
 
@@ -194,17 +195,20 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 	if(rc < 0) goto cleanup;
 
 	rc = db_txn_commit(txn); txn = NULL;
+	SLNRepoDBClose(repo, &db);
+	if(rc < 0) goto cleanup;
+
+	SLNSessionRef session = SLNSessionCreateInternal(cache, sessionID, key_raw, key_enc, userID, mode, username);
+	if(!session) rc = DB_ENOMEM;
+	if(rc < 0) goto cleanup;
+
+	session_cache(cache, session);
+	*out = session; session = NULL;
+
 cleanup:
 	db_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
 	FREE(&passhash);
-	if(rc < 0) return rc;
-
-	assert(mode);
-	SLNSessionRef session = SLNSessionCreateInternal(cache, sessionID, key_raw, key_enc, userID, mode, username);
-	if(!session) return DB_ENOMEM;
-	session_cache(cache, session);
-	*out = session; session = NULL;
 	return rc;
 }
 
