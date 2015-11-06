@@ -36,57 +36,49 @@ static int connect_db(SLNRepoRef const repo);
 static int add_pull(SLNRepoRef const repo, SLNPullRef *const pull);
 static int load_pulls(SLNRepoRef const repo);
 
-SLNRepoRef SLNRepoCreate(strarg_t const dir, strarg_t const name) {
+int SLNRepoCreate(strarg_t const dir, strarg_t const name, SLNRepoRef *const out) {
 	assert(dir);
 	assert(name);
+	assert(out);
 
 	SLNRepoRef repo = calloc(1, sizeof(struct SLNRepo));
-	if(!repo) return NULL;
+	if(!repo) return UV_ENOMEM;
+	int rc = 0;
 
 	size_t dirlen = strlen(dir);
 	while(dirlen > 1 && '/' == dir[dirlen-1]) dirlen--; // Prettier.
 	repo->dir = strndup(dir, dirlen);
 	repo->name = strdup(name);
-	if(!repo->dir || !repo->name) {
-		SLNRepoFree(&repo);
-		return NULL;
-	}
+	if(!repo->dir || !repo->name) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
 
 	repo->dataDir = aasprintf("%s/data", repo->dir);
 	repo->tempDir = aasprintf("%s/tmp", repo->dir);
 	repo->cacheDir = aasprintf("%s/cache", repo->dir);
 	repo->DBPath = aasprintf("%s/sln.db", repo->dir);
-	if(!repo->dataDir || !repo->tempDir || !repo->cacheDir || !repo->DBPath) {
-		SLNRepoFree(&repo);
-		return NULL;
-	}
+	if(!repo->dataDir || !repo->tempDir || !repo->cacheDir || !repo->DBPath) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
 
 	// TODO: Configuration
 	// TODO: The ability to limit public registration
 	repo->pub_mode = 0;
 	repo->reg_mode = 0;
-	int rc = SLNSessionCacheCreate(repo, CACHE_SIZE, &repo->session_cache);
-	if(rc < 0) {
-		SLNRepoFree(&repo);
-		return NULL;
-	}
+	rc = SLNSessionCacheCreate(repo, CACHE_SIZE, &repo->session_cache);
+	if(rc < 0) goto cleanup;
 
 	rc = connect_db(repo);
-	if(rc < 0) {
-		SLNRepoFree(&repo);
-		return NULL;
-	}
+	if(rc < 0) goto cleanup;
 
 	rc = load_pulls(repo);
-	if(rc < 0) {
-		SLNRepoFree(&repo);
-		return NULL;
-	}
+	if(rc < 0) goto cleanup;
 
 	async_mutex_init(repo->sub_mutex, 0);
 	async_cond_init(repo->sub_cond, 0);
 
-	return repo;
+	*out = repo; repo = NULL;
+cleanup:
+	SLNRepoFree(&repo);
+	return rc;
 }
 void SLNRepoFree(SLNRepoRef *const repoptr) {
 	SLNRepoRef repo = *repoptr;

@@ -193,10 +193,10 @@ static void init(void *const unused) {
 
 	str_t *tmp = strdup(path);
 	strarg_t const reponame = basename(tmp); // TODO
-	repo = SLNRepoCreate(path, reponame);
+	rc = SLNRepoCreate(path, reponame, &repo);
 	FREE(&tmp);
-	if(!repo) {
-		alogf("Repository could not be opened\n");
+	if(rc < 0) {
+		alogf("Repository could not be opened: %s\n", sln_strerror(rc));
 		return;
 	}
 	rc = RSSServerCreate(repo, &rss);

@@ -51,7 +51,7 @@ static strarg_t sln_strerror(int const rc) {
 	return x;
 }
 
-SLNRepoRef SLNRepoCreate(strarg_t const dir, strarg_t const name);
+int SLNRepoCreate(strarg_t const dir, strarg_t const name, SLNRepoRef *const out);
 void SLNRepoFree(SLNRepoRef *const repoptr);
 strarg_t SLNRepoGetDir(SLNRepoRef const repo);
 strarg_t SLNRepoGetDataDir(SLNRepoRef const repo);
