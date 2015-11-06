@@ -65,13 +65,13 @@ SLNRepoRef SLNRepoCreate(strarg_t const dir, strarg_t const name) {
 	// TODO: The ability to limit public registration
 	repo->pub_mode = 0;
 	repo->reg_mode = 0;
-	repo->session_cache = SLNSessionCacheCreate(repo, CACHE_SIZE);
-	if(!repo->session_cache) {
+	int rc = SLNSessionCacheCreate(repo, CACHE_SIZE, &repo->session_cache);
+	if(rc < 0) {
 		SLNRepoFree(&repo);
 		return NULL;
 	}
 
-	int rc = createDBConnection(repo);
+	rc = createDBConnection(repo);
 	if(rc < 0) {
 		SLNRepoFree(&repo);
 		return NULL;

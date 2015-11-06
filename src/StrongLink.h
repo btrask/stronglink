@@ -76,7 +76,7 @@ void SLNRepoPullsStop(SLNRepoRef const repo);
 #define SESSION_KEY_HEX (SESSION_KEY_LEN*2)
 #define SESSION_KEY_FMT "%32[0-9a-fA-F]"
 
-SLNSessionCacheRef SLNSessionCacheCreate(SLNRepoRef const repo, uint16_t const size);
+int SLNSessionCacheCreate(SLNRepoRef const repo, uint16_t const size, SLNSessionCacheRef *const out);
 void SLNSessionCacheFree(SLNSessionCacheRef *const cacheptr);
 SLNRepoRef SLNSessionCacheGetRepo(SLNSessionCacheRef const cache);
 int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const username, strarg_t const password, SLNSessionRef *const out);

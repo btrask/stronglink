@@ -31,45 +31,41 @@ struct SLNSessionCache {
 
 
 
-SLNSessionCacheRef SLNSessionCacheCreate(SLNRepoRef const repo, uint16_t const size) {
-	assert(repo);
-	assert(size);
+int SLNSessionCacheCreate(SLNRepoRef const repo, uint16_t const size, SLNSessionCacheRef *const out) {
+	if(!repo) return UV_EINVAL;
+	if(size < 10) return UV_EINVAL;
 	SLNSessionCacheRef cache = calloc(1, sizeof(struct SLNSessionCache));
-	if(!cache) return NULL;
+	if(!cache) return UV_ENOMEM;
+	int rc = 0;
 
 	cache->repo = repo;
-
+	cache->public = NULL;
 	SLNMode const pub_mode = SLNRepoGetPublicMode(repo);
 	if(pub_mode) {
 		cache->public = SLNSessionCreateInternal(cache, 0, NULL, NULL, 0, pub_mode, NULL);
-		if(!cache->public) {
-			SLNSessionCacheFree(&cache);
-			return NULL;
-		}
-	} else {
-		cache->public = NULL;
+		if(!cache->public) rc = UV_ENOMEM;
+		if(rc < 0) goto cleanup;
 	}
 
 	async_mutex_init(cache->lock, 0);
 	cache->size = size;
 	cache->ids = calloc(size, sizeof(uint64_t));
 	cache->sessions = calloc(size, sizeof(*cache->sessions));
-	if(!cache->ids || !cache->sessions) {
-		SLNSessionCacheFree(&cache);
-		return NULL;
-	}
+	if(!cache->ids || !cache->sessions) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
 
 	cache->timer->data = cache;
 	uv_timer_init(async_loop, cache->timer);
 	cache->timeouts = calloc(size, sizeof(*cache->timeouts));
 	cache->active = calloc(size, sizeof(*cache->active));
 	cache->pos = 0;
-	if(!cache->timeouts || !cache->active) {
-		SLNSessionCacheFree(&cache);
-		return NULL;
-	}
+	if(!cache->timeouts || !cache->active) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
 
-	return cache;
+	*out = cache; cache = NULL;
+cleanup:
+	SLNSessionCacheFree(&cache);
+	return rc;
 }
 void SLNSessionCacheFree(SLNSessionCacheRef *const cacheptr) {
 	SLNSessionCacheRef cache = *cacheptr;
