@@ -129,7 +129,6 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 	SLNRepoRef const repo = cache->repo;
 	DB_env *db = NULL;
 	DB_txn *txn = NULL;
-	SLNMode mode = 0;
 	SLNSessionRef tmp = NULL;
 	int rc;
 
@@ -150,6 +149,7 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 	if(rc < 0) goto cleanup;
 	strarg_t u, passhash, ignore1;
 	uint64_t ignore2, ignore3;
+	SLNMode mode;
 	SLNUserByIDValUnpack(user_val, txn, &u, &passhash, &ignore1, &mode, &ignore2, &ignore3);
 	db_assert(0 == strcmp(username, u));
 	db_assert(passhash);
