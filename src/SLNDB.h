@@ -127,18 +127,25 @@ static void SLNPullByIDKeyUnpack(DB_val *const val, DB_txn *const txn, uint64_t 
 	*pullID = db_read_uint64(val);
 }
 
-#define SLNPullByIDValPack(val, txn, userID, host, sessionid, query) \
+#define SLNPullByIDValPack(val, txn, userID, certhash, host, path, query, sessionid) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX * 1 + DB_INLINE_MAX * 5); \
 	db_bind_uint64((val), (userID)); \
 	db_bind_string((val), (host), (txn)); \
 	db_bind_string((val), (sessionid), (txn)); \
 	db_bind_string((val), (query), (txn)); \
+	db_bind_string((val), (certhash), (txn)); \
+	db_bind_string((val), (path), (txn)); \
 	DB_VAL_STORAGE_VERIFY(val);
-static void SLNPullByIDValUnpack(DB_val *const val, DB_txn *const txn, uint64_t *const userID, strarg_t *const host, strarg_t *const sessionid, strarg_t *const query) {
+static void SLNPullByIDValUnpack(DB_val *const val, DB_txn *const txn, uint64_t *const userID, strarg_t *const certhash, strarg_t *const host, strarg_t *const path, strarg_t *const query, strarg_t *const sessionid) {
 	*userID = db_read_uint64(val);
 	*host = db_read_string(val, txn);
 	*sessionid = db_read_string(val, txn);
 	*query = db_read_string(val, txn);
+	*certhash = NULL;
+	*path = "";
+	if(!val->size) return;
+	*certhash = db_read_string(val, txn);
+	*path = db_read_string(val, txn);
 }
 
 ///

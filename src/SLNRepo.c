@@ -333,18 +333,15 @@ static void loadPulls(SLNRepoRef const repo) {
 		uint64_t pullID;
 		SLNPullByIDKeyUnpack(pullID_key, txn, &pullID);
 		uint64_t userID;
+		strarg_t certhash;
 		strarg_t host;
-		strarg_t sessionid;
+		strarg_t path;
 		strarg_t query;
-		SLNPullByIDValUnpack(pull_val, txn, &userID, &host, &sessionid, &query);
-
-
-		// TODO
-		strarg_t const certhash = NULL;
-		strarg_t const path = "";
+		strarg_t cookie;
+		SLNPullByIDValUnpack(pull_val, txn, &userID, &certhash, &host, &path, &query, &cookie);
 
 		SLNPullRef pull = NULL;
-		int rc = SLNPullCreate(repo->session_cache, pullID, certhash, host, path, query, sessionid, &pull);
+		int rc = SLNPullCreate(repo->session_cache, pullID, certhash, host, path, query, cookie, &pull);
 		assert(rc >= 0); // TODO
 
 
@@ -371,11 +368,13 @@ static void debug_data(DB_env *const db) {
 /*	DB_val pullID_key[1];
 	SLNPullByIDKeyPack(pullID_key, txn, 1);
 	uint64_t const userID = 1;
+	char const *const certhash = NULL;
 	char const *const host = "localhost:8009";
-	char const *const sessionid = NULL;
+	char const *const path = "";
 	char const *const query = "";
+	char const *const sessionid = NULL;
 	DB_val pull_val[1];
-	SLNPullByIDValPack(pull_val, txn, userID, host, sessionid, query);
+	SLNPullByIDValPack(pull_val, txn, userID, certhash, host, path, query, sessionid);
 
 	rc = db_put(txn, pullID_key, pull_val, 0);
 	assert(!rc);*/
