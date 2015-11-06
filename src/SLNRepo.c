@@ -1,9 +1,9 @@
 // Copyright 2014-2015 Ben Trask
 // MIT licensed (see LICENSE for details)
 
+#include "../deps/libressl-portable/include/compat/stdlib.h"
 #include "StrongLink.h"
 #include "SLNDB.h"
-#include "../deps/libressl-portable/include/compat/stdlib.h"
 
 #define CACHE_SIZE 1000
 #define PASS_LEN 16 // Default for auto-generated passwords
