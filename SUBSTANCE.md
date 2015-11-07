@@ -359,7 +359,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 - Build system (not a thorough analysis)
 	- Use `-Wall -Wextra -Werror`
 		- But turn off errors you don't care about instead of cluttering your code
-			- `-Wno-unused`
+			- `-Wno-unused-parameter` instead of `UNUSED(x)` everywhere
 		- If you turn off a warning, document why
 			- It will be the only thing keeping your head attached when that warning would've caught a critical vulnerability
 	- Use `-Wwrite-strings`
