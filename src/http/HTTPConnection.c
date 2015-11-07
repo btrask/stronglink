@@ -36,10 +36,12 @@ int HTTPConnectionCreateIncomingSecure(uv_stream_t *const ssocket, struct tls *c
 	if(!conn) return UV_ENOMEM;
 	int rc = SocketAccept(ssocket, ssecure, &conn->socket);
 	if(rc < 0) goto cleanup;
+
 	http_parser_init(conn->parser, HTTP_REQUEST);
 	conn->parser->data = conn;
 	conn->res_status = 0;
 	conn->res_length = UINT64_MAX;
+
 	*out = conn; conn = NULL;
 cleanup:
 	HTTPConnectionFree(&conn);
@@ -47,26 +49,36 @@ cleanup:
 }
 
 int HTTPConnectionCreateOutgoing(strarg_t const domain, unsigned const flags, HTTPConnectionRef *const out) {
-	assert(0);
-	return UV_ENOSYS;
-/*	str_t host[1023+1];
-	str_t service[15+1];
-	host[0] = '\0';
-	service[0] = '\0';
+	return HTTPConnectionCreateOutgoingSecure(domain, flags, NULL, out);
+}
+int HTTPConnectionCreateOutgoingSecure(strarg_t const domain, unsigned const flags, struct tls_config *const tlsconf, HTTPConnectionRef *const out) {
+	str_t host[1023+1]; host[0] = '\0';
+	str_t service[15+1]; service[0] = '\0';
 	int matched = sscanf(domain, "%1023[^:]:%15[0-9]", host, service);
 	if(matched < 1) return UV_EINVAL;
 	if('\0' == host[0]) return UV_EINVAL;
 
+	HTTPConnectionRef conn = calloc(1, sizeof(struct HTTPConnection));
+	if(!conn) return UV_ENOMEM;
+	int rc;
 
-
+	if('\0' == service[0]) {
+		rc = strlcpy(service, tlsconf ? "443" : "80", sizeof(service));
+		if(rc < 0) goto cleanup;
+		assert(rc < sizeof(service));
+	}
+	rc = SocketConnect(host, service, tlsconf, &conn->socket);
+	if(rc < 0) goto cleanup;
 
 	http_parser_init(conn->parser, HTTP_RESPONSE);
 	conn->parser->data = conn;
-	*out = conn; conn = NULL;
+	conn->res_status = 0;
+	conn->res_length = UINT64_MAX;
 
+	*out = conn; conn = NULL;
 cleanup:
 	HTTPConnectionFree(&conn);
-	return rc;*/
+	return rc;
 }
 void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
 	HTTPConnectionRef conn = *connptr;

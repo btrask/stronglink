@@ -25,6 +25,7 @@ typedef struct HTTPHeaders* HTTPHeadersRef;
 int HTTPConnectionCreateIncoming(uv_stream_t *const ssocket, unsigned const flags, HTTPConnectionRef *const out);
 int HTTPConnectionCreateIncomingSecure(uv_stream_t *const ssocket, struct tls *const ssecure, unsigned const flags, HTTPConnectionRef *const out);
 int HTTPConnectionCreateOutgoing(strarg_t const domain, unsigned const flags, HTTPConnectionRef *const out);
+int HTTPConnectionCreateOutgoingSecure(strarg_t const domain, unsigned const flags, struct tls_config *const tlsconf, HTTPConnectionRef *const out);
 void HTTPConnectionFree(HTTPConnectionRef *const connptr);
 
 // Reading
