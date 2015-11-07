@@ -65,7 +65,7 @@ static int listener0(HTTPServerRef const server, HTTPConnectionRef const conn, s
 		strarg_t const port = SERVER_PORT_TLS;
 		str_t loc[URI_MAX];
 		rc = snprintf(loc, sizeof(loc), "https://%s:%s%s", domain, port, URI);
-		if(rc >= sizeof(loc)) 414; // Request-URI Too Large
+		if(rc >= sizeof(loc)) return 414; // Request-URI Too Large
 		if(rc < 0) return 500;
 		HTTPConnectionSendRedirect(conn, 301, loc);
 		return 0;
