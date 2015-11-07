@@ -151,6 +151,7 @@ cleanup:
 int SLNSyncIngestFileURI(SLNSyncRef const sync, strarg_t const fileURI) {
 	if(!sync) return DB_EINVAL;
 	if(!fileURI) return DB_EINVAL;
+	alogf("file: %s\n", fileURI);
 	int rc = SLNSyncFileAvailable(sync, fileURI, NULL);
 	if(rc >= 0) return rc;
 	if(DB_NOTFOUND != rc) return rc;
@@ -160,6 +161,7 @@ int SLNSyncIngestMetaURI(SLNSyncRef const sync, strarg_t const metaURI, strarg_t
 	if(!sync) return DB_EINVAL;
 	if(!metaURI) return DB_EINVAL;
 	if(!targetURI) return DB_EINVAL;
+	alogf("meta: %s -> %s\n", metaURI, targetURI);
 	int rc = SLNSyncFileAvailable(sync, metaURI, targetURI);
 	if(rc >= 0) return rc;
 	if(DB_NOTFOUND != rc) return rc;

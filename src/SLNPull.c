@@ -135,6 +135,9 @@ static void reader(SLNPullRef const pull, bool const meta) {
 		rc = HTTPConnectionReadBodyLine(conn, URI, sizeof(URI));
 		if(rc < 0) goto cleanup;
 
+		if('\0' == URI[0]) continue; // Ignore blank lines.
+		if('#' == URI[0]) continue; // Ignore comments.
+
 		if(meta) {
 			str_t metaURI[SLN_URI_MAX]; metaURI[0] = '\0';
 			str_t targetURI[SLN_URI_MAX]; targetURI[0] = '\0';
@@ -222,7 +225,7 @@ static void worker(void *const arg) {
 			uv_buf_t buf[1];
 			rc = HTTPConnectionReadBody(conn, buf);
 			if(rc < 0) goto cleanup;
-			if(0 == buf->len) goto cleanup;
+			if(0 == buf->len) break;
 			rc = SLNSubmissionWrite(sub, (byte_t *)buf->base, buf->len);
 			if(rc < 0) goto cleanup;
 		}
