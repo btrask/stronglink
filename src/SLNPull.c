@@ -163,9 +163,6 @@ static void worker(void *const arg) {
 	HTTPHeadersRef headers = NULL;
 	int rc = 0;
 
-	rc = HTTPConnectionCreateOutgoing(pull->host, 0, &conn);
-	if(rc < 0) goto cleanup;
-
 	for(;;) {
 		if(!pull->run) goto cleanup;
 
@@ -181,6 +178,11 @@ static void worker(void *const arg) {
 		rc = snprintf(path, sizeof(path), "%s/sln/file/%s/%s", pull->path, algo, hash);
 		if(rc >= sizeof(path)) rc = UV_ENAMETOOLONG;
 		if(rc < 0) goto cleanup;
+
+		if(!conn) {
+			rc = HTTPConnectionCreateOutgoing(pull->host, 0, &conn);
+			if(rc < 0) goto cleanup;
+		}
 
 		rc = rc < 0 ? rc : HTTPConnectionWriteRequest(conn, HTTP_GET, path, pull->host);
 		rc = rc < 0 ? rc : HTTPConnectionWriteHeader(conn, "Cookie", pull->cookie);
