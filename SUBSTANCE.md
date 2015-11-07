@@ -202,6 +202,8 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Know which APIs expect format strings
 			- Passing a dynamic string where a format string was expected is a security vulnerability
 			- Name functions taking format strings ending in "f"
+		- Cast `typedef int`s to an appropriate basic type like `long long`
+		- Use `__attribute__((format(printf, 1, 2)))` (on compilers that support it)
 	- `scanf(3)`
 		- Pre-initialize all outputs
 		- Always specify string widths
