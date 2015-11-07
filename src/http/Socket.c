@@ -48,9 +48,60 @@ cleanup:
 	SocketFree(&socket);
 	return rc;
 }
-int SocketConnect(strarg_t const host, strarg_t const port, SocketRef *const out) {
-	// TODO
-	return UV_ENOSYS;
+int SocketConnect(strarg_t const host, strarg_t const port, struct tls_config *const tlsconf, SocketRef *const out) {
+	struct addrinfo *info = NULL;
+	SocketRef socket = NULL;
+	int rc;
+
+	static struct addrinfo const hints = {
+		.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG | AI_NUMERICSERV,
+		.ai_family = AF_UNSPEC,
+		.ai_socktype = SOCK_STREAM,
+		.ai_protocol = 0, // ???
+	};
+	rc = async_getaddrinfo(host, port, &hints, &info);
+	if(rc < 0) goto cleanup;
+
+	socket = calloc(1, sizeof(struct Socket));
+	if(!socket) rc = UV_ENOMEM;
+	if(rc < 0) goto cleanup;
+
+	rc = UV_EADDRNOTAVAIL;
+	for(struct addrinfo *each = info; each; each = each->ai_next) {
+		rc = uv_tcp_init(async_loop, socket->stream);
+		if(rc < 0) break;
+
+		rc = async_tcp_connect(socket->stream, each->ai_addr);
+		if(rc >= 0) break;
+
+		async_close((uv_handle_t *)socket->stream);
+	}
+	if(rc < 0) goto cleanup;
+
+	if(tlsconf) {
+		socket->secure = tls_client();
+		if(!socket->secure) rc = UV_ENOMEM;
+		if(rc < 0) goto cleanup;
+		rc = tls_configure(socket->secure, tlsconf);
+		if(rc < 0) goto cleanup;
+		uv_os_fd_t fd;
+		rc = uv_fileno((uv_handle_t *)socket->stream, &fd);
+		if(rc < 0) goto cleanup;
+		rc = tls_connect_socket(socket->secure, fd, host);
+		if(rc < 0) goto cleanup;
+		for(;;) {
+			int event = tls_handshake(socket->secure);
+			if(0 == event) break;
+			rc = tls_poll((uv_stream_t *)socket->stream, event);
+			if(rc < 0) goto cleanup;
+		}
+	}
+
+	*out = socket; socket = NULL;
+cleanup:
+	uv_freeaddrinfo(info); info = NULL;
+	SocketFree(&socket);
+	return rc;
 }
 void SocketFree(SocketRef *const socketptr) {
 	SocketRef socket = *socketptr;

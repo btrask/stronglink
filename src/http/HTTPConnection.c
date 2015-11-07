@@ -57,41 +57,14 @@ int HTTPConnectionCreateOutgoing(strarg_t const domain, unsigned const flags, HT
 	if(matched < 1) return UV_EINVAL;
 	if('\0' == host[0]) return UV_EINVAL;
 
-	static struct addrinfo const hints = {
-		.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG | AI_NUMERICSERV,
-		.ai_family = AF_UNSPEC,
-		.ai_socktype = SOCK_STREAM,
-		.ai_protocol = 0, // ???
-	};
-	struct addrinfo *info = NULL;
-	HTTPConnectionRef conn = NULL;
-	int rc;
 
-	rc = async_getaddrinfo(host, service[0] ? service : "80", &hints, &info);
-	if(rc < 0) goto cleanup;
 
-	conn = calloc(1, sizeof(struct HTTPConnection));
-	if(!conn) rc = UV_ENOMEM;
-	if(rc < 0) goto cleanup;
-
-	rc = UV_EADDRNOTAVAIL;
-	for(struct addrinfo *each = info; each; each = each->ai_next) {
-		rc = uv_tcp_init(async_loop, conn->stream);
-		if(rc < 0) break;
-
-		rc = async_tcp_connect(conn->stream, each->ai_addr);
-		if(rc >= 0) break;
-
-		async_close((uv_handle_t *)conn->stream);
-	}
-	if(rc < 0) goto cleanup;
 
 	http_parser_init(conn->parser, HTTP_RESPONSE);
 	conn->parser->data = conn;
 	*out = conn; conn = NULL;
 
 cleanup:
-	uv_freeaddrinfo(info); info = NULL;
 	HTTPConnectionFree(&conn);
 	return rc;*/
 }
