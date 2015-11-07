@@ -46,8 +46,8 @@ static strarg_t sln_strerror(int const rc) {
 		case SLN_INVALIDTARGET: return "Invalid meta-file target";
 		case SLN_NOSESSION: return "No session";
 	}
-	strarg_t x = uv_strerror(rc);
-	if(!x) x = db_strerror(rc);
+	strarg_t x = db_strerror(rc);
+	if(!x) x = uv_strerror(rc);
 	return x;
 }
 
