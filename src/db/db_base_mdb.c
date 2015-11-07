@@ -164,7 +164,7 @@ int db_cursor_next(DB_cursor *const cursor, DB_val *const key, DB_val *const dat
 	MDB_val _k[1], _d[1];
 	MDB_val *const k = key ? (MDB_val *)key : _k;
 	MDB_val *const d = data ? (MDB_val *)data : _d;
-	return mdberr(mdb_cursor_get((MDB_cursor *)cursor, (MDB_val *)key, (MDB_val *)data, op));
+	return mdberr(mdb_cursor_get((MDB_cursor *)cursor, (MDB_val *)k, (MDB_val *)d, op));
 }
 
 int db_cursor_put(DB_cursor *const cursor, DB_val *const key, DB_val *const data, unsigned const flags) {

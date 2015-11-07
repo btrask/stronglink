@@ -50,7 +50,6 @@
 			SLNURIAndFileIDKeyPack(fileID_key, curtxn, targetURI, fileID);
 			rc = db_cursor_seekr(step_files, fileIDs, fileID_key, NULL, dir);
 		} else {
-			DB_val fileID_key[1];
 			rc = db_cursor_firstr(step_files, fileIDs, NULL, NULL, dir);
 		}
 		if(rc < 0) continue;

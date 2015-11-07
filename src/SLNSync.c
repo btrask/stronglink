@@ -19,10 +19,8 @@ struct SLNSync {
 };
 
 static int setsubmittedfile(SLNSessionRef const session, strarg_t const URI) {
-	uint64_t const sessionID = SLNSessionGetID(session);
 	DB_env *db = NULL;
 	DB_txn *txn = NULL;
-	DB_cursor *cursor = NULL;
 	int rc = SLNSessionDBOpen(session, SLN_RDWR, &db);
 	if(rc < 0) goto cleanup;
 	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);

@@ -21,24 +21,26 @@ CFLAGS += -DLIBCO_MP
 CFLAGS += -DINSTALL_PREFIX=\"$(PREFIX)\"
 CFLAGS += -fstack-protector
 
-WARNINGS := -Werror -Wall -Wextra -Wuninitialized -Wlogical-op -Wvla
+WARNINGS := -Werror -Wall -Wextra -Wunused -Wuninitialized -Wlogical-op -Wvla
 
 # Disabled because it causes a lot of problems on Raspbian (GCC 4.6.3)
 # without much perceivable benefit.
 #WARNINGS += -Wshadow
+
+# Useful with GCC but Clang doesn't like it.
+#WARNINGS += -Wmaybe-uninitialized
 
 # Causes all string literals to be marked const.
 # This would be way too annoying if we don't use const everywhere already.
 # The only problem is uv_buf_t, which is const sometimes and not others.
 WARNINGS += -Wwrite-strings
 
-# Useful with GCC but Clang doesn't like it.
-#WARNINGS += -Wmaybe-uninitialized
+# A function's interface is an abstraction and shouldn't strictly reflect
+# its implementation. I don't believe in cluttering the code with UNUSED(X).
+WARNINGS += -Wno-unused-parameter
 
-# Dead code can sometimes indicate bugs, but these are just too noisy and
-# putting an UNUSED() macro everywhere would probably mask any problems
-# we might find.
-WARNINGS += -Wno-unused -Wno-unused-parameter
+# Seems too noisy for static functions in headers.
+WARNINGS += -Wno-unused-function
 
 # For OS X.
 WARNINGS += -Wno-deprecated

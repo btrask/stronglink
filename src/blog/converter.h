@@ -57,7 +57,6 @@ static int write_text(uv_file const file, char const *const buf, size_t const le
 	size_t y = SIZE_MAX;
 	int rc;
 	for(size_t i = 0; i < len; i++) {
-		char const *rep = NULL;
 		switch(buf[i]) {
 			case '<': chunks[x++] = uv_buf_lit("&lt;"); break;
 			case '>': chunks[x++] = uv_buf_lit("&gt;"); break;

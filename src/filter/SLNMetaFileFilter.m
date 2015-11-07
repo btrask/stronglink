@@ -55,7 +55,6 @@
 		uint64_t s;
 		SLNMetaFileByIDKeyUnpack(key, NULL, &s);
 		uint64_t f;
-		strarg_t ignore;
 		f = db_read_uint64(val);
 		//SLNMetaFileByIDValUnpack(val, NULL, &f, &ignore);
 		if(sortID) *sortID = s;
