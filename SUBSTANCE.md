@@ -244,6 +244,9 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Use `O_CREAT | O_EXCL`
 	- Short `read`s and `write`s
 		- Handle `EINTR`
+	- _Never_ handle the error from `close(2)`
+		- Yes, really! Regardless of what the man page says
+		- Instead, `fsync` before closing (if you care at all)
 - Creating good APIs
 	- [Some say](http://mollyrocket.com/jacs/jacs_0004_0008.html) it's the hardest skill in programming
 	- Empathize with the person who has to use your API
