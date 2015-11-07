@@ -106,6 +106,7 @@ static void reader(SLNPullRef const pull, bool const meta) {
 	for(;;) {
 		rc = HTTPConnectionCreateOutgoing(pull->host, 0, &conn);
 		if(rc >= 0) break; // TODO: Only retry on specific errors?
+		// UV_ECONNREFUSED
 		alogf("Pull connection to %s: %s\n", pull->host, sln_strerror(rc));
 		async_sleep(1000 * 5);
 	}
