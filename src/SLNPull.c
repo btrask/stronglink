@@ -103,7 +103,13 @@ static void reader(SLNPullRef const pull, bool const meta) {
 	if(rc >= sizeof(path)) rc = UV_ENAMETOOLONG;
 	if(rc < 0) goto cleanup;
 
-	rc = rc < 0 ? rc : HTTPConnectionCreateOutgoing(pull->host, 0, &conn);
+	for(;;) {
+		rc = HTTPConnectionCreateOutgoing(pull->host, 0, &conn);
+		if(rc >= 0) break; // TODO: Only retry on specific errors?
+		alogf("Pull connection to %s: %s\n", pull->host, sln_strerror(rc));
+		async_sleep(1000 * 5);
+	}
+
 	rc = rc < 0 ? rc : HTTPConnectionWriteRequest(conn, HTTP_GET, path, pull->host);
 	rc = rc < 0 ? rc : HTTPConnectionWriteHeader(conn, "Cookie", pull->cookie);
 	rc = rc < 0 ? rc : HTTPConnectionBeginBody(conn);
