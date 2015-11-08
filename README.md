@@ -63,7 +63,7 @@ Your searches never leave your machine. It can index private files without expos
 A major challenge of the design is being able to sync a large index quickly between repositories. After a lot of blood, sweat and [tears](https://github.com/btrask/lsmdb/), we at least have the understanding needed to make syncing relatively efficient.
 
 **How does it compare to other content addressing systems?**  
-StrongLink follows my [Principles of Content Addressing](https://bentrask.com/notes/content-addressing.html). It focuses on providing content addresses as regular links you can use between your files.
+StrongLink follows my [Principles of Content Addressing](https://bentrask.com/?q=hash://sha256/98493caa8b37eaa26343bbf73f232597a3ccda20498563327a4c3713821df892). It focuses on providing content addresses as regular links you can use between your files.
 
 Since StrongLink doesn't rely on centralized servers, it can't rely on server-side logic. Instead of putting application logic into the files themselves, it tries to provide general-purpose logic itself. That means that each node provides its own full text search and other features. Specialized applications would run on individual nodes and use shared data through StrongLink as a database server/library.
 
