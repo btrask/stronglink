@@ -27,6 +27,17 @@ My notes on StrongLink development are self-hosted. You can find over a thousand
 
 If you install StrongLink yourself (which currently is an [involved process](https://github.com/btrask/stronglink/blob/master/INSTALL.md)), you can make your own mirror by syncing from my site.
 
+Docs
+----
+
+- [Install guide](https://github.com/btrask/stronglink/blob/master/INSTALL.md)
+- [FAQ](https://github.com/btrask/stronglink/blob/master/README.md#faq)
+- [Client API](https://github.com/btrask/stronglink/blob/master/client/README.md)
+- [Security information](https://github.com/btrask/stronglink/blob/master/SECURITY.md)
+- [Contributing guidelines](https://github.com/btrask/stronglink/blob/master/SUBSTANCE.md)
+- [Searchable development notes](https://bentrask.com/?q=topic%3DStrongLink)
+- [License (MIT)](https://github.com/btrask/stronglink/blob/master/LICENSE)
+
 FAQ
 ---
 
