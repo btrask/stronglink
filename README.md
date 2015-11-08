@@ -30,6 +30,8 @@ If you install StrongLink yourself (which currently is an [involved process](htt
 Docs
 ----
 
+StrongLink documentation:
+
 - [Install guide](https://github.com/btrask/stronglink/blob/master/INSTALL.md)
 - [FAQ](https://github.com/btrask/stronglink/blob/master/README.md#faq)
 - [Client API](https://github.com/btrask/stronglink/blob/master/client/README.md)
@@ -38,6 +40,11 @@ Docs
 - [Searchable development notes](https://bentrask.com/?q=topic%3DStrongLink)
 - [Known problems](https://github.com/btrask/stronglink/issues)
 - [License (MIT)](https://github.com/btrask/stronglink/blob/master/LICENSE)
+
+Articles:
+
+- [_Principles of Content Addressing_](https://bentrask.com/?q=hash://sha256/98493caa8b37eaa26343bbf73f232597a3ccda20498563327a4c3713821df892) (2014)
+- [_Raise High the Merkle Tree, Programmers_](https://bentrask.com/?q=hash://sha256/f1da36906f842142b97e745dba841700d36eaf8d1bed1adf9197b7d6fc58b9ab) (2015)
 
 FAQ
 ---
@@ -116,6 +123,8 @@ In the process of developing StrongLink, I've learned two things I can say with 
 
 1. Strongly consider using content addresses over UUIDs or GUIDs in almost all cases. This is especially useful for distributed systems.
 2. With hashing, less is more. Don't hash meaningless data or your concept of identity will be meaningless.
+
+These topics [expounded upon at length](https://bentrask.com/?q=hash://sha256/f1da36906f842142b97e745dba841700d36eaf8d1bed1adf9197b7d6fc58b9ab).
 
 **My question isn't answered here...**  
 Please search [my notes and development log](https://bentrask.com/). Most questions have been answered and most suggestions have been considered. If you still have any questions or concerns, feel free to open a GitHub issue.
