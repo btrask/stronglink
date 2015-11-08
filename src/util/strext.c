@@ -44,8 +44,10 @@ void valogf(char const *const fmt, va_list ap) {
 	char t[31+1];
 	int rc = time_iso8601(t, sizeof(t));
 	assert(rc >= 0);
+	flockfile(stderr);
 	fprintf(stderr, "%s ", t);
 	vfprintf(stderr, fmt, ap);
+	funlockfile(stderr);
 	async_pool_leave(NULL);
 }
 void alogf(char const *const fmt, ...) {
