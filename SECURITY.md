@@ -175,6 +175,7 @@ Reverse chronological order by date fixed (bugs that aren't fixed yet should als
 - Unfixed: Potentially untrusted raw files are hosted within the same origin as the rest of the site and API
 - Unfixed: `explicit_bzero` is not used to clear passwords and session keys after use
 - Unfixed: A small number of slow queries can saturate the thread pool (denial of service)
+- Unfixed: Potentially malicious links (such as `javascript:`) in Markdown files are clickable
 - 2015-09-17: Ineffective buffer overflow checks in filter string printing (not exploitable; fixed in 6baa9ca5a9bc8d4f6d5f46bb961c771d866d6310)
 - 2015-08-17: HTTPS support added
 - 2015-07-18: Create dates in UTC to avoid leaking timezone (privacy leak; fixed in 73df2e409685f7acf320095b57af2aa3884988a2)
