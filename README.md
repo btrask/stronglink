@@ -36,6 +36,7 @@ Docs
 - [Security information](https://github.com/btrask/stronglink/blob/master/SECURITY.md)
 - [Contributing guidelines](https://github.com/btrask/stronglink/blob/master/SUBSTANCE.md)
 - [Searchable development notes](https://bentrask.com/?q=topic%3DStrongLink)
+- [Known problems](https://github.com/btrask/stronglink/issues)
 - [License (MIT)](https://github.com/btrask/stronglink/blob/master/LICENSE)
 
 FAQ
