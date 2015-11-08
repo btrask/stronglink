@@ -1,6 +1,21 @@
 StrongLink Security Information
 ===============================
 
+Threat Model
+------------
+
+StrongLink is _intended_ to resist the following attack vectors:
+
+- Attackers may connect to the StrongLink server over the network
+- ...control a remote repository that the user attempts to connect to
+- ...intercept and monitor network traffic
+- ...flood the StrongLink server with traffic or connections
+- ...craft malicious files that the user receives and previews
+- ...brute-force account passwords
+- ...exploit bugs to escalate system privileges
+
+Notably, StrongLink is not intended to defend against attackers with access to the local system, including the hard disk or file system.
+
 Security practices
 ------------------
 
