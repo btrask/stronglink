@@ -1,7 +1,7 @@
 var input = document.getElementById("input");
 var output = document.getElementById("output");
 
-var parser = new commonmark.Parser();
+var parser = new commonmark.Parser({smart: true});
 var renderer = new commonmark.HtmlRenderer({sourcepos: true});
 renderer.softbreak = "<br>";
 
