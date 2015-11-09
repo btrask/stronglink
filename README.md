@@ -94,7 +94,7 @@ A full SHA-1 collision has never been found, although [we're getting closer](htt
 **What happens if something "immutable" is changed?**  
 There are two basic immutable "things" in StrongLink:
 
-- Files: StrongLink follows the [end-to-end principle](https://en.wikipedia.org/wiki/End_to_end_principle), meaning that hashes are expected to be checked _by the receiver_. If a file within a repository is modified, that repository itself will not notice, but other repositories and validating clients will. StrongLink is not intended to replace filesystem-level redundancy or integrity checks such as from RAID or ZFS.
+- Files: StrongLink follows the [end-to-end principle](https://en.wikipedia.org/wiki/End-to-end_principle), meaning that hashes are expected to be checked _by the receiver_. If a file within a repository is modified, that repository itself will not notice, but other repositories and validating clients will. StrongLink is not intended to replace filesystem-level redundancy or integrity checks such as from RAID or ZFS.
 - Logs: Modifying StrongLink's append-only log after it has been written should only be done with care. Inserting or deleting files is mostly harmless, but reordering files could mess up remote clients. (This is only an optimization and syncing could be made more resiliant to history changes.)
 
 StrongLink marks immutable files as read-only on systems that support it.
