@@ -190,6 +190,12 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 		FREE(&escaped);
 		unsafe = buf;
 	}
+	if(0 == strcmp(var, "backlinksURI")) {
+		str_t *escaped = QSEscape(state->fileURI, strlen(state->fileURI), true);
+		snprintf(buf, sizeof(buf), "/?q=link%%3D%s", escaped);
+		FREE(&escaped);
+		unsafe = buf;
+	}
 	if(0 == strcmp(var, "hashURI")) {
 		unsafe = state->fileURI;
 	}

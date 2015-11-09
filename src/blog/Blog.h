@@ -20,7 +20,6 @@ struct Blog {
 
 	TemplateRef header;
 	TemplateRef footer;
-	TemplateRef backlinks;
 	TemplateRef entry_start;
 	TemplateRef entry_end;
 	TemplateRef preview;

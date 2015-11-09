@@ -151,21 +151,6 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	tmp[sizeof(tmp)-1] = '\0'; // fmemopen(3) says this isn't guaranteed.
 	parsed_HTMLSafe = htmlenc(tmp);
 
-	str_t *primaryURI = NULL;
-	SLNFilterRef core = SLNFilterUnwrap(filter);
-	SLNFilterType const filtertype = SLNFilterGetType(core);
-	if(SLNURIFilterType == filtertype) {
-		primaryURI = strdup(SLNFilterGetStringArg(core, 0));
-		assert(primaryURI); // TODO
-		SLNFilterRef alt;
-		rc = SLNFilterCreate(session, SLNLinksToFilterType, &alt);
-		assert(rc >= 0); // TODO
-		SLNFilterAddStringArg(alt, primaryURI, -1);
-		SLNFilterFree(&filter);
-		filter = alt; alt = NULL;
-	}
-	core = NULL;
-
 //	SLNFilterPrint(filter, 0); // DEBUG
 
 	SLNFilterPosition pos[1] = {{ .dir = -1 }};
@@ -267,25 +252,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	HTTPConnectionBeginBody(conn);
 	TemplateWriteHTTPChunk(blog->header, &TemplateStaticCBs, args, conn);
 
-	if(primaryURI) {
-		SLNFileInfo info[1];
-		rc = SLNSessionGetFileInfo(session, primaryURI, info);
-		if(rc >= 0) {
-			str_t *preferredURI = SLNFormatURI(SLN_INTERNAL_ALGO, info->hash);
-			str_t *previewPath = BlogCopyPreviewPath(blog, info->hash);
-			send_preview(blog, conn, session, preferredURI, previewPath);
-			FREE(&preferredURI);
-			FREE(&previewPath);
-			SLNFileInfoCleanup(info);
-		} else if(DB_NOTFOUND == rc) {
-			TemplateWriteHTTPChunk(blog->notfound, &TemplateStaticCBs, args, conn);
-		}
-		if(count || has_start) {
-			TemplateWriteHTTPChunk(blog->backlinks, &TemplateStaticCBs, args, conn);
-		}
-	}
-
-	if(0 == count && (!primaryURI || has_start)) {
+	if(0 == count) {
 		TemplateWriteHTTPChunk(blog->noresults, &TemplateStaticCBs, args, conn);
 	}
 	for(size_t i = 0; i < count; i++) {
@@ -298,11 +265,9 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		if(rc < 0) break;
 	}
 
-	FREE(&primaryURI);
-
 	// TODO: HACK
-	// Hide the pagination buttons when there are no results.
-	if(count > 0 || has_start) {
+	// Hide the pagination buttons when there are less than one full page of results.
+	if(count >= max || has_start) {
 		TemplateWriteHTTPChunk(blog->footer, &TemplateStaticCBs, args, conn);
 	}
 
@@ -727,7 +692,6 @@ BlogRef BlogCreate(SLNRepoRef const repo) {
 	int rc = 0;
 	rc = rc < 0 ? rc : load_template(blog, "header.html", &blog->header);
 	rc = rc < 0 ? rc : load_template(blog, "footer.html", &blog->footer);
-	rc = rc < 0 ? rc : load_template(blog, "backlinks.html", &blog->backlinks);
 	rc = rc < 0 ? rc : load_template(blog, "entry-start.html", &blog->entry_start);
 	rc = rc < 0 ? rc : load_template(blog, "entry-end.html", &blog->entry_end);
 	rc = rc < 0 ? rc : load_template(blog, "preview.html", &blog->preview);
@@ -758,7 +722,6 @@ void BlogFree(BlogRef *const blogptr) {
 
 	TemplateFree(&blog->header);
 	TemplateFree(&blog->footer);
-	TemplateFree(&blog->backlinks);
 	TemplateFree(&blog->entry_start);
 	TemplateFree(&blog->entry_end);
 	TemplateFree(&blog->preview);
