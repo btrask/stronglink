@@ -9,7 +9,7 @@ Returns the data of a given file. Clients should be aware this is arbitrary user
 
 As much caching as possible should be enabled for these URIs because their content is immutable. For example, StrongLink always sends an ETag of "1".
 
-In the event of a hash collision, it's undefined which version will be returned. Server implementations are recommended to return the oldest matching file, to prevent existing files from being "overwritten."
+In the event of a hash collision, the server is guaranteed to return the oldest matching file, to prevent existing files from being "overwritten."
 
 Planned features: content negotiation, range requests
 
