@@ -123,7 +123,7 @@ static int GET_feed(RSSServerRef const rss, SLNSessionRef const session, HTTPCon
 	if(0 != uripathcmp("/feed.xml", URI, &qs)) return -1;
 
 	int rc = 0;
-	int status = -1;
+	int status = 0;
 	SLNFilterRef filter = NULL;
 	str_t *URIs[RESULTS_MAX] = {};
 	ssize_t count = 0;
