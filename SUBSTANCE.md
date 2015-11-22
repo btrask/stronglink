@@ -269,6 +269,8 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Tools
 		- Your best tool is the compiler
 			- Read the list of available compiler warnings
+				- For GCC, they're in the manual
+				- For Clang, try [here](http://fuckingclangwarnings.com/)
 		- Static analyzers (but compiler warnings are better)
 		- Sanitizers and runtime checkers (e.g. Valgrind)
 		- Fuzzers (e.g. [american fuzzy lop](http://lcamtuf.coredump.cx/afl/))
