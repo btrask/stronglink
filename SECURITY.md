@@ -122,6 +122,7 @@ Security issues are documented outside of the source code (here and using GitHub
 - `Content-Type` header (custom parser)
 - `Content-Disposition` header (custom parser)
 - Full-text input (library: fts3)
+- Meta-file targets (custom parser)
 
 The most obvious attack vector is user queries, which is a custom parser but has been somewhat hardened. All of the custom parsers probably have bugs. More testing, including fuzz-testing, is necessary.
 
