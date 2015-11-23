@@ -174,7 +174,7 @@ Only libraries that StrongLink "bundles" count. Currently those libraries are:
 
 libc and other system libraries are NOT included. libcoro is excluded because it is only used for debugging under Valgrind.
 
-In order to discourage "high frequency trading" of widely publicized upstream bug reports, the original discoverer of a published bug has 7 days to bring it to our attention. If we still haven't documented/fixed the issue after 7 days, anyone may report it and claim the bounty. If no bounty was awarded for a particular bug, the original discoverer may claim it at any time indefinitely, even after it was fixed.
+In order to discourage "high frequency trading" of widely publicized upstream bug reports, the original discoverer of a published bug has 7 days to bring it to our attention. If we still haven't documented/fixed the issue after 7 days, anyone may report it and claim the bounty. If no bounty was awarded for a particular bug (which meets the other criteria), the original discoverer may claim it at any time indefinitely, even after it was fixed.
 
 Payments will be made via PayPal.
 
@@ -184,7 +184,7 @@ Anyone interested in the security of StrongLink or these libraries is encouraged
 
 In the event of a dispute, my decision is NOT final. You can take me to court for your ten lousy dollars.
 
-False positives are worth negative $2.50. That means if you report 4 false positives and one true positive, you won't get paid anything. We won't come after you to collect on a negative balance, but we might blacklist you from reporting more bugs.
+False positives are worth negative $2.50. That means if you report 4 false positives and one true positive, you won't get paid anything. Please don't spam us with invalid bug reports.
 
 Critical vulnerability reporting
 --------------------------------
