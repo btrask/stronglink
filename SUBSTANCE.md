@@ -223,9 +223,8 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Another name that has been suggested is `borrowedstr_t`
 		- This isn't a style guide so the name is up to you
 	- Parsing
-		- I have no idea how to hand-parse strings in an easy, safe and efficient manner
-		- I don't want machine-generated code
-		- Suggestions welcome
+		- [Use great caution](http://langsec.org/)
+		- Memory safety is far from the only parsing problem you will encounter
 - Threading
 	- Shared resources
 		- Know when to use locks, conditions and semaphores
