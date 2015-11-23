@@ -1,7 +1,7 @@
 StrongLink Security Information
 ===============================
 
-Threat Model
+Threat model
 ------------
 
 StrongLink is _intended_ to resist the following attack vectors:
@@ -203,7 +203,7 @@ Reverse chronological order by date fixed (bugs that aren't fixed yet should als
 - Unfixed: CSRF tokens are not used
 - Unfixed: Digital signatures (e.g. GPG or [OpenBSD's Signify](http://www.openbsd.org/papers/bsdcan-signify.html)) are not supported
 - Unfixed: DOM-based template parsing is not used
-- Unfixed: The custom parsers (user queries, content dispositions and query strings) use lots of raw pointer manipulation
+- Unfixed: The custom parsers (e.g. for content-dispositions and query strings) use lots of raw pointer manipulation
 - Unfixed: Potentially untrusted raw files are hosted within the same origin as the rest of the site and API
 - Unfixed: `explicit_bzero` is not used to clear passwords and session keys after use
 - Unfixed: A small number of slow queries can saturate the thread pool (denial of service)
