@@ -66,7 +66,7 @@ Planned (pro tip: places bugs might be hiding):
 - Create some sort of high level test suite (mostly end-to-end tests rather than unit tests)
 - Support Markdown parsing in a separate process with sandboxing
 - Do thorough error checking everywhere (currently only in some places)
-- Do parsing through a safe string wrapper/library (something like Nom...)
+- Do parsing through a safe string wrapper/library (work in progress)
 - Write a simple new template system based on [Google's Gumbo HTML parser](https://github.com/google/gumbo-parser)
 - Release a set of contributing guidelines (more than just the above)
 - Contribute some new compiler warnings to Clang and/or GCC
@@ -108,6 +108,22 @@ Templates are currently implemented using simple string substitution and must be
 
 **Security documentation**  
 Security issues are documented outside of the source code (here and using GitHub issues) in order to make basic security/trust analysis possible without full audits for busy, unpaid experts or even non-programmers.
+
+**Parsing**  
+[Per djb](http://cr.yp.to/qmail/guarantee.html), "don't parse." Unfortunately, StrongLink is intended to be practical so it contains a long list of parsers:
+
+- HTTP (library: http\_parser)
+- SSL/TLS (library: LibreSSL)
+- Multipart forms (library: multipart-parser-c)
+- Query strings and URL-encoded forms (custom parser)
+- JSON (library: yajl)
+- Markdown (libraries: cmark, commonmark.js)
+- User queries (custom parser, hardened)
+- `Content-Type` header (custom parser)
+- `Content-Disposition` header (custom parser)
+- Full-text input (library: fts3)
+
+The most obvious attack vector is user queries, which is a custom parser but has been somewhat hardened. All of the custom parsers probably have bugs. More testing, including fuzz-testing, is necessary.
 
 Low stakes bug bounty program
 -----------------------------
