@@ -132,6 +132,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		FREE(&query_HTMLSafe);
 		return 403;
 	}
+//	SLNFilterPrintSexp(filter, stderr, 0); // DEBUG
 	if(DB_EINVAL == rc) rc = SLNFilterCreate(session, SLNVisibleFilterType, &filter);
 	if(rc < 0) {
 		FREE(&query);
@@ -150,8 +151,6 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	fclose(parsed);
 	tmp[sizeof(tmp)-1] = '\0'; // fmemopen(3) says this isn't guaranteed.
 	parsed_HTMLSafe = htmlenc(tmp);
-
-//	SLNFilterPrint(filter, 0); // DEBUG
 
 	SLNFilterPosition pos[1] = {{ .dir = -1 }};
 	str_t *URIs[RESULTS_MAX];

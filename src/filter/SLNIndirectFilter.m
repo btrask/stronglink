@@ -265,7 +265,10 @@
 	fprintf(file, "(fulltext %s)\n", term);
 }
 - (void)printUser:(FILE *const)file :(size_t const)depth {
+	bool const quo = needs_quotes(term);
+	if(quo) fprintf(file, "\"");
 	fprintf(file, "%s", term);
+	if(quo) fprintf(file, "\"");
 }
 
 - (int)prepare:(DB_txn *const)txn {

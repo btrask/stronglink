@@ -93,7 +93,7 @@ int SLNFilterAddFilterArg(SLNFilterRef const filter, SLNFilterRef const subfilte
 	return [(SLNFilter *)filter addFilterArg:(SLNFilter *)subfilter];
 }
 void SLNFilterPrintSexp(SLNFilterRef const filter, FILE *const file, size_t const depth) {
-	assert(filter);
+	if(!filter) fprintf(file, "(null)\n");
 	return [(SLNFilter *)filter printSexp:file :depth];
 }
 void SLNFilterPrintUser(SLNFilterRef const filter, FILE *const file, size_t const depth) {
