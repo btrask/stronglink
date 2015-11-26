@@ -43,7 +43,8 @@ static int s_casecmp(sstring const a, sstring const b) {
 static bool issep(char const c) {
 	assert('\0' != c); // NUL is neither sep nor non-sep, handle it specially.
 	if('(' == c || ')' == c) return true;
-	if('"' == c || '\'' == c) return true;
+	// We don't need to treat quotes as punctuation, and it breaks contractions.
+//	if('"' == c || '\'' == c) return true;
 	if('=' == c) return true;
 	if(isspace(c)) return true;
 	return false;
