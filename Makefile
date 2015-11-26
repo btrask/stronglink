@@ -20,14 +20,18 @@ CFLAGS += -g -fno-omit-frame-pointer
 CFLAGS += -DLIBCO_MP
 CFLAGS += -DINSTALL_PREFIX=\"$(PREFIX)\"
 CFLAGS += -fstack-protector
+CFLAGS += -DHAVE_TIMEGM -DMAP_ANON -I$(DEPS_DIR)/libressl-portable/include/compat
 
-WARNINGS := -Werror -Wall -Wextra -Wunused -Wuninitialized -Wlogical-op -Wvla
+WARNINGS := -Werror -Wall -Wextra -Wunused -Wuninitialized -Wvla
+
+# TODO: Unsupported under Clang.
+#WARNINGS += -Wlogical-op
 
 # Disabled because it causes a lot of problems on Raspbian (GCC 4.6.3)
 # without much perceivable benefit.
 #WARNINGS += -Wshadow
 
-# Useful with GCC but Clang doesn't like it.
+# TODO: Useful with GCC but Clang doesn't like it.
 #WARNINGS += -Wmaybe-uninitialized
 
 # Causes all string literals to be marked const.
@@ -64,6 +68,8 @@ WARNINGS += -Wno-sign-compare
 
 # Checks that format strings are literals amongst other things.
 WARNINGS += -Wformat=2
+# TODO: We can't write logging functions???
+WARNINGS += -Wno-format-nonliteral
 
 ifdef RELEASE
 CFLAGS += -O2
@@ -301,7 +307,7 @@ $(BUILD_DIR)/deps/libcoro/%.o: $(DEPS_DIR)/libcoro/%.c $(DEPS_DIR)/libcoro/coro.
 
 $(BUILD_DIR)/deps/multipart_parser.o: $(DEPS_DIR)/multipart-parser-c/multipart_parser.c $(DEPS_DIR)/multipart-parser-c/multipart_parser.h
 	@- mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) -std=c89 -ansi -pedantic -Wall $< -o $@
+	$(CC) -c -std=c89 -ansi -pedantic $(WARNINGS) $< -o $@
 
 $(BUILD_DIR)/deps/fts3/%.o: $(DEPS_DIR)/fts3/%.c $(DEPS_DIR)/fts3/fts3Int.h $(DEPS_DIR)/fts3/fts3_tokenizer.h $(DEPS_DIR)/fts3/sqlite3.h
 	@- mkdir -p $(dir $@)

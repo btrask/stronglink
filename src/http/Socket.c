@@ -1,7 +1,6 @@
 // Copyright 2015 Ben Trask
 // MIT licensed (see LICENSE for details)
 
-#include "../../deps/libressl-portable/include/compat/string.h"
 #include "Socket.h"
 
 #define READ_BUFFER (1024 * 8)

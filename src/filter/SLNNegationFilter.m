@@ -26,14 +26,14 @@
 	subfilter = filter;
 	return 0;
 }
-- (void)printSexp:(size_t const)depth :(FILE *const)file {
+- (void)printSexp:(FILE *const)file :(size_t const)depth {
 	indent(file, depth);
 	fprintf(file, "(negation\n");
 	[subfilter printSexp:file :depth+1];
 	indent(file, depth);
 	fprintf(file, ")\n");
 }
-- (void)printUser:(size_t const)depth :(FILE *const)file {
+- (void)printUser:(FILE *const)file :(size_t const)depth {
 	fprintf(file, "-");
 	[subfilter printUser:file :depth+1];
 }

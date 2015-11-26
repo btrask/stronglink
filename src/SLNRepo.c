@@ -1,7 +1,6 @@
 // Copyright 2014-2015 Ben Trask
 // MIT licensed (see LICENSE for details)
 
-#include "../deps/libressl-portable/include/compat/stdlib.h"
 #include "StrongLink.h"
 #include "SLNDB.h"
 

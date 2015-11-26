@@ -2,6 +2,7 @@
 // MIT licensed (see LICENSE for details)
 
 #include <stdarg.h>
+#include <unistd.h>
 
 char *vaasprintf(char const *const fmt, va_list ap);
 char *aasprintf(char const *const fmt, ...) __attribute__((format(printf, 1, 2)));

@@ -93,11 +93,11 @@ cleanup:
 	}
 	return DB_EINVAL;
 }
-- (void)printSexp:(size_t const)depth :(FILE *const)file {
+- (void)printSexp:(FILE *const)file :(size_t const)depth {
 	indent(file, depth);
 	fprintf(file, "(links-to \"%s\")\n", URI);
 }
-- (void)printUser:(size_t const)depth :(FILE *const)file {
+- (void)printUser:(FILE *const)file :(size_t const)depth {
 	fprintf(file, "%s", URI);
 }
 

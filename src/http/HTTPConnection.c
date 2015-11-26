@@ -3,7 +3,6 @@
 
 #include <assert.h>
 #include <ctype.h>
-#include "../../deps/libressl-portable/include/compat/string.h"
 #include "../util/strext.h"
 #include "HTTP.h"
 #include "status.h"

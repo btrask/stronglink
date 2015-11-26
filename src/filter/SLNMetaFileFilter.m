@@ -15,11 +15,11 @@
 - (SLNFilter *)unwrap {
 	return self;
 }
-- (void)printSexp:(size_t const)depth :(FILE *const)file {
+- (void)printSexp:(FILE *const)file :(size_t const)depth {
 	indent(file, depth);
 	fprintf(file, "(meta)\n");
 }
-- (void)printUser:(size_t const)depth :(FILE *const)file {
+- (void)printUser:(FILE *const)file :(size_t const)depth {
 	assert(!"print meta-file filter");
 }
 
