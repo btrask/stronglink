@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include "../util/strext.h"
+#include "Socket.h"
 #include "HTTP.h"
 #include "status.h"
 

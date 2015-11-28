@@ -1,8 +1,8 @@
 // Copyright 2015 Ben Trask
 // MIT licensed (see LICENSE for details)
 
-#include "../async/async.h"
 #include "../../deps/libressl-portable/include/tls.h"
+#include "../async/async.h"
 #include "../common.h"
 
 typedef struct Socket *SocketRef;

@@ -4,8 +4,10 @@
 #ifndef HTTPCONNECTION_H
 #define HTTPCONNECTION_H
 
+#include "../../deps/libressl-portable/include/tls.h"
 #include "../../deps/http_parser/http_parser.h"
-#include "Socket.h"
+#include "../async/async.h"
+#include "../common.h"
 
 typedef enum http_method HTTPMethod;
 typedef enum {
