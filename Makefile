@@ -1,6 +1,9 @@
 # Copyright 2014-2015 Ben Trask
 # MIT licensed (see LICENSE for details)
 
+.SUFFIXES:
+.SECONDARY:
+
 include Makefile.nall
 
 ROOT_DIR := .
