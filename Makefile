@@ -84,84 +84,53 @@ CFLAGS += -DHTTP_PARSER_DEBUG
 #CFLAGS += -fsanitize=undefined
 endif
 
-# TODO: Use compiler -M to track header dependencies automatically
-HEADERS := \
-	$(SRC_DIR)/async/async.h \
-	$(SRC_DIR)/db/db_base.h \
-	$(SRC_DIR)/db/db_ext.h \
-	$(SRC_DIR)/db/db_schema.h \
-	$(SRC_DIR)/http/status.h \
-	$(SRC_DIR)/http/Socket.h \
-	$(SRC_DIR)/http/HTTP.h \
-	$(SRC_DIR)/http/HTTPServer.h \
-	$(SRC_DIR)/http/MultipartForm.h \
-	$(SRC_DIR)/http/QueryString.h \
-	$(SRC_DIR)/util/fts.h \
-	$(SRC_DIR)/util/pass.h \
-	$(SRC_DIR)/util/raiserlimit.h \
-	$(SRC_DIR)/util/strext.h \
-	$(SRC_DIR)/common.h \
-	$(SRC_DIR)/StrongLink.h \
-	$(SRC_DIR)/SLNDB.h \
-	$(SRC_DIR)/filter/SLNFilter.h \
-	$(DEPS_DIR)/crypt_blowfish/ow-crypt.h \
-	$(DEPS_DIR)/fts3/fts3_tokenizer.h \
-	$(DEPS_DIR)/libco/libco.h \
-	$(DEPS_DIR)/http_parser/http_parser.h \
-	$(DEPS_DIR)/liblmdb/lmdb.h \
-	$(DEPS_DIR)/multipart-parser-c/multipart_parser.h \
-	$(DEPS_DIR)/libressl-portable/include/compat/stdlib.h \
-	$(DEPS_DIR)/libressl-portable/include/compat/string.h \
-	$(DEPS_DIR)/smhasher/MurmurHash3.h \
-	$(YAJL_BUILD_DIR)/include/yajl/*.h
-
 # Generic library code
 OBJECTS := \
-	$(BUILD_DIR)/SLNRepo.o \
-	$(BUILD_DIR)/SLNSessionCache.o \
-	$(BUILD_DIR)/SLNSession.o \
-	$(BUILD_DIR)/SLNSubmission.o \
-	$(BUILD_DIR)/SLNSubmissionMeta.o \
-	$(BUILD_DIR)/SLNHasher.o \
-	$(BUILD_DIR)/SLNSync.o \
-	$(BUILD_DIR)/SLNPull.o \
-	$(BUILD_DIR)/SLNServer.o \
-	$(BUILD_DIR)/filter/SLNFilter.o \
-	$(BUILD_DIR)/filter/SLNFilterExt.o \
-	$(BUILD_DIR)/filter/SLNIndirectFilter.o \
-	$(BUILD_DIR)/filter/SLNDirectFilter.o \
-	$(BUILD_DIR)/filter/SLNLinksToFilter.o \
-	$(BUILD_DIR)/filter/SLNCollectionFilter.o \
-	$(BUILD_DIR)/filter/SLNNegationFilter.o \
-	$(BUILD_DIR)/filter/SLNMetaFileFilter.o \
-	$(BUILD_DIR)/filter/SLNJSONFilterParser.o \
-	$(BUILD_DIR)/filter/SLNUserFilterParser.o \
-	$(BUILD_DIR)/async/async.o \
-	$(BUILD_DIR)/async/async_cond.o \
-	$(BUILD_DIR)/async/async_fs.o \
-	$(BUILD_DIR)/async/async_mutex.o \
-	$(BUILD_DIR)/async/async_pool.o \
-	$(BUILD_DIR)/async/async_rwlock.o \
-	$(BUILD_DIR)/async/async_sem.o \
-	$(BUILD_DIR)/async/async_stream.o \
-	$(BUILD_DIR)/async/async_worker.o \
-	$(BUILD_DIR)/db/db_ext.o \
-	$(BUILD_DIR)/db/db_schema.o \
-	$(BUILD_DIR)/http/Socket.o \
-	$(BUILD_DIR)/http/HTTPConnection.o \
-	$(BUILD_DIR)/http/HTTPHeaders.o \
-	$(BUILD_DIR)/http/HTTPServer.o \
-	$(BUILD_DIR)/http/MultipartForm.o \
-	$(BUILD_DIR)/http/QueryString.o \
-	$(BUILD_DIR)/util/fts.o \
-	$(BUILD_DIR)/util/pass.o \
-	$(BUILD_DIR)/util/strext.o \
-	$(BUILD_DIR)/deps/crypt/crypt_blowfish.o \
-	$(BUILD_DIR)/deps/crypt/crypt_gensalt.o \
-	$(BUILD_DIR)/deps/crypt/wrapper.o \
-	$(BUILD_DIR)/deps/crypt/x86.S.o \
+	$(BUILD_DIR)/src/SLNRepo.o \
+	$(BUILD_DIR)/src/SLNSessionCache.o \
+	$(BUILD_DIR)/src/SLNSession.o \
+	$(BUILD_DIR)/src/SLNSubmission.o \
+	$(BUILD_DIR)/src/SLNSubmissionMeta.o \
+	$(BUILD_DIR)/src/SLNHasher.o \
+	$(BUILD_DIR)/src/SLNSync.o \
+	$(BUILD_DIR)/src/SLNPull.o \
+	$(BUILD_DIR)/src/SLNServer.o \
+	$(BUILD_DIR)/src/filter/SLNFilter.o \
+	$(BUILD_DIR)/src/filter/SLNFilterExt.o \
+	$(BUILD_DIR)/src/filter/SLNIndirectFilter.o \
+	$(BUILD_DIR)/src/filter/SLNDirectFilter.o \
+	$(BUILD_DIR)/src/filter/SLNLinksToFilter.o \
+	$(BUILD_DIR)/src/filter/SLNCollectionFilter.o \
+	$(BUILD_DIR)/src/filter/SLNNegationFilter.o \
+	$(BUILD_DIR)/src/filter/SLNMetaFileFilter.o \
+	$(BUILD_DIR)/src/filter/SLNJSONFilterParser.o \
+	$(BUILD_DIR)/src/filter/SLNUserFilterParser.o \
+	$(BUILD_DIR)/src/async/async.o \
+	$(BUILD_DIR)/src/async/async_cond.o \
+	$(BUILD_DIR)/src/async/async_fs.o \
+	$(BUILD_DIR)/src/async/async_mutex.o \
+	$(BUILD_DIR)/src/async/async_pool.o \
+	$(BUILD_DIR)/src/async/async_rwlock.o \
+	$(BUILD_DIR)/src/async/async_sem.o \
+	$(BUILD_DIR)/src/async/async_stream.o \
+	$(BUILD_DIR)/src/async/async_worker.o \
+	$(BUILD_DIR)/src/db/db_ext.o \
+	$(BUILD_DIR)/src/db/db_schema.o \
+	$(BUILD_DIR)/src/http/Socket.o \
+	$(BUILD_DIR)/src/http/HTTPConnection.o \
+	$(BUILD_DIR)/src/http/HTTPHeaders.o \
+	$(BUILD_DIR)/src/http/HTTPServer.o \
+	$(BUILD_DIR)/src/http/MultipartForm.o \
+	$(BUILD_DIR)/src/http/QueryString.o \
+	$(BUILD_DIR)/src/util/fts.o \
+	$(BUILD_DIR)/src/util/pass.o \
+	$(BUILD_DIR)/src/util/strext.o \
+	$(BUILD_DIR)/deps/crypt_blowfish/crypt_blowfish.o \
+	$(BUILD_DIR)/deps/crypt_blowfish/crypt_gensalt.o \
+	$(BUILD_DIR)/deps/crypt_blowfish/wrapper.o \
+	$(BUILD_DIR)/deps/crypt_blowfish/x86.S.o \
 	$(BUILD_DIR)/deps/fts3/fts3_porter.o \
-	$(BUILD_DIR)/deps/http_parser.o \
+	$(BUILD_DIR)/deps/http_parser/http_parser.o \
 	$(BUILD_DIR)/deps/multipart_parser.o \
 	$(BUILD_DIR)/deps/libressl-portable/crypto/compat/reallocarray.o \
 	$(BUILD_DIR)/deps/libressl-portable/crypto/compat/strlcat.o \
@@ -169,7 +138,6 @@ OBJECTS := \
 	$(BUILD_DIR)/deps/smhasher/MurmurHash3.o
 
 ifdef USE_VALGRIND
-HEADERS += $(DEPS_DIR)/libcoro/coro.h
 OBJECTS += $(BUILD_DIR)/deps/libcoro/coro.o $(BUILD_DIR)/util/libco_coro.o
 CFLAGS += -DCORO_USE_VALGRIND
 else
@@ -177,24 +145,14 @@ OBJECTS += $(BUILD_DIR)/deps/libco/libco.o
 endif
 
 # Blog server
-HEADERS += \
-	$(SRC_DIR)/blog/Blog.h \
-	$(SRC_DIR)/blog/RSSServer.h \
-	$(SRC_DIR)/blog/converter.h \
-	$(SRC_DIR)/blog/Template.h \
-	$(DEPS_DIR)/content-disposition/content-disposition.h \
-	$(DEPS_DIR)/cmark/src/cmark.h \
-	$(DEPS_DIR)/cmark/src/buffer.h \
-	$(DEPS_DIR)/cmark/src/houdini.h \
-	$(DEPS_DIR)/cmark/build/src/*.h
 OBJECTS += \
-	$(BUILD_DIR)/blog/main.o \
-	$(BUILD_DIR)/blog/Blog.o \
-	$(BUILD_DIR)/blog/BlogConvert.o \
-	$(BUILD_DIR)/blog/RSSServer.o \
-	$(BUILD_DIR)/blog/Template.o \
-	$(BUILD_DIR)/blog/plaintext.o \
-	$(BUILD_DIR)/blog/markdown.o \
+	$(BUILD_DIR)/src/blog/main.o \
+	$(BUILD_DIR)/src/blog/Blog.o \
+	$(BUILD_DIR)/src/blog/BlogConvert.o \
+	$(BUILD_DIR)/src/blog/RSSServer.o \
+	$(BUILD_DIR)/src/blog/Template.o \
+	$(BUILD_DIR)/src/blog/plaintext.o \
+	$(BUILD_DIR)/src/blog/markdown.o \
 	$(BUILD_DIR)/deps/content-disposition/content-disposition.o
 
 STATIC_LIBS += $(DEPS_DIR)/cmark/build/src/libcmark.a
@@ -223,20 +181,19 @@ ifeq ($(DB),rocksdb)
   LIBS += -lrocksdb
   LIBS += -lz
   LIBS += -lstdc++
-  OBJECTS += $(BUILD_DIR)/db/db_base_leveldb.o
-  HEADERS += $(SRC_DIR)/db/rocks_wrapper.h
+  OBJECTS += $(BUILD_DIR)/src/db/db_base_leveldb.o
 else ifeq ($(DB),hyper)
   STATIC_LIBS += $(DEPS_DIR)/snappy/.libs/libsnappy.a
   LIBS += -lhyperleveldb
   LIBS += -lstdc++
-  OBJECTS += $(BUILD_DIR)/db/db_base_leveldb.o
+  OBJECTS += $(BUILD_DIR)/src/db/db_base_leveldb.o
 else ifeq ($(DB),leveldb)
   CFLAGS += -I$(DEPS_DIR)/leveldb/include -I$(DEPS_DIR)/snappy/include
   STATIC_LIBS += $(DEPS_DIR)/leveldb/libleveldb.a $(DEPS_DIR)/snappy/.libs/libsnappy.a
   LIBS += -lstdc++
-  OBJECTS += $(BUILD_DIR)/db/db_base_leveldb.o
+  OBJECTS += $(BUILD_DIR)/src/db/db_base_leveldb.o
 else
-  OBJECTS += $(BUILD_DIR)/db/db_base_mdb.o
+  OBJECTS += $(BUILD_DIR)/src/db/db_base_mdb.o
 endif
 
 .DEFAULT_GOAL := all
@@ -288,17 +245,9 @@ libuv:
 	$(MAKE) -C $(DEPS_DIR)/uv --no-print-directory
 #	$(MAKE) -C $(DEPS_DIR)/uv check --no-print-directory
 
-$(BUILD_DIR)/deps/crypt/%.S.o: $(DEPS_DIR)/crypt_blowfish/%.S
+$(BUILD_DIR)/deps/crypt_blowfish/%.S.o: $(DEPS_DIR)/crypt_blowfish/%.S
 	@- mkdir -p $(dir $@)
 	$(CC) -c $(CFLAGS) $< -o $@
-
-$(BUILD_DIR)/deps/crypt/%.o: $(DEPS_DIR)/crypt_blowfish/%.c $(DEPS_DIR)/crypt_blowfish/crypt.h $(DEPS_DIR)/crypt_blowfish/ow-crypt.h
-	@- mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) $< -o $@
-
-$(BUILD_DIR)/deps/http_parser.o: $(DEPS_DIR)/http_parser/http_parser.c $(DEPS_DIR)/http_parser/http_parser.h
-	@- mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) -Werror -Wall $< -o $@
 
 $(BUILD_DIR)/deps/libco/%.o: $(DEPS_DIR)/libco/%.c $(DEPS_DIR)/libco/libco.h
 	@- mkdir -p $(dir $@)
@@ -312,29 +261,23 @@ $(BUILD_DIR)/deps/multipart_parser.o: $(DEPS_DIR)/multipart-parser-c/multipart_p
 	@- mkdir -p $(dir $@)
 	$(CC) -c -std=c89 -ansi -pedantic $(WARNINGS) $< -o $@
 
-$(BUILD_DIR)/deps/fts3/%.o: $(DEPS_DIR)/fts3/%.c $(DEPS_DIR)/fts3/fts3Int.h $(DEPS_DIR)/fts3/fts3_tokenizer.h $(DEPS_DIR)/fts3/sqlite3.h
+$(BUILD_DIR)/deps/%.o: $(DEPS_DIR)/%.c
 	@- mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) $(WARNINGS) $< -o $@
+	@- mkdir -p $(dir $(BUILD_DIR)/h/deps/$*.d)
+	$(CC) -c $(CFLAGS) $(WARNINGS) -MMD -MP -MF $(BUILD_DIR)/h/deps/$*.d -o $@ $<
 
-$(BUILD_DIR)/deps/sundown/%.o: $(DEPS_DIR)/sundown/%.c
+$(BUILD_DIR)/deps/%.o: $(DEPS_DIR)/%.cpp
 	@- mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) $(WARNINGS) $< -o $@ #-I$(DEPS_DIR)/sundown/src
+	@- mkdir -p $(dir $(BUILD_DIR)/h/deps/$*.d)
+	$(CXX) -c $(CXXFLAGS) $(WARNINGS) -MMD -MP -MF $(BUILD_DIR)/h/deps/$*.d -o $@ $<
 
-$(BUILD_DIR)/deps/smhasher/MurmurHash3.o: $(DEPS_DIR)/smhasher/MurmurHash3.cpp $(DEPS_DIR)/smhasher/MurmurHash3.h
+$(BUILD_DIR)/src/%.o: $(SRC_DIR)/%.[cm]
 	@- mkdir -p $(dir $@)
-	$(CXX) -c $(CXXFLAGS) $(WARNINGS) $< -o $@
+	@- mkdir -p $(dir $(BUILD_DIR)/h/src/$*.d)
+	$(CC) -c $(CFLAGS) -I$(SRC_DIR) $(WARNINGS) -MMD -MP -MF $(BUILD_DIR)/h/src/$*.d -o $@ $<
 
-$(BUILD_DIR)/deps/content-disposition/content-disposition.o: $(DEPS_DIR)/content-disposition/content-disposition.c
-	@- mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) $(WARNINGS) $< -o $@
-
-$(BUILD_DIR)/deps/libressl-portable/crypto/compat/%.o: $(DEPS_DIR)/libressl-portable/crypto/compat/%.c $(DEPS_DIR)/libressl-portable/include/compat/stdlib.h $(DEPS_DIR)/libressl-portable/include/compat/string.h
-	@- mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) $(WARNINGS) $< -o $@
-
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.[cm] $(HEADERS)
-	@- mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) $(WARNINGS) $< -o $@
+# TODO: Find files in subdirectories without using shell?
+-include $(shell find $(BUILD_DIR)/h -name "*.d")
 
 #.PHONY: sln-markdown
 #sln-markdown: $(BUILD_DIR)/sln-markdown
