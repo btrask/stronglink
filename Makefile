@@ -71,8 +71,6 @@ WARNINGS += -Wno-sign-compare
 
 # Checks that format strings are literals amongst other things.
 WARNINGS += -Wformat=2
-# TODO: We can't write logging functions???
-WARNINGS += -Wno-format-nonliteral
 
 ifdef RELEASE
 CFLAGS += -O2
