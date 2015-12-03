@@ -339,7 +339,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Resist the "nesting instinct"
 		- You are a visitor here (on the user's computer... and in life?)
 - Performance
-	- Choosing good optimizations and avoiding bad ones is the core of programming
+	- Choosing good optimizations _and avoiding bad ones_ is the core of programming
 		- Know when an optimization is too complicated to be worth it
 		- If it's really necessary, find a simpler way
 		- 20% of the optimizations make 80% of the difference
