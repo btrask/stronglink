@@ -146,8 +146,10 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Consider what will happen in the case of zero or one items
 		- Write loops in a few consistent patterns
 	- Floating point
-		- Don't use floats, aside from user input and output (including graphics)
+		- Don't use floats, except for specialized applications
+			- E.g. scientific computing, simulation, audio, graphics...
 			- Don't use floats for money, duh
+		- Be very cautious about using floats in code that needs to be secure, reliable, [reproducible](https://thewinnower.com/papers/954-why-bitwise-reproducibility-matters), etc.
 		- Don't compare floats using strict equality
 		- Don't divide by zero
 		- NaN
