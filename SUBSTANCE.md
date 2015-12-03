@@ -150,6 +150,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 			- E.g. scientific computing, simulation, audio, graphics...
 			- Don't use floats for money, duh
 		- Be very cautious about using floats in code that needs to be secure, reliable, [reproducible](https://thewinnower.com/papers/954-why-bitwise-reproducibility-matters), etc.
+			- Consider fixed point? (Outside of my experience)
 		- Don't compare floats using strict equality
 		- Don't divide by zero
 		- NaN
