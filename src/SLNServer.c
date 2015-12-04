@@ -237,8 +237,19 @@ cleanup:
 static void sendURIList(SLNSessionRef const session, SLNFilterRef const filter, strarg_t const qs, bool const meta, HTTPConnectionRef const conn, HTTPMethod const method) {
 	SLNFilterPosition pos[1] = {{ .dir = +1 }};
 	uint64_t count = UINT64_MAX;
+	int dir = +1;
 	bool wait = true;
-	SLNFilterParseOptions(qs, pos, &count, NULL, &wait);
+	SLNFilterParseOptions(qs, pos, &count, &dir, &wait);
+
+	// TODO: HACK
+	// Support reverse direction with custom start parameters.
+	// Basically we need to support both start and end URIs.
+	if(dir < 0) {
+		FREE(&pos->URI);
+		pos->dir = -1;
+		pos->sortID = UINT64_MAX;
+		pos->fileID = UINT64_MAX;
+	}
 
 	// I'm aware that we're abusing HTTP for sending real-time push data.
 	// I'd also like to support WebSocket at some point, but this is simpler
