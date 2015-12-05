@@ -199,14 +199,14 @@ static void init(void *const unused) {
 		alogf("Repository could not be opened: %s\n", sln_strerror(rc));
 		return;
 	}
-	rc = RSSServerCreate(repo, &rss);
-	if(rc < 0) {
-		alogf("RSS server error: %s\n", sln_strerror(rc));
-		return;
-	}
 	blog = BlogCreate(repo);
 	if(!blog) {
 		alogf("Blog server could not be initialized\n");
+		return;
+	}
+	rc = RSSServerCreate(repo, &rss);
+	if(rc < 0) {
+		alogf("RSS server error: %s\n", sln_strerror(rc));
 		return;
 	}
 

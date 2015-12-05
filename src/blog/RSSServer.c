@@ -92,6 +92,8 @@ int RSSServerCreate(SLNRepoRef const repo, RSSServerRef *const out) {
 	if(!rss->dir || !rss->cacheDir) rc = UV_ENOMEM;
 	if(rc < 0) goto cleanup;
 
+	// TODO: We expect these to be installed by the blog setup.
+	// We should install them ourselves.
 	rc = rc < 0 ? rc : load_template(rss, "head.xml", &rss->head);
 	rc = rc < 0 ? rc : load_template(rss, "tail.xml", &rss->tail);
 	rc = rc < 0 ? rc : load_template(rss, "item-start.xml", &rss->item_start);
