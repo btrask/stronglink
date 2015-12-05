@@ -73,7 +73,10 @@ int SLNRepoCreate(strarg_t const dir, strarg_t const name, SLNRepoRef *const out
 	if(rc < 0) goto cleanup;
 
 	rc = debug_pulls(repo);
-	if(rc < 0) goto cleanup;
+	if(rc < 0) {
+		alogf("(pull debug setup failed: %s)\n", sln_strerror(rc));
+		rc = 0; // Soft error.
+	}
 
 	async_mutex_init(repo->sub_mutex, 0);
 	async_cond_init(repo->sub_cond, 0);
