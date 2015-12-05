@@ -27,9 +27,10 @@ Basic Installation
 
 1. `./configure && make`
 2. `sudo make install`
-3. `stronglink /repo-dir`
+3. `mkdir /path/for/repo`
+4. `stronglink /path/for/repo`
 
-If you don't want to run `make install`, you will need to manually symlink or copy the `res/blog` directory into the repo directory before running. For example: `ln -s res/blog /repo-dir/`
+If you don't want to run `make install`, you will need to manually symlink or copy the `res/blog` directory into the repo directory before running. For example: `cd /path/for/repo && ln -s /path/to/source/res/blog`. Or you can install in a different path with `PREFIX=/path make install`.
 
 Server Configuration
 --------------------
