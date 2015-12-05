@@ -22,9 +22,9 @@ int db_cursor_seekr(DB_cursor *const cursor, DB_range const *const range, DB_val
 	assert(db_cursor_cmp(cursor, range->min, range->max) < 0);
 	int rc = db_cursor_seek(cursor, key, data, dir);
 	if(rc < 0) return rc;
-	DB_val const *const limit = dir < 0 ? range->min : range->max;
-	int x = db_cursor_cmp(cursor, key, limit);
-	if(x * dir < 0) return 0;
+	int const min = db_cursor_cmp(cursor, key, range->min);
+	int const max = db_cursor_cmp(cursor, key, range->max);
+	if(min > 0 && max < 0) return 0;
 	db_cursor_clear(cursor);
 	return DB_NOTFOUND;
 }
@@ -57,9 +57,9 @@ int db_cursor_nextr(DB_cursor *const cursor, DB_range const *const range, DB_val
 	DB_val *k = key ? key : &tmp;
 	int rc = db_cursor_next(cursor, k, data, dir);
 	if(rc < 0) return rc;
-	DB_val const *const limit = dir < 0 ? range->min : range->max;
-	int x = db_cursor_cmp(cursor, k, limit);
-	if(x * dir < 0) return 0;
+	int const min = db_cursor_cmp(cursor, k, range->min);
+	int const max = db_cursor_cmp(cursor, k, range->max);
+	if(min > 0 && max < 0) return 0;
 	db_cursor_clear(cursor);
 	return DB_NOTFOUND;
 }
