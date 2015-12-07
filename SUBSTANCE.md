@@ -185,7 +185,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 			- Otherwise wrap them in parentheses or braces
 	- Integer overflow/underflow
 		- Use `calloc`/`reallocarray` (from OpenBSD) instead of `malloc`/`realloc`
-		- Use overflow-checking compiler intrinsics [[1]](https://gcc.gnu.org/onlinedocs/gcc/Integer-Overflow-Builtins.html) [[2]](http://clang.llvm.org/docs/LanguageExtensions.html#builtin-functions)
+		- Use overflow-checking compiler intrinsics [[GCC]](https://gcc.gnu.org/onlinedocs/gcc/Integer-Overflow-Builtins.html) [[Clang]](http://clang.llvm.org/docs/LanguageExtensions.html#builtin-functions)
 		- Respect the integer types used by each API (`int`, `size_t`, `ssize_t`...)
 		- Use `!!` when converting to `bool`
 	- Macros
