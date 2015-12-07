@@ -34,41 +34,39 @@ void HTTPServerFree(HTTPServerRef *const serverptr) {
 int HTTPServerListen(HTTPServerRef const server, strarg_t const address, strarg_t const port) {
 	if(!server) return 0;
 	assertf(!server->socket->data, "HTTPServer already listening");
-	int rc;
-	rc = uv_tcp_init(async_loop, server->socket);
-	if(rc < 0) return rc;
-	server->socket->data = server;
+	struct addrinfo *info = NULL;
+	int rc = 0;
 
 	struct addrinfo const hints = {
 		.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG | AI_NUMERICSERV | AI_PASSIVE,
 		.ai_family = AF_UNSPEC,
 		.ai_socktype = SOCK_STREAM,
-		.ai_protocol = 0, // ???
+		.ai_protocol = 0,
 	};
-	struct addrinfo *info;
+	struct addrinfo *each = NULL;
 	rc = async_getaddrinfo(address, port, &hints, &info);
-	if(rc < 0) {
-		HTTPServerClose(server);
-		return rc;
-	}
-	int bound = 0;
-	rc = 0;
-	for(struct addrinfo *each = info; each; each = each->ai_next) {
+	if(rc < 0) goto cleanup;
+	for(each = info; each; each = each->ai_next) {
+		server->socket->data = server;
+		rc = uv_tcp_init(async_loop, server->socket);
+		if(rc < 0) goto cleanup;
+
 		rc = uv_tcp_bind(server->socket, each->ai_addr, 0);
-		if(rc >= 0) bound++;
+		if(rc >= 0) break;
+
+		async_close((uv_handle_t *)server->socket);
 	}
-	uv_freeaddrinfo(info);
-	if(!bound) {
-		HTTPServerClose(server);
-		if(rc < 0) return rc;
-		return UV_EADDRNOTAVAIL;
+	if(!each) {
+		if(rc >= 0) rc = UV_EADDRNOTAVAIL;
+		goto cleanup;
 	}
 	rc = uv_listen((uv_stream_t *)server->socket, 511, connection_cb);
-	if(rc < 0) {
-		HTTPServerClose(server);
-		return rc;
-	}
-	return 0;
+	if(rc < 0) goto cleanup;
+
+cleanup:
+	uv_freeaddrinfo(info); info = NULL;
+	if(rc < 0) HTTPServerClose(server);
+	return rc;
 }
 int HTTPServerListenSecure(HTTPServerRef const server, strarg_t const address, strarg_t const port, struct tls **const tlsptr) {
 	if(!server) return 0;
@@ -79,10 +77,10 @@ int HTTPServerListenSecure(HTTPServerRef const server, strarg_t const address, s
 }
 void HTTPServerClose(HTTPServerRef const server) {
 	if(!server) return;
-	if(!server->socket->data) return;
 	if(server->secure) tls_close(server->secure);
 	tls_free(server->secure); server->secure = NULL;
 	async_close((uv_handle_t *)server->socket);
+	server->socket->data = NULL;
 }
 
 static void connection(uv_stream_t *const socket) {
