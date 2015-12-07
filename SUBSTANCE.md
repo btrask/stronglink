@@ -61,7 +61,9 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Single line if possible: `if(rc < 0) return rc;`
 		- When several steps are needed use `rc = rc < 0 ? rc : expr;`
 		- If you're writing a web server, you should be able to use `return 404;`
-		- Anything longer is suffering, even `return HTTP(404);`
+			- Contrary to common wisdom, I don't believe you should use a constant like `HTTP_404_NOT_FOUND`
+			- You don't need to provide flexibility in the core domain logic of your application
+			- Might make `grep`ing easier though...
 	- Checks should be as simple as possible but no simpler
 		- Macros can help, but don't abuse them
 		- Try to keep control flow (`goto`/`return`) out of macros
