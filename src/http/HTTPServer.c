@@ -5,6 +5,9 @@
 #include "../async/async.h"
 #include "HTTPServer.h"
 
+// You may need to set this to AF_INET6 to enable IPv6 on some systems.
+#define LISTEN_FAMILY AF_UNSPEC
+
 struct HTTPServer {
 	HTTPListener listener;
 	void *context;
@@ -39,7 +42,7 @@ int HTTPServerListen(HTTPServerRef const server, strarg_t const address, strarg_
 
 	struct addrinfo const hints = {
 		.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG | AI_NUMERICSERV | AI_PASSIVE,
-		.ai_family = AF_UNSPEC,
+		.ai_family = LISTEN_FAMILY,
 		.ai_socktype = SOCK_STREAM,
 		.ai_protocol = 0,
 	};
