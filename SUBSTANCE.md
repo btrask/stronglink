@@ -392,7 +392,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- [SQLite](https://sqlite.org/) (the gold standard for any codebase in any language)
 	- [PostgreSQL](http://www.postgresql.org/) (although I haven't personally looked at it)
 	- [MDB](http://symas.com/mdb/) (not always perfect but very efficiently written)
-	- Code from [OpenBSD](http://www.openbsd.org/) (it doesn't look special, it's just simple and error-free)
+	- Code from [OpenBSD](http://www.openbsd.org/) (usually an ode to simplicity)
 	- [Apple's CoreFoundation API](https://developer.apple.com/library/prerelease/mac/documentation/CoreFoundation/Reference/CoreFoundation_Collection/) (my model for modern object-oriented C code)
 
 See, that wasn't so hard, was it?
