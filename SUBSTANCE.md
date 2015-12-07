@@ -400,7 +400,9 @@ See, that wasn't so hard, was it?
 Why is this list so long and complicated?
 -----------------------------------------
 
-Optimization always causes problems, regardless of what you're optimizing for. Look at the failures of capitalism. When you try to write efficient, security-critical code in C, you are serving two masters: security and performance. Obviously, serving one master is easier.
+> An efficient program is an exercise in logical brinkmanship. (E. Dijkstra)
+
+Optimization always causes problems, regardless of what you're optimizing for. You're trying to strip away as much as you can, but if you go too far, something will probably fail catastrophically. When you try to write efficient, security-critical code in C, you are serving two masters: security and performance. That makes it even harder.
 
 It's worth pointing out that while there is a lot of messy garbage written in C, some of the [most secure](http://cr.yp.to/qmail/qmailsec-20071101.pdf) software [of all time](https://sel4.systems/) is written in it too.
 
