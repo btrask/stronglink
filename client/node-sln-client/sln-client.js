@@ -235,14 +235,10 @@ Repo.prototype.getMeta = function(uri, opts, cb) {
 	// Use the JSON language instead, once it's properly supported.
 	var stream = repo.createQueryStream("target='"+uri+"'", { wait: false });
 	var dst = {};
+	var ended = false, waiting = 0;
 	stream.on("data", function(metaURI) {
-
-		// This ordering is not strictly necessary (since CRDTs can be
-		// combined in any order), but it lets us ensure "end" is
-		// emitted after all of the work is done, and it keeps us from
-		// flooding the agent pool.
-		stream.pause();
-
+		// TODO: Pause/resume the stream to prevent flooding requests?
+		waiting++;
 		repo.getFile(metaURI, reqopts, function(err, obj) {
 			// TODO: If the result is Not Acceptable, just continue.
 			if(err) return cb(err, null); // TODO: drain stream
@@ -250,11 +246,13 @@ Repo.prototype.getMeta = function(uri, opts, cb) {
 			var src = JSON.parse(json);
 			delete src["fulltext"]; // Not supported by this API.
 			merge(src, dst);
-			stream.resume();
+			waiting--;
+			if(ended && !waiting) cb(null, dst);
 		});
 	});
 	stream.on("end", function() {
-		cb(null, dst);
+		ended = true;
+		if(!waiting) cb(null, dst);
 	});
 	function merge(src, dst) {
 		for(var x in src) if(has(src, x)) {
@@ -300,7 +298,7 @@ Repo.prototype.submitFile = function(buf, type, opts, cb) {
 	req.on("response", function(res) {
 		if(201 == res.statusCode) {
 			cb(null, {
-				location: res.headers["x-location"],
+				uri: res.headers["x-location"],
 			});
 		} else {
 			var err = new Error("Status code "+res.statusCode);
