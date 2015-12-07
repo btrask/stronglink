@@ -16,7 +16,7 @@ Planned features: content negotiation, range requests
 Implementation status: working but incomplete
 
 **GET /sln/file**  
-Returns the data of a file selected by an arbitrary query. The first matching file will be used. For example, without any parameters returns the data of the newest file in the repository.
+Returns the data of a file selected by an arbitrary query. The first matching file will be used. For example, without any parameters returns the data of the oldest file in the repository.
 
 Using this endpoint plus queries on mutable meta-data (not fully supported yet), clients can implement simple mutable files.
 
