@@ -51,6 +51,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- I don't think there is actually much relation between programming language and code size
 		- A small code size should be a badge of honor ("lines spent")
 		- It's harder to write less code than more
+		- Within reason
 - Error handling
 	- Do it, always, even in sample code
 		- Error handling is all programming is
@@ -100,14 +101,16 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Don't write custom allocators
 			- Even simple bump allocators, or whatever
 			- Custom allocation defeats memory safety in every language
+			- Quality allocators use guard pages and other tricks to catch other bugs in your program
 			- Unfortunately the ease of custom allocation is a big benefit of C
+			- At the very least, keep data from separate "security zones" (e.g. users) separate
 	- Lifespans
 		- Use `const` to indicate and enforce ownership
 			- `X *const` can't be null'd so it can't be freed
 			- `X const *` doesn't coerce to `void *` so it can't be freed either
 		- Have a single owner and know what it is
 			- Have related objects share an owner to simplify lifespans and cleanup
-		- Use reference counting when necessary (last resort)
+		- Use reference counting when necessary to track things with multiple owners
 			- Avoid cycles
 			- Parent pointers should be weak (non-owning)
 				- Avoid them entirely when possible
@@ -135,7 +138,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Also consider using an assertion or abort() on failure
 			- `assert(x)` is basically equivalent to Rust's `x.unwrap()`
 	- Make allocations as static as possible
-		- Just allocate the maximum always
+		- If you always allocate the maximum, the worst-case behavior will be well-tested
 	- A buffer overflow on the stack is worse than one elsewhere
 		- [Some people will say](https://news.ycombinator.com/item?id=9202212) you should avoid reading untrusted data into stack-allocated buffers
 		- I think that's a bridge too far
@@ -152,7 +155,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Be very cautious about using floats in code that needs to be secure, reliable, [reproducible](https://thewinnower.com/papers/954-why-bitwise-reproducibility-matters), etc.
 			- Consider fixed point? (Outside of my experience)
 		- Don't compare floats using strict equality
-		- Don't divide by zero
+		- Check before dividing by a number that could be zero
 		- NaN
 			- Don't use floats and you'll never run into it...
 	- Assertions
@@ -180,10 +183,11 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 			- Otherwise wrap them in parentheses or braces
 	- Integer overflow/underflow
 		- Use `calloc`/`reallocarray` (from OpenBSD) instead of `malloc`/`realloc`
-		- Use overflow-checking compiler intrinsics
+		- Use overflow-checking compiler intrinsics [[1]](https://gcc.gnu.org/onlinedocs/gcc/Integer-Overflow-Builtins.html) [[2]](http://clang.llvm.org/docs/LanguageExtensions.html#builtin-functions)
 		- Respect the integer types used by each API (`int`, `size_t`, `ssize_t`...)
 		- Use `!!` when converting to `bool`
 	- Macros
+		- Use judiciously
 		- Wrap variable expansions in parentheses
 		- Wrap multiple statements in `do {} while(0)` or `({})`
 			- Do not be afraid of trivial, widely supported compiler extensions
@@ -201,7 +205,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 - Strings
 	- Format strings
 		- Always use string literals to specify format strings
-		- Use `"%s"` instead of directly passing string variables
+		- Use `"%s"` instead of directly passing string variables to avoid format string exploits
 		- Know which APIs expect format strings
 			- Passing a dynamic string where a format string was expected is a security vulnerability
 			- Name functions taking format strings ending in "f"
@@ -213,7 +217,8 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Be careful about locales
 		- Sometimes it's easiest to check the scanned length with `%n` (takes `int *`)
 	- String functions
-		- Use `strlcpy` and `strlcat` from OpenBSD
+		- Use `strlcpy` and `strlcat`
+			- Might not be part of your libc, but you can get them from the OpenBSD project
 		- Use `snprintf(3)` instead of `sprintf(3)` (it takes an output length)
 		- Use `strdup(3)`
 	- Define string length constants as `(X+1)` to indicate nul termination
@@ -227,6 +232,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- This isn't a style guide so the name is up to you
 	- Parsing
 		- [Use great caution](http://langsec.org/)
+		- Or as [djb says](http://cr.yp.to/qmail/guarantee.html), "don't parse"
 		- Memory safety is far from the only parsing problem you will encounter
 - Threading
 	- Shared resources
@@ -234,7 +240,8 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 			- They should come in pairs
 		- Declare the mutex together with the variables it protects
 		- Generally avoid read-write locks
-			- If you need a read-write lock, you need a better data structure
+			- Sometimes they're at the sweet-spot between performance and effort
+			- Usually they're at the sour-spot between micro-optimization and not actually being that fast
 		- Know when `volatile` or atomics are necessary and then use locks instead
 			- Depends on what kind of code you're writing, of course
 	- Threading really deserves a whole separate article
@@ -249,6 +256,8 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- _Never_ handle the error from `close(2)`
 		- Yes, really! Regardless of what the man page says
 		- Instead, `fsync` before closing (if you care at all)
+		- Functions that close/free resources should never be able to fail
+			- Leaves you in an inconsistent/unknown state
 - Creating good APIs
 	- [Some say](http://mollyrocket.com/jacs/jacs_0004_0008.html) it's the hardest skill in programming
 	- Empathize with the person who has to use your API
@@ -273,7 +282,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 			- Read the list of available compiler warnings
 				- For GCC, they're in the manual
 				- For Clang, try [here](http://fuckingclangwarnings.com/)
-		- Static analyzers (but compiler warnings are better)
+		- Static analyzers and linters (but compiler warnings are better)
 		- Sanitizers and runtime checkers (e.g. Valgrind)
 		- Fuzzers (e.g. [american fuzzy lop](http://lcamtuf.coredump.cx/afl/))
 	- No one can physically see what a computer is doing, so we need tools to visualize it for us
@@ -290,8 +299,9 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 - Header files
 	- Use them properly for keeping your public and private interfaces separate
 		- Aside: any language that uses keywords like `public` and `private` to determine visibility instead of placement/scoping is bad
-	- You should probably have one header for a collection of `.c` files
-		- Not one header per `.c`
+	- `.h` to `.c` does not have to be a one-to-one mapping
+		- Coalesce headers for a library or module
+		- Split out large implementation files behind the scenes
 	- `static` functions in headers are always hacks
 		- Not all hacks are bad, just keep it in mind
 - Pointers
@@ -329,7 +339,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- I don't care if you use `camelCase`, `under_scores` or whatever
 - Avoid conspicuous complexity
 	- Use post-increment over pre-increment unless it matters
-	- Yoda conditions...? Iffy... (I'm used to them now...)
+	- [Yoda conditions](https://en.wikipedia.org/wiki/Yoda_conditions)...? Iffy... (I'm used to them now...)
 		- It's better to catch accidental assignment with compiler warnings
 		- There's still an argument for putting the shorter term first
 	- Complicated solutions better solve very important problems
@@ -340,13 +350,13 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Resist the "nesting instinct"
 		- You are a visitor here (on the user's computer... and in life?)
 - Performance
-	- Choosing good optimizations _and avoiding bad ones_ is the core of programming
+	- Choose your optimizations very carefully
 		- Know when an optimization is too complicated to be worth it
 		- If it's really necessary, find a simpler way
 		- 20% of the optimizations make 80% of the difference
 	- Do not worry about 1% speedups
-		- SQLite has gotten significantly faster from lots of ~1% boosts
-			- ...And it'll never be as fast as MDB
+		- [SQLite](https://sqlite.org/) has gotten significantly faster from lots of ~1% boosts
+			- ...And it'll never be as fast as [MDB](http://symas.com/mdb/)
 	- Almost never use fancy data structures
 		- Funny how C is so fast without built in hash tables or anything else
 		- Most of the time it doesn't matter and the overhead isn't worth it
