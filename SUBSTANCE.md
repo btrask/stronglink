@@ -350,6 +350,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Preserve, create and exploit symmetry
 		- E.g. use vectors (in the physics sense) instead of enums for directions
 	- Resist the "nesting instinct"
+		- Adapt to your environment instead of trying to adapt it to you
 		- You are a visitor here (on the user's computer... and in life?)
 - Performance
 	- Choose your optimizations very carefully
