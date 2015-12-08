@@ -14,8 +14,8 @@
 #include "RSSServer.h"
 
 #define SERVER_ADDRESS NULL // NULL = public, "localhost" = private
-#define SERVER_PORT_RAW "8000" // HTTP default "80", NULL for disabled
-#define SERVER_PORT_TLS NULL // HTTPS default "443", NULL for disabled
+#define SERVER_PORT_RAW 8000 // HTTP default 80, 0 for disabled
+#define SERVER_PORT_TLS 0 // HTTPS default 443, 0 for disabled
 #define SERVER_LOG_FILE NULL // stdout or NULL for disabled
 
 // https://wiki.mozilla.org/Security/Server_Side_TLS
@@ -62,9 +62,9 @@ static int listener0(HTTPServerRef const server, HTTPConnectionRef const conn, s
 	if(SERVER_PORT_TLS && server == server_raw) {
 		// Redirect from HTTP to HTTPS
 		if('\0' == domain[0]) return 400;
-		strarg_t const port = SERVER_PORT_TLS;
+		int const port = SERVER_PORT_TLS;
 		str_t loc[URI_MAX];
-		rc = snprintf(loc, sizeof(loc), "https://%s:%s%s", domain, port, URI);
+		rc = snprintf(loc, sizeof(loc), "https://%s:%d%s", domain, port, URI);
 		if(rc >= sizeof(loc)) return 414; // Request-URI Too Large
 		if(rc < 0) return 500;
 		HTTPConnectionSendRedirect(conn, 301, loc);
@@ -118,8 +118,8 @@ static int init_http(void) {
 		alogf("HTTP server could not be started: %s\n", sln_strerror(rc));
 		return -1;
 	}
-	strarg_t const port = SERVER_PORT_RAW;
-	alogf("StrongLink server running at http://localhost:%s/\n", port);
+	int const port = SERVER_PORT_RAW;
+	alogf("StrongLink server running at http://localhost:%d/\n", port);
 	return 0;
 }
 static int init_https(void) {
@@ -176,8 +176,8 @@ static int init_https(void) {
 		alogf("HTTPS server could not be started: %s\n", sln_strerror(rc));
 		return -1;
 	}
-	strarg_t const port = SERVER_PORT_TLS;
-	alogf("StrongLink server running at https://localhost:%s/\n", port);
+	int const port = SERVER_PORT_TLS;
+	alogf("StrongLink server running at https://localhost:%d/\n", port);
 	return 0;
 }
 static void init(void *const unused) {

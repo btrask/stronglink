@@ -15,8 +15,8 @@ typedef void (*HTTPListener)(void *const context, HTTPServerRef const server, HT
 
 HTTPServerRef HTTPServerCreate(HTTPListener const listener, void *const context);
 void HTTPServerFree(HTTPServerRef *const serverptr);
-int HTTPServerListen(HTTPServerRef const server, strarg_t const address, strarg_t const port);
-int HTTPServerListenSecure(HTTPServerRef const server, strarg_t const address, strarg_t const port, struct tls **const tlsptr);
+int HTTPServerListen(HTTPServerRef const server, strarg_t const address, int const port);
+int HTTPServerListenSecure(HTTPServerRef const server, strarg_t const address, int const port, struct tls **const tlsptr);
 void HTTPServerClose(HTTPServerRef const server);
 
 #endif

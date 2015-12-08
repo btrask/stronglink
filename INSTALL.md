@@ -47,7 +47,6 @@ Right now there is no configuration interface whatsoever (not even a config file
 - Number of bcrypt rounds: `BCRYPT_ROUNDS` in `src/util/pass.c` (default 13)
 - Logging: `SERVER_LOG_FILE` in `src/blog/main.c` (`stdout` or `NULL` for disabled)
 - TLS ciphers and protocols: `TLS_CIPHERS` and `TLS_PROTOCOLS` in `src/blog/main.c`
-- IPv6: you may need to set `LISTEN_FAMILY` from `AF_UNSPEC` to `AF_INET6` in `src/http/HTTPServer.c`
 
 Alternate Database Backends
 ---------------------------

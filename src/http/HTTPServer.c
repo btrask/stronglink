@@ -34,44 +34,43 @@ void HTTPServerFree(HTTPServerRef *const serverptr) {
 	FREE(serverptr); server = NULL;
 }
 
-int HTTPServerListen(HTTPServerRef const server, strarg_t const address, strarg_t const port) {
+int HTTPServerListen(HTTPServerRef const server, strarg_t const address, int const port) {
 	if(!server) return 0;
 	assertf(!server->socket->data, "HTTPServer already listening");
-	struct addrinfo *info = NULL;
 	int rc = 0;
 
-	struct addrinfo const hints = {
-		.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG | AI_NUMERICSERV | AI_PASSIVE,
-		.ai_family = LISTEN_FAMILY,
-		.ai_socktype = SOCK_STREAM,
-		.ai_protocol = 0,
-	};
-	struct addrinfo *each = NULL;
-	rc = async_getaddrinfo(address, port, &hints, &info);
+	server->socket->data = server;
+	rc = uv_tcp_init(async_loop, server->socket);
 	if(rc < 0) goto cleanup;
-	for(each = info; each; each = each->ai_next) {
-		server->socket->data = server;
-		rc = uv_tcp_init(async_loop, server->socket);
-		if(rc < 0) goto cleanup;
 
-		rc = uv_tcp_bind(server->socket, each->ai_addr, 0);
-		if(rc >= 0) break;
+	// Tried getaddrinfo(3) but it seems remarkably disappointing.
+	rc = UV_EADDRNOTAVAIL;
+	if(rc < 0) {
+		strarg_t name = address;
+		if(!name) name = "::";
+		else if(0 == strcmp("localhost", name)) name = "::1";
+		struct sockaddr_in6 addr[1];
+		rc = uv_ip6_addr(name, port, addr);
+		if(rc >= 0) rc = uv_tcp_bind(server->socket, (struct sockaddr const *)addr, 0);
+	}
+	if(rc < 0) {
+		strarg_t name = address;
+		if(!name) name = "0.0.0.0";
+		else if(0 == strcmp("localhost", name)) name = "127.0.0.1";
+		struct sockaddr_in addr[1];
+		rc = uv_ip4_addr(name, port, addr);
+		if(rc >= 0) rc = uv_tcp_bind(server->socket, (struct sockaddr const *)addr, 0);
+	}
+	if(rc < 0) goto cleanup;
 
-		async_close((uv_handle_t *)server->socket);
-	}
-	if(!each) {
-		if(rc >= 0) rc = UV_EADDRNOTAVAIL;
-		goto cleanup;
-	}
 	rc = uv_listen((uv_stream_t *)server->socket, 511, connection_cb);
 	if(rc < 0) goto cleanup;
 
 cleanup:
-	uv_freeaddrinfo(info); info = NULL;
 	if(rc < 0) HTTPServerClose(server);
 	return rc;
 }
-int HTTPServerListenSecure(HTTPServerRef const server, strarg_t const address, strarg_t const port, struct tls **const tlsptr) {
+int HTTPServerListenSecure(HTTPServerRef const server, strarg_t const address, int const port, struct tls **const tlsptr) {
 	if(!server) return 0;
 	int rc = HTTPServerListen(server, address, port);
 	if(rc < 0) return rc;
