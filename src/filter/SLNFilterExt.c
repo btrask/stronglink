@@ -163,9 +163,8 @@ int SLNFilterCopyURI(SLNFilterRef const filter, uint64_t const fileID, bool cons
 		SLNMetaFileByIDKeyPack(key, txn, fileID);
 		rc = db_get(txn, key, val);
 		if(rc < 0) return rc;
-		uint64_t f;
 		strarg_t target = NULL;
-		SLNMetaFileByIDValUnpack(val, txn, &f, &target);
+		SLNMetaFileByIDValUnpack(val, txn, &target);
 		db_assert(target);
 		URI = aasprintf("hash://%s/%s -> %s", SLN_INTERNAL_ALGO, hash, target);
 		if(!URI) return DB_ENOMEM;

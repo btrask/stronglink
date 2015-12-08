@@ -234,13 +234,13 @@ static void SLNMetaFileByIDKeyUnpack(DB_val *const val, DB_txn *const txn, uint6
 	*metaFileID = db_read_uint64(val);
 }
 
-#define SLNMetaFileByIDValPack(val, txn, fileID, targetURI) \
+#define SLNMetaFileByIDValPack(val, txn, targetURI) \
 	DB_VAL_STORAGE(val, DB_VARINT_MAX + DB_INLINE_MAX); \
-	db_bind_uint64((val), (fileID)); \
+	db_bind_uint64((val), 0/* Obsolete file ID field. */); \
 	db_bind_string((val), (targetURI), (txn)); \
 	DB_VAL_STORAGE_VERIFY(val);
-static void SLNMetaFileByIDValUnpack(DB_val *const val, DB_txn *const txn, uint64_t *const fileID, strarg_t *const targetURI) {
-	*fileID = db_read_uint64(val);
+static void SLNMetaFileByIDValUnpack(DB_val *const val, DB_txn *const txn, strarg_t *const targetURI) {
+	(void) db_read_uint64(val); // Obsolete file ID field.
 	*targetURI = db_read_string(val, txn);
 }
 

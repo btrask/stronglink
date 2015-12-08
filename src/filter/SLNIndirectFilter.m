@@ -39,9 +39,8 @@
 		DB_val metaFile_val[1];
 		rc = db_cursor_seek(step_target, metaFileID_key, metaFile_val, 0);
 		assertf(rc >= 0, "Database error %s", sln_strerror(rc));
-		uint64_t f;
 		strarg_t targetURI;
-		SLNMetaFileByIDValUnpack(metaFile_val, curtxn, &f, &targetURI);
+		SLNMetaFileByIDValUnpack(metaFile_val, curtxn, &targetURI);
 
 		DB_range fileIDs[1];
 		SLNURIAndFileIDRange1(fileIDs, curtxn, targetURI);
@@ -91,9 +90,8 @@
 		DB_val metaFile_val[1];
 		rc = db_cursor_seek(step_target, metaFileID_key, metaFile_val, 0);
 		assertf(rc >= 0, "Database error %s", sln_strerror(rc));
-		uint64_t f;
 		strarg_t targetURI;
-		SLNMetaFileByIDValUnpack(metaFile_val, curtxn, &f, &targetURI);
+		SLNMetaFileByIDValUnpack(metaFile_val, curtxn, &targetURI);
 
 		DB_range fileIDs[1];
 		SLNURIAndFileIDRange1(fileIDs, curtxn, targetURI);

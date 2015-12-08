@@ -23,7 +23,7 @@ typedef struct {
 static yajl_callbacks const callbacks;
 
 // TODO: Error handling.
-static uint64_t add_metafile(DB_txn *const txn, uint64_t const fileID, strarg_t const targetURI);
+static int add_metafile(DB_txn *const txn, uint64_t const metaFileID, strarg_t const targetURI);
 static void add_metadata(DB_txn *const txn, uint64_t const metaFileID, strarg_t const field, strarg_t const value);
 static void add_fulltext(DB_txn *const txn, uint64_t const metaFileID, strarg_t const str, size_t const len);
 
@@ -45,12 +45,22 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 		return 0;
 	}
 
+	// Meta-file IDs "are" file IDs.
+	// Not every file ID is a meta-file ID, however.
+	uint64_t const metaFileID = fileID;
+
+	if(metaFileID < db_next_id(SLNMetaFileByID, txn)) {
+		// Duplicate.
+		// TODO: Should we still validate?
+		*out = metaFileID;
+		return 0;
+	}
+
 	uv_file const fd = SLNSubmissionGetFile(sub);
 	if(fd < 0) return DB_EINVAL;
 
 	int rc = 0;
 	uv_buf_t buf[1] = {};
-	DB_txn *subtxn = NULL;
 	parser_t ctx[1] = {};
 	ctx->depth = -1;
 	yajl_handle parser = NULL;
@@ -96,18 +106,10 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 		if(rc < 0) goto cleanup;
 	}
 
-	// TODO: Support sub-transactions in LevelDB backend.
-	// TODO: db_txn_begin should support NULL env.
-//	rc = db_txn_begin(NULL, txn, DB_RDWR, &subtxn);
-//	if(rc < 0) goto cleanup;
-	subtxn = txn;
+	rc = add_metafile(txn, metaFileID, targetURI);
+	if(rc < 0) goto cleanup;
 
-	uint64_t const metaFileID = add_metafile(subtxn, fileID, targetURI);
-	if(!metaFileID) goto cleanup;
-	// Duplicate meta-file, not an error.
-	// TODO: Unless the previous version wasn't actually a meta-file.
-
-	ctx->txn = subtxn;
+	ctx->txn = txn;
 	ctx->metaFileID = metaFileID;
 	ctx->targetURI = targetURI;
 	parser = yajl_alloc(&callbacks, NULL, ctx);
@@ -143,13 +145,9 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 		goto cleanup;
 	}
 
-//	rc = db_txn_commit(subtxn); subtxn = NULL;
-	if(rc < 0) goto cleanup;
-
 	*out = metaFileID;
 
 cleanup:
-//	db_txn_abort(subtxn); subtxn = NULL;
 	FREE(&buf->base);
 	if(parser) yajl_free(parser); parser = NULL;
 	assert(-1 == ctx->depth);
@@ -232,45 +230,50 @@ static yajl_callbacks const callbacks = {
 	.yajl_end_array = (int (*)())yajl_end_array,
 };
 
-static uint64_t add_metafile(DB_txn *const txn, uint64_t const fileID, strarg_t const targetURI) {
-	uint64_t const metaFileID = fileID;
-	uint64_t const latestMetaFileID = db_next_id(SLNMetaFileByID, txn);
-	if(metaFileID < latestMetaFileID) return 0;
-	// If it's not a new file, then it's not a new meta-file.
-	// Note that ordinary files can't be "promoted" to meta-files later
-	// because that would break the ordering.
-
+static int add_metafile(DB_txn *const txn, uint64_t const metaFileID, strarg_t const targetURI) {
 	DB_val null = { 0, NULL };
 	DB_cursor *cursor = NULL;
 	int rc = db_txn_cursor(txn, &cursor);
-	assert(rc >= 0);
+	if(rc < 0) return rc;
+
+	// A meta-file can only be added if it's target already exists.
+	// This is to ensure that files are always at least their own age.
+	// This requirement might be lifted in the future.
+	// An alternate solution would be to limit the file's minimum age.
+	// However, that probably requires more complicated indexing.
+	DB_range targets[1];
+	SLNURIAndFileIDRange1(targets, txn, targetURI);
+	rc = db_cursor_firstr(cursor, targets, NULL, NULL, +1);
+	if(DB_NOTFOUND == rc) return SLN_INVALIDTARGET;
+	if(rc < 0) return rc;
+
 
 	DB_val metaFileID_key[1];
 	SLNMetaFileByIDKeyPack(metaFileID_key, txn, metaFileID);
 	DB_val metaFile_val[1];
-	SLNMetaFileByIDValPack(metaFile_val, txn, fileID, targetURI);
-	rc = db_put(txn, metaFileID_key, metaFile_val, DB_NOOVERWRITE_FAST);
-	assert(rc >= 0);
+	SLNMetaFileByIDValPack(metaFile_val, txn, targetURI);
+	rc = db_cursor_put(cursor, metaFileID_key, metaFile_val, DB_NOOVERWRITE_FAST);
+	if(rc < 0) return rc;
 
 	DB_range alts[1];
 	SLNTargetURIAndMetaFileIDRange1(alts, txn, targetURI);
 	rc = db_cursor_firstr(cursor, alts, NULL, NULL, +1);
-	assert(rc >= 0 || DB_NOTFOUND == rc);
 	if(DB_NOTFOUND == rc) {
 		DB_val unique[1];
 		SLNFirstUniqueMetaFileIDKeyPack(unique, txn, metaFileID);
-		rc = db_put(txn, unique, &null, DB_NOOVERWRITE_FAST);
-		assert(rc >= 0);
+		rc = db_cursor_put(cursor, unique, &null, DB_NOOVERWRITE_FAST);
 	}
+	if(rc < 0) return rc;
 
 	DB_val targetURI_key[1];
 	SLNTargetURIAndMetaFileIDKeyPack(targetURI_key, txn, targetURI, metaFileID);
-	rc = db_put(txn, targetURI_key, &null, DB_NOOVERWRITE_FAST);
-	assert(rc >= 0);
+	rc = db_cursor_put(cursor, targetURI_key, &null, DB_NOOVERWRITE_FAST);
+	if(rc < 0) return rc;
 
-	return metaFileID;
+	return 0;
 }
 static void add_metadata(DB_txn *const txn, uint64_t const metaFileID, strarg_t const field, strarg_t const value) {
+	assert(metaFileID);
 	assert(field);
 	assert(value);
 	if('\0' == value[0]) return;
@@ -289,6 +292,8 @@ static void add_metadata(DB_txn *const txn, uint64_t const metaFileID, strarg_t 
 	assertf(rc >= 0 || DB_KEYEXIST == rc, "Database error %s", sln_strerror(rc));
 }
 static void add_fulltext(DB_txn *const txn, uint64_t const metaFileID, strarg_t const str, size_t const len) {
+	assert(metaFileID);
+
 	if(0 == len) return;
 	assert(str);
 
