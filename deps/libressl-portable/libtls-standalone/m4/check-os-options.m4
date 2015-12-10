@@ -11,6 +11,7 @@ case $host_os in
 		AC_SUBST([PLATFORM_LDADD], ['-lperfstat -lpthread'])
 		;;
 	*cygwin*)
+		BUILD_NC=yes
 		HOST_OS=cygwin
 		;;
 	*darwin*)
@@ -62,6 +63,7 @@ case $host_os in
 		AC_SUBST([PLATFORM_LDADD], ['-lws2_32'])
 		;;
 	*solaris*)
+		BUILD_NC=yes
 		HOST_OS=solaris
 		HOST_ABI=elf
 		CPPFLAGS="$CPPFLAGS -D__EXTENSIONS__ -D_XOPEN_SOURCE=600 -DBSD_COMP"
@@ -70,7 +72,11 @@ case $host_os in
 	*) ;;
 esac
 
-AM_CONDITIONAL([BUILD_NC],     [test x$BUILD_NC = xyes])
+AC_ARG_ENABLE([nc],
+	AS_HELP_STRING([--enable-nc], [Enable installing TLS-enabled nc(1)]))
+AM_CONDITIONAL([ENABLE_NC], [test "x$enable_nc" = xyes])
+AM_CONDITIONAL([BUILD_NC],  [test x$BUILD_NC = xyes -o "x$enable_nc" = xyes])
+
 AM_CONDITIONAL([HOST_AIX],     [test x$HOST_OS = xaix])
 AM_CONDITIONAL([HOST_CYGWIN],  [test x$HOST_OS = xcygwin])
 AM_CONDITIONAL([HOST_DARWIN],  [test x$HOST_OS = xdarwin])

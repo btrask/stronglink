@@ -8,6 +8,13 @@ EXTRA_DIST += CMakeLists.txt
 libtls_la_LDFLAGS = -version-info @LIBTLS_VERSION@ -no-undefined
 libtls_la_LIBADD = ../crypto/libcrypto.la ../ssl/libssl.la $(PLATFORM_LDADD)
 
+libtls_la_CPPFLAGS = $(AM_CPPFLAGS)
+if OPENSSLDIR_DEFINED
+libtls_la_CPPFLAGS += -D_PATH_SSL_CA_FILE=\"@OPENSSLDIR@/cert.pem\"
+else
+libtls_la_CPPFLAGS += -D_PATH_SSL_CA_FILE=\"$(sysconfdir)/ssl/cert.pem\"
+endif
+
 libtls_la_SOURCES = tls.c
 libtls_la_SOURCES += tls_client.c
 libtls_la_SOURCES += tls_config.c

@@ -1,5 +1,5 @@
---- apps/nc/netcat.c.orig	2015-10-23 16:01:14.000000000 -0700
-+++ apps/nc/netcat.c	2015-10-23 16:17:08.000000000 -0700
+--- apps/nc/netcat.c.orig	Sun Dec  6 22:05:45 2015
++++ apps/nc/netcat.c	Mon Dec  7 07:52:00 2015
 @@ -57,6 +57,10 @@
  #include <tls.h>
  #include "atomicio.h"
@@ -9,9 +9,19 @@
 +#endif
 +
  #define PORT_MAX	65535
- #define PORT_MAX_LEN	6
  #define UNIX_DG_TMP_SOCKET_SIZE	19
-@@ -93,9 +97,13 @@
+ 
+@@ -65,7 +69,9 @@
+ #define POLL_NETIN 2
+ #define POLL_STDOUT 3
+ #define BUFSIZE 16384
++#ifndef DEFAULT_CA_FILE
+ #define DEFAULT_CA_FILE "/etc/ssl/cert.pem"
++#endif
+ 
+ #define TLS_LEGACY	(1 << 1)
+ #define TLS_NOVERIFY	(1 << 2)
+@@ -92,9 +98,13 @@
  int	Dflag;					/* sodebug */
  int	Iflag;					/* TCP receive buffer size */
  int	Oflag;					/* TCP send buffer size */
@@ -25,7 +35,7 @@
  
  int	usetls;					/* use TLS */
  char    *Cflag;					/* Public cert file */
-@@ -145,7 +153,7 @@
+@@ -144,7 +154,7 @@
  	struct servent *sv;
  	socklen_t len;
  	struct sockaddr_storage cliaddr;
@@ -34,7 +44,7 @@
  	const char *errstr, *proxyhost = "", *proxyport = NULL;
  	struct addrinfo proxyhints;
  	char unix_dg_tmp_socket_buf[UNIX_DG_TMP_SOCKET_SIZE];
-@@ -246,12 +254,14 @@
+@@ -245,12 +255,14 @@
  		case 'u':
  			uflag = 1;
  			break;
@@ -49,7 +59,7 @@
  		case 'v':
  			vflag = 1;
  			break;
-@@ -284,9 +294,11 @@
+@@ -283,9 +295,11 @@
  				errx(1, "TCP send window %s: %s",
  				    errstr, optarg);
  			break;
@@ -61,26 +71,31 @@
  		case 'T':
  			errstr = NULL;
  			errno = 0;
-@@ -310,14 +322,16 @@
+@@ -309,9 +323,11 @@
  	argc -= optind;
  	argv += optind;
  
 +#ifdef SO_RTABLE
- 	if (rtableid >= 0) {
- 		/*
- 		 * XXX No pledge if doing rtable manipulation!
- 		 * XXX the routing table stuff is dangerous and can't be pledged.
- 		 * XXX rtable should really have a better interface than sockopt
- 		 */
--	}
--	else if (family == AF_UNIX) {
-+	} else
+ 	if (rtableid >= 0)
+ 		if (setrtable(rtableid) == -1)
+ 			err(1, "setrtable");
 +#endif
-+	if (family == AF_UNIX) {
+ 
+ 	if (family == AF_UNIX) {
  		if (pledge("stdio rpath wpath cpath tmppath unix", NULL) == -1)
- 			err(1, "pledge");
+@@ -444,7 +460,10 @@
+ 				errx(1, "-H and -T noverify may not be used"
+ 				    "together");
+ 			tls_config_insecure_noverifycert(tls_cfg);
+-		}
++		} else {
++                        if (Rflag && access(Rflag, R_OK) == -1)
++                                errx(1, "unable to find root CA file %s", Rflag);
++                }
  	}
-@@ -797,7 +811,10 @@
+ 	if (lflag) {
+ 		struct tls *tls_cctx = NULL;
+@@ -791,7 +810,10 @@
  remote_connect(const char *host, const char *port, struct addrinfo hints)
  {
  	struct addrinfo *res, *res0;
@@ -92,17 +107,7 @@
  
  	if ((error = getaddrinfo(host, port, &hints, &res)))
  		errx(1, "getaddrinfo: %s", gai_strerror(error));
-@@ -808,16 +825,20 @@
- 		    SOCK_NONBLOCK, res0->ai_protocol)) < 0)
- 			continue;
- 
-+#ifdef SO_RTABLE
- 		if (rtableid >= 0 && (setsockopt(s, SOL_SOCKET, SO_RTABLE,
- 		    &rtableid, sizeof(rtableid)) == -1))
- 			err(1, "setsockopt SO_RTABLE");
-+#endif
- 
- 		/* Bind to a local port or source address if specified. */
+@@ -806,8 +828,10 @@
  		if (sflag || pflag) {
  			struct addrinfo ahints, *ares;
  
@@ -113,7 +118,7 @@
  			memset(&ahints, 0, sizeof(struct addrinfo));
  			ahints.ai_family = res0->ai_family;
  			ahints.ai_socktype = uflag ? SOCK_DGRAM : SOCK_STREAM;
-@@ -886,7 +907,10 @@
+@@ -876,7 +900,10 @@
  local_listen(char *host, char *port, struct addrinfo hints)
  {
  	struct addrinfo *res, *res0;
@@ -125,15 +130,9 @@
  	int error;
  
  	/* Allow nodename to be null. */
-@@ -908,13 +932,17 @@
+@@ -898,9 +925,11 @@
  		    res0->ai_protocol)) < 0)
  			continue;
- 
-+#ifdef SO_RTABLE
- 		if (rtableid >= 0 && (setsockopt(s, SOL_SOCKET, SO_RTABLE,
- 		    &rtableid, sizeof(rtableid)) == -1))
- 			err(1, "setsockopt SO_RTABLE");
-+#endif
  
 +#ifdef SO_REUSEPORT
  		ret = setsockopt(s, SOL_SOCKET, SO_REUSEPORT, &x, sizeof(x));
@@ -143,7 +142,7 @@
  
  		set_common_sockopts(s, res0->ai_family);
  
-@@ -1358,11 +1386,13 @@
+@@ -1340,11 +1369,13 @@
  {
  	int x = 1;
  
@@ -157,29 +156,30 @@
  	if (Dflag) {
  		if (setsockopt(s, SOL_SOCKET, SO_DEBUG,
  			&x, sizeof(x)) == -1)
-@@ -1537,15 +1567,19 @@
+@@ -1519,14 +1550,22 @@
  	\t-P proxyuser\tUsername for proxy authentication\n\
  	\t-p port\t	Specify local port for remote connects\n\
  	\t-R CAfile	CA bundle\n\
 -	\t-r		Randomize remote ports\n\
 -	\t-S		Enable the TCP MD5 signature option\n\
--	\t-s source	Local source address\n\
 +	\t-r		Randomize remote ports\n"
 +#ifdef TCP_MD5SIG
-+	"\t-S		Enable the TCP MD5 signature option\n"
++        "\
++	\t-S		Enable the TCP MD5 signature option\n"
 +#endif
-+	"\t-s source	Local source address\n\
++        "\
+ 	\t-s source	Local source address\n\
  	\t-T keyword	TOS value or TLS options\n\
  	\t-t		Answer TELNET negotiation\n\
  	\t-U		Use UNIX domain socket\n\
 -	\t-u		UDP mode\n\
 -	\t-V rtable	Specify alternate routing table\n\
--	\t-v		Verbose\n\
 +	\t-u		UDP mode\n"
 +#ifdef SO_RTABLE
-+	"\t-V rtable	Specify alternate routing table\n"
++        "\
++	\t-V rtable	Specify alternate routing table\n"
 +#endif
-+	"\t-v		Verbose\n\
++        "\
+ 	\t-v		Verbose\n\
  	\t-w timeout	Timeout for connects and final net reads\n\
  	\t-X proto	Proxy protocol: \"4\", \"5\" (SOCKS) or \"connect\"\n\
- 	\t-x addr[:port]\tSpecify proxy address and port\n\

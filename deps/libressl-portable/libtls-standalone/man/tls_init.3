@@ -1,4 +1,4 @@
-.\" $OpenBSD: tls_init.3,v 1.52 2015/10/16 13:48:44 jsing Exp $
+.\" $OpenBSD: tls_init.3,v 1.53 2015/10/16 13:49:53 jsing Exp $
 .\"
 .\" Copyright (c) 2014 Ted Unangst <tedu@openbsd.org>
 .\"
@@ -289,16 +289,16 @@ Configuration options may apply to only clients or only servers or both.
 .Fn tls_config_set_ca_file
 sets the filename used to load a file
 containing the root certificates.
-.Em (Client)
+.Em (Client and Server)
 .It
 .Fn tls_config_set_ca_path
 sets the path (directory) which should be searched for root
 certificates.
-.Em (Client)
+.Em (Client and Server)
 .It
 .Fn tls_config_set_ca_mem
 sets the root certificates directly from memory.
-.Em (Client)
+.Em (Client and Server)
 .It
 .Fn tls_config_set_cert_file
 sets file from which the public certificate will be read.

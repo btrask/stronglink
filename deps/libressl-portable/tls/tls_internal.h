@@ -24,7 +24,9 @@
 
 #include <openssl/ssl.h>
 
+#ifndef _PATH_SSL_CA_FILE
 #define _PATH_SSL_CA_FILE "/etc/ssl/cert.pem"
+#endif
 
 #define TLS_CIPHERS_COMPAT	"ALL:!aNULL:!eNULL"
 #define TLS_CIPHERS_DEFAULT	"TLSv1.2+AEAD+ECDHE:TLSv1.2+AEAD+DHE"

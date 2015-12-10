@@ -133,13 +133,16 @@
 .\" ========================================================================
 .\"
 .IX Title "engine 3"
-.TH engine 3 "2015-10-21" "LibreSSL " "LibreSSL"
+.TH engine 3 "2015-12-09" "LibreSSL " "LibreSSL"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .SH "NAME"
-engine \- ENGINE cryptographic module support
+ENGINE_add, ENGINE_by_id, ENGINE_finish, ENGINE_get_first,
+ENGINE_get_last, ENGINE_get_next, ENGINE_get_prev,
+ENGINE_init, ENGINE_load_builtin_engines, ENGINE_remove
+\&\- ENGINE cryptographic module support
 .SH "SYNOPSIS"
 .IX Header "SYNOPSIS"
 .Vb 1

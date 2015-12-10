@@ -1,4 +1,4 @@
-/* $OpenBSD: eng_openssl.c,v 1.10 2015/02/11 03:19:37 doug Exp $ */
+/* $OpenBSD: eng_openssl.c,v 1.11 2015/08/28 01:06:09 beck Exp $ */
 /* Written by Geoff Thorpe (geoff@geoffthorpe.net) for the OpenSSL
  * project 2000.
  */
@@ -105,7 +105,7 @@
 #undef TEST_ENG_OPENSSL_RC4_P_INIT
 #undef TEST_ENG_OPENSSL_RC4_P_CIPHER
 #endif
-#if defined(OPENSSL_NO_SHA) || defined(OPENSSL_NO_SHA0) || defined(OPENSSL_NO_SHA1)
+#if defined(OPENSSL_NO_SHA) || defined(OPENSSL_NO_SHA1)
 #undef TEST_ENG_OPENSSL_SHA
 #undef TEST_ENG_OPENSSL_SHA_OTHERS
 #undef TEST_ENG_OPENSSL_SHA_P_INIT
