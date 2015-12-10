@@ -8,7 +8,7 @@ snappy_autogen () { (
 	if glibtoolize --version >/dev/null; then
 	        alias libtoolize=glibtoolize
 	fi
-	source ./autogen.sh
+	. ./autogen.sh
 ); }
 
 (cd deps/libressl-portable && ./autogen.sh && ./configure)
