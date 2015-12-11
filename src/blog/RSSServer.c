@@ -16,18 +16,18 @@ static int write_cdata(HTTPConnectionRef const conn, uv_buf_t const *const buf) 
 		if(']' != buf->base[i-1]) continue;
 		if('>' != buf->base[i-0]) continue;
 		uv_buf_t parts[] = {
-			uv_buf_init((char *)STR_LEN("<![CDATA[")),
+			UV_BUF_STATIC("<![CDATA["),
 			uv_buf_init((char *)pos, i-(pos-buf->base)),
-			uv_buf_init((char *)STR_LEN("]]>")),
+			UV_BUF_STATIC("]]>"),
 		};
 		int rc = HTTPConnectionWriteChunkv(conn, parts, numberof(parts));
 		if(rc < 0) return rc;
 		pos = buf->base+i;
 	}
 	uv_buf_t last[] = {
-		uv_buf_init((char *)STR_LEN("<![CDATA[")),
+		UV_BUF_STATIC("<![CDATA["),
 		uv_buf_init((char *)pos, buf->len-(pos-buf->base)),
-		uv_buf_init((char *)STR_LEN("]]>")),
+		UV_BUF_STATIC("]]>"),
 	};
 	return HTTPConnectionWriteChunkv(conn, last, numberof(last));
 }

@@ -232,7 +232,7 @@ ssize_t SLNFilterWriteURIBatch(SLNFilterRef const filter, SLNSessionRef const se
 	uv_buf_t parts[BATCH_SIZE*2];
 	for(size_t i = 0; i < count; i++) {
 		parts[i*2+0] = uv_buf_init((char *)URIs[i], strlen(URIs[i]));
-		parts[i*2+1] = uv_buf_init((char *)STR_LEN("\r\n"));
+		parts[i*2+1] = UV_BUF_STATIC("\r\n");
 	}
 	int rc = writecb(ctx, parts, count*2);
 	for(size_t i = 0; i < count; i++) FREE(&URIs[i]);
@@ -261,7 +261,7 @@ int SLNFilterWriteURIs(SLNFilterRef const filter, SLNSessionRef const session, S
 		uint64_t const timeout = uv_now(async_loop)+(1000 * 30);
 		rc = SLNRepoSubmissionWait(repo, &latest, timeout);
 		if(UV_ETIMEDOUT == rc) {
-			uv_buf_t const parts[] = { uv_buf_init((char *)STR_LEN("\r\n")) };
+			uv_buf_t const parts[] = { UV_BUF_STATIC("\r\n") };
 			rc = writecb(ctx, parts, numberof(parts));
 			if(rc < 0) break;
 			continue;

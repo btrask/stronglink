@@ -22,6 +22,7 @@ typedef str_t const *strarg_t; // A string that belongs to someone else.
 #define numberof(x) (sizeof(x) / sizeof(*(x)))
 
 #define STR_LEN(str) (str), (sizeof(str)-1)
+#define UV_BUF_STATIC(lit) uv_buf_init((char *)STR_LEN(lit))
 
 #define MIN(a, b) ({ \
 	__typeof__(a) const __a = (a); \
