@@ -30,6 +30,8 @@ int HTTPConnectionCreateOutgoing(strarg_t const domain, unsigned const flags, HT
 int HTTPConnectionCreateOutgoingSecure(strarg_t const domain, unsigned const flags, struct tls_config *const tlsconf, HTTPConnectionRef *const out);
 void HTTPConnectionFree(HTTPConnectionRef *const connptr);
 
+void HTTPConnectionSetKeepAlive(HTTPConnectionRef const conn, bool const flag);
+
 // Reading
 int HTTPConnectionStatus(HTTPConnectionRef const conn); // NOT a HTTP status code.
 int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_buf_t *const buf);

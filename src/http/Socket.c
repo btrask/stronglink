@@ -105,15 +105,20 @@ cleanup:
 void SocketFree(SocketRef *const socketptr) {
 	SocketRef socket = *socketptr;
 	if(!socket) return;
+	SocketClose(socket);
+	socket->err = 0;
+	assert_zeroed(socket, 1);
+	FREE(socketptr); socket = NULL;
+}
+void SocketClose(SocketRef const socket) {
+	if(!socket) return;
 	if(socket->secure) tls_close(socket->secure);
 	tls_free(socket->secure); socket->secure = NULL;
 	async_close((uv_handle_t *)socket->stream);
 	FREE(&socket->rdmem);
 	socket->rd->base = NULL; socket->rd->len = 0;
 	FREE(&socket->wr->base); socket->wr->len = 0;
-	socket->err = 0;
-	assert_zeroed(socket, 1);
-	FREE(socketptr); socket = NULL;
+	socket->err = UV_EOF;
 }
 bool SocketIsSecure(SocketRef const socket) {
 	if(!socket) return false;

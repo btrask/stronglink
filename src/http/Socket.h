@@ -10,6 +10,7 @@ typedef struct Socket *SocketRef;
 int SocketAccept(uv_stream_t *const sstream, struct tls *const ssecure, SocketRef *const out);
 int SocketConnect(strarg_t const host, strarg_t const port, struct tls_config *const tlsconf, SocketRef *const out);
 void SocketFree(SocketRef *const socketptr);
+void SocketClose(SocketRef const socket);
 bool SocketIsSecure(SocketRef const socket);
 int SocketStatus(SocketRef const socket);
 

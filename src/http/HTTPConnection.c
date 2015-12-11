@@ -12,6 +12,7 @@
 
 enum {
 	HTTPMessageIncomplete = 1 << 0,
+	HTTPKeepAlive = 1 << 1,
 };
 
 static http_parser_settings const settings;
@@ -99,6 +100,12 @@ void HTTPConnectionFree(HTTPConnectionRef *const connptr) {
 
 	assert_zeroed(conn, 1);
 	FREE(connptr); conn = NULL;
+}
+
+void HTTPConnectionSetKeepAlive(HTTPConnectionRef const conn, bool const flag) {
+	if(!conn) return;
+	if(flag) conn->flags |= HTTPKeepAlive;
+	else conn->flags &= ~HTTPKeepAlive;
 }
 
 int HTTPConnectionStatus(HTTPConnectionRef const conn) {
@@ -461,16 +468,18 @@ int HTTPConnectionWriteSetCookie(HTTPConnectionRef const conn, strarg_t const co
 }
 int HTTPConnectionBeginBody(HTTPConnectionRef const conn) {
 	if(!conn) return 0;
-	if(SocketIsSecure(conn->socket)) {
-		return HTTPConnectionWrite(conn, (byte_t *)STR_LEN(
-			"Strict-Transport-Security: max-age=31536000; includeSubDomains; preload\r\n"
-			"Connection: keep-alive\r\n"
-			"\r\n"));
-	} else {
-		return HTTPConnectionWrite(conn, (byte_t *)STR_LEN(
-			"Connection: keep-alive\r\n"
-			"\r\n"));
-	}
+	uv_buf_t parts[] = {
+		SocketIsSecure(conn->socket) ?
+			UV_BUF_STATIC("Strict-Transport-Security: "
+				"max-age=31536000; "
+				"includeSubDomains; preload" "\r\n") :
+			UV_BUF_STATIC(""),
+		HTTPKeepAlive & conn->flags ?
+			UV_BUF_STATIC("Connection: keep-alive" "\r\n") :
+			UV_BUF_STATIC("Connection: close" "\r\n"),
+		UV_BUF_STATIC("\r\n"),
+	};
+	return HTTPConnectionWritev(conn, parts, numberof(parts));
 }
 int HTTPConnectionWriteFile(HTTPConnectionRef const conn, uv_file const file) {
 	// TODO: This function should support lengths and offsets.
@@ -575,7 +584,8 @@ int HTTPConnectionEnd(HTTPConnectionRef const conn) {
 	if(!conn) return 0;
 	int rc = HTTPConnectionFlush(conn);
 	if(rc < 0) return rc;
-	// We assume keep-alive is enabled.
+	if(HTTPKeepAlive & conn->flags) return 0;
+	SocketClose(conn->socket);
 	return 0;
 }
 int HTTPConnectionFlush(HTTPConnectionRef const conn) {

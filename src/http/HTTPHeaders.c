@@ -79,6 +79,7 @@ int HTTPHeadersLoad(HTTPHeadersRef const h, HTTPConnectionRef const conn) {
 	HTTPEvent type;
 	str_t field[FIELD_MAX];
 	str_t value[VALUE_MAX];
+	bool connheader = false;
 	int rc;
 	for(;;) {
 		rc = HTTPConnectionPeek(conn, &type, buf);
@@ -92,6 +93,13 @@ int HTTPHeadersLoad(HTTPHeadersRef const h, HTTPConnectionRef const conn) {
 		if(UV_EMSGSIZE == flen) continue;
 		if(flen < 0) return flen;
 		if(vlen < 0) return vlen;
+
+		if(!connheader && 0 == strcasecmp("connection", field)) {
+			if(0 == strcasecmp("keep-alive", value)) {
+				HTTPConnectionSetKeepAlive(conn, true);
+			}
+			connheader = true;
+		}
 
 		if(h->count >= HEADERS_MAX) return UV_EMSGSIZE;
 		if(h->offset+flen+1 > FIELDS_SIZE) return UV_EMSGSIZE;
