@@ -227,6 +227,8 @@ ssize_t SLNFilterCopyURIs(SLNFilterRef const filter, SLNSessionRef const session
 ssize_t SLNFilterWriteURIBatch(SLNFilterRef const filter, SLNSessionRef const session, SLNFilterPosition *const pos, bool const meta, uint64_t const max, SLNFilterWriteCB const writecb, void *ctx);
 int SLNFilterWriteURIs(SLNFilterRef const filter, SLNSessionRef const session, SLNFilterPosition *const pos, bool const meta, uint64_t const max, bool const wait, SLNFilterWriteCB const writecb, SLNFilterFlushCB const flushcb, void *ctx);
 
+int SLNFilterCopyURISynonyms(DB_txn *const txn, strarg_t const URI, str_t ***const out);
+
 
 int SLNJSONFilterParserCreate(SLNSessionRef const session, SLNJSONFilterParserRef *const out);
 void SLNJSONFilterParserFree(SLNJSONFilterParserRef *const parserptr);
