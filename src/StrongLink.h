@@ -194,7 +194,7 @@ SLNFilterType SLNFilterGetType(SLNFilterRef const filter);
 SLNFilterRef SLNFilterUnwrap(SLNFilterRef const filter);
 strarg_t SLNFilterGetStringArg(SLNFilterRef const filter, size_t const i);
 int SLNFilterAddStringArg(SLNFilterRef const filter, strarg_t const str, ssize_t const len);
-int SLNFilterAddFilterArg(SLNFilterRef const filter, SLNFilterRef const subfilter);
+int SLNFilterAddFilterArg(SLNFilterRef const filter, SLNFilterRef *const subfilterptr);
 void SLNFilterPrintSexp(SLNFilterRef const filter, FILE *const file, size_t const depth);
 void SLNFilterPrintUser(SLNFilterRef const filter, FILE *const file, size_t const depth);
 int SLNFilterPrepare(SLNFilterRef const filter, DB_txn *const txn);

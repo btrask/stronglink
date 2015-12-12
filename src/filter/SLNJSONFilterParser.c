@@ -80,7 +80,8 @@ static int yajl_string(SLNJSONFilterParserRef const parser, strarg_t const  str,
 		if(rc < 0) return false;
 		parser->stack[depth] = filter;
 		if(depth) {
-			rc = SLNFilterAddFilterArg(parser->stack[depth-1], filter);
+			rc = SLNFilterAddFilterArg(parser->stack[depth-1], &filter);
+			SLNFilterFree(&filter);
 			if(rc < 0) return false;
 		}
 	}

@@ -154,10 +154,11 @@ static SLNFilterRef parse_exp(sstring *const query);
 static SLNFilterRef parse_negation(sstring *const query) {
 	sstring q[1] = { *query };
 	if('-' != s_pop(q)) return NULL;
-	SLNFilterRef const subfilter = parse_exp(q);
+	SLNFilterRef subfilter = parse_exp(q);
 	if(!subfilter) return NULL;
 	SLNFilterRef const negation = createfilter(SLNNegationFilterType);
-	SLNFilterAddFilterArg(negation, subfilter);
+	SLNFilterAddFilterArg(negation, &subfilter);
+	SLNFilterFree(&subfilter);
 	*query = *q;
 	return negation;
 }
@@ -174,10 +175,11 @@ static SLNFilterRef parse_or(sstring *const query) {
 	SLNFilterRef or = NULL;
 	sstring const lit[1] = { S_STATIC("or") };
 	for(;;) {
-		SLNFilterRef const exp = parse_exp(query);
+		SLNFilterRef exp = parse_exp(query);
 		if(!exp) break;
 		if(!or) or = createfilter(SLNUnionFilterType);
-		SLNFilterAddFilterArg(or, exp);
+		SLNFilterAddFilterArg(or, &exp);
+		SLNFilterFree(&exp);
 		if(!read_space(query)) break;
 		if(!read_literal(query, lit)) break;
 		if(!read_space(query)) break;
@@ -188,10 +190,11 @@ static SLNFilterRef parse_and(sstring *const query) {
 	SLNFilterRef and = NULL;
 	sstring const lit[1] = { S_STATIC("and") };
 	for(;;) {
-		SLNFilterRef const or = parse_or(query);
+		SLNFilterRef or = parse_or(query);
 		if(!or) break;
 		if(!and) and = createfilter(SLNIntersectionFilterType);
-		SLNFilterAddFilterArg(and, or);
+		SLNFilterAddFilterArg(and, &or);
+		SLNFilterFree(&or);
 
 		// Optional, ignored
 		read_space(query);

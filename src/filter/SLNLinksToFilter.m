@@ -120,7 +120,8 @@ cleanup:
 		if(rc < 0) goto cleanup;
 		SLNFilterAddStringArg(alt, STR_LEN("link"));
 		SLNFilterAddStringArg(alt, alts[i], -1);
-		SLNFilterAddFilterArg((SLNFilterRef)filter, alt);
+		SLNFilterAddFilterArg((SLNFilterRef)filter, &alt);
+		SLNFilterFree(&alt);
 	}
 
 cleanup:

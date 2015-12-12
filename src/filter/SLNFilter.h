@@ -28,7 +28,7 @@
 - (SLNFilter *)unwrap;
 - (strarg_t)stringArg:(size_t const)i;
 - (int)addStringArg:(strarg_t const)str :(size_t const)len;
-- (int)addFilterArg:(SLNFilter *const)filter;
+- (int)addFilterArg:(SLNFilter **const)filterptr;
 - (void)printSexp:(FILE *const)file :(size_t const)depth; // Debug use only?
 - (void)printUser:(FILE *const)file :(size_t const)depth;
 
@@ -100,7 +100,7 @@ struct token {
 	size_t asize;
 	int sort;
 }
-- (int)addFilterArg:(SLNFilter *const)filter;
+- (int)addFilterArg:(SLNFilter **const)filterptr;
 
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
 - (void)step:(int const)dir;

@@ -15,15 +15,16 @@
 - (SLNFilter *)unwrap {
 	return self;
 }
-- (int)addFilterArg:(SLNFilter *const)filter {
-	if(!filter) return DB_EINVAL;
+- (int)addFilterArg:(SLNFilter **const)filterptr {
+	assert(filterptr);
+	if(!*filterptr) return DB_EINVAL;
 	if(subfilter) return DB_EINVAL;
 	// TODO: Check that filter is "simple"
 	// Meaning it returns an age range pinned to either 0 or UINT64_MAX.
 	// Basically, it must not be a collection filter.
 	// Once we support mutable filters with multiple ranges, this will
 	// no longer be a problem.
-	subfilter = filter;
+	subfilter = *filterptr; *filterptr = NULL;
 	return 0;
 }
 - (void)printSexp:(FILE *const)file :(size_t const)depth {

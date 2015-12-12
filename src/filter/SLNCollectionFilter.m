@@ -37,14 +37,15 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 	if(1 == count) return [filters[0] unwrap];
 	return nil;
 }
-- (int)addFilterArg:(SLNFilter *const)filter {
-	assert(filter);
+- (int)addFilterArg:(SLNFilter **const)filterptr {
+	assert(filterptr);
+	assert(*filterptr);
 	if(count+1 > asize) {
 		asize = MAX(8, asize * 2);
 		filters = reallocarray(filters, asize, sizeof(filters[0]));
 		assert(filters); // TODO
 	}
-	filters[count++] = filter;
+	filters[count++] = *filterptr; *filterptr = NULL;
 	return 0;
 }
 

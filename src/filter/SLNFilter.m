@@ -26,7 +26,7 @@
 - (int)addStringArg:(strarg_t const)str :(size_t const)len {
 	return DB_EINVAL;
 }
-- (int)addFilterArg:(SLNFilter *const)filter {
+- (int)addFilterArg:(SLNFilter **const)filterptr {
 	return DB_EINVAL;
 }
 - (int)prepare:(DB_txn *const)txn {
@@ -88,9 +88,9 @@ int SLNFilterAddStringArg(SLNFilterRef const filter, strarg_t const str, ssize_t
 	assert(filter);
 	return [(SLNFilter *)filter addStringArg:str :len];
 }
-int SLNFilterAddFilterArg(SLNFilterRef const filter, SLNFilterRef const subfilter) {
+int SLNFilterAddFilterArg(SLNFilterRef const filter, SLNFilterRef *const subfilter) {
 	assert(filter);
-	return [(SLNFilter *)filter addFilterArg:(SLNFilter *)subfilter];
+	return [(SLNFilter *)filter addFilterArg:(SLNFilter **)subfilter];
 }
 void SLNFilterPrintSexp(SLNFilterRef const filter, FILE *const file, size_t const depth) {
 	if(!filter) fprintf(file, "(null)\n");
