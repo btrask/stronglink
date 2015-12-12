@@ -299,6 +299,7 @@ Repo.prototype.submitFile = function(buf, type, opts, cb) {
 		if(201 == res.statusCode) {
 			cb(null, {
 				uri: res.headers["x-location"],
+				location: res.headers["x-location"], // Deprecated
 			});
 		} else {
 			var err = new Error("Status code "+res.statusCode);
