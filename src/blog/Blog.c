@@ -240,7 +240,11 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		{NULL, NULL},
 	};
 
-	HTTPConnectionWriteResponse(conn, 200, "OK");
+	if(count > 0) {
+		HTTPConnectionWriteResponse(conn, 200, "OK");
+	} else {
+		HTTPConnectionWriteResponse(conn, 404, "Not Found");
+	}
 	HTTPConnectionWriteHeader(conn, "Content-Type", "text/html; charset=utf-8");
 	HTTPConnectionWriteHeader(conn, "Transfer-Encoding", "chunked");
 	if(0 == SLNSessionGetUserID(session)) {
