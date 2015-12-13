@@ -52,13 +52,10 @@
 	DB_val key[1], val[1];
 	int rc = db_cursor_current(metafiles, key, val);
 	if(rc >= 0) {
-		uint64_t s;
-		SLNMetaFileByIDKeyUnpack(key, NULL, &s);
-		uint64_t f;
-		f = db_read_uint64(val);
-		//SLNMetaFileByIDValUnpack(val, NULL, &f, &ignore);
-		if(sortID) *sortID = s;
-		if(fileID) *fileID = f;
+		uint64_t x;
+		SLNMetaFileByIDKeyUnpack(key, NULL, &x);
+		if(sortID) *sortID = x;
+		if(fileID) *fileID = x;
 	} else {
 		if(sortID) *sortID = invalid(dir);
 		if(fileID) *fileID = invalid(dir);
