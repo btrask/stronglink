@@ -36,7 +36,6 @@ typedef struct SLNPull* SLNPullRef;
 // MDB uses -30600 to -30799?
 #define SLN_HASHMISMATCH (-30599)
 #define SLN_INVALIDTARGET (-30598)
-#define SLN_NOSESSION (-30597)
 #define SLN_LAST_ERRCODE SLN_INVALIDTARGET
 
 static strarg_t sln_strerror(int const rc) {
@@ -44,7 +43,6 @@ static strarg_t sln_strerror(int const rc) {
 	switch(rc) {
 		case SLN_HASHMISMATCH: return "Hash mismatch";
 		case SLN_INVALIDTARGET: return "Invalid meta-file target";
-		case SLN_NOSESSION: return "No session";
 	}
 	strarg_t x = db_strerror(rc);
 	if(!x) x = uv_strerror(rc);
@@ -111,8 +109,6 @@ int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn,
 int SLNSessionCreateSession(SLNSessionRef const session, SLNSessionRef *const out);
 int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFileInfo *const info);
 void SLNFileInfoCleanup(SLNFileInfo *const info);
-int SLNSessionGetSubmittedFile(SLNSessionRef const session, DB_txn *const txn, strarg_t const URI); // Relevant results are DB_NOTFOUND and SLN_NOSESSION.
-int SLNSessionSetSubmittedFile(SLNSessionRef const session, DB_txn *const txn, strarg_t const URI);
 int SLNSessionCopyLastSubmissionURIs(SLNSessionRef const session, str_t *const outFileURI, str_t *const outMetaURI);
 int SLNSessionGetValueForField(SLNSessionRef const session, DB_txn *const txn, strarg_t const fileURI, strarg_t const field, str_t *out, size_t const max);
 int SLNSessionGetNextMetaMapURI(SLNSessionRef const session, strarg_t const targetURI, uint64_t *const metaMapID, str_t *out, size_t const max);

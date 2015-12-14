@@ -28,7 +28,7 @@ enum {
 	SLNTermMetaFileIDAndPosition = 65,
 	SLNFirstUniqueMetaFileID = 66,
 
-	SLNFileIDAndSessionID = 80,
+	SLNFileIDAndSessionID = 80, // TODO: Pending deprecation?
 	SLNSessionIDAndMetaMapIDToMetaURIAndTargetURI = 81,
 	SLNMetaURIAndSessionIDToMetaMapID = 82,
 	SLNTargetURISessionIDAndMetaMapID = 83,

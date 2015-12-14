@@ -18,22 +18,6 @@ struct SLNSync {
 	async_sem_t shared_sem[1];
 };
 
-static int setsubmittedfile(SLNSessionRef const session, strarg_t const URI) {
-	DB_env *db = NULL;
-	DB_txn *txn = NULL;
-	int rc = SLNSessionDBOpen(session, SLN_RDWR, &db);
-	if(rc < 0) goto cleanup;
-	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
-	if(rc < 0) goto cleanup;
-	rc = SLNSessionSetSubmittedFile(session, txn, URI);
-	if(rc < 0) goto cleanup;
-	rc = db_txn_commit(txn); txn = NULL;
-cleanup:
-	db_txn_abort(txn); txn = NULL;
-	SLNSessionDBClose(session, &db);
-	return rc;
-}
-
 static void queue_init(SLNSyncRef const sync, sync_queue *const queue) {
 	queue->sub = NULL;
 	async_sem_init(queue->ingest_sem, 1, 0);
@@ -94,28 +78,32 @@ void SLNSyncFree(SLNSyncRef *const syncptr) {
 }
 int SLNSyncFileAvailable(SLNSyncRef const sync, strarg_t const URI, strarg_t const targetURI) {
 	if(!URI) return DB_EINVAL;
-	DB_env *db = NULL;
-	DB_txn *txn = NULL;
+//	DB_env *db = NULL;
+//	DB_txn *txn = NULL;
 	int rc;
 
-	rc = SLNSessionDBOpen(sync->session, SLN_RDWR, &db);
-	if(rc < 0) goto cleanup;
-	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	if(rc < 0) goto cleanup;
+//	rc = SLNSessionDBOpen(sync->session, SLN_RDWR, &db);
+//	if(rc < 0) goto cleanup;
+//	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+//	if(rc < 0) goto cleanup;
 
-	rc = SLNSessionGetSubmittedFile(sync->session, txn, URI);
+	rc = SLNSessionGetFileInfo(sync->session, URI, NULL);
 	if(DB_NOTFOUND == rc) {
 		rc = targetURI ?
-			SLNSessionGetSubmittedFile(sync->session, txn, targetURI) :
+			SLNSessionGetFileInfo(sync->session, targetURI, NULL) :
 			0;
-		if(DB_NOTFOUND == rc || SLN_NOSESSION == rc) {
-			db_txn_abort(txn); txn = NULL;
+		if(DB_NOTFOUND == rc) {
+//			db_txn_abort(txn); txn = NULL;
 			rc = SLNSessionAddMetaMap(sync->session, URI, targetURI);
 			if(DB_NOTFOUND == rc) rc = DB_PANIC;
 		} else if(rc >= 0) {
 			rc = DB_NOTFOUND;
 		}
-	} else if(SLN_NOSESSION == rc) {
+
+
+
+	// TODO: Handle adding dependent meta-files once the file is added.
+/*	} else if(SLN_NOSESSION == rc) {
 		// We already have the meta-file,
 		// just not under this session.
 
@@ -135,16 +123,19 @@ int SLNSyncFileAvailable(SLNSyncRef const sync, strarg_t const URI, strarg_t con
 		}
 
 		rc = setsubmittedfile(sync->session, URI);
-		if(DB_NOTFOUND == rc) rc = DB_PANIC;
+		if(DB_NOTFOUND == rc) rc = DB_PANIC;*/
+
+
+
 	} else if(rc >= 0) {
 
 		// TODO: Verify target URI if set.
 
 	}
 
-cleanup:
-	db_txn_abort(txn); txn = NULL;
-	SLNSessionDBClose(sync->session, &db);
+//cleanup:
+//	db_txn_abort(txn); txn = NULL;
+//	SLNSessionDBClose(sync->session, &db);
 	return rc;
 }
 

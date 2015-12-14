@@ -303,54 +303,6 @@ void SLNFileInfoCleanup(SLNFileInfo *const info) {
 	assert_zeroed(info, 1);
 }
 
-int SLNSessionGetSubmittedFile(SLNSessionRef const session, DB_txn *const txn, strarg_t const URI) {
-	uint64_t const sessionID = SLNSessionGetID(session);
-	DB_cursor *cursor = NULL;
-	int rc = db_txn_cursor(txn, &cursor);
-	if(rc < 0) return rc;
-	DB_range range[1];
-	DB_val filekey[1];
-	SLNURIAndFileIDRange1(range, txn, URI);
-	rc = db_cursor_firstr(cursor, range, filekey, NULL, +1);
-	if(rc < 0) return rc;
-	for(; rc >= 0; rc = db_cursor_nextr(cursor, range, filekey, NULL, +1)) {
-		strarg_t u;
-		uint64_t fileID;
-		SLNURIAndFileIDKeyUnpack(filekey, txn, &u, &fileID);
-
-		DB_val sessionkey[1];
-		SLNFileIDAndSessionIDKeyPack(sessionkey, txn, fileID, sessionID);
-		rc = db_cursor_seek(cursor, sessionkey, NULL, 0);
-		if(DB_NOTFOUND == rc) continue;
-		return rc;
-	}
-	return SLN_NOSESSION;
-}
-int SLNSessionSetSubmittedFile(SLNSessionRef const session, DB_txn *const txn, strarg_t const URI) {
-	uint64_t const sessionID = SLNSessionGetID(session);
-	DB_cursor *cursor = NULL;
-	int rc = db_txn_cursor(txn, &cursor);
-	if(rc < 0) return rc;
-
-	DB_range range[1];
-	DB_val filekey[1];
-	SLNURIAndFileIDRange1(range, txn, URI);
-	rc = db_cursor_firstr(cursor, range, filekey, NULL, +1);
-	if(rc < 0) return rc;
-
-	strarg_t u;
-	uint64_t fileID;
-	SLNURIAndFileIDKeyUnpack(filekey, txn, &u, &fileID);
-
-	DB_val sessionkey[1], null[1];
-	SLNFileIDAndSessionIDKeyPack(sessionkey, txn, fileID, sessionID);
-	db_nullval(null);
-	rc = db_put(txn, sessionkey, null, 0);
-	if(rc < 0) return rc;
-
-	return rc;
-}
-
 int SLNSessionCopyLastSubmissionURIs(SLNSessionRef const session, str_t *const outFileURI, str_t *const outMetaURI) {
 	DB_env *db = NULL;
 	DB_txn *txn = NULL;
