@@ -242,10 +242,21 @@ static int add_metafile(DB_txn *const txn, uint64_t const metaFileID, strarg_t c
 	// An alternate solution would be to limit the file's minimum age.
 	// However, that probably requires more complicated indexing.
 	DB_range targets[1];
+	DB_val target[1];
 	SLNURIAndFileIDRange1(targets, txn, targetURI);
-	rc = db_cursor_firstr(cursor, targets, NULL, NULL, +1);
+	rc = db_cursor_firstr(cursor, targets, target, NULL, +1);
 	if(DB_NOTFOUND == rc) return SLN_INVALIDTARGET;
 	if(rc < 0) return rc;
+	strarg_t u;
+	uint64_t targetID = 0;
+	SLNURIAndFileIDKeyUnpack(target, txn, &u, &targetID);
+	assert(0 == strcmp(targetURI, u));
+
+	// A meta-file cannot target another meta-file.
+	SLNMetaFileByIDKeyPack(target, txn, targetID);
+	rc = db_cursor_seek(cursor, target, NULL, 0);
+	if(rc >= 0) return SLN_INVALIDTARGET;
+	if(DB_NOTFOUND != rc) return rc;
 
 
 	DB_val metaFileID_key[1];

@@ -1,0 +1,25 @@
+#!/usr/bin/env node
+// Copyright 2015 Ben Trask
+// MIT licensed (see LICENSE for details)
+
+var crypto = require("crypto");
+var sln = require("../sln-client");
+
+if(process.argv.length <= 2) {
+	console.error("Usage: test-meta repo");
+	process.exit(1);
+}
+var repo = sln.repoForName(process.argv[2]);
+
+// A meta-file cannot target another meta-file.
+var metafiles = repo.createMetafilesStream({ wait: false, count: 1 });
+metafiles.on("data", function(info) {
+	var meta = {
+		"test-data": crypto.pseudoRandomBytes(8).toString("hex"),
+	};
+	repo.submitMeta(info.uri, meta, {}, function(err, added) {
+		if(!err) throw new Error("Meta-file added with invalid target");
+		console.log("Success");
+	});
+});
+
