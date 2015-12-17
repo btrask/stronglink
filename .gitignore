@@ -3,6 +3,7 @@ perf.data
 perf.data.old
 deps/uv/uv.xcodeproj
 *~
+.DS_Store
 
 # Exclude these from GitHub language statistics
 # https://help.github.com/articles/my-repository-is-marked-as-the-wrong-language/
