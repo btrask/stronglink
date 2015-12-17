@@ -253,19 +253,19 @@ libuv:
 
 $(BUILD_DIR)/deps/crypt_blowfish/%.S.o: $(DEPS_DIR)/crypt_blowfish/%.S
 	@- mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) -o $@ $<
 
 $(BUILD_DIR)/deps/libco/%.o: $(DEPS_DIR)/libco/%.c $(DEPS_DIR)/libco/libco.h
 	@- mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) -Wno-parentheses $< -o $@
+	$(CC) -c $(CFLAGS) -Wno-parentheses -o $@ $<
 
 $(BUILD_DIR)/deps/libcoro/%.o: $(DEPS_DIR)/libcoro/%.c $(DEPS_DIR)/libcoro/coro.h
 	@- mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) -std=gnu99 $< -o $@
+	$(CC) -c $(CFLAGS) -std=gnu99 -o $@ $<
 
 $(BUILD_DIR)/deps/multipart_parser.o: $(DEPS_DIR)/multipart-parser-c/multipart_parser.c $(DEPS_DIR)/multipart-parser-c/multipart_parser.h
 	@- mkdir -p $(dir $@)
-	$(CC) -c -std=c89 -ansi -pedantic $(WARNINGS) $< -o $@
+	$(CC) -c -std=c89 -ansi -pedantic $(WARNINGS) -o $@ $<
 
 $(BUILD_DIR)/deps/%.o: $(DEPS_DIR)/%.c
 	@- mkdir -p $(dir $@)
@@ -294,7 +294,7 @@ $(BUILD_DIR)/src/%.o: $(SRC_DIR)/%.[cm]
 
 #$(BUILD_DIR)/markdown_standalone.o: $(SRC_DIR)/blog/markdown.c cmark
 #	@- mkdir -p $(dir $@)
-#	$(CC) -c $(CFLAGS) $(WARNINGS) -DMARKDOWN_STANDALONE $< -o $@
+#	$(CC) -c $(CFLAGS) $(WARNINGS) -DMARKDOWN_STANDALONE -o $@ $<
 
 ifeq ($(platform),linux)
 SETCAP := setcap "CAP_NET_BIND_SERVICE=+ep" $(DESTDIR)$(PREFIX)/bin/stronglink
