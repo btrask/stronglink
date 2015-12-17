@@ -45,6 +45,20 @@ sln.formatURI = function(obj) {
 //sln.createHasher = function() {};
 //sln.Hasher = Hasher;
 
+// returns: { target: string, data: Object } or null
+sln.parseMetafile = function(str) {
+	var match = /^([^\r\n]*)(?:\r\n|\r|\n){2}([^]*)$/.exec(str);
+	if(!match) return null;
+	var target = match[1].trim(), data;
+	try { data = JSON.parse(match[2]); }
+	catch(e) { return null; }
+	// TODO: Verify data.
+	// And target?
+	return {
+		target: target,
+		data: data,
+	};
+};
 sln.mergeMeta = function(dst, src) {
 	for(var x in src) if(has(src, x)) {
 		if(!has(dst, x)) dst[x] = {};
@@ -253,8 +267,8 @@ Repo.prototype.getMeta = function(uri, opts, cb) {
 		repo.getFile(metaURI, reqopts, function(err, obj) {
 			// TODO: If the result is Not Acceptable, just continue.
 			if(err) return cb(err, null); // TODO: drain stream
-			var json = /[\r\n][^]*$/.exec(obj.data)[0]; // TODO?
-			var src = JSON.parse(json);
+			var metafile = sln.parseMetafile(obj.data);
+			var src = metafile.data;
 			delete src["fulltext"]; // Not supported by this API.
 			sln.mergeMeta(dst, src);
 			waiting--;
