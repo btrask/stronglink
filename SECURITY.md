@@ -166,6 +166,7 @@ Only libraries that StrongLink "bundles" count. Currently those libraries are:
 - libco
 - libressl-portable
 - mdb
+- memorymapping (fmemopen shim)
 - multipart-parser-c
 - mumurhash3
 - snappy
