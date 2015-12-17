@@ -126,6 +126,9 @@ Security issues are documented outside of the source code (here and using GitHub
 
 The most obvious attack vector is user queries, which is a custom parser but has been somewhat hardened. All of the custom parsers probably have bugs. More testing, including fuzz-testing, is necessary.
 
+**Client configuration**  
+The current client interface stores configuration information, including the user's session keys, in `~/.config/stronglink/client.json`. This data could be read by any program running as the user.
+
 Low stakes bug bounty program
 -----------------------------
 
