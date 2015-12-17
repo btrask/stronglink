@@ -60,10 +60,6 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Keep error checks short so they are less painful to read/write
 		- Single line if possible: `if(rc < 0) return rc;`
 		- When several steps are needed use `rc = rc < 0 ? rc : expr;`
-		- If you're writing a web server, you should be able to use `return 404;`
-			- Contrary to common wisdom, I don't believe you should use a constant like `HTTP_404_NOT_FOUND`
-			- You don't need to provide flexibility in the core domain logic of your application
-			- Might make `grep`ing easier though...
 	- Checks should be as simple as possible but no simpler
 		- Macros can help, but don't abuse them
 		- Try to keep control flow (`goto`/`return`) out of macros
@@ -153,7 +149,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Floating point
 		- Don't use floats, except for specialized applications
 			- E.g. scientific computing, simulation, audio, graphics...
-			- Don't use floats for money, duh
+			- Don't use floats for money!
 		- Be very cautious about using floats in code that needs to be secure, reliable, [reproducible](https://thewinnower.com/papers/954-why-bitwise-reproducibility-matters), etc.
 			- Consider fixed point? (Outside of my experience)
 		- Don't compare floats using strict equality
@@ -350,6 +346,9 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Preserve, create and exploit symmetry
 		- E.g. use vectors (in the physics sense) instead of enums for directions
 	- Resist the "nesting instinct"
+		- As mentioned, don't wrap libraries to make them more familiar
+		- Don't make up your own ways to express things like HTML or SQL
+		- Don't add abstraction for its own sake
 		- Adapt to your environment instead of trying to adapt it to you
 		- You are a visitor here (on the user's computer... and in life?)
 - Performance
@@ -357,6 +356,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 		- Know when an optimization is too complicated to be worth it
 		- If it's really necessary, find a simpler way
 		- 20% of the optimizations make 80% of the difference
+			- ...80% of the time
 	- Do not worry about 1% speedups
 		- [SQLite](https://sqlite.org/) has gotten significantly faster from lots of ~1% boosts
 			- ...And it'll never be as fast as [MDB](http://symas.com/mdb/)
@@ -427,3 +427,5 @@ Other sources
 - [Latency numbers every programmer should know](https://gist.github.com/jboner/2841832)
 - [This article on Reddit, with Q&A](https://www.reddit.com/r/programming/comments/3i4ffo/c_programming_substance_guidelines/)
 - [This article on Hacker News, with Q&A](https://news.ycombinator.com/item?id=10157018)
+
+Thanks to [Splat Space](http://splatspace.org/) for hosting a review of this document (2015-12-06) and everyone who attended for many valuable comments and suggestions.
