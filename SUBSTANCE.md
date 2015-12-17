@@ -35,7 +35,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Older C isn't better when it comes to security and avoiding bugs
 		- K&R C is much beloved, but that innocent era is gone
 		- We can't afford to [fight each other](http://zedshaw.com/2015/01/04/admitting-defeat-on-kr-in-lcthw/), or [C will](http://techcrunch.com/2015/05/02/and-c-plus-plus-too/) really [die](http://trevorjim.com/lets-sunset-c-c++/)
-	- Things that are large and frequently changing will NEVER be secure
+	- Things that are large and frequently changing will **never** be secure
 		- Doesn't matter what language they're in
 		- The Linux kernel will never be secure, but thankfully you can just run it under a hypervisor
 			- Unfortunately most hypervisors are ever-expanding as well...
