@@ -130,6 +130,7 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 	DB_env *db = NULL;
 	DB_txn *txn = NULL;
 	SLNSessionRef tmp = NULL;
+	SLNSessionRef session = NULL;
 	int rc;
 
 	SLNRepoDBOpenUnsafe(repo, &db);
@@ -164,7 +165,6 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 	SLNRepoDBClose(repo, &db);
 
 
-	SLNSessionRef session = NULL;
 	rc = SLNSessionCreateSession(tmp, &session);
 	if(rc < 0) goto cleanup;
 
