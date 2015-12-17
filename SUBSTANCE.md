@@ -275,6 +275,8 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Code should be factored so that changes don't ripple throughout the codebase
 	- Files are C's primary namespaces
 		- Declare file-local variables and functions as `static`
+		- Keep `struct`s file-local as well, when possible
+			- Opaque pointers are generally a good thing, although they can have a high performance cost
 - Testing
 	- Tools
 		- Your best tool is the compiler
