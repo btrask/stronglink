@@ -182,6 +182,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Integer overflow/underflow
 		- Use `calloc`/`reallocarray` (from OpenBSD) instead of `malloc`/`realloc`
 		- Use overflow-checking compiler intrinsics [[GCC]](https://gcc.gnu.org/onlinedocs/gcc/Integer-Overflow-Builtins.html) [[Clang]](http://clang.llvm.org/docs/LanguageExtensions.html#builtin-functions)
+			- Carefully, while keeping an eye to [readability and correctness](http://lkml.iu.edu/hypermail/linux/kernel/1510.3/02866.html)
 		- Respect the integer types used by each API (`int`, `size_t`, `ssize_t`...)
 		- Use `!!` when converting to `bool`
 	- Macros
