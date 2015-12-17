@@ -267,6 +267,10 @@ $(BUILD_DIR)/deps/multipart_parser.o: $(DEPS_DIR)/multipart-parser-c/multipart_p
 	@- mkdir -p $(dir $@)
 	$(CC) -c -std=c89 -ansi -pedantic $(WARNINGS) -o $@ $<
 
+$(BUILD_DIR)/deps/memorymapping/src/fmemopen.o: $(DEPS_DIR)/memorymapping/src/fmemopen.c $(DEPS_DIR)/memorymapping/src/fmemopen.h
+	@- mkdir -p $(dir $@)
+	$(CC) -c -std=c99 -o $@ $<
+
 $(BUILD_DIR)/deps/%.o: $(DEPS_DIR)/%.c
 	@- mkdir -p $(dir $@)
 	@- mkdir -p $(dir $(BUILD_DIR)/h/deps/$*.d)

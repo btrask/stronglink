@@ -144,7 +144,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		return 500;
 	}
 
-	str_t tmp[URI_MAX];
+	str_t tmp[URI_MAX]; tmp[0] = '\0'; // fmemopen shim ignores mode.
 	FILE *parsed = fmemopen(tmp, sizeof(tmp), "w");
 	if(!parsed) {
 		FREE(&query);
