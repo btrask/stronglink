@@ -142,6 +142,14 @@ else
 OBJECTS += $(BUILD_DIR)/deps/libco/libco.o
 endif
 
+# TODO: Ugly.
+ifeq ($(platform),macosx)
+OBJECTS += $(BUILD_DIR)/deps/memorymapping/src/fmemopen.o
+endif
+ifeq ($(platform),bsd)
+OBJECTS += $(BUILD_DIR)/deps/memorymapping/src/fmemopen.o
+endif
+
 # Blog server
 OBJECTS += \
 	$(BUILD_DIR)/src/blog/main.o \
