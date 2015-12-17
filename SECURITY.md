@@ -209,6 +209,7 @@ Reverse chronological order by date fixed (bugs that aren't fixed yet should als
 - Unfixed: `explicit_bzero` is not used to clear passwords and session keys after use
 - Unfixed: A small number of slow queries can saturate the thread pool (denial of service)
 - Unfixed: Potentially malicious links (such as `javascript:`) in Markdown files are clickable
+- 2015-12-17: Jump over uninitialized variable could crash the process (possibly exploitable; fixed in 97c2c2b6de9c46447423ebbc9cf4cb87eb3e7474)
 - 2015-09-17: Ineffective buffer overflow checks in filter string printing (not exploitable; fixed in 6baa9ca5a9bc8d4f6d5f46bb961c771d866d6310)
 - 2015-08-17: HTTPS support added
 - 2015-07-18: Create dates in UTC to avoid leaking timezone (privacy leak; fixed in 73df2e409685f7acf320095b57af2aa3884988a2)
