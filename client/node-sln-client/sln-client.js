@@ -45,6 +45,17 @@ sln.formatURI = function(obj) {
 //sln.createHasher = function() {};
 //sln.Hasher = Hasher;
 
+sln.mergeMeta = function(dst, src) {
+	for(var x in src) if(has(src, x)) {
+		if(!has(dst, x)) dst[x] = {};
+		if("string" === typeof src[x]) {
+			dst[x][src[x]] = {};
+		} else {
+			sln.mergeMeta(dst[x], src[x]);
+		}
+	}
+};
+
 var CONFIG = null;
 var REPOS = {};
 sln.loadConfig = function() {
@@ -245,7 +256,7 @@ Repo.prototype.getMeta = function(uri, opts, cb) {
 			var json = /[\r\n][^]*$/.exec(obj.data)[0]; // TODO?
 			var src = JSON.parse(json);
 			delete src["fulltext"]; // Not supported by this API.
-			merge(src, dst);
+			sln.mergeMeta(dst, src);
 			waiting--;
 			if(ended && !waiting) cb(null, dst);
 		});
@@ -254,16 +265,6 @@ Repo.prototype.getMeta = function(uri, opts, cb) {
 		ended = true;
 		if(!waiting) cb(null, dst);
 	});
-	function merge(src, dst) {
-		for(var x in src) if(has(src, x)) {
-			if(!has(dst, x)) dst[x] = {};
-			if("string" === typeof src[x]) {
-				dst[x][src[x]] = {};
-			} else {
-				merge(src[x], dst[x]);
-			}
-		}
-	}
 };
 
 // opts: { uri: string }
