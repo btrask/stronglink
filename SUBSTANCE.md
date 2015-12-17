@@ -252,7 +252,7 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 	- Use `O_CREAT | O_EXCL`
 	- Short `read`s and `write`s
 		- Handle `EINTR`
-	- _Never_ handle the error from `close(2)`
+	- _Don't_ handle the error from `close(2)`
 		- Yes, really! Regardless of what the man page says
 		- Instead, `fsync` before closing (if you care at all)
 		- Functions that close/free resources should never be able to fail
