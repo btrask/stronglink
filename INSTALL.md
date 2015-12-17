@@ -14,7 +14,7 @@ Ubuntu / Debian / Linux Mint: `sudo apt-get install gcc g++ gobjc cmake automake
 
 Fedora / RedHat: `sudo yum install gcc gcc-c++ gcc-objc cmake automake autoconf libtool`
 
-OS X: Install the developer tools from the App Store and cmake from Homebrew. [TODO]
+OS X: Install [Xcode](TODO) and [Homebrew](TODO), then run `brew install cmake automake autoconf libtool`
 
 Windows: untested, probably needs work
 
@@ -31,6 +31,8 @@ Basic Installation
 4. `stronglink /path/for/repo`
 
 If you don't want to run `make install`, you will need to manually symlink or copy the `res/blog` directory into the repo directory before running. For example: `cd /path/for/repo && ln -s /path/to/source/res/blog`. Or you can install in a different path with `PREFIX=/path make install`.
+
+Please report any problems through [GitHub Issues](https://github.com/btrask/stronglink/issues)!
 
 Server Configuration
 --------------------
@@ -135,5 +137,5 @@ Please remember StrongLink is still alpha-quality software, and while it's gener
 Feedback
 --------
 
-If you need any help installing, configuring or using StrongLink, feel free to open a GitHub issue, even if it's not a "bug" per se. Updates or corrections on the documentation are also welcome.
+If you need any help installing, configuring or using StrongLink, feel free to open a [GitHub issue](https://github.com/btrask/stronglink/issues), even if it's not a "bug" per se. Updates or corrections on the documentation are also welcome.
 
