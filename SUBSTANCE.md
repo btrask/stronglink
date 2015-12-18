@@ -10,7 +10,7 @@ These techniques are intended to be widely applicable, but probably aren't relev
 
 This article is written for experienced programmers, although not necessarily experienced in C. Familiarity with C is assumed. This article is _not_ about C++ (which I'm not at all qualified to write about).
 
-If you're interested in learning C, the two main sources are [K&R C](TODO), and Zed Shaw's [Learn C the Hard Way](http://c.learncodethehardway.org/book/). There's a large debate over which is better. I recommend reading both, and understanding each side's pros and cons.
+If you're interested in learning C, the two main sources are [K&R C](https://en.wikipedia.org/wiki/The_C_Programming_Language), and Zed Shaw's [Learn C the Hard Way](http://c.learncodethehardway.org/book/). There's a large debate over which is better. I recommend reading both, and understanding each side's pros and cons.
 
 This document is mainly about avoiding problems specific to the C programming language. Language-specific bugs are only a portion of the whole picture:
 
