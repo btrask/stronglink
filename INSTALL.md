@@ -14,7 +14,7 @@ Ubuntu / Debian / Linux Mint: `sudo apt-get install gcc g++ gobjc cmake automake
 
 Fedora / RedHat: `sudo yum install gcc gcc-c++ gcc-objc cmake automake autoconf libtool`
 
-OS X: Install [Xcode](TODO) and [Homebrew](TODO), then run `brew install cmake automake autoconf libtool`
+OS X: Install [Xcode](https://developer.apple.com/xcode/download/) and [Homebrew](http://brew.sh/), then run `brew install cmake automake autoconf libtool`
 
 Windows: untested, probably needs work
 
