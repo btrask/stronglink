@@ -254,7 +254,7 @@ int SLNSyncNextHintID(SLNSyncRef const sync, DB_txn *const txn, strarg_t const t
 	DB_cursor *synonyms = NULL;
 	DB_cursor *cursor = NULL;
 	uint64_t const sessionID = SLNSessionGetID(sync->session);
-	uint64_t const first = *hintID;
+	uint64_t const first = *hintID + 1;
 	uint64_t earliest = UINT64_MAX;
 	int rc;
 
@@ -290,11 +290,10 @@ int SLNSyncNextHintID(SLNSyncRef const sync, DB_txn *const txn, strarg_t const t
 		SLNTargetURISessionIDAndHintIDKeyUnpack(key, txn, &u, &s, &this);
 		if(this < earliest) earliest = this;
 	}
-	if(UINT64_MAX == earliest) {
-		rc = DB_NOTFOUND;
-		goto cleanup;
-	}
-
+	assert(rc < 0);
+	if(DB_NOTFOUND != rc) goto cleanup;
+	if(UINT64_MAX == earliest) goto cleanup;
+	rc = 0;
 	*hintID = earliest;
 
 cleanup:
@@ -397,6 +396,8 @@ int SLNSyncStoreSubmission(SLNSyncRef const sync, SLNSubmissionRef const sub) {
 	DB_VAL_STORAGE_VERIFY(val);
 	rc = db_put(txn, key, val, 0);
 	if(rc < 0) goto cleanup;
+
+	rc = db_txn_commit(txn); txn = NULL;
 
 cleanup:
 	db_txn_abort(txn); txn = NULL;
