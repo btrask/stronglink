@@ -73,6 +73,7 @@ int HTTPConnectionCreateOutgoingSecure(strarg_t const domain, unsigned const fla
 
 	http_parser_init(conn->parser, HTTP_RESPONSE);
 	conn->parser->data = conn;
+	conn->flags |= HTTPKeepAlive;
 	conn->res_status = 0;
 	conn->res_length = UINT64_MAX;
 
