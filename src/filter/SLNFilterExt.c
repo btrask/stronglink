@@ -289,8 +289,6 @@ int SLNFilterWriteURIs(SLNFilterRef const filter, SLNSessionRef const session, S
 
 int SLNFilterCopyURISynonyms(DB_txn *const txn, strarg_t const URI, str_t ***const out) {
 	assert(out);
-	if(!URI) return DB_EINVAL;
-
 	DB_cursor *cursor = NULL;
 	size_t count = 0;
 	size_t size = 0;

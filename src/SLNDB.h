@@ -219,6 +219,7 @@ static int SLNURIGetFileID(strarg_t const URI, DB_txn *const txn, uint64_t *cons
 	// This function is guaranteed safe in the face of collisions,
 	// meaning it always returns the oldest known file.
 	assert(out);
+	if(!URI) return DB_EINVAL;
 	DB_cursor *cursor = NULL;
 	int rc = db_txn_cursor(txn, &cursor);
 	if(rc < 0) return rc;

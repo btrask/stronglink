@@ -235,7 +235,6 @@ cleanup:
 }
 
 int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFileInfo *const info) {
-	if(!URI) return DB_EINVAL;
 	DB_env *db = NULL;
 	DB_txn *txn = NULL;
 	DB_cursor *cursor = NULL;
