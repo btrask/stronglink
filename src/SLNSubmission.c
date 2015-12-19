@@ -348,8 +348,7 @@ int SLNSubmissionStoreBatch(SLNSubmissionRef const *const list, size_t const cou
 		assert(repo == SLNSessionGetRepo(list[i]->session));
 		rc = SLNSubmissionStore(list[i], txn);
 		if(rc < 0) break;
-		uint64_t const metaFileID = list[i]->metaFileID;
-		if(metaFileID > sortID) sortID = metaFileID;
+		sortID = MAX(sortID, SLNSubmissionGetFileID(list[i]));
 	}
 	if(rc >= 0) {
 		rc = db_txn_commit(txn); txn = NULL;
