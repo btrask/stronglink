@@ -202,7 +202,7 @@ ssize_t HTTPConnectionReadRequest(HTTPConnectionRef const conn, HTTPMethod *cons
 	*method = conn->parser->method;
 	return (ssize_t)len;
 }
-int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn) {
+int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn, int *const status) {
 	if(!conn) return UV_EINVAL;
 	uv_buf_t buf[1];
 	int rc;
@@ -217,7 +217,8 @@ int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn) {
 		}
 		HTTPConnectionPop(conn, buf->len);
 	}
-	return conn->parser->status_code;
+	if(status) *status = conn->parser->status_code;
+	return 0;
 }
 
 ssize_t HTTPConnectionReadHeaderField(HTTPConnectionRef const conn, str_t out[], size_t const max) {

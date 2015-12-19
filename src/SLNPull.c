@@ -117,7 +117,9 @@ static void reader(SLNPullRef const pull, bool const meta) {
 	rc = rc < 0 ? rc : HTTPConnectionEnd(conn);
 	if(rc < 0) goto cleanup;
 
-	int const status = HTTPConnectionReadResponseStatus(conn);
+	int status = 0;
+	rc = HTTPConnectionReadResponseStatus(conn, &status);
+	if(rc < 0) goto cleanup;
 	if(200 != status) rc = UV_EIO;
 	if(403 == status) rc = UV_EACCES;
 	if(rc < 0) goto cleanup;
@@ -205,7 +207,9 @@ static void worker(void *const arg) {
 		rc = rc < 0 ? rc : HTTPConnectionEnd(conn);
 		if(rc < 0) goto cleanup;
 
-		int const status = HTTPConnectionReadResponseStatus(conn);
+		int status = 0;
+		rc = HTTPConnectionReadResponseStatus(conn, &status);
+		if(rc < 0) goto cleanup;
 		if(200 != status) rc = UV_EIO;
 		if(403 == status) rc = UV_EACCES;
 		if(rc < 0) goto cleanup;

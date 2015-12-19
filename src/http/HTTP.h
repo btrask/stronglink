@@ -38,7 +38,7 @@ int HTTPConnectionPeek(HTTPConnectionRef const conn, HTTPEvent *const type, uv_b
 void HTTPConnectionPop(HTTPConnectionRef const conn, size_t const len);
 
 ssize_t HTTPConnectionReadRequest(HTTPConnectionRef const conn, HTTPMethod *const method, str_t *const out, size_t const max);
-int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn);
+int HTTPConnectionReadResponseStatus(HTTPConnectionRef const conn, int *const status);
 ssize_t HTTPConnectionReadHeaderField(HTTPConnectionRef const conn, str_t out[], size_t const max);
 ssize_t HTTPConnectionReadHeaderValue(HTTPConnectionRef const conn, str_t out[], size_t const max);
 int HTTPConnectionReadBody(HTTPConnectionRef const conn, uv_buf_t *const buf);
