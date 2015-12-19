@@ -12,7 +12,7 @@ enum {
 	SLNUserByID = 20,
 	SLNUserIDByName = 21,
 	SLNSessionByID = 22,
-	SLNPullByID = 23, // Also by user ID?
+	SLNPullByID = 23, // Every PullID is a SyncID is a SessionID.
 
 	SLNFileByID = 40,
 	SLNFileIDByInfo = 41,
@@ -20,7 +20,7 @@ enum {
 	SLNFileIDAndURI = 43,
 	SLNURIAndFileID = 44,
 
-	SLNMetaFileByID = 60,
+	SLNMetaFileByID = 60, // Every MetaFileID is a FileID.
 //	SLNFileIDAndMetaFileID = 61, // Redundant, they're equivalent.
 	SLNTargetURIAndMetaFileID = 62,
 	SLNMetaFileIDFieldAndValue = 63,
@@ -32,14 +32,15 @@ enum {
 	SLNSessionIDAndHintIDToMetaURIAndTargetURI = 81,
 	SLNMetaURIAndSessionIDToHintID = 82,
 	SLNTargetURISessionIDAndHintID = 83,
+	SLNSessionIDAndHintsSyncedFileID = 84, // Very similar to SLNFileIDAndSessionID...
 
 	// It's expected that values less than ~240 should fit in one byte
 	// Depending on the varint format, of course
 
 	// Single value tables
 	// Multi-byte table IDs aren't a big deal
-	SLNLastFileURIBySessionID = 1000,
-	SLNLastMetaURIBySessionID = 1001,
+	SLNLastFileURIBySyncID = 1000, // Every SyncID is a SessionID.
+	SLNLastMetaURIBySyncID = 1001,
 };
 
 
@@ -475,4 +476,11 @@ static void SLNTargetURISessionIDAndHintIDKeyUnpack(DB_val *const val, DB_txn *c
 	*sessionID = db_read_uint64(val);
 	*hintID = db_read_uint64(val);
 }
+
+#define SLNSessionIDAndHintsSyncedFileIDKeyPack(val, txn, sessionID, fileID) \
+	DB_VAL_STORAGE(val, DB_VARINT_MAX*3); \
+	db_bind_uint64((val), SLNSessionIDAndHintsSyncedFileID); \
+	db_bind_uint64((val), (sessionID)); \
+	db_bind_uint64((val), (fileID)); \
+	DB_VAL_STORAGE_VERIFY(val);
 

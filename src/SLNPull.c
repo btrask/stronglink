@@ -89,7 +89,7 @@ static void reader(SLNPullRef const pull, bool const meta) {
 
 	str_t fileURI[SLN_URI_MAX];
 	str_t metaURI[SLN_URI_MAX];
-	rc = SLNSessionCopyLastSubmissionURIs(pull->session, fileURI, metaURI);
+	rc = SLNSyncCopyLastSubmissionURIs(pull->sync, fileURI, metaURI);
 	if(rc < 0) goto cleanup;
 
 	str_t path[URI_MAX]; // TODO: Escaping

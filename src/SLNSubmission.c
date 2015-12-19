@@ -315,24 +315,6 @@ int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn) {
 		return rc;
 	}
 
-	// If we were given a known URI, save it so we can
-	// potentially restart from it later. This is just an
-	// optimization, so if we don't have one don't worry.
-	if(sub->knownURI) {
-		DB_val key[1], val[1];
-		DB_VAL_STORAGE(key, DB_VARINT_MAX*2);
-		db_bind_uint64(key, 0 == sub->metaFileID ?
-			SLNLastFileURIBySessionID :
-			SLNLastMetaURIBySessionID);
-		db_bind_uint64(key, SLNSessionGetID(sub->session));
-		DB_VAL_STORAGE_VERIFY(key);
-		DB_VAL_STORAGE(val, DB_INLINE_MAX);
-		db_bind_string(val, sub->knownURI, txn);
-		DB_VAL_STORAGE_VERIFY(val);
-		rc = db_put(txn, key, val, 0);
-		if(rc < 0) return rc;
-	}
-
 	return 0;
 }
 int SLNSubmissionStoreBatch(SLNSubmissionRef const *const list, size_t const count) {

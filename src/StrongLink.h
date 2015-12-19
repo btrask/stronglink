@@ -109,10 +109,7 @@ int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn,
 int SLNSessionCreateSession(SLNSessionRef const session, SLNSessionRef *const out);
 int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFileInfo *const info);
 void SLNFileInfoCleanup(SLNFileInfo *const info);
-int SLNSessionCopyLastSubmissionURIs(SLNSessionRef const session, str_t *const outFileURI, str_t *const outMetaURI);
 int SLNSessionGetValueForField(SLNSessionRef const session, DB_txn *const txn, strarg_t const fileURI, strarg_t const field, str_t *out, size_t const max);
-int SLNSessionNextHintID(SLNSessionRef const session, DB_txn *const txn, strarg_t const targetURI, uint64_t *const hintID);
-int SLNSessionAddHint(SLNSessionRef const session, strarg_t const metaURI, strarg_t const targetURI);
 
 int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const knownURI, strarg_t const knownTarget, SLNSubmissionRef *const out);
 int SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const knownURI, strarg_t const knownTarget, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, SLNSubmissionRef *const out);
@@ -241,6 +238,9 @@ int SLNSyncIngestFileURI(SLNSyncRef const sync, strarg_t const fileURI);
 int SLNSyncIngestMetaURI(SLNSyncRef const sync, strarg_t const metaURI, strarg_t const targetURI);
 int SLNSyncWorkAwait(SLNSyncRef const sync, SLNSubmissionRef *const out);
 int SLNSyncWorkDone(SLNSyncRef const sync, SLNSubmissionRef const sub);
+int SLNSyncNextHintID(SLNSyncRef const sync, DB_txn *const txn, strarg_t const targetURI, uint64_t *const hintID);
+int SLNSyncStoreSubmission(SLNSyncRef const sync, SLNSubmissionRef const sub);
+int SLNSyncCopyLastSubmissionURIs(SLNSyncRef const sync, str_t *const outFileURI, str_t *const outMetaURI);
 
 int SLNPullCreate(SLNSessionCacheRef const cache, uint64_t const sessionID, strarg_t const certhash, strarg_t const host, strarg_t const path, strarg_t const query, strarg_t const cookie, SLNPullRef *const out);
 void SLNPullFree(SLNPullRef *const pullptr);
