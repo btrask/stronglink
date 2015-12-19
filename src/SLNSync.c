@@ -350,7 +350,8 @@ int SLNSyncStoreSubmission(SLNSyncRef const sync, SLNSubmissionRef const sub) {
 			if(rc >= 0) continue;
 			if(DB_NOTFOUND != rc) goto cleanup;
 
-			db_txn_commit(txn); txn = NULL;
+			rc = db_txn_commit(txn); txn = NULL;
+			if(rc < 0) goto cleanup;
 			SLNSessionDBClose(sync->session, &db);
 
 
