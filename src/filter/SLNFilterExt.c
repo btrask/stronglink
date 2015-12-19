@@ -313,9 +313,7 @@ int SLNFilterCopyURISynonyms(DB_txn *const txn, strarg_t const URI, str_t ***con
 		DB_val key[1];
 		SLNFileIDAndURIRange1(URIs, txn, fileID);
 		rc = db_cursor_firstr(cursor, URIs, key, NULL, +1);
-		if(rc < 0 && DB_NOTFOUND != rc) goto cleanup;
-
-		for(; DB_NOTFOUND != rc; rc = db_cursor_nextr(cursor, URIs, key, NULL, +1)) {
+		for(; rc >= 0; rc = db_cursor_nextr(cursor, URIs, key, NULL, +1)) {
 			uint64_t f;
 			strarg_t alt;
 			SLNFileIDAndURIKeyUnpack(key, txn, &f, &alt);
@@ -332,17 +330,19 @@ int SLNFilterCopyURISynonyms(DB_txn *const txn, strarg_t const URI, str_t ***con
 			if(!alts[count-1]) rc = DB_ENOMEM;
 			if(rc < 0) goto cleanup;
 		}
-	} else if(DB_NOTFOUND != rc) {
-		goto cleanup;
+		assert(rc < 0);
 	}
-
-	assert(DB_NOTFOUND == rc);
+	assert(rc < 0);
+	if(DB_NOTFOUND != rc) goto cleanup;
 	rc = 0;
-
 	*out = alts; alts = NULL;
 
 cleanup:
 	db_cursor_close(cursor); cursor = NULL;
+	if(alts) {
+		for(size_t i = 0; alts[i]; i++) FREE(&alts[i]);
+		assert_zeroed(alts, count);
+	}
 	FREE(&alts);
 	return rc;
 }
