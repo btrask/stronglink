@@ -120,6 +120,7 @@ strarg_t SLNSubmissionGetKnownTarget(SLNSubmissionRef const sub);
 strarg_t SLNSubmissionGetType(SLNSubmissionRef const sub);
 int SLNSubmissionSetType(SLNSubmissionRef const sub, strarg_t const type);
 uv_file SLNSubmissionGetFile(SLNSubmissionRef const sub);
+uint64_t SLNSubmissionGetFileID(SLNSubmissionRef const sub); // TODO: Should this actually be sortID? Or just a method to emit directly?
 int SLNSubmissionWrite(SLNSubmissionRef const sub, byte_t const *const buf, size_t const len);
 int SLNSubmissionEnd(SLNSubmissionRef const sub);
 int SLNSubmissionWriteFrom(SLNSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context);

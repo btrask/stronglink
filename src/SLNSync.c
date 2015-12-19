@@ -308,6 +308,7 @@ int SLNSyncStoreSubmission(SLNSyncRef const sync, SLNSubmissionRef const sub) {
 	SLNSubmissionRef dep = NULL;
 	DB_env *db = NULL;
 	DB_txn *txn = NULL;
+	uint64_t maxFileID = 0;
 	int rc = 0;
 
 	rc = SLNSessionDBOpen(sync->session, SLN_RDWR, &db);
@@ -317,6 +318,7 @@ int SLNSyncStoreSubmission(SLNSyncRef const sync, SLNSubmissionRef const sub) {
 
 	rc = SLNSubmissionStore(sub, txn);
 	if(rc < 0) goto cleanup;
+	maxFileID = MAX(maxFileID, SLNSubmissionGetFileID(sub));
 
 	strarg_t const URI = SLNSubmissionGetPrimaryURI(sub);
 
@@ -372,6 +374,7 @@ int SLNSyncStoreSubmission(SLNSyncRef const sync, SLNSubmissionRef const sub) {
 			if(rc < 0) goto cleanup;
 
 			rc = SLNSubmissionStore(dep, txn);
+			maxFileID = MAX(maxFileID, SLNSubmissionGetFileID(dep));
 			SLNSubmissionFree(&dep);
 			if(rc < 0) goto cleanup;
 		}
@@ -399,11 +402,11 @@ int SLNSyncStoreSubmission(SLNSyncRef const sync, SLNSubmissionRef const sub) {
 	if(rc < 0) goto cleanup;
 
 	rc = db_txn_commit(txn); txn = NULL;
-
 cleanup:
 	db_txn_abort(txn); txn = NULL;
 	SLNSessionDBClose(sync->session, &db);
 	SLNSubmissionFree(&dep);
+	if(rc >= 0) SLNRepoSubmissionEmit(SLNSessionGetRepo(sync->session), maxFileID);
 	return rc;
 }
 int SLNSyncCopyLastSubmissionURIs(SLNSyncRef const sync, str_t *const outFileURI, str_t *const outMetaURI) {

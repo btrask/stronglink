@@ -18,7 +18,8 @@ struct SLNSubmission {
 	uint64_t size;
 
 	SLNHasherRef hasher;
-	uint64_t metaFileID;
+	uint64_t fileID;
+	uint64_t metaFileID; // TODO: Don't store both of these...
 
 	str_t **URIs;
 	str_t *primaryURI;
@@ -93,6 +94,7 @@ void SLNSubmissionFree(SLNSubmissionRef *const subptr) {
 	sub->size = 0;
 
 	SLNHasherFree(&sub->hasher);
+	sub->fileID = 0;
 	sub->metaFileID = 0;
 
 	if(sub->URIs) for(size_t i = 0; sub->URIs[i]; ++i) FREE(&sub->URIs[i]);
@@ -137,6 +139,10 @@ int SLNSubmissionSetType(SLNSubmissionRef const sub, strarg_t const type) {
 uv_file SLNSubmissionGetFile(SLNSubmissionRef const sub) {
 	if(!sub) return UV_EINVAL;
 	return sub->tmpfile;
+}
+uint64_t SLNSubmissionGetFileID(SLNSubmissionRef const sub) {
+	assert(sub);
+	return sub->fileID;
 }
 
 int SLNSubmissionWrite(SLNSubmissionRef const sub, byte_t const *const buf, size_t const len) {
@@ -309,11 +315,15 @@ int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn) {
 		if(rc < 0 && DB_KEYEXIST != rc) return rc;
 	}
 
-	rc = SLNSubmissionParseMetaFile(sub, fileID, txn, &sub->metaFileID);
+	uint64_t metaFileID = 0;
+	rc = SLNSubmissionParseMetaFile(sub, fileID, txn, &metaFileID);
 	if(rc < 0) {
 		alogf("Submission meta-file error: %s\n", sln_strerror(rc));
 		return rc;
 	}
+
+	sub->fileID = fileID;
+	sub->metaFileID = metaFileID;
 
 	return 0;
 }
