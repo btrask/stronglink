@@ -30,24 +30,35 @@ static void queue_destroy(SLNSyncRef const sync, sync_queue *const queue) {
 	async_sem_destroy(queue->work_sem);
 	async_sem_destroy(queue->done_sem);
 }
-static int queue_ingest(SLNSyncRef const sync, sync_queue *const queue, strarg_t const URI, strarg_t const targetURI) {
+static int queue_submission(SLNSyncRef const sync, sync_queue *const queue, SLNSubmissionRef const sub) {
 	int rc = async_sem_wait(queue->ingest_sem);
 	if(rc < 0) return rc;
 
-	SLNSubmissionRef sub = NULL;
-	rc = SLNSubmissionCreate(sync->session, URI, targetURI, &sub);
-	if(rc < 0) return rc;
-
 	assert(!queue->sub);
-	queue->sub = sub; sub = NULL;
+	queue->sub = sub; //sub = NULL;
 	async_sem_post(queue->work_sem);
 	async_sem_post(sync->shared_sem);
 
 	rc = async_sem_wait(queue->done_sem);
+	assert(rc >= 0); // TODO: Clarify ownership
+
+	//sub = queue->sub;
+	queue->sub = NULL;
+	async_sem_post(queue->ingest_sem);
+
+	return rc;
+}
+static int queue_ingest(SLNSyncRef const sync, sync_queue *const queue, strarg_t const URI, strarg_t const targetURI) {
+	SLNSubmissionRef sub = NULL;
+	int rc = SLNSubmissionCreate(sync->session, URI, targetURI, &sub);
 	if(rc < 0) return rc;
 
-	assert(!queue->sub);
-	async_sem_post(queue->ingest_sem);
+	rc = queue_submission(sync, queue, sub);
+	if(rc < 0) return rc;
+
+	rc = SLNSubmissionStoreBatch(&sub, 1);
+	SLNSubmissionFree(&sub);
+	if(rc < 0) return rc;
 
 	return rc;
 }
@@ -179,19 +190,12 @@ int SLNSyncWorkAwait(SLNSyncRef const sync, SLNSubmissionRef *const out) {
 }
 int SLNSyncWorkDone(SLNSyncRef const sync, SLNSubmissionRef const sub) {
 	if(!sync) return DB_EINVAL;
-	int rc;
 	// TODO: Copy and paste...
 	if(sub == sync->fileq->sub) {
-		rc = SLNSubmissionStoreBatch(&sub, 1);
-		SLNSubmissionFree(&sync->fileq->sub);
-		if(rc < 0) return rc;
 		async_sem_post(sync->fileq->done_sem);
 		return 0;
 	}
 	if(sub == sync->metaq->sub) {
-		rc = SLNSubmissionStoreBatch(&sub, 1);
-		SLNSubmissionFree(&sync->metaq->sub);
-		if(rc < 0) return rc;
 		async_sem_post(sync->metaq->done_sem);
 		return 0;
 	}
