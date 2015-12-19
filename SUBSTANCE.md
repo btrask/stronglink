@@ -381,6 +381,10 @@ _Disclaimer: This article is a work in progress. Like a list on Wikipedia, it ma
 			- Ask Linus Torvalds... Or Kay Sievers
 				- Warning: [strong language](http://lkml.iu.edu/hypermail/linux/kernel/1207.0/02973.html)
 		- While we're at it, don't deal with thread pools one syscall at a time
+	- Remember to account for caching and other optimizations
+		- Optimizing for CPU might matter even if you're theoretically disk-bound
+		- Same goes for optimizing instructions when you're memory-bound
+		- Predictable branches are nearly free
 - Build system (not a thorough analysis)
 	- Use `-Wall -Wextra -Werror`
 		- But turn off errors you don't care about instead of cluttering your code
