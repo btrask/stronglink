@@ -384,85 +384,90 @@ done:
 	return rc;
 }
 
-int SLNSessionGetNextMetaMapURI(SLNSessionRef const session, strarg_t const targetURI, uint64_t *const metaMapID, str_t *out, size_t const max) {
-	// TODO: We should handle URI synonyms.
-	// That might mean accepting a fileID instead of targetURI...
-
-	assert(metaMapID);
-	assert(out);
-
-	uint64_t const sessionID = SLNSessionGetID(session);
-	DB_env *db = NULL;
-	DB_txn *txn = NULL;
+int SLNSessionNextHintID(SLNSessionRef const session, DB_txn *const txn, strarg_t const targetURI, uint64_t *const hintID) {
+	assert(hintID);
+	DB_cursor *synonyms = NULL;
 	DB_cursor *cursor = NULL;
-	int rc = 0;
-	size_t count = 0;
+	uint64_t const sessionID = SLNSessionGetID(session);
+	uint64_t const first = *hintID;
+	uint64_t earliest = UINT64_MAX;
+	int rc;
 
-	rc = SLNSessionDBOpen(session, SLN_RDONLY, &db);
-	if(rc < 0) goto cleanup;
-	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	if(rc < 0) goto cleanup;
-
-	rc = db_cursor_open(txn, &cursor);
+	uint64_t fileID = 0;
+	rc = SLNURIGetFileID(targetURI, txn, &fileID);
 	if(rc < 0) goto cleanup;
 
-	DB_range range[1];
-	DB_val key[1];
-	SLNTargetURISessionIDAndMetaMapIDRange2(range, txn, targetURI, sessionID);
-	SLNTargetURISessionIDAndMetaMapIDKeyPack(key, txn, targetURI, sessionID, *metaMapID);
-	rc = db_cursor_seekr(cursor, range, key, NULL, +1);
+	rc = db_cursor_open(txn, &synonyms);
+	if(rc < 0) goto cleanup;
+	rc = db_txn_cursor(txn, &cursor);
 	if(rc < 0) goto cleanup;
 
-	strarg_t u;
-	uint64_t s;
-	SLNTargetURISessionIDAndMetaMapIDKeyUnpack(key, txn, &u, &s, metaMapID);
+	DB_range alts[1];
+	DB_val alt[1];
+	SLNFileIDAndURIRange1(alts, txn, fileID);
+	rc = db_cursor_firstr(synonyms, alts, alt, NULL, +1);
+	for(; rc >= 0; rc = db_cursor_nextr(synonyms, alts, alt, NULL, +1)) {
+		uint64_t f;
+		strarg_t synonym;
+		SLNFileIDAndURIKeyUnpack(alt, txn, &f, &synonym);
 
-	DB_val row[1], val[1];
-	SLNSessionIDAndMetaMapIDToMetaURIAndTargetURIKeyPack(row, txn, sessionID, *metaMapID);
-	rc = db_get(txn, row, val);
-	if(rc < 0) goto cleanup;
+		DB_range range[1];
+		DB_val key[1];
+		SLNTargetURISessionIDAndHintIDRange2(range, txn, synonym, sessionID);
+		SLNTargetURISessionIDAndHintIDKeyPack(key, txn, synonym, sessionID, first);
+		rc = db_cursor_seekr(cursor, range, key, NULL, +1);
+		if(DB_NOTFOUND == rc) continue;
+		if(rc < 0) goto cleanup;
 
-	strarg_t metaURI, t;
-	SLNSessionIDAndMetaMapIDToMetaURIAndTargetURIValUnpack(val, txn, &metaURI, &t);
-	db_assert(metaURI);
+		strarg_t u;
+		uint64_t s;
+		uint64_t this = 0;
+		SLNTargetURISessionIDAndHintIDKeyUnpack(key, txn, &u, &s, &this);
+		if(this < earliest) earliest = this;
+	}
+	if(UINT64_MAX == earliest) {
+		rc = DB_NOTFOUND;
+		goto cleanup;
+	}
 
-	strlcpy(out, metaURI, max); // TODO: Handle err
+	*hintID = earliest;
 
 cleanup:
-	db_cursor_close(cursor); cursor = NULL;
-	db_txn_abort(txn); txn = NULL;
-	SLNSessionDBClose(session, &db);
-	if(rc < 0) return rc;
-	return count;
+	db_cursor_close(synonyms); synonyms = NULL;
+	cursor = NULL; // txn-cursor doesn't need closing.
+	return rc;
 }
-int SLNSessionAddMetaMap(SLNSessionRef const session, strarg_t const metaURI, strarg_t const targetURI) {
+int SLNSessionAddHint(SLNSessionRef const session, strarg_t const metaURI, strarg_t const targetURI) {
+	if(!metaURI) return DB_EINVAL;
+	if(!targetURI) return DB_EINVAL;
 	uint64_t const sessionID = SLNSessionGetID(session);
-
 	DB_env *db = NULL;
 	DB_txn *txn = NULL;
-	int rc = SLNSessionDBOpen(session, SLN_RDWR, &db);
+	int rc;
+
+	rc = SLNSessionDBOpen(session, SLN_RDWR, &db);
 	if(rc < 0) goto cleanup;
 	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
 	if(rc < 0) goto cleanup;
 
-	uint64_t nextID = SLNNextMetaMapID(txn, sessionID);
+	uint64_t nextID = SLNNextHintID(txn, sessionID);
 	if(!nextID) rc = DB_EIO;
 	if(rc < 0) goto cleanup;
 
 	DB_val mainkey[1], mainval[1];
-	SLNSessionIDAndMetaMapIDToMetaURIAndTargetURIKeyPack(mainkey, txn, sessionID, nextID);
-	SLNSessionIDAndMetaMapIDToMetaURIAndTargetURIValPack(mainval, txn, metaURI, targetURI);
+	SLNSessionIDAndHintIDToMetaURIAndTargetURIKeyPack(mainkey, txn, sessionID, nextID);
+	SLNSessionIDAndHintIDToMetaURIAndTargetURIValPack(mainval, txn, metaURI, targetURI);
 	rc = db_put(txn, mainkey, mainval, DB_NOOVERWRITE_FAST);
 	if(rc < 0) goto cleanup;
 
 	DB_val fwdkey[1], fwdval[1];
-	SLNMetaURIAndSessionIDToMetaMapIDKeyPack(fwdkey, txn, metaURI, sessionID);
-	SLNMetaURIAndSessionIDToMetaMapIDValPack(fwdval, txn, nextID);
+	SLNMetaURIAndSessionIDToHintIDKeyPack(fwdkey, txn, metaURI, sessionID);
+	SLNMetaURIAndSessionIDToHintIDValPack(fwdval, txn, nextID);
 	rc = db_put(txn, fwdkey, fwdval, DB_NOOVERWRITE_FAST);
 	if(rc < 0) goto cleanup;
 
 	DB_val revkey[1], revval[1];
-	SLNTargetURISessionIDAndMetaMapIDKeyPack(revkey, txn, targetURI, sessionID, nextID);
+	SLNTargetURISessionIDAndHintIDKeyPack(revkey, txn, targetURI, sessionID, nextID);
 	db_nullval(revval);
 	rc = db_put(txn, revkey, revval, DB_NOOVERWRITE_FAST);
 	if(rc < 0) goto cleanup;

@@ -105,7 +105,7 @@ int SLNSyncFileAvailable(SLNSyncRef const sync, strarg_t const URI, strarg_t con
 			0;
 		if(DB_NOTFOUND == rc) {
 //			db_txn_abort(txn); txn = NULL;
-			rc = SLNSessionAddMetaMap(sync->session, URI, targetURI);
+			rc = SLNSessionAddHint(sync->session, URI, targetURI);
 			if(DB_NOTFOUND == rc) rc = DB_PANIC;
 		} else if(rc >= 0) {
 			rc = DB_NOTFOUND;
@@ -121,9 +121,9 @@ int SLNSyncFileAvailable(SLNSyncRef const sync, strarg_t const URI, strarg_t con
 		// TODO: Verify target URI if set.
 		db_txn_abort(txn); txn = NULL;
 
-		for(uint64_t metaMapID = 0;; metaMapID++) {
+		for(uint64_t hintID = 0;; hintID++) {
 			str_t metaURI[SLN_URI_MAX];
-			rc = SLNSessionGetNextMetaMapURI(sync->session, URI, &metaMapID, metaURI, sizeof(metaURI));
+			rc = SLNSessionGetNextHintURI(sync->session, URI, &hintID, metaURI, sizeof(metaURI));
 			if(DB_NOTFOUND == rc) break;
 			if(rc < 0) goto cleanup;
 

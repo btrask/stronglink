@@ -111,8 +111,8 @@ int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFi
 void SLNFileInfoCleanup(SLNFileInfo *const info);
 int SLNSessionCopyLastSubmissionURIs(SLNSessionRef const session, str_t *const outFileURI, str_t *const outMetaURI);
 int SLNSessionGetValueForField(SLNSessionRef const session, DB_txn *const txn, strarg_t const fileURI, strarg_t const field, str_t *out, size_t const max);
-int SLNSessionGetNextMetaMapURI(SLNSessionRef const session, strarg_t const targetURI, uint64_t *const metaMapID, str_t *out, size_t const max);
-int SLNSessionAddMetaMap(SLNSessionRef const session, strarg_t const metaURI, strarg_t const targetURI);
+int SLNSessionNextHintID(SLNSessionRef const session, DB_txn *const txn, strarg_t const targetURI, uint64_t *const hintID);
+int SLNSessionAddHint(SLNSessionRef const session, strarg_t const metaURI, strarg_t const targetURI);
 
 int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const knownURI, strarg_t const knownTarget, SLNSubmissionRef *const out);
 int SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const knownURI, strarg_t const knownTarget, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, SLNSubmissionRef *const out);
