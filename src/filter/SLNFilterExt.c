@@ -109,6 +109,7 @@ int SLNFilterSeekToPosition(SLNFilterRef const filter, SLNFilterPosition const *
 	// This is guaranteed for the internal hash and effectively
 	// guaranteed for other cryptographic hashes, but may not be
 	// true for other hash algorithms.
+	// TODO: Given our stance on collisions, is this even needed?
 	rc = db_cursor_nextr(cursor, range, NULL, NULL, +1);
 	if(rc >= 0) return DB_KEYEXIST;
 	if(DB_NOTFOUND != rc) return rc;
@@ -307,19 +308,11 @@ int SLNFilterCopyURISynonyms(DB_txn *const txn, strarg_t const URI, str_t ***con
 	rc = db_cursor_open(txn, &cursor);
 	if(rc < 0) goto cleanup;
 
-	// Even though there can be multiple files with the given URI,
-	// we only want the synonyms for ONE of them (the oldest one).
-	DB_val key[1];
-	DB_range files[1];
-	SLNURIAndFileIDRange1(files, txn, URI);
-	rc = db_cursor_firstr(cursor, files, key, NULL, +1);
+	uint64_t fileID = 0;
+	rc = SLNURIGetFileID(URI, txn, &fileID);
 	if(rc >= 0) {
-		strarg_t u;
-		uint64_t fileID;
-		SLNURIAndFileIDKeyUnpack(key, txn, &u, &fileID);
-		assert(0 == strcmp(URI, u));
-
 		DB_range URIs[1];
+		DB_val key[1];
 		SLNFileIDAndURIRange1(URIs, txn, fileID);
 		rc = db_cursor_firstr(cursor, URIs, key, NULL, +1);
 		if(rc < 0 && DB_NOTFOUND != rc) goto cleanup;

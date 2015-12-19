@@ -235,64 +235,53 @@ cleanup:
 }
 
 int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFileInfo *const info) {
+	if(!URI) return DB_EINVAL;
 	DB_env *db = NULL;
-	int rc = SLNSessionDBOpen(session, SLN_RDONLY, &db);
-	if(rc < 0) return rc;
 	DB_txn *txn = NULL;
+	DB_cursor *cursor = NULL;
+	int rc;
+
+	rc = SLNSessionDBOpen(session, SLN_RDONLY, &db);
+	if(rc < 0) goto cleanup;
 	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
-	if(rc < 0) {
-		SLNSessionDBClose(session, &db);
-		return rc;
-	}
-
-	DB_cursor *cursor;
+	if(rc < 0) goto cleanup;
 	rc = db_txn_cursor(txn, &cursor);
-	assert(!rc);
+	if(rc < 0) goto cleanup;
 
-	DB_range fileIDs[1];
-	SLNURIAndFileIDRange1(fileIDs, txn, URI);
-	DB_val URIAndFileID_key[1];
-	rc = db_cursor_firstr(cursor, fileIDs, URIAndFileID_key, NULL, +1);
+	uint64_t fileID = 0;
 	DB_val file_val[1];
-	if(rc >= 0) {
-		strarg_t URI2;
-		uint64_t fileID;
-		SLNURIAndFileIDKeyUnpack(URIAndFileID_key, txn, &URI2, &fileID);
-		assert(0 == strcmp(URI, URI2));
-		if(info) {
-			DB_val fileID_key[1];
-			SLNFileByIDKeyPack(fileID_key, txn, fileID);
-			rc = db_get(txn, fileID_key, file_val);
-		}
-	}
-	if(rc < 0) {
-		db_txn_abort(txn); txn = NULL;
-		SLNSessionDBClose(session, &db);
-		return rc;
+	rc = SLNURIGetFileID(URI, txn, &fileID);
+	if(rc < 0) goto cleanup;
+	if(!info) {
+		rc = 0;
+		goto cleanup;
 	}
 
-	if(info) {
-		// Clear padding for later assert_zeroed.
-		memset(info, 0, sizeof(*info));
+	DB_val fileID_key[1];
+	SLNFileByIDKeyPack(fileID_key, txn, fileID);
+	rc = db_get(txn, fileID_key, file_val);
+	if(rc < 0) goto cleanup;
+	strarg_t const internalHash = db_read_string(file_val, txn);
+	strarg_t const type = db_read_string(file_val, txn);
+	uint64_t const size = db_read_uint64(file_val);
 
-		strarg_t const internalHash = db_read_string(file_val, txn);
-		strarg_t const type = db_read_string(file_val, txn);
-		uint64_t const size = db_read_uint64(file_val);
-		info->hash = strdup(internalHash);
-		info->path = SLNRepoCopyInternalPath(SLNSessionGetRepo(session), internalHash);
-		info->type = strdup(type);
-		info->size = size;
-		if(!info->hash || !info->path || !info->type) {
-			SLNFileInfoCleanup(info);
-			db_txn_abort(txn); txn = NULL;
-			SLNSessionDBClose(session, &db);
-			return DB_ENOMEM;
-		}
+	// Clear padding for later assert_zeroed.
+	memset(info, 0, sizeof(*info));
+	info->hash = strdup(internalHash);
+	info->path = SLNRepoCopyInternalPath(SLNSessionGetRepo(session), internalHash);
+	info->type = strdup(type);
+	info->size = size;
+	if(!info->hash || !info->path || !info->type) {
+		SLNFileInfoCleanup(info);
+		rc = DB_ENOMEM;
+		goto cleanup;
 	}
 
+cleanup:
+	cursor = NULL; // txn-cursor doesn't need to be closed.
 	db_txn_abort(txn); txn = NULL;
 	SLNSessionDBClose(session, &db);
-	return 0;
+	return rc;
 }
 void SLNFileInfoCleanup(SLNFileInfo *const info) {
 	if(!info) return;

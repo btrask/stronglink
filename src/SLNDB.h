@@ -215,6 +215,25 @@ static void SLNURIAndFileIDKeyUnpack(DB_val *const val, DB_txn *const txn, strar
 	*URI = db_read_string(val, txn);
 	*fileID = db_read_uint64(val);
 }
+static int SLNURIGetFileID(strarg_t const URI, DB_txn *const txn, uint64_t *const out) {
+	// This function is guaranteed safe in the face of collisions,
+	// meaning it always returns the oldest known file.
+	assert(out);
+	DB_cursor *cursor = NULL;
+	int rc = db_txn_cursor(txn, &cursor);
+	if(rc < 0) return rc;
+	DB_range files[1];
+	DB_val file[1];
+	SLNURIAndFileIDRange1(files, txn, URI);
+	rc = db_cursor_firstr(cursor, files, file, NULL, +1);
+	if(rc < 0) return rc;
+	strarg_t u;
+	uint64_t fileID;
+	SLNURIAndFileIDKeyUnpack(file, txn, &u, &fileID);
+	assert(0 == strcmp(URI, u));
+	*out = fileID;
+	return 0;
+}
 
 ///
 
