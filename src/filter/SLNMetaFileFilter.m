@@ -41,8 +41,7 @@
 
 	uint64_t actualSortID, actualFileID;
 	SLNMetaFileByIDKeyUnpack(key, NULL, &actualSortID);
-	//SLNMetaFileByIDValUnpack(val, NULL, &actualFileID, &ignore);
-	actualFileID = db_read_uint64(val);
+	actualFileID = actualSortID;
 	if(sortID != actualSortID) return;
 	if(dir > 0 && actualFileID >= fileID) return;
 	if(dir < 0 && actualFileID <= fileID) return;
