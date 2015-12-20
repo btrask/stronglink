@@ -60,6 +60,8 @@ typedef str_t const *strarg_t; // A string that belongs to someone else.
 } while(0)
 #endif
 
+#define HERE() fprintf(stderr, "%s:%d\n", __FILE__, __LINE__)
+
 #define UNUSED(x) ((void)(x))
 
 #define FREE(ptrptr) do { \
