@@ -64,6 +64,22 @@ static int queue_ingest(SLNSyncRef const sync, sync_queue *const queue, strarg_t
 	return rc;
 }
 
+static int record_last(SLNSyncRef const sync, DB_txn *const txn, strarg_t const URI, bool const isMeta) {
+	uint64_t const sessionID = SLNSessionGetID(sync->session);
+	DB_val key[1], val[1];
+	DB_VAL_STORAGE(key, DB_VARINT_MAX*2);
+	db_bind_uint64(key, isMeta ?
+		SLNLastMetaURIBySyncID :
+		SLNLastFileURIBySyncID);
+	db_bind_uint64(key, sessionID);
+	DB_VAL_STORAGE_VERIFY(key);
+	DB_VAL_STORAGE(val, DB_INLINE_MAX);
+	db_bind_string(val, URI, txn);
+	DB_VAL_STORAGE_VERIFY(val);
+	int rc = db_put(txn, key, val, 0);
+	if(rc < 0) return rc;
+	return 0;
+}
 static int get_hints_synced(SLNSyncRef const sync, DB_txn *const txn, strarg_t const URI) {
 	uint64_t const sessionID = SLNSessionGetID(sync->session);
 	uint64_t fileID = 0;
@@ -111,7 +127,12 @@ static int add_hint(SLNSyncRef const sync, DB_txn *const txn, strarg_t const met
 	SLNTargetURISessionIDAndHintIDKeyPack(revkey, txn, targetURI, sessionID, nextID);
 	db_nullval(revval);
 	rc = db_put(txn, revkey, revval, DB_NOOVERWRITE_FAST);
-	return rc;
+	if(rc < 0) return rc;
+
+	rc = record_last(sync, txn, metaURI, true);
+	if(rc < 0) return rc;
+
+	return 0;
 }
 
 
@@ -385,20 +406,9 @@ int SLNSyncStoreSubmission(SLNSyncRef const sync, SLNSubmissionRef const sub) {
 		if(rc < 0) goto cleanup;
 	}
 
-	// Store last file/meta URIs.
 	// It's critical that this happens after set_hints_synced,
 	// so we restart the hints e.g. in the event of a crash.
-	DB_val key[1], val[1];
-	DB_VAL_STORAGE(key, DB_VARINT_MAX*2);
-	db_bind_uint64(key, isMeta ?
-		SLNLastMetaURIBySyncID :
-		SLNLastFileURIBySyncID);
-	db_bind_uint64(key, sessionID);
-	DB_VAL_STORAGE_VERIFY(key);
-	DB_VAL_STORAGE(val, DB_INLINE_MAX);
-	db_bind_string(val, URI, txn);
-	DB_VAL_STORAGE_VERIFY(val);
-	rc = db_put(txn, key, val, 0);
+	rc = record_last(sync, txn, URI, isMeta);
 	if(rc < 0) goto cleanup;
 
 	rc = db_txn_commit(txn); txn = NULL;
