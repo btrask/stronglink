@@ -94,8 +94,8 @@ static void reader(SLNPullRef const pull, bool const meta) {
 
 	str_t path[URI_MAX]; // TODO: Escaping
 	if(meta) {
-		rc = snprintf(path, sizeof(path), "%s/sln/metafiles?q=%s&start=%s",
-			pull->path, pull->query, metaURI);
+		rc = snprintf(path, sizeof(path), "%s/sln/metafiles?start=%s",
+			pull->path, metaURI);
 	} else {
 		rc = snprintf(path, sizeof(path), "%s/sln/query?q=%s&start=%s",
 			pull->path, pull->query, fileURI);
