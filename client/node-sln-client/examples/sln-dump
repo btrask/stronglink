@@ -1,0 +1,77 @@
+#!/usr/bin/env node
+// Copyright 2016 Ben Trask
+// MIT licensed (see LICENSE for details)
+
+var crypto = require("crypto");
+var fs = require("fs");
+var pathm = require("path");
+var sln = require("../sln-client");
+
+if(process.argv.length <= 3) {
+	console.error("Usage: sln-dump src path [query]");
+	process.exit(1);
+}
+var src = sln.repoForName(process.argv[2]);
+var path = pathm.resolve(process.argv[3]);
+var query = process.argv[4] || "";
+
+var tmp = pathm.join(path, "tmp");
+
+mkdirpSync(path, 0700);
+mkdirpSync(tmp, 0700);
+
+var metastream = src.createMetafilesStream({ wait: false });
+var filestream = src.createQueryStream(query, { wait: false });
+dump(metastream, "meta");
+dump(filestream, "file");
+
+function dump(stream, name) {
+	var log = fs.createWriteStream(pathm.join(path, name+".log"),
+		{ encoding: "utf8", flags: "a" });
+	stream.on("data", function(item) {
+		stream.pause();
+		var meta = "string" !== typeof item;
+		var URI = meta ? item.uri : item;
+		var target = meta ? item.target : null;
+		var req = src.createFileRequest(URI, {});
+		req.on("response", function(res) {
+			var type = res.headers["content-type"];
+			if(meta) {
+				if(type !== sln.metatype) throw new Error("Bad meta-file");
+				log.write(URI+" -> "+target+"\n", "utf8");
+			} else {
+				log.write(URI+"?type="+encodeURIComponent(type)+"\n", "utf8");
+			}
+
+			var tmpfile = tmppath(tmp);
+			var file = fs.createWriteStream(tmpfile, {});
+			res.pipe(file);
+			file.on("finish", function() {
+				var obj = sln.parseURI(URI);
+				var algo = obj.algo;
+				var hash = obj.hash;
+				var filename = pathm.join(path, name, algo, hash.slice(0, 2), hash);
+				console.log(filename);
+				mkdirpSync(pathm.dirname(filename), 0700);
+				// TODO: fsync?
+				fs.renameSync(tmpfile, filename);
+				stream.resume();
+			});
+		});
+	});
+}
+
+function mkdirpSync(path, mode) {
+	var err = null;
+	try { fs.mkdirSync(path, mode); }
+	catch(e) { err = e; }
+	if(!err) return;
+	if("EEXIST" === err.code) return;
+	if("ENOENT" !== err.code) throw err;
+	mkdirpSync(pathm.dirname(path), mode);
+	fs.mkdirSync(path, mode);
+}
+function tmppath(dir) {
+	return pathm.join(dir, crypto.pseudoRandomBytes(8).toString("hex"));
+}
+
