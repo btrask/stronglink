@@ -1,0 +1,66 @@
+#!/usr/bin/env node
+// Copyright 2016 Ben Trask
+// MIT licensed (see LICENSE for details)
+
+var fs = require("fs");
+var pathm = require("path");
+var qs = require("querystring");
+var sln = require("../sln-client");
+
+if(process.argv.length <= 3) {
+	console.error("Usage: sln-load dst path");
+	process.exit(1);
+}
+var dst = sln.repoForName(process.argv[2]);
+var path = pathm.resolve(process.argv[3]);
+
+// Warning! This code submits all dumped meta-files whose targets
+// exist in the destination repository. This might include meta-files
+// that don't match files within the dump itself.
+
+load(false, function() {
+	load(true, function() {
+		
+	});
+});
+
+function load(meta, cb) {
+	var name = meta ? "meta" : "file";
+	var log = fs.createReadStream(pathm.join(path, name+".log"), { encoding: "utf8" });
+	var stream = new sln.URIListStream({ meta: meta });
+	log.pipe(stream);
+
+	stream.on("data", function(item) {
+		stream.pause();
+
+		var URI = meta ? item.uri : item;
+		var target = meta ? item.target : null;
+		var obj = sln.parseURI(URI);
+		var algo = obj.algo;
+		var hash = obj.hash;
+		var type = meta ? sln.metatype : qs.parse(obj.query).type;
+		var filename = pathm.join(path, name, algo, hash.slice(0, 2), hash);
+
+		// TODO: Use push API for better performance?
+		var file = fs.createReadStream(filename, {});
+		var sub = dst.createSubmissionStream(type, { uri: URI });
+		file.pipe(sub);
+		sub.on("submission", function(info) {
+
+			console.log(info.location);
+			stream.resume();
+
+		});
+		sub.on("error", function(err) {
+			if(412 === err.code && meta) { // Precondition Failed (invalid target)
+				stream.resume(); // Ignore
+			} else {
+				throw err;
+			}
+		});
+	});
+	stream.on("end", function() {
+		cb();
+	});
+}
+

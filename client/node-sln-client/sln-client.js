@@ -21,7 +21,7 @@ sln.metatype = "application/vnd.stronglink.meta";
 // returns: { algo: string, hash: string, query: string, fragment: string }
 sln.parseURI = function(uri) {
 	if("string" !== typeof uri) throw new TypeError("Invalid URI");
-	var x = /^hash:\/\/([\w\d.-]+)\/([\w\d.%_-]+)(\?[\w\d.%_=&-]+)?(#[\w\d.%_-]+)?$/i.exec(uri);
+	var x = /^hash:\/\/([\w\d.-]+)\/([\w\d.%_-]+)(?:\?([\w\d.%_=&-]+))?(#[\w\d.%_-]+)?$/i.exec(uri);
 	if(!x) return null;
 	return {
 		algo: x[1],

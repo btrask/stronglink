@@ -189,6 +189,7 @@ cleanup:
 	if(UV_EACCES == rc) return 403; // Forbidden
 	if(UV_UNKNOWN == rc) return 400; // Bad Request
 	if(SLN_HASHMISMATCH == rc) return 409; // Conflict
+	if(SLN_INVALIDTARGET == rc) return 412; // Precondition Failed
 	if(rc < 0) return 500;
 	return 0;
 }
