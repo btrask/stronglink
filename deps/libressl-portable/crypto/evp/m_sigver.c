@@ -1,4 +1,4 @@
-/* $OpenBSD: m_sigver.c,v 1.3 2014/06/12 15:49:29 deraadt Exp $ */
+/* $OpenBSD: m_sigver.c,v 1.4 2014/07/11 08:44:48 jsing Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 2006.
  */
@@ -136,7 +136,7 @@ EVP_DigestSignFinal(EVP_MD_CTX *ctx, unsigned char *sigret, size_t *siglen)
 	if (sigret) {
 		EVP_MD_CTX tmp_ctx;
 		unsigned char md[EVP_MAX_MD_SIZE];
-		unsigned int mdlen;
+		unsigned int mdlen = 0;
 		EVP_MD_CTX_init(&tmp_ctx);
 		if (!EVP_MD_CTX_copy_ex(&tmp_ctx, ctx))
 			return 0;
@@ -171,7 +171,7 @@ EVP_DigestVerifyFinal(EVP_MD_CTX *ctx, unsigned char *sig, size_t siglen)
 	EVP_MD_CTX tmp_ctx;
 	unsigned char md[EVP_MAX_MD_SIZE];
 	int r;
-	unsigned int mdlen;
+	unsigned int mdlen = 0;
 	int vctx;
 
 	if (ctx->pctx->pmeth->verifyctx)

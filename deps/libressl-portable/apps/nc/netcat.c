@@ -1,4 +1,4 @@
-/* $OpenBSD: netcat.c,v 1.145 2015/12/07 02:38:54 tb Exp $ */
+/* $OpenBSD: netcat.c,v 1.149 2015/12/28 14:17:47 bcook Exp $ */
 /*
  * Copyright (c) 2001 Eric Jackson <ericj@monkey.org>
  * Copyright (c) 2015 Bob Beck.  All rights reserved.
@@ -34,7 +34,6 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/time.h>
 #include <sys/uio.h>
 #include <sys/un.h>
 
@@ -53,6 +52,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 #include <tls.h>
 #include "atomicio.h"
@@ -443,11 +443,11 @@ main(int argc, char *argv[])
 	}
 
 	if (usetls) {
-		if (Rflag && (cacert=tls_load_file(Rflag, &cacertlen, NULL)) == NULL)
+		if (Rflag && (cacert = tls_load_file(Rflag, &cacertlen, NULL)) == NULL)
 			errx(1, "unable to load root CA file %s", Rflag);
-		if (Cflag && (pubcert=tls_load_file(Rflag, &pubcertlen, NULL)) == NULL)
+		if (Cflag && (pubcert = tls_load_file(Cflag, &pubcertlen, NULL)) == NULL)
 			errx(1, "unable to load TLS certificate file %s", Cflag);
-		if (Kflag && (privkey=tls_load_file(Rflag, &privkeylen, NULL)) == NULL)
+		if (Kflag && (privkey = tls_load_file(Kflag, &privkeylen, NULL)) == NULL)
 			errx(1, "unable to load TLS key file %s", Kflag);
 
 		if (pledge("stdio inet dns", NULL) == -1)
@@ -459,7 +459,7 @@ main(int argc, char *argv[])
 			errx(1, "unable to allocate TLS config");
 		if (Rflag && tls_config_set_ca_mem(tls_cfg, cacert, cacertlen) == -1)
 			errx(1, "unable to set root CA file %s", Rflag);
-		if (Cflag && tls_config_set_cert_mem(tls_cfg, cacert, cacertlen) == -1)
+		if (Cflag && tls_config_set_cert_mem(tls_cfg, pubcert, pubcertlen) == -1)
 			errx(1, "unable to set TLS certificate file %s", Cflag);
 		if (Kflag && tls_config_set_key_mem(tls_cfg, privkey, privkeylen) == -1)
 			errx(1, "unable to set TLS key file %s", Kflag);
@@ -1497,10 +1497,10 @@ map_tls(char *s, int *val)
 void
 report_tls(struct tls * tls_ctx, char * host, char *tls_expectname)
 {
-	char *subject = NULL, *issuer = NULL;
+	time_t t;
 	fprintf(stderr, "TLS handshake negotiated %s/%s with host %s\n",
 	    tls_conn_version(tls_ctx), tls_conn_cipher(tls_ctx), host);
-	fprintf(stderr, "Peer name %s\n",
+	fprintf(stderr, "Peer name: %s\n",
 	    tls_expectname ? tls_expectname : host);
 	if (tls_peer_cert_subject(tls_ctx))
 		fprintf(stderr, "Subject: %s\n",
@@ -1508,12 +1508,15 @@ report_tls(struct tls * tls_ctx, char * host, char *tls_expectname)
 	if (tls_peer_cert_issuer(tls_ctx))
 		fprintf(stderr, "Issuer: %s\n",
 		    tls_peer_cert_issuer(tls_ctx));
+	if ((t = tls_peer_cert_notbefore(tls_ctx)) != -1)
+		fprintf(stderr, "Valid From: %s", ctime(&t));
+	if ((t = tls_peer_cert_notafter(tls_ctx)) != -1)
+		fprintf(stderr, "Valid Until: %s", ctime(&t));
 	if (tls_peer_cert_hash(tls_ctx))
 		fprintf(stderr, "Cert Hash: %s\n",
 		    tls_peer_cert_hash(tls_ctx));
-	free(subject);
-	free(issuer);
 }
+
 void
 report_connect(const struct sockaddr *sa, socklen_t salen)
 {

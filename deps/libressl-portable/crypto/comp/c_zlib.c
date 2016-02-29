@@ -1,4 +1,4 @@
-/* $OpenBSD: c_zlib.c,v 1.16 2014/06/12 15:49:28 deraadt Exp $ */
+/* $OpenBSD: c_zlib.c,v 1.17 2014/11/03 16:58:28 tedu Exp $ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -524,18 +524,14 @@ bio_zlib_ctrl(BIO *b, int cmd, long num, void *ptr)
 		}
 
 		if (ibs != -1) {
-			if (ctx->ibuf) {
-				free(ctx->ibuf);
-				ctx->ibuf = NULL;
-			}
+			free(ctx->ibuf);
+			ctx->ibuf = NULL;
 			ctx->ibufsize = ibs;
 		}
 
 		if (obs != -1) {
-			if (ctx->obuf) {
-				free(ctx->obuf);
-				ctx->obuf = NULL;
-			}
+			free(ctx->obuf);
+			ctx->obuf = NULL;
 			ctx->obufsize = obs;
 		}
 		ret = 1;

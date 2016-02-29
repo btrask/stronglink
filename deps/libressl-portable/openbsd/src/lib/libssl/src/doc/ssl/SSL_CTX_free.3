@@ -1,7 +1,7 @@
 .\"
-.\"	$OpenBSD$
+.\"	$OpenBSD: SSL_CTX_free.3,v 1.2 2014/12/02 14:11:01 jmc Exp $
 .\"
-.Dd $Mdocdate: October 12 2014 $
+.Dd $Mdocdate: December 2 2014 $
 .Dt SSL_CTX_FREE 3
 .Os
 .Sh NAME
@@ -20,6 +20,11 @@ and removes the
 object pointed to by
 .Fa ctx
 and frees up the allocated memory if the reference count has reached 0.
+If
+.Fa ctx
+is a
+.Dv NULL
+pointer, no action occurs.
 .Pp
 It also calls the
 .Xr free 3 Ns ing

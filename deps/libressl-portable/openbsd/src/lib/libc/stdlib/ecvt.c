@@ -1,4 +1,4 @@
-/*	$OpenBSD: ecvt.c,v 1.8 2013/11/01 19:05:11 guenther Exp $	*/
+/*	$OpenBSD: ecvt.c,v 1.9 2015/08/20 21:49:29 deraadt Exp $	*/
 
 /*
  * Copyright (c) 2002, 2006 Todd C. Miller <Todd.Miller@courtesan.com>
@@ -40,10 +40,8 @@ __cvt(double value, int ndigit, int *decpt, int *sign, int fmode, int pad)
 		return ("");
 	}
 
-	if (s) {
-		free(s);
-		s = NULL;
-	}
+	free(s);
+	s = NULL;
 
 	if (ndigit < 0)
 		siz = -ndigit + 1;
