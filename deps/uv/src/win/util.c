@@ -59,6 +59,10 @@
 static char *process_title;
 static CRITICAL_SECTION process_title_lock;
 
+/* Cached copy of the process id, written once. */
+static DWORD current_pid = 0;
+
+
 /* Interval (in seconds) of the high-resolution clock. */
 static double hrtime_interval_ = 0;
 
@@ -356,6 +360,14 @@ int uv_parent_pid() {
 
   CloseHandle(handle);
   return parent_pid;
+}
+
+
+int uv_current_pid() {
+  if (current_pid == 0) {
+    current_pid = GetCurrentProcessId();
+  }
+  return current_pid;
 }
 
 
@@ -1212,6 +1224,59 @@ convert_buffer:
 
   /* Convert to UTF-8 */
   bufsize = uv_utf16_to_utf8(path, -1, buffer, *size);
+  if (bufsize == 0)
+    return uv_translate_sys_error(GetLastError());
+
+  *size = bufsize - 1;
+  return 0;
+}
+
+
+int uv_os_tmpdir(char* buffer, size_t* size) {
+  wchar_t path[MAX_PATH + 1];
+  DWORD bufsize;
+  size_t len;
+
+  if (buffer == NULL || size == NULL || *size == 0)
+    return UV_EINVAL;
+
+  len = GetTempPathW(MAX_PATH + 1, path);
+
+  if (len == 0) {
+    return uv_translate_sys_error(GetLastError());
+  } else if (len > MAX_PATH + 1) {
+    /* This should not be possible */
+    return UV_EIO;
+  }
+
+  /* The returned directory should not have a trailing slash, unless it */
+  /* points at a drive root, like c:\. Remove it if needed.*/
+  if (path[len - 1] == L'\\' &&
+      !(len == 3 && path[1] == L':')) {
+    len--;
+    path[len] = L'\0';
+  }
+
+  /* Check how much space we need */
+  bufsize = WideCharToMultiByte(CP_UTF8, 0, path, -1, NULL, 0, NULL, NULL);
+
+  if (bufsize == 0) {
+    return uv_translate_sys_error(GetLastError());
+  } else if (bufsize > *size) {
+    *size = bufsize - 1;
+    return UV_ENOBUFS;
+  }
+
+  /* Convert to UTF-8 */
+  bufsize = WideCharToMultiByte(CP_UTF8,
+                                0,
+                                path,
+                                -1,
+                                buffer,
+                                *size,
+                                NULL,
+                                NULL);
+
   if (bufsize == 0)
     return uv_translate_sys_error(GetLastError());
 

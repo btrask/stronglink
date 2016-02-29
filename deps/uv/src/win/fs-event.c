@@ -101,12 +101,12 @@ static int uv_split_path(const WCHAR* filename, WCHAR** dir,
     *file = wcsdup(filename);
   } else {
     if (dir) {
-      *dir = (WCHAR*)uv__malloc((i + 1) * sizeof(WCHAR));
+      *dir = (WCHAR*)uv__malloc((i + 2) * sizeof(WCHAR));
       if (!*dir) {
         uv_fatal_error(ERROR_OUTOFMEMORY, "uv__malloc");
       }
-      wcsncpy(*dir, filename, i);
-      (*dir)[i] = L'\0';
+      wcsncpy(*dir, filename, i + 1);
+      (*dir)[i + 1] = L'\0';
     }
 
     *file = (WCHAR*)uv__malloc((len - i) * sizeof(WCHAR));
@@ -381,9 +381,10 @@ void uv_process_fs_event_req(uv_loop_t* loop, uv_req_t* req,
 
           if (handle->dirw) {
             /*
-             * We attempt to convert the file name to its long form for
-             * events that still point to valid files on disk.
-             * For removed and renamed events, we do not provide the file name.
+             * We attempt to resolve the long form of the file name explicitly.
+             * We only do this for file names that might still exist on disk.
+             * If this fails, we use the name given by ReadDirectoryChangesW.
+             * This may be the long form or the 8.3 short name in some cases.
              */
             if (file_info->Action != FILE_ACTION_REMOVED &&
               file_info->Action != FILE_ACTION_RENAMED_OLD_NAME) {
@@ -438,16 +439,24 @@ void uv_process_fs_event_req(uv_loop_t* loop, uv_req_t* req,
               }
 
               /*
-               * If we couldn't get the long name - just use the name
-               * provided by ReadDirectoryChangesW.
+               * We could not resolve the long form explicitly.
+               * We therefore use the name given by ReadDirectoryChangesW.
+               * This may be the long form or the 8.3 short name in some cases.
                */
               if (!long_filenamew) {
                 filenamew = file_info->FileName;
                 sizew = file_info->FileNameLength / sizeof(WCHAR);
               }
             } else {
-              /* Removed or renamed callbacks don't provide filename. */
-              filenamew = NULL;
+              /*
+               * Removed or renamed events cannot be resolved to the long form.
+               * We therefore use the name given by ReadDirectoryChangesW.
+               * This may be the long form or the 8.3 short name in some cases.
+               */
+              if (!long_filenamew) {
+                filenamew = file_info->FileName;
+                sizew = file_info->FileNameLength / sizeof(WCHAR);
+              }
             }
           } else {
             /* We already have the long name of the file, so just use it. */

@@ -75,6 +75,10 @@
 #include <sys/ioctl.h>
 #endif
 
+#if defined(__ANDROID_API__) && __ANDROID_API__ < 21
+# include <dlfcn.h>  /* for dlsym */
+#endif
+
 static int uv__run_pending(uv_loop_t* loop);
 
 /* Verify that uv_buf_t is ABI-compatible with struct iovec. */
@@ -204,8 +208,14 @@ int uv__getiovmax(void) {
   return IOV_MAX;
 #elif defined(_SC_IOV_MAX)
   static int iovmax = -1;
-  if (iovmax == -1)
+  if (iovmax == -1) {
     iovmax = sysconf(_SC_IOV_MAX);
+    /* On some embedded devices (arm-linux-uclibc based ip camera),
+     * sysconf(_SC_IOV_MAX) can not get the correct value. The return
+     * value is -1 and the errno is EINPROGRESS. Degrade the value to 1.
+     */
+    if (iovmax == -1) iovmax = 1;
+  }
   return iovmax;
 #else
   return 1024;
@@ -425,7 +435,7 @@ int uv__accept(int sockfd) {
   assert(sockfd >= 0);
 
   while (1) {
-#if defined(__linux__) || __FreeBSD__ >= 10
+#if defined(__linux__) || (defined(__FreeBSD__) && __FreeBSD__ >= 10)
     static int no_accept4;
 
     if (no_accept4)
@@ -721,9 +731,7 @@ static int uv__run_pending(uv_loop_t* loop) {
   if (QUEUE_EMPTY(&loop->pending_queue))
     return 0;
 
-  QUEUE_INIT(&pq);
-  q = QUEUE_HEAD(&loop->pending_queue);
-  QUEUE_SPLIT(&loop->pending_queue, q, &pq);
+  QUEUE_MOVE(&loop->pending_queue, &pq);
 
   while (!QUEUE_EMPTY(&pq)) {
     q = QUEUE_HEAD(&pq);
@@ -956,16 +964,12 @@ int uv__open_cloexec(const char* path, int flags) {
 int uv__dup2_cloexec(int oldfd, int newfd) {
   int r;
 #if defined(__FreeBSD__) && __FreeBSD__ >= 10
-  do
-    r = dup3(oldfd, newfd, O_CLOEXEC);
-  while (r == -1 && errno == EINTR);
+  r = dup3(oldfd, newfd, O_CLOEXEC);
   if (r == -1)
     return -errno;
   return r;
 #elif defined(__FreeBSD__) && defined(F_DUP2FD_CLOEXEC)
-  do
-    r = fcntl(oldfd, F_DUP2FD_CLOEXEC, newfd);
-  while (r == -1 && errno == EINTR);
+  r = fcntl(oldfd, F_DUP2FD_CLOEXEC, newfd);
   if (r != -1)
     return r;
   if (errno != EINVAL)
@@ -976,7 +980,7 @@ int uv__dup2_cloexec(int oldfd, int newfd) {
   if (!no_dup3) {
     do
       r = uv__dup3(oldfd, newfd, UV__O_CLOEXEC);
-    while (r == -1 && (errno == EINTR || errno == EBUSY));
+    while (r == -1 && errno == EBUSY);
     if (r != -1)
       return r;
     if (errno != ENOSYS)
@@ -990,9 +994,9 @@ int uv__dup2_cloexec(int oldfd, int newfd) {
     do
       r = dup2(oldfd, newfd);
 #if defined(__linux__)
-    while (r == -1 && (errno == EINTR || errno == EBUSY));
+    while (r == -1 && errno == EBUSY);
 #else
-    while (r == -1 && errno == EINTR);
+    while (0);  /* Never retry. */
 #endif
 
     if (r == -1)
@@ -1018,6 +1022,9 @@ int uv_os_homedir(char* buffer, size_t* size) {
   size_t len;
   long initsize;
   int r;
+#if defined(__ANDROID_API__) && __ANDROID_API__ < 21
+  int (*getpwuid_r)(uid_t, struct passwd*, char*, size_t, struct passwd**);
+#endif
 
   if (buffer == NULL || size == NULL || *size == 0)
     return -EINVAL;
@@ -1038,6 +1045,12 @@ int uv_os_homedir(char* buffer, size_t* size) {
 
     return 0;
   }
+
+#if defined(__ANDROID_API__) && __ANDROID_API__ < 21
+  getpwuid_r = dlsym(RTLD_DEFAULT, "getpwuid_r");
+  if (getpwuid_r == NULL)
+    return -ENOSYS;
+#endif
 
   /* HOME is not set, so call getpwuid() */
   initsize = sysconf(_SC_GETPW_R_SIZE_MAX);
@@ -1086,6 +1099,57 @@ int uv_os_homedir(char* buffer, size_t* size) {
   memcpy(buffer, pw.pw_dir, len + 1);
   *size = len;
   uv__free(buf);
+
+  return 0;
+}
+
+
+int uv_os_tmpdir(char* buffer, size_t* size) {
+  const char* buf;
+  size_t len;
+
+  if (buffer == NULL || size == NULL || *size == 0)
+    return -EINVAL;
+
+#define CHECK_ENV_VAR(name)                                                   \
+  do {                                                                        \
+    buf = getenv(name);                                                       \
+    if (buf != NULL)                                                          \
+      goto return_buffer;                                                     \
+  }                                                                           \
+  while (0)
+
+  /* Check the TMPDIR, TMP, TEMP, and TEMPDIR environment variables in order */
+  CHECK_ENV_VAR("TMPDIR");
+  CHECK_ENV_VAR("TMP");
+  CHECK_ENV_VAR("TEMP");
+  CHECK_ENV_VAR("TEMPDIR");
+
+#undef CHECK_ENV_VAR
+
+  /* No temp environment variables defined */
+  #if defined(__ANDROID__)
+    buf = "/data/local/tmp";
+  #else
+    buf = "/tmp";
+  #endif
+
+return_buffer:
+  len = strlen(buf);
+
+  if (len >= *size) {
+    *size = len;
+    return -ENOBUFS;
+  }
+
+  /* The returned directory should not have a trailing slash. */
+  if (len > 1 && buf[len - 1] == '/') {
+    len--;
+  }
+
+  memcpy(buffer, buf, len + 1);
+  buffer[len] = '\0';
+  *size = len;
 
   return 0;
 }

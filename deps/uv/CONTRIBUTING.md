@@ -49,7 +49,7 @@ the [Google C/C++ style guide]. Some of the key points, as well as some
 additional guidelines, are enumerated below.
 
 * Code that is specific to unix-y platforms should be placed in `src/unix`, and
-  declarations go into `src/uv-unix.h`.
+  declarations go into `include/uv-unix.h`.
 
 * Source code that is Windows-specific goes into `src/win`, and related
   publicly exported types, functions and macro declarations should generally
@@ -138,7 +138,10 @@ $ git rebase upstream/v1.x  # or upstream/master
 ### TEST
 
 Bug fixes and features should come with tests.  Add your tests in the
-`test/` directory. Tests also need to be registered in `test/test-list.h`.
+`test/` directory. Each new test needs to be registered in `test/test-list.h`. If you add a new test file, it needs to be registered in two places:
+- `Makefile.am`: add the file's name to the `test_run_tests_SOURCES` list.
+- `uv.gyp`: add the file's name to the `sources` list in the `run-tests` target.
+
 Look at other tests to see how they should be structured (license boilerplate,
 the way entry points are declared, etc.).
 

@@ -23,6 +23,7 @@ static void S_out(cmark_renderer *renderer, const char *source, bool wrap,
   unsigned char nextc;
   int32_t c;
   int i = 0;
+  int last_nonspace;
   int len;
   cmark_chunk remainder = cmark_chunk_literal("");
   int k = renderer->buffer->size - 1;
@@ -44,6 +45,7 @@ static void S_out(cmark_renderer *renderer, const char *source, bool wrap,
     }
     renderer->column = 0;
     renderer->begin_line = true;
+    renderer->begin_content = true;
     renderer->need_cr -= 1;
   }
 
@@ -62,13 +64,19 @@ static void S_out(cmark_renderer *renderer, const char *source, bool wrap,
     nextc = source[i + len];
     if (c == 32 && wrap) {
       if (!renderer->begin_line) {
+        last_nonspace = renderer->buffer->size;
         cmark_strbuf_putc(renderer->buffer, ' ');
         renderer->column += 1;
         renderer->begin_line = false;
-        renderer->last_breakable = renderer->buffer->size - 1;
+        renderer->begin_content = false;
         // skip following spaces
         while (source[i + 1] == ' ') {
           i++;
+        }
+        // We don't allow breaks that make a digit the first character
+        // because this causes problems with commonmark output.
+        if (!cmark_isdigit(source[i + 1])) {
+          renderer->last_breakable = last_nonspace;
         }
       }
 
@@ -76,13 +84,22 @@ static void S_out(cmark_renderer *renderer, const char *source, bool wrap,
       cmark_strbuf_putc(renderer->buffer, '\n');
       renderer->column = 0;
       renderer->begin_line = true;
+      renderer->begin_content = true;
       renderer->last_breakable = 0;
     } else if (escape == LITERAL) {
       cmark_render_code_point(renderer, c);
       renderer->begin_line = false;
+      // we don't set 'begin_content' to false til we've
+      // finished parsing a digit.  Reason:  in commonmark
+      // we need to escape a potential list marker after
+      // a digit:
+      renderer->begin_content =
+          renderer->begin_content && cmark_isdigit(c) == 1;
     } else {
       (renderer->outc)(renderer, escape, c, nextc);
       renderer->begin_line = false;
+      renderer->begin_content =
+          renderer->begin_content && cmark_isdigit(c) == 1;
     }
 
     // If adding the character went beyond width, look for an
@@ -104,6 +121,7 @@ static void S_out(cmark_renderer *renderer, const char *source, bool wrap,
       cmark_chunk_free(&remainder);
       renderer->last_breakable = 0;
       renderer->begin_line = false;
+      renderer->begin_content = false;
     }
 
     i += len;
@@ -135,8 +153,9 @@ char *cmark_render(cmark_node *root, int options, int width,
   char *result;
   cmark_iter *iter = cmark_iter_new(root);
 
-  cmark_renderer renderer = {&buf,  &pref, 0,    width, 0,           0,    true,
-                             false, false, outc, S_cr,  S_blankline, S_out};
+  cmark_renderer renderer = {&buf, &pref, 0,           width, 0,
+                             0,    true,  true,        false, false,
+                             outc, S_cr,  S_blankline, S_out};
 
   while ((ev_type = cmark_iter_next(iter)) != CMARK_EVENT_DONE) {
     cur = cmark_iter_get_node(iter);

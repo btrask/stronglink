@@ -39,7 +39,7 @@
 #define HAVE_IFADDRS_H 1
 
 #ifdef __UCLIBC__
-# if __UCLIBC_MAJOR__ < 0 || __UCLIBC_MINOR__ < 9 || __UCLIBC_SUBLEVEL__ < 32
+# if __UCLIBC_MAJOR__ < 0 && __UCLIBC_MINOR__ < 9 && __UCLIBC_SUBLEVEL__ < 32
 #  undef HAVE_IFADDRS_H
 # endif
 #endif
@@ -52,7 +52,7 @@
 # endif
 # include <sys/socket.h>
 # include <net/ethernet.h>
-# include <linux/if_packet.h>
+# include <netpacket/packet.h>
 #endif /* HAVE_IFADDRS_H */
 
 /* Available from 2.6.32 onwards. */
@@ -137,6 +137,26 @@ void uv__platform_invalidate_fd(uv_loop_t* loop, int fd) {
     memset(&dummy, 0, sizeof(dummy));
     uv__epoll_ctl(loop->backend_fd, UV__EPOLL_CTL_DEL, fd, &dummy);
   }
+}
+
+
+int uv__io_check_fd(uv_loop_t* loop, int fd) {
+  struct uv__epoll_event e;
+  int rc;
+
+  e.events = UV__EPOLLIN;
+  e.data = -1;
+
+  rc = 0;
+  if (uv__epoll_ctl(loop->backend_fd, UV__EPOLL_CTL_ADD, fd, &e))
+    if (errno != EEXIST)
+      rc = -errno;
+
+  if (rc == 0)
+    if (uv__epoll_ctl(loop->backend_fd, UV__EPOLL_CTL_DEL, fd, &e))
+      abort();
+
+  return rc;
 }
 
 
@@ -814,8 +834,10 @@ int uv_interface_addresses(uv_interface_address_t** addresses,
     return 0;
 
   *addresses = uv__malloc(*count * sizeof(**addresses));
-  if (!(*addresses))
+  if (!(*addresses)) {
+    freeifaddrs(addrs);
     return -ENOMEM;
+  }
 
   address = *addresses;
 

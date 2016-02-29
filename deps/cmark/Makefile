@@ -14,13 +14,12 @@ ALLTESTS=alltests.md
 NUMRUNS?=10
 CMARK=$(BUILDDIR)/src/cmark
 PROG?=$(CMARK)
-BENCHINP?=README.md
 VERSION?=$(SPECVERSION)
 RELEASE?=CommonMark-$(VERSION)
 INSTALL_PREFIX?=/usr/local
 CLANG_CHECK?=clang-check
 
-.PHONY: all cmake_build spec leakcheck clean fuzztest dingus upload test update-site upload-site debug ubsan asan mingw archive bench format update-spec afl clang-check
+.PHONY: all cmake_build leakcheck clean fuzztest test debug ubsan asan mingw archive bench format update-spec afl clang-check
 
 all: cmake_build man/man3/cmark.3
 
@@ -107,9 +106,8 @@ $(SRCDIR)/case_fold_switch.inc: $(DATADIR)/CaseFolding-3.2.0.txt
 # normally need to be generated.
 $(SRCDIR)/scanners.c: $(SRCDIR)/scanners.re
 	@case "$$(re2c -v)" in \
-	    *\ 0.13.7*|*\ 0.14|*\ 0.14.1) \
-		echo "re2c versions 0.13.7 through 0.14.1 are known to produce buggy code."; \
-		echo "Try a version >= 0.14.2 or <= 0.13.6."; \
+	    *\ 0.13.*|*\ 0.14|*\ 0.14.1) \
+		echo "re2c >= 0.14.2 is required"; \
 		false; \
 		;; \
 	esac
@@ -128,9 +126,6 @@ update-spec:
 
 test: $(SPEC) cmake_build
 	make -C $(BUILDDIR) test || (cat $(BUILDDIR)/Testing/Temporary/LastTest.log && exit 1)
-
-roundtrip_test: $(SPEC) cmake_build
-	python3 test/spec_tests.py --spec $< --prog test/roundtrip.sh
 
 $(ALLTESTS): $(SPEC)
 	python3 test/spec_tests.py --spec $< --dump-tests | python3 -c 'import json; import sys; tests = json.loads(sys.stdin.read()); print("\n".join([test["markdown"] for test in tests]))' > $@
@@ -154,25 +149,28 @@ fuzztest:
 progit:
 	git clone https://github.com/progit/progit.git
 
-$(BENCHDIR)/benchinput.md: progit
+$(BENCHFILE): progit
 	echo "" > $@
 	for lang in ar az be ca cs de en eo es es-ni fa fi fr hi hu id it ja ko mk nl no-nb pl pt-br ro ru sr th tr uk vi zh zh-tw; do \
-		cat progit/$$lang/*/*.markdown >> $@; \
+		for i in `seq 1 10`; do \
+			cat progit/$$lang/*/*.markdown >> $@; \
+		done; \
 	done
 
+# for more accurate results, run with
+# sudo renice -10 $$; make bench
 bench: $(BENCHFILE)
-	{ sudo renice -10 $$$$; \
-	  for x in `seq 1 $(NUMRUNS)` ; do \
-	  /usr/bin/env time -p $(PROG) </dev/null >/dev/null ; \
-	  /usr/bin/env time -p $(PROG) $< >/dev/null ; \
-		  done \
+	{ for x in `seq 1 $(NUMRUNS)` ; do \
+		/usr/bin/env time -p $(PROG) </dev/null >/dev/null ; \
+		/usr/bin/env time -p $(PROG) $< >/dev/null ; \
+		done \
 	} 2>&1  | grep 'real' | awk '{print $$2}' | python3 'bench/stats.py'
 
 format:
-	clang-format -style llvm -i src/*.c src/*.h
+	clang-format -style llvm -i src/*.c src/*.h api_test/*.c api_test/*.h
 
 operf: $(CMARK)
-	operf $< < $(BENCHINP) > /dev/null
+	operf $< < $(BENCHFILE) > /dev/null
 
 distclean: clean
 	-rm -rf *.dSYM

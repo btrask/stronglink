@@ -19,13 +19,20 @@
 # read mdb.c before changing any of them.
 #
 CC	= gcc
+AR	= ar
 W	= -W -Wall -Wno-unused-parameter -Wbad-function-cast -Wuninitialized
 THREADS = -pthread
 OPT = -O2 -g
 CFLAGS	= $(THREADS) $(OPT) $(W) $(XCFLAGS)
-LDLIBS	=
-SOLIBS	=
+LDLIBS	= # -lntdll # Windows needs ntdll
+SOLIBS	= # -lntdll
 prefix	= /usr/local
+exec_prefix = $(prefix)
+bindir = $(exec_prefix)/bin
+libdir = $(exec_prefix)/lib
+includedir = $(prefix)/include
+datarootdir = $(prefix)/share
+mandir = $(datarootdir)/man
 
 ########################################################################
 
@@ -37,14 +44,14 @@ PROGS	= $(IPROGS) mtest mtest2 mtest3 mtest4 mtest5
 all:	$(ILIBS) $(PROGS)
 
 install: $(ILIBS) $(IPROGS) $(IHDRS)
-	mkdir -p $(DESTDIR)$(prefix)/bin
-	mkdir -p $(DESTDIR)$(prefix)/lib
-	mkdir -p $(DESTDIR)$(prefix)/include
-	mkdir -p $(DESTDIR)$(prefix)/man/man1
-	for f in $(IPROGS); do cp $$f $(DESTDIR)$(prefix)/bin; done
-	for f in $(ILIBS); do cp $$f $(DESTDIR)$(prefix)/lib; done
-	for f in $(IHDRS); do cp $$f $(DESTDIR)$(prefix)/include; done
-	for f in $(IDOCS); do cp $$f $(DESTDIR)$(prefix)/man/man1; done
+	mkdir -p $(DESTDIR)$(bindir)
+	mkdir -p $(DESTDIR)$(libdir)
+	mkdir -p $(DESTDIR)$(includedir)
+	mkdir -p $(DESTDIR)$(mandir)/man1
+	for f in $(IPROGS); do cp $$f $(DESTDIR)$(bindir); done
+	for f in $(ILIBS); do cp $$f $(DESTDIR)$(libdir); done
+	for f in $(IHDRS); do cp $$f $(DESTDIR)$(includedir); done
+	for f in $(IDOCS); do cp $$f $(DESTDIR)$(mandir)/man1; done
 
 clean:
 	rm -rf $(PROGS) *.[ao] *.[ls]o *~ testdb
@@ -54,7 +61,7 @@ test:	all
 	./mtest && ./mdb_stat testdb
 
 liblmdb.a:	mdb.o midl.o
-	ar rs $@ mdb.o midl.o
+	$(AR) rs $@ mdb.o midl.o
 
 liblmdb.so:	mdb.lo midl.lo
 #	$(CC) $(LDFLAGS) -pthread -shared -Wl,-Bsymbolic -o $@ mdb.o midl.o $(SOLIBS)

@@ -56,6 +56,7 @@ There are also libraries that wrap `libcmark` for
 [go](https://github.com/rhinoman/go-commonmark),
 [Haskell](http://hackage.haskell.org/package/cmark),
 [ruby](https://github.com/gjtorikian/commonmarker),
+[lua](https://github.com/jgm/cmark-lua),
 [Perl](https://metacpan.org/release/CommonMark), and
 [R](http://cran.r-project.org/package=commonmark).
 
@@ -64,7 +65,7 @@ Installing
 
 Building the C program (`cmark`) and shared library (`libcmark`)
 requires [cmake].  If you modify `scanners.re`, then you will also
-need [re2c], which is used to generate `scanners.c` from
+need [re2c] (>= 0.14.2), which is used to generate `scanners.c` from
 `scanners.re`.  We have included a pre-generated `scanners.c` in
 the repository to reduce build dependencies.
 

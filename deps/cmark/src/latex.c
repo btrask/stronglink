@@ -142,7 +142,13 @@ static inline void outc(cmark_renderer *renderer, cmark_escaping escape,
   }
 }
 
-typedef enum { NO_LINK, URL_AUTOLINK, EMAIL_AUTOLINK, NORMAL_LINK } link_type;
+typedef enum {
+  NO_LINK,
+  URL_AUTOLINK,
+  EMAIL_AUTOLINK,
+  NORMAL_LINK,
+  INTERNAL_LINK
+} link_type;
 
 static link_type get_link_type(cmark_node *node) {
   size_t title_len, url_len;
@@ -158,6 +164,10 @@ static link_type get_link_type(cmark_node *node) {
   const char *url = cmark_node_get_url(node);
   cmark_chunk url_chunk = cmark_chunk_literal(url);
 
+  if (url && *url == '#') {
+    return INTERNAL_LINK;
+  }
+
   url_len = safe_strlen(url);
   if (url_len == 0 || scan_scheme(&url_chunk, 0) == 0) {
     return NO_LINK;
@@ -166,30 +176,29 @@ static link_type get_link_type(cmark_node *node) {
   const char *title = cmark_node_get_title(node);
   title_len = safe_strlen(title);
   // if it has a title, we can't treat it as an autolink:
-  if (title_len > 0) {
-    return NORMAL_LINK;
+  if (title_len == 0) {
+
+    link_text = node->first_child;
+    cmark_consolidate_text_nodes(link_text);
+    realurl = (char *)url;
+    realurllen = url_len;
+    if (strncmp(realurl, "mailto:", 7) == 0) {
+      realurl += 7;
+      realurllen -= 7;
+      isemail = true;
+    }
+    if (realurllen == link_text->as.literal.len &&
+        strncmp(realurl, (char *)link_text->as.literal.data,
+                link_text->as.literal.len) == 0) {
+      if (isemail) {
+        return EMAIL_AUTOLINK;
+      } else {
+        return URL_AUTOLINK;
+      }
+    }
   }
 
-  link_text = node->first_child;
-  cmark_consolidate_text_nodes(link_text);
-  realurl = (char *)url;
-  realurllen = url_len;
-  if (strncmp(realurl, "mailto:", 7) == 0) {
-    realurl += 7;
-    realurllen -= 7;
-    isemail = true;
-  }
-  if (realurllen == link_text->as.literal.len &&
-      strncmp(realurl, (char *)link_text->as.literal.data,
-              link_text->as.literal.len) == 0) {
-    if (isemail) {
-      return EMAIL_AUTOLINK;
-    } else {
-      return URL_AUTOLINK;
-    }
-  } else {
-    return NORMAL_LINK;
-  }
+  return NORMAL_LINK;
 }
 
 static int S_get_enumlevel(cmark_node *node) {
@@ -208,7 +217,8 @@ static int S_get_enumlevel(cmark_node *node) {
 static int S_render_node(cmark_renderer *renderer, cmark_node *node,
                          cmark_event_type ev_type, int options) {
   int list_number;
-  char list_number_string[20];
+  const size_t LIST_NUMBER_STRING_SIZE = 20;
+  char list_number_string[LIST_NUMBER_STRING_SIZE];
   bool entering = (ev_type == CMARK_EVENT_ENTER);
   cmark_list_type list_type;
   const char *roman_numerals[] = {"",   "i",   "ii",   "iii", "iv", "v",
@@ -240,7 +250,8 @@ static int S_render_node(cmark_renderer *renderer, cmark_node *node,
       CR();
       list_number = cmark_node_get_list_start(node);
       if (list_number > 1) {
-        sprintf(list_number_string, "%d", list_number);
+        snprintf(list_number_string, LIST_NUMBER_STRING_SIZE, "%d",
+                 list_number);
         LIT("\\setcounter{enum");
         LIT((char *)roman_numerals[S_get_enumlevel(node)]);
         LIT("}{");
@@ -264,9 +275,9 @@ static int S_render_node(cmark_renderer *renderer, cmark_node *node,
     }
     break;
 
-  case CMARK_NODE_HEADER:
+  case CMARK_NODE_HEADING:
     if (entering) {
-      switch (cmark_node_get_header_level(node)) {
+      switch (cmark_node_get_heading_level(node)) {
       case 1:
         LIT("\\section");
         break;
@@ -300,10 +311,17 @@ static int S_render_node(cmark_renderer *renderer, cmark_node *node,
     BLANKLINE();
     break;
 
-  case CMARK_NODE_HTML:
+  case CMARK_NODE_HTML_BLOCK:
     break;
 
-  case CMARK_NODE_HRULE:
+  case CMARK_NODE_CUSTOM_BLOCK:
+    CR();
+    OUT(entering ? cmark_node_get_on_enter(node) : cmark_node_get_on_exit(node),
+        false, LITERAL);
+    CR();
+    break;
+
+  case CMARK_NODE_THEMATIC_BREAK:
     BLANKLINE();
     LIT("\\begin{center}\\rule{0.5\\linewidth}{\\linethickness}\\end{center}");
     BLANKLINE();
@@ -338,7 +356,12 @@ static int S_render_node(cmark_renderer *renderer, cmark_node *node,
     LIT("}");
     break;
 
-  case CMARK_NODE_INLINE_HTML:
+  case CMARK_NODE_HTML_INLINE:
+    break;
+
+  case CMARK_NODE_CUSTOM_INLINE:
+    OUT(entering ? cmark_node_get_on_enter(node) : cmark_node_get_on_exit(node),
+        false, LITERAL);
     break;
 
   case CMARK_NODE_STRONG:
@@ -374,6 +397,11 @@ static int S_render_node(cmark_renderer *renderer, cmark_node *node,
       case NORMAL_LINK:
         LIT("\\href{");
         OUT(url, false, URL);
+        LIT("}{");
+        break;
+      case INTERNAL_LINK:
+        LIT("\\protect\\hyperlink{");
+        OUT(url + 1, false, URL);
         LIT("}{");
         break;
       case NO_LINK:

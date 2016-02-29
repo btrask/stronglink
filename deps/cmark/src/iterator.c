@@ -7,10 +7,10 @@
 #include "iterator.h"
 
 static const int S_leaf_mask =
-    (1 << CMARK_NODE_HTML) | (1 << CMARK_NODE_HRULE) |
+    (1 << CMARK_NODE_HTML_BLOCK) | (1 << CMARK_NODE_THEMATIC_BREAK) |
     (1 << CMARK_NODE_CODE_BLOCK) | (1 << CMARK_NODE_TEXT) |
     (1 << CMARK_NODE_SOFTBREAK) | (1 << CMARK_NODE_LINEBREAK) |
-    (1 << CMARK_NODE_CODE) | (1 << CMARK_NODE_INLINE_HTML);
+    (1 << CMARK_NODE_CODE) | (1 << CMARK_NODE_HTML_INLINE);
 
 cmark_iter *cmark_iter_new(cmark_node *root) {
   if (root == NULL) {
@@ -89,6 +89,9 @@ cmark_event_type cmark_iter_get_event_type(cmark_iter *iter) {
 cmark_node *cmark_iter_get_root(cmark_iter *iter) { return iter->root; }
 
 void cmark_consolidate_text_nodes(cmark_node *root) {
+  if (root == NULL) {
+    return;
+  }
   cmark_iter *iter = cmark_iter_new(root);
   cmark_strbuf buf = GH_BUF_INIT;
   cmark_event_type ev_type;

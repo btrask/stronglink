@@ -151,6 +151,7 @@ test_run_tests_SOURCES = test/blackhole-server.c \
                          test/test-default-loop-close.c \
                          test/test-delayed-accept.c \
                          test/test-dlerror.c \
+                         test/test-eintr-handling.c \
                          test/test-embed.c \
                          test/test-emfile.c \
                          test/test-error.c \
@@ -200,6 +201,7 @@ test_run_tests_SOURCES = test/blackhole-server.c \
                          test/test-poll-closesocket.c \
                          test/test-poll.c \
                          test/test-process-title.c \
+                         test/test-queue-foreach-delete.c \
                          test/test-ref.c \
                          test/test-run-nowait.c \
                          test/test-run-once.c \
@@ -241,6 +243,7 @@ test_run_tests_SOURCES = test/blackhole-server.c \
                          test/test-timer-again.c \
                          test/test-timer-from-check.c \
                          test/test-timer.c \
+                         test/test-tmpdir.c \
                          test/test-tty.c \
                          test/test-udp-bind.c \
                          test/test-udp-create-socket-early.c \
@@ -279,7 +282,8 @@ endif
 
 
 if AIX
-libuv_la_CFLAGS += -D_ALL_SOURCE -D_XOPEN_SOURCE=500 -D_LINUX_SOURCE_COMPAT
+libuv_la_CFLAGS += -D_ALL_SOURCE -D_XOPEN_SOURCE=500 -D_LINUX_SOURCE_COMPAT -D_THREAD_SAFE
+include_HEADERS += include/uv-aix.h
 libuv_la_SOURCES += src/unix/aix.c
 endif
 

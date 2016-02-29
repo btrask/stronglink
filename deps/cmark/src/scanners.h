@@ -21,9 +21,9 @@ bufsize_t _scan_html_block_end_5(const unsigned char *p);
 bufsize_t _scan_link_url(const unsigned char *p);
 bufsize_t _scan_link_title(const unsigned char *p);
 bufsize_t _scan_spacechars(const unsigned char *p);
-bufsize_t _scan_atx_header_start(const unsigned char *p);
-bufsize_t _scan_setext_header_line(const unsigned char *p);
-bufsize_t _scan_hrule(const unsigned char *p);
+bufsize_t _scan_atx_heading_start(const unsigned char *p);
+bufsize_t _scan_setext_heading_line(const unsigned char *p);
+bufsize_t _scan_thematic_break(const unsigned char *p);
 bufsize_t _scan_open_code_fence(const unsigned char *p);
 bufsize_t _scan_close_code_fence(const unsigned char *p);
 bufsize_t _scan_entity(const unsigned char *p);
@@ -43,9 +43,10 @@ bufsize_t _scan_dangerous_url(const unsigned char *p);
 #define scan_link_url(c, n) _scan_at(&_scan_link_url, c, n)
 #define scan_link_title(c, n) _scan_at(&_scan_link_title, c, n)
 #define scan_spacechars(c, n) _scan_at(&_scan_spacechars, c, n)
-#define scan_atx_header_start(c, n) _scan_at(&_scan_atx_header_start, c, n)
-#define scan_setext_header_line(c, n) _scan_at(&_scan_setext_header_line, c, n)
-#define scan_hrule(c, n) _scan_at(&_scan_hrule, c, n)
+#define scan_atx_heading_start(c, n) _scan_at(&_scan_atx_heading_start, c, n)
+#define scan_setext_heading_line(c, n)                                         \
+  _scan_at(&_scan_setext_heading_line, c, n)
+#define scan_thematic_break(c, n) _scan_at(&_scan_thematic_break, c, n)
 #define scan_open_code_fence(c, n) _scan_at(&_scan_open_code_fence, c, n)
 #define scan_close_code_fence(c, n) _scan_at(&_scan_close_code_fence, c, n)
 #define scan_entity(c, n) _scan_at(&_scan_entity, c, n)

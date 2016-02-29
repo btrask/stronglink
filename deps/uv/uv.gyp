@@ -92,6 +92,7 @@
             'src/win/req.c',
             'src/win/req-inl.h',
             'src/win/signal.c',
+            'src/win/snprintf.c',
             'src/win/stream.c',
             'src/win/stream-inl.h',
             'src/win/tcp.c',
@@ -240,6 +241,7 @@
             '_ALL_SOURCE',
             '_XOPEN_SOURCE=500',
             '_LINUX_SOURCE_COMPAT',
+            '_THREAD_SAFE',
           ],
           'link_settings': {
             'libraries': [
@@ -293,6 +295,7 @@
         'test/test-cwd-and-chdir.c',
         'test/test-default-loop-close.c',
         'test/test-delayed-accept.c',
+        'test/test-eintr-handling.c',
         'test/test-error.c',
         'test/test-embed.c',
         'test/test-emfile.c',
@@ -340,6 +343,7 @@
         'test/test-poll-close-doesnt-corrupt-stack.c',
         'test/test-poll-closesocket.c',
         'test/test-process-title.c',
+        'test/test-queue-foreach-delete.c',
         'test/test-ref.c',
         'test/test-run-nowait.c',
         'test/test-run-once.c',
@@ -378,6 +382,7 @@
         'test/test-threadpool.c',
         'test/test-threadpool-cancel.c',
         'test/test-thread-equal.c',
+        'test/test-tmpdir.c',
         'test/test-mutexes.c',
         'test/test-thread.c',
         'test/test-barrier.c',
@@ -409,7 +414,8 @@
         [ 'OS=="win"', {
           'sources': [
             'test/runner-win.c',
-            'test/runner-win.h'
+            'test/runner-win.h',
+            'src/win/snprintf.c',
           ],
           'libraries': [ '-lws2_32' ]
         }, { # POSIX
@@ -477,6 +483,7 @@
           'sources': [
             'test/runner-win.c',
             'test/runner-win.h',
+            'src/win/snprintf.c',
           ],
           'libraries': [ '-lws2_32' ]
         }, { # POSIX

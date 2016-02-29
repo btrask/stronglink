@@ -1,4 +1,4 @@
-.TH cmark 3 "November 02, 2015" "LOCAL" "Library Functions Manual"
+.TH cmark 3 "February 28, 2016" "LOCAL" "Library Functions Manual"
 .SH
 NAME
 .PP
@@ -14,11 +14,85 @@ Simple Interface
 
 .PP
 Convert \f[I]text\f[] (assumed to be a UTF\-8 encoded string with length
-\f[I]len\f[] from CommonMark Markdown to HTML, returning a
+\f[I]len\f[]) from CommonMark Markdown to HTML, returning a
 null\-terminated, UTF\-8\-encoded string.
 
 .SS
 Node Structure
+
+.PP
+.nf
+\fC
+.RS 0n
+typedef enum {
+  /* Error status */
+  CMARK_NODE_NONE,
+
+  /* Block */
+  CMARK_NODE_DOCUMENT,
+  CMARK_NODE_BLOCK_QUOTE,
+  CMARK_NODE_LIST,
+  CMARK_NODE_ITEM,
+  CMARK_NODE_CODE_BLOCK,
+  CMARK_NODE_HTML_BLOCK,
+  CMARK_NODE_CUSTOM_BLOCK,
+  CMARK_NODE_PARAGRAPH,
+  CMARK_NODE_HEADING,
+  CMARK_NODE_THEMATIC_BREAK,
+
+  CMARK_NODE_FIRST_BLOCK = CMARK_NODE_DOCUMENT,
+  CMARK_NODE_LAST_BLOCK = CMARK_NODE_THEMATIC_BREAK,
+
+  /* Inline */
+  CMARK_NODE_TEXT,
+  CMARK_NODE_SOFTBREAK,
+  CMARK_NODE_LINEBREAK,
+  CMARK_NODE_CODE,
+  CMARK_NODE_HTML_INLINE,
+  CMARK_NODE_CUSTOM_INLINE,
+  CMARK_NODE_EMPH,
+  CMARK_NODE_STRONG,
+  CMARK_NODE_LINK,
+  CMARK_NODE_IMAGE,
+
+  CMARK_NODE_FIRST_INLINE = CMARK_NODE_TEXT,
+  CMARK_NODE_LAST_INLINE = CMARK_NODE_IMAGE,
+} cmark_node_type;
+.RE
+\f[]
+.fi
+
+
+
+.PP
+.nf
+\fC
+.RS 0n
+typedef enum {
+  CMARK_NO_LIST,
+  CMARK_BULLET_LIST,
+  CMARK_ORDERED_LIST
+} cmark_list_type;
+.RE
+\f[]
+.fi
+
+
+
+.PP
+.nf
+\fC
+.RS 0n
+typedef enum {
+  CMARK_NO_DELIM,
+  CMARK_PERIOD_DELIM,
+  CMARK_PAREN_DELIM
+} cmark_delim_type;
+.RE
+\f[]
+.fi
+
+
 
 .SS
 Creating and Destroying Nodes
@@ -88,7 +162,7 @@ of \f[C]CMARK_EVENT_EXIT\f[]). The iterator will return
 natural application is an HTML renderer, where an \f[C]ENTER\f[] event
 outputs an open tag and an \f[C]EXIT\f[] event outputs a close tag. An
 iterator might also be used to transform an AST in some systematic way,
-for example, turning all level\-3 headers into regular paragraphs.
+for example, turning all level\-3 headings into regular paragraphs.
 .IP
 .nf
 \f[C]
@@ -110,9 +184,9 @@ usage_example(cmark_node *root) {
 Iterators will never return \f[C]EXIT\f[] events for leaf nodes, which
 are nodes of type:
 .IP \[bu] 2
-CMARK_NODE_HTML
+CMARK_NODE_HTML_BLOCK
 .IP \[bu] 2
-CMARK_NODE_HRULE
+CMARK_NODE_THEMATIC_BREAK
 .IP \[bu] 2
 CMARK_NODE_CODE_BLOCK
 .IP \[bu] 2
@@ -124,10 +198,26 @@ CMARK_NODE_LINEBREAK
 .IP \[bu] 2
 CMARK_NODE_CODE
 .IP \[bu] 2
-CMARK_NODE_INLINE_HTML
+CMARK_NODE_HTML_INLINE
 .PP
 Nodes must only be modified after an \f[C]EXIT\f[] event, or an
 \f[C]ENTER\f[] event for leaf nodes.
+
+.PP
+.nf
+\fC
+.RS 0n
+typedef enum {
+  CMARK_EVENT_NONE,
+  CMARK_EVENT_DONE,
+  CMARK_EVENT_ENTER,
+  CMARK_EVENT_EXIT
+} cmark_event_type;
+.RE
+\f[]
+.fi
+
+
 
 .PP
 \fIcmark_iter *\f[] \fBcmark_iter_new\f[](\fIcmark_node *root\f[])
@@ -210,7 +300,8 @@ of the type, or \f[C]"<unknown>"\f[].
 \fIconst char *\f[] \fBcmark_node_get_literal\f[](\fIcmark_node *node\f[])
 
 .PP
-Returns the string contents of \f[I]node\f[], or NULL if none.
+Returns the string contents of \f[I]node\f[], or an empty string if none
+is set.
 
 .PP
 \fIint\f[] \fBcmark_node_set_literal\f[](\fIcmark_node *node\f[], \fIconst char *content\f[])
@@ -220,17 +311,17 @@ Sets the string contents of \f[I]node\f[]. Returns 1 on success, 0 on
 failure.
 
 .PP
-\fIint\f[] \fBcmark_node_get_header_level\f[](\fIcmark_node *node\f[])
+\fIint\f[] \fBcmark_node_get_heading_level\f[](\fIcmark_node *node\f[])
 
 .PP
-Returns the header level of \f[I]node\f[], or 0 if \f[I]node\f[] is not
-a header.
+Returns the heading level of \f[I]node\f[], or 0 if \f[I]node\f[] is not
+a heading.
 
 .PP
-\fIint\f[] \fBcmark_node_set_header_level\f[](\fIcmark_node *node\f[], \fIint level\f[])
+\fIint\f[] \fBcmark_node_set_heading_level\f[](\fIcmark_node *node\f[], \fIint level\f[])
 
 .PP
-Sets the header level of \f[I]node\f[], returning 1 on success and 0 on
+Sets the heading level of \f[I]node\f[], returning 1 on success and 0 on
 error.
 
 .PP
@@ -272,8 +363,8 @@ otherwise 0.
 \fIint\f[] \fBcmark_node_set_list_start\f[](\fIcmark_node *node\f[], \fIint start\f[])
 
 .PP
-Sets starting number of \f[I]node\f[], if it is an ordered list. Returns
-1 on success, 0 on failure.
+Sets starting number of \f[I]node\f[], if it is an ordered list.
+Returns 1 on success, 0 on failure.
 
 .PP
 \fIint\f[] \fBcmark_node_get_list_tight\f[](\fIcmark_node *node\f[])
@@ -291,20 +382,21 @@ Sets the "tightness" of a list. Returns 1 on success, 0 on failure.
 \fIconst char *\f[] \fBcmark_node_get_fence_info\f[](\fIcmark_node *node\f[])
 
 .PP
-Returns the info string from a fenced code block, or NULL if none.
+Returns the info string from a fenced code block.
 
 .PP
 \fIint\f[] \fBcmark_node_set_fence_info\f[](\fIcmark_node *node\f[], \fIconst char *info\f[])
 
 .PP
-Sets the info string in a fenced code block, returning 1 on success and
-0 on failure.
+Sets the info string in a fenced code block, returning 1 on success
+and 0 on failure.
 
 .PP
 \fIconst char *\f[] \fBcmark_node_get_url\f[](\fIcmark_node *node\f[])
 
 .PP
-Gets the URL of a link or image \f[I]node\f[], or NULL if none.
+Returns the URL of a link or image \f[I]node\f[], or an empty string if
+no URL is set.
 
 .PP
 \fIint\f[] \fBcmark_node_set_url\f[](\fIcmark_node *node\f[], \fIconst char *url\f[])
@@ -317,7 +409,8 @@ on failure.
 \fIconst char *\f[] \fBcmark_node_get_title\f[](\fIcmark_node *node\f[])
 
 .PP
-Gets the title of a link or image \f[I]node\f[], or NULL if none.
+Returns the title of a link or image \f[I]node\f[], or an empty string
+if no title is set.
 
 .PP
 \fIint\f[] \fBcmark_node_set_title\f[](\fIcmark_node *node\f[], \fIconst char *title\f[])
@@ -325,6 +418,36 @@ Gets the title of a link or image \f[I]node\f[], or NULL if none.
 .PP
 Sets the title of a link or image \f[I]node\f[]. Returns 1 on success, 0
 on failure.
+
+.PP
+\fIconst char *\f[] \fBcmark_node_get_on_enter\f[](\fIcmark_node *node\f[])
+
+.PP
+Returns the literal "on enter" text for a custom \f[I]node\f[], or an
+empty string if no on_enter is set.
+
+.PP
+\fIint\f[] \fBcmark_node_set_on_enter\f[](\fIcmark_node *node\f[], \fIconst char *on_enter\f[])
+
+.PP
+Sets the literal text to render "on enter" for a custom \f[I]node\f[].
+Any children of the node will be rendered after this text. Returns 1 on
+success 0 on failure.
+
+.PP
+\fIconst char *\f[] \fBcmark_node_get_on_exit\f[](\fIcmark_node *node\f[])
+
+.PP
+Returns the literal "on exit" text for a custom \f[I]node\f[], or an
+empty string if no on_exit is set.
+
+.PP
+\fIint\f[] \fBcmark_node_set_on_exit\f[](\fIcmark_node *node\f[], \fIconst char *on_exit\f[])
+
+.PP
+Sets the literal text to render "on exit" for a custom \f[I]node\f[].
+Any children of the node will be rendered before this text. Returns 1 on
+success 0 on failure.
 
 .PP
 \fIint\f[] \fBcmark_node_get_start_line\f[](\fIcmark_node *node\f[])
@@ -375,6 +498,14 @@ Inserts \f[I]sibling\f[] after \f[I]node\f[]. Returns 1 on success, 0 on
 failure.
 
 .PP
+\fIint\f[] \fBcmark_node_replace\f[](\fIcmark_node *oldnode\f[], \fIcmark_node *newnode\f[])
+
+.PP
+Replaces \f[I]oldnode\f[] with \f[I]newnode\f[] and unlinks
+\f[I]oldnode\f[] (but does not free its memory). Returns 1 on success, 0
+on failure.
+
+.PP
 \fIint\f[] \fBcmark_node_prepend_child\f[](\fIcmark_node *node\f[], \fIcmark_node *child\f[])
 
 .PP
@@ -385,8 +516,8 @@ Returns 1 on success, 0 on failure.
 \fIint\f[] \fBcmark_node_append_child\f[](\fIcmark_node *node\f[], \fIcmark_node *child\f[])
 
 .PP
-Adds \f[I]child\f[] to the end of the children of \f[I]node\f[]. Returns
-1 on success, 0 on failure.
+Adds \f[I]child\f[] to the end of the children of \f[I]node\f[].
+Returns 1 on success, 0 on failure.
 
 .PP
 \fIvoid\f[] \fBcmark_consolidate_text_nodes\f[](\fIcmark_node *root\f[])
@@ -495,6 +626,9 @@ Render a \f[I]node\f[] tree as a commonmark document.
 .PP
 Render a \f[I]node\f[] tree as a LaTeX document.
 
+.SS
+Options
+
 .PP
 .nf
 \fC
@@ -505,13 +639,16 @@ Render a \f[I]node\f[] tree as a LaTeX document.
 .fi
 
 .PP
-Default writer options.
+Default options.
+
+.SS
+Options affecting rendering
 
 .PP
 .nf
 \fC
 .RS 0n
-#define CMARK_OPT_SOURCEPOS 1
+#define CMARK_OPT_SOURCEPOS (1 << 1)
 .RE
 \f[]
 .fi
@@ -523,7 +660,7 @@ Include a \f[C]data\-sourcepos\f[] attribute on all block elements.
 .nf
 \fC
 .RS 0n
-#define CMARK_OPT_HARDBREAKS 2
+#define CMARK_OPT_HARDBREAKS (1 << 2)
 .RE
 \f[]
 .fi
@@ -535,7 +672,26 @@ Render \f[C]softbreak\f[] elements as hard line breaks.
 .nf
 \fC
 .RS 0n
-#define CMARK_OPT_NORMALIZE 4
+#define CMARK_OPT_SAFE (1 << 3)
+.RE
+\f[]
+.fi
+
+.PP
+Suppress raw HTML and unsafe links (\f[C]javascript:\f[],
+\f[C]vbscript:\f[], \f[C]file:\f[], and \f[C]data:\f[], except for
+\f[C]image/png\f[], \f[C]image/gif\f[], \f[C]image/jpeg\f[], or
+\f[C]image/webp\f[] mime types). Raw HTML is replaced by a placeholder
+HTML comment. Unsafe links are replaced by empty strings.
+
+.SS
+Options affecting parsing
+
+.PP
+.nf
+\fC
+.RS 0n
+#define CMARK_OPT_NORMALIZE (1 << 8)
 .RE
 \f[]
 .fi
@@ -547,20 +703,7 @@ Normalize tree by consolidating adjacent text nodes.
 .nf
 \fC
 .RS 0n
-#define CMARK_OPT_SMART 8
-.RE
-\f[]
-.fi
-
-.PP
-Convert straight quotes to curly, \-\-\- to em dashes, \-\- to en
-dashes.
-
-.PP
-.nf
-\fC
-.RS 0n
-#define CMARK_OPT_VALIDATE_UTF8 16
+#define CMARK_OPT_VALIDATE_UTF8 (1 << 9)
 .RE
 \f[]
 .fi
@@ -573,17 +716,14 @@ with the replacement character U+FFFD.
 .nf
 \fC
 .RS 0n
-#define CMARK_OPT_SAFE 32
+#define CMARK_OPT_SMART (1 << 10)
 .RE
 \f[]
 .fi
 
 .PP
-Suppress raw HTML and unsafe links (\f[C]javascript:\f[],
-\f[C]vbscript:\f[], \f[C]file:\f[], and \f[C]data:\f[], except for
-\f[C]image/png\f[], \f[C]image/gif\f[], \f[C]image/jpeg\f[], or
-\f[C]image/webp\f[] mime types). Raw HTML is replaced by a placeholder
-HTML comment. Unsafe links are replaced by empty strings.
+Convert straight quotes to curly, \-\-\- to em dashes, \-\- to en
+dashes.
 
 .SS
 Version information
