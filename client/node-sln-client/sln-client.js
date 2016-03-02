@@ -119,6 +119,7 @@ sln.Repo = Repo;
 function Repo(url, session) {
 	var obj = urlmodule.parse(url);
 	var repo = this;
+	repo.url = url;
 	repo.hostname = obj.hostname;
 	repo.port = obj.port;
 	repo.path = obj.pathname; // pathname excludes query string
