@@ -1,4 +1,4 @@
-/* $OpenBSD: tasn_enc.c,v 1.16 2015/02/14 15:23:57 miod Exp $ */
+/* $OpenBSD: tasn_enc.c,v 1.17 2015/12/22 08:44:44 mmcc Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 2000.
  */
@@ -603,9 +603,7 @@ asn1_ex_i2c(ASN1_VALUE **pval, unsigned char *cout, int *putype,
 		break;
 
 	case V_ASN1_INTEGER:
-	case V_ASN1_NEG_INTEGER:
 	case V_ASN1_ENUMERATED:
-	case V_ASN1_NEG_ENUMERATED:
 		/* These are all have the same content format
 		 * as ASN1_INTEGER
 		 */

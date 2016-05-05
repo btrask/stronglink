@@ -5,8 +5,8 @@ bin_PROGRAMS = openssl
 dist_man_MANS = openssl.1
 
 openssl_LDADD = $(PLATFORM_LDADD) $(PROG_LDADD)
-openssl_LDADD += $(top_builddir)/ssl/libssl.la
-openssl_LDADD += $(top_builddir)/crypto/libcrypto.la
+openssl_LDADD += $(abs_top_builddir)/ssl/libssl.la
+openssl_LDADD += $(abs_top_builddir)/crypto/libcrypto.la
 
 openssl_SOURCES = apps.c
 openssl_SOURCES += asn1pars.c
@@ -89,6 +89,7 @@ noinst_HEADERS += timeouts.h
 EXTRA_DIST = cert.pem
 EXTRA_DIST += openssl.cnf
 EXTRA_DIST += x509v3.cnf
+EXTRA_DIST += CMakeLists.txt
 
 install-exec-hook:
 	@if [ "@OPENSSLDIR@x" != "x" ]; then \

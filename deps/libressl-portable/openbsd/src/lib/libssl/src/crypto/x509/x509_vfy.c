@@ -1,4 +1,4 @@
-/* $OpenBSD: x509_vfy.c,v 1.47 2015/10/19 16:32:37 beck Exp $ */
+/* $OpenBSD: x509_vfy.c,v 1.48 2015/12/14 03:38:13 beck Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -388,8 +388,7 @@ end:
 	}
 	if (sktmp != NULL)
 		sk_X509_free(sktmp);
-	if (chain_ss != NULL)
-		X509_free(chain_ss);
+	X509_free(chain_ss);
 	return ok;
 }
 

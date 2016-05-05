@@ -1237,6 +1237,30 @@ install-data-hook:
 	ln -sf SSL_want.3 $(DESTDIR)$(mandir)/man3/SSL_want_read.3
 	ln -sf SSL_want.3 $(DESTDIR)$(mandir)/man3/SSL_want_write.3
 	ln -sf SSL_want.3 $(DESTDIR)$(mandir)/man3/SSL_want_x509_lookup.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/ERR_load_UI_strings.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_OpenSSL.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_add_error_string.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_add_info_string.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_add_input_boolean.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_add_input_string.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_add_user_data.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_add_verify_string.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_construct_prompt.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_ctrl.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_dup_error_string.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_dup_info_string.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_dup_input_boolean.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_dup_input_string.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_dup_verify_string.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_free.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_get0_result.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_get0_user_data.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_get_default_method.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_get_method.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_new_method.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_process.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_set_default_method.3
+	ln -sf UI_new.3 $(DESTDIR)$(mandir)/man3/UI_set_method.3
 	ln -sf X509_NAME_ENTRY_get_object.3 $(DESTDIR)$(mandir)/man3/X509_NAME_ENTRY_create_by_NID.3
 	ln -sf X509_NAME_ENTRY_get_object.3 $(DESTDIR)$(mandir)/man3/X509_NAME_ENTRY_create_by_OBJ.3
 	ln -sf X509_NAME_ENTRY_get_object.3 $(DESTDIR)$(mandir)/man3/X509_NAME_ENTRY_create_by_txt.3
@@ -1314,35 +1338,6 @@ install-data-hook:
 	ln -sf bn_dump.3 $(DESTDIR)$(mandir)/man3/mul.3
 	ln -sf bn_dump.3 $(DESTDIR)$(mandir)/man3/mul_add.3
 	ln -sf bn_dump.3 $(DESTDIR)$(mandir)/man3/sqr.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_add_words.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_check_top.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_cmp_words.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_div_words.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_dump.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_expand.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_expand2.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_fix_top.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_mul_add_words.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_mul_comba4.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_mul_comba8.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_mul_high.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_mul_low_normal.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_mul_low_recursive.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_mul_normal.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_mul_part_recursive.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_mul_recursive.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_mul_words.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_print.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_set_high.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_set_low.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_set_max.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_sqr_comba4.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_sqr_comba8.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_sqr_normal.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_sqr_recursive.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_sqr_words.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_sub_words.3
-	ln -sf bn_internal.3 $(DESTDIR)$(mandir)/man3/bn_wexpand.3
 	ln -sf crypto.3 $(DESTDIR)$(mandir)/man3/crypto_dispatch.3
 	ln -sf crypto.3 $(DESTDIR)$(mandir)/man3/crypto_done.3
 	ln -sf crypto.3 $(DESTDIR)$(mandir)/man3/crypto_freereq.3
@@ -1370,12 +1365,6 @@ install-data-hook:
 	ln -sf d2i_ECPKParameters.3 $(DESTDIR)$(mandir)/man3/i2d_ECPKParameters.3
 	ln -sf d2i_ECPKParameters.3 $(DESTDIR)$(mandir)/man3/i2d_ECPKParameters_bio.3
 	ln -sf d2i_ECPKParameters.3 $(DESTDIR)$(mandir)/man3/i2d_ECPKParameters_fp.3
-	ln -sf d2i_PKCS8PrivateKey.3 $(DESTDIR)$(mandir)/man3/d2i_PKCS8PrivateKey_bio.3
-	ln -sf d2i_PKCS8PrivateKey.3 $(DESTDIR)$(mandir)/man3/d2i_PKCS8PrivateKey_fp.3
-	ln -sf d2i_PKCS8PrivateKey.3 $(DESTDIR)$(mandir)/man3/i2d_PKCS8PrivateKey_bio.3
-	ln -sf d2i_PKCS8PrivateKey.3 $(DESTDIR)$(mandir)/man3/i2d_PKCS8PrivateKey_fp.3
-	ln -sf d2i_PKCS8PrivateKey.3 $(DESTDIR)$(mandir)/man3/i2d_PKCS8PrivateKey_nid_bio.3
-	ln -sf d2i_PKCS8PrivateKey.3 $(DESTDIR)$(mandir)/man3/i2d_PKCS8PrivateKey_nid_fp.3
 	ln -sf d2i_PKCS8PrivateKey_bio.3 $(DESTDIR)$(mandir)/man3/d2i_PKCS8PrivateKey_fp.3
 	ln -sf d2i_PKCS8PrivateKey_bio.3 $(DESTDIR)$(mandir)/man3/i2d_PKCS8PrivateKey_bio.3
 	ln -sf d2i_PKCS8PrivateKey_bio.3 $(DESTDIR)$(mandir)/man3/i2d_PKCS8PrivateKey_fp.3
@@ -1410,18 +1399,6 @@ install-data-hook:
 	ln -sf des_read_pw.3 $(DESTDIR)$(mandir)/man3/des_read_2passwords.3
 	ln -sf des_read_pw.3 $(DESTDIR)$(mandir)/man3/des_read_password.3
 	ln -sf des_read_pw.3 $(DESTDIR)$(mandir)/man3/des_read_pw_string.3
-	ln -sf ecdsa.3 $(DESTDIR)$(mandir)/man3/ECDSA_SIG_free.3
-	ln -sf ecdsa.3 $(DESTDIR)$(mandir)/man3/ECDSA_SIG_new.3
-	ln -sf ecdsa.3 $(DESTDIR)$(mandir)/man3/ECDSA_do_sign.3
-	ln -sf ecdsa.3 $(DESTDIR)$(mandir)/man3/ECDSA_do_sign_ex.3
-	ln -sf ecdsa.3 $(DESTDIR)$(mandir)/man3/ECDSA_do_verify.3
-	ln -sf ecdsa.3 $(DESTDIR)$(mandir)/man3/ECDSA_sign.3
-	ln -sf ecdsa.3 $(DESTDIR)$(mandir)/man3/ECDSA_sign_ex.3
-	ln -sf ecdsa.3 $(DESTDIR)$(mandir)/man3/ECDSA_sign_setup.3
-	ln -sf ecdsa.3 $(DESTDIR)$(mandir)/man3/ECDSA_size.3
-	ln -sf ecdsa.3 $(DESTDIR)$(mandir)/man3/ECDSA_verify.3
-	ln -sf ecdsa.3 $(DESTDIR)$(mandir)/man3/d2i_ECDSA_SIG.3
-	ln -sf ecdsa.3 $(DESTDIR)$(mandir)/man3/i2d_ECDSA_SIG.3
 	ln -sf engine.3 $(DESTDIR)$(mandir)/man3/ENGINE_add.3
 	ln -sf engine.3 $(DESTDIR)$(mandir)/man3/ENGINE_by_id.3
 	ln -sf engine.3 $(DESTDIR)$(mandir)/man3/ENGINE_finish.3
@@ -1449,14 +1426,6 @@ install-data-hook:
 	ln -sf lh_stats.3 $(DESTDIR)$(mandir)/man3/lh_node_usage_stats.3
 	ln -sf lh_stats.3 $(DESTDIR)$(mandir)/man3/lh_node_usage_stats_bio.3
 	ln -sf lh_stats.3 $(DESTDIR)$(mandir)/man3/lh_stats_bio.3
-	ln -sf lhash.3 $(DESTDIR)$(mandir)/man3/lh_delete.3
-	ln -sf lhash.3 $(DESTDIR)$(mandir)/man3/lh_doall.3
-	ln -sf lhash.3 $(DESTDIR)$(mandir)/man3/lh_doall_arg.3
-	ln -sf lhash.3 $(DESTDIR)$(mandir)/man3/lh_error.3
-	ln -sf lhash.3 $(DESTDIR)$(mandir)/man3/lh_free.3
-	ln -sf lhash.3 $(DESTDIR)$(mandir)/man3/lh_insert.3
-	ln -sf lhash.3 $(DESTDIR)$(mandir)/man3/lh_new.3
-	ln -sf lhash.3 $(DESTDIR)$(mandir)/man3/lh_retrieve.3
 	ln -sf tls_init.3 $(DESTDIR)$(mandir)/man3/tls_accept_fds.3
 	ln -sf tls_init.3 $(DESTDIR)$(mandir)/man3/tls_accept_socket.3
 	ln -sf tls_init.3 $(DESTDIR)$(mandir)/man3/tls_client.3
@@ -1507,59 +1476,6 @@ install-data-hook:
 	ln -sf tls_init.3 $(DESTDIR)$(mandir)/man3/tls_reset.3
 	ln -sf tls_init.3 $(DESTDIR)$(mandir)/man3/tls_server.3
 	ln -sf tls_init.3 $(DESTDIR)$(mandir)/man3/tls_write.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/ERR_load_UI_strings.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_OpenSSL.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_add_error_string.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_add_info_string.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_add_input_boolean.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_add_input_string.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_add_user_data.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_add_verify_string.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_construct_prompt.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_ctrl.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_dup_error_string.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_dup_info_string.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_dup_input_boolean.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_dup_input_string.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_dup_verify_string.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_free.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_get0_result.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_get0_user_data.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_get_default_method.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_get_method.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_new.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_new_method.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_process.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_set_default_method.3
-	ln -sf ui.3 $(DESTDIR)$(mandir)/man3/UI_set_method.3
-	ln -sf ui_compat.3 $(DESTDIR)$(mandir)/man3/des_read_2passwords.3
-	ln -sf ui_compat.3 $(DESTDIR)$(mandir)/man3/des_read_password.3
-	ln -sf ui_compat.3 $(DESTDIR)$(mandir)/man3/des_read_pw.3
-	ln -sf ui_compat.3 $(DESTDIR)$(mandir)/man3/des_read_pw_string.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/ERR_load_UI_strings.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_OpenSSL.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_add_error_string.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_add_info_string.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_add_input_boolean.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_add_input_string.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_add_user_data.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_add_verify_string.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_construct_prompt.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_ctrl.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_dup_error_string.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_dup_info_string.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_dup_input_boolean.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_dup_input_string.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_dup_verify_string.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_free.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_get0_result.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_get0_user_data.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_get_default_method.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_get_method.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_new_method.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_process.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_set_default_method.3
-	ln -sf ui_new.3 $(DESTDIR)$(mandir)/man3/UI_set_method.3
 
 uninstall-local:
 	-rm -f $(DESTDIR)$(mandir)/man3/ASN1_OBJECT_free.3
@@ -2504,6 +2420,30 @@ uninstall-local:
 	-rm -f $(DESTDIR)$(mandir)/man3/SSL_want_read.3
 	-rm -f $(DESTDIR)$(mandir)/man3/SSL_want_write.3
 	-rm -f $(DESTDIR)$(mandir)/man3/SSL_want_x509_lookup.3
+	-rm -f $(DESTDIR)$(mandir)/man3/ERR_load_UI_strings.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_OpenSSL.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_add_error_string.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_add_info_string.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_add_input_boolean.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_add_input_string.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_add_user_data.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_add_verify_string.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_construct_prompt.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_ctrl.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_dup_error_string.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_dup_info_string.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_dup_input_boolean.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_dup_input_string.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_dup_verify_string.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_free.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_get0_result.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_get0_user_data.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_get_default_method.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_get_method.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_new_method.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_process.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_set_default_method.3
+	-rm -f $(DESTDIR)$(mandir)/man3/UI_set_method.3
 	-rm -f $(DESTDIR)$(mandir)/man3/X509_NAME_ENTRY_create_by_NID.3
 	-rm -f $(DESTDIR)$(mandir)/man3/X509_NAME_ENTRY_create_by_OBJ.3
 	-rm -f $(DESTDIR)$(mandir)/man3/X509_NAME_ENTRY_create_by_txt.3
@@ -2581,35 +2521,6 @@ uninstall-local:
 	-rm -f $(DESTDIR)$(mandir)/man3/mul.3
 	-rm -f $(DESTDIR)$(mandir)/man3/mul_add.3
 	-rm -f $(DESTDIR)$(mandir)/man3/sqr.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_add_words.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_check_top.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_cmp_words.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_div_words.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_dump.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_expand.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_expand2.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_fix_top.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_mul_add_words.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_mul_comba4.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_mul_comba8.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_mul_high.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_mul_low_normal.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_mul_low_recursive.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_mul_normal.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_mul_part_recursive.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_mul_recursive.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_mul_words.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_print.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_set_high.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_set_low.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_set_max.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_sqr_comba4.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_sqr_comba8.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_sqr_normal.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_sqr_recursive.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_sqr_words.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_sub_words.3
-	-rm -f $(DESTDIR)$(mandir)/man3/bn_wexpand.3
 	-rm -f $(DESTDIR)$(mandir)/man3/crypto_dispatch.3
 	-rm -f $(DESTDIR)$(mandir)/man3/crypto_done.3
 	-rm -f $(DESTDIR)$(mandir)/man3/crypto_freereq.3
@@ -2637,12 +2548,6 @@ uninstall-local:
 	-rm -f $(DESTDIR)$(mandir)/man3/i2d_ECPKParameters.3
 	-rm -f $(DESTDIR)$(mandir)/man3/i2d_ECPKParameters_bio.3
 	-rm -f $(DESTDIR)$(mandir)/man3/i2d_ECPKParameters_fp.3
-	-rm -f $(DESTDIR)$(mandir)/man3/d2i_PKCS8PrivateKey_bio.3
-	-rm -f $(DESTDIR)$(mandir)/man3/d2i_PKCS8PrivateKey_fp.3
-	-rm -f $(DESTDIR)$(mandir)/man3/i2d_PKCS8PrivateKey_bio.3
-	-rm -f $(DESTDIR)$(mandir)/man3/i2d_PKCS8PrivateKey_fp.3
-	-rm -f $(DESTDIR)$(mandir)/man3/i2d_PKCS8PrivateKey_nid_bio.3
-	-rm -f $(DESTDIR)$(mandir)/man3/i2d_PKCS8PrivateKey_nid_fp.3
 	-rm -f $(DESTDIR)$(mandir)/man3/d2i_PKCS8PrivateKey_fp.3
 	-rm -f $(DESTDIR)$(mandir)/man3/i2d_PKCS8PrivateKey_bio.3
 	-rm -f $(DESTDIR)$(mandir)/man3/i2d_PKCS8PrivateKey_fp.3
@@ -2677,18 +2582,6 @@ uninstall-local:
 	-rm -f $(DESTDIR)$(mandir)/man3/des_read_2passwords.3
 	-rm -f $(DESTDIR)$(mandir)/man3/des_read_password.3
 	-rm -f $(DESTDIR)$(mandir)/man3/des_read_pw_string.3
-	-rm -f $(DESTDIR)$(mandir)/man3/ECDSA_SIG_free.3
-	-rm -f $(DESTDIR)$(mandir)/man3/ECDSA_SIG_new.3
-	-rm -f $(DESTDIR)$(mandir)/man3/ECDSA_do_sign.3
-	-rm -f $(DESTDIR)$(mandir)/man3/ECDSA_do_sign_ex.3
-	-rm -f $(DESTDIR)$(mandir)/man3/ECDSA_do_verify.3
-	-rm -f $(DESTDIR)$(mandir)/man3/ECDSA_sign.3
-	-rm -f $(DESTDIR)$(mandir)/man3/ECDSA_sign_ex.3
-	-rm -f $(DESTDIR)$(mandir)/man3/ECDSA_sign_setup.3
-	-rm -f $(DESTDIR)$(mandir)/man3/ECDSA_size.3
-	-rm -f $(DESTDIR)$(mandir)/man3/ECDSA_verify.3
-	-rm -f $(DESTDIR)$(mandir)/man3/d2i_ECDSA_SIG.3
-	-rm -f $(DESTDIR)$(mandir)/man3/i2d_ECDSA_SIG.3
 	-rm -f $(DESTDIR)$(mandir)/man3/ENGINE_add.3
 	-rm -f $(DESTDIR)$(mandir)/man3/ENGINE_by_id.3
 	-rm -f $(DESTDIR)$(mandir)/man3/ENGINE_finish.3
@@ -2716,14 +2609,6 @@ uninstall-local:
 	-rm -f $(DESTDIR)$(mandir)/man3/lh_node_usage_stats.3
 	-rm -f $(DESTDIR)$(mandir)/man3/lh_node_usage_stats_bio.3
 	-rm -f $(DESTDIR)$(mandir)/man3/lh_stats_bio.3
-	-rm -f $(DESTDIR)$(mandir)/man3/lh_delete.3
-	-rm -f $(DESTDIR)$(mandir)/man3/lh_doall.3
-	-rm -f $(DESTDIR)$(mandir)/man3/lh_doall_arg.3
-	-rm -f $(DESTDIR)$(mandir)/man3/lh_error.3
-	-rm -f $(DESTDIR)$(mandir)/man3/lh_free.3
-	-rm -f $(DESTDIR)$(mandir)/man3/lh_insert.3
-	-rm -f $(DESTDIR)$(mandir)/man3/lh_new.3
-	-rm -f $(DESTDIR)$(mandir)/man3/lh_retrieve.3
 	-rm -f $(DESTDIR)$(mandir)/man3/tls_accept_fds.3
 	-rm -f $(DESTDIR)$(mandir)/man3/tls_accept_socket.3
 	-rm -f $(DESTDIR)$(mandir)/man3/tls_client.3
@@ -2774,56 +2659,3 @@ uninstall-local:
 	-rm -f $(DESTDIR)$(mandir)/man3/tls_reset.3
 	-rm -f $(DESTDIR)$(mandir)/man3/tls_server.3
 	-rm -f $(DESTDIR)$(mandir)/man3/tls_write.3
-	-rm -f $(DESTDIR)$(mandir)/man3/ERR_load_UI_strings.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_OpenSSL.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_add_error_string.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_add_info_string.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_add_input_boolean.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_add_input_string.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_add_user_data.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_add_verify_string.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_construct_prompt.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_ctrl.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_dup_error_string.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_dup_info_string.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_dup_input_boolean.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_dup_input_string.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_dup_verify_string.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_free.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_get0_result.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_get0_user_data.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_get_default_method.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_get_method.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_new.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_new_method.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_process.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_set_default_method.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_set_method.3
-	-rm -f $(DESTDIR)$(mandir)/man3/des_read_2passwords.3
-	-rm -f $(DESTDIR)$(mandir)/man3/des_read_password.3
-	-rm -f $(DESTDIR)$(mandir)/man3/des_read_pw.3
-	-rm -f $(DESTDIR)$(mandir)/man3/des_read_pw_string.3
-	-rm -f $(DESTDIR)$(mandir)/man3/ERR_load_UI_strings.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_OpenSSL.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_add_error_string.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_add_info_string.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_add_input_boolean.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_add_input_string.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_add_user_data.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_add_verify_string.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_construct_prompt.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_ctrl.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_dup_error_string.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_dup_info_string.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_dup_input_boolean.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_dup_input_string.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_dup_verify_string.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_free.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_get0_result.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_get0_user_data.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_get_default_method.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_get_method.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_new_method.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_process.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_set_default_method.3
-	-rm -f $(DESTDIR)$(mandir)/man3/UI_set_method.3

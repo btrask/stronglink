@@ -1,4 +1,4 @@
-/* $OpenBSD: s3_clnt.c,v 1.135 2015/09/13 12:52:07 jsing Exp $ */
+/* $OpenBSD: s3_clnt.c,v 1.137 2016/03/11 07:08:45 mmcc Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -1063,13 +1063,11 @@ ssl3_get_server_certificate(SSL *s)
 	 * Why would the following ever happen?
 	 * We just created sc a couple of lines ago.
 	 */
-	if (sc->peer_pkeys[i].x509 != NULL)
-		X509_free(sc->peer_pkeys[i].x509);
+	X509_free(sc->peer_pkeys[i].x509);
 	sc->peer_pkeys[i].x509 = x;
 	sc->peer_key = &(sc->peer_pkeys[i]);
 
-	if (s->session->peer != NULL)
-		X509_free(s->session->peer);
+	X509_free(s->session->peer);
 	CRYPTO_add(&x->references, 1, CRYPTO_LOCK_X509);
 	s->session->peer = x;
 	s->session->verify_result = s->verify_result;
@@ -1643,6 +1641,7 @@ ssl3_get_certificate_request(SSL *s)
 			    ERR_R_MALLOC_FAILURE);
 			goto err;
 		}
+		xn = NULL;	/* avoid free in err block */
 	}
 
 	/* we should setup a certificate to return.... */
@@ -1660,6 +1659,7 @@ truncated:
 		    SSL_R_BAD_PACKET_LENGTH);
 	}
 err:
+	X509_NAME_free(xn);
 	if (ca_sk != NULL)
 		sk_X509_NAME_pop_free(ca_sk, X509_NAME_free);
 	return (ret);
@@ -2465,8 +2465,7 @@ ssl3_send_client_certificate(SSL *s)
 			    SSL_R_BAD_DATA_RETURNED_BY_CALLBACK);
 		}
 
-		if (x509 != NULL)
-			X509_free(x509);
+		X509_free(x509);
 		EVP_PKEY_free(pkey);
 		if (i == 0)
 			s->s3->tmp.cert_req = 2;

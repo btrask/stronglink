@@ -1,4 +1,4 @@
-/* $OpenBSD: tls_internal.h,v 1.25 2015/09/29 13:10:53 jsing Exp $ */
+/* $OpenBSD: tls_internal.h,v 1.27 2016/04/28 16:48:44 jsing Exp $ */
 /*
  * Copyright (c) 2014 Jeremie Courreges-Anglas <jca@openbsd.org>
  * Copyright (c) 2014 Joel Sing <jsing@openbsd.org>
@@ -36,21 +36,34 @@ union tls_addr {
 	struct in6_addr ip6;
 };
 
+struct tls_error {
+	char *msg;
+	int num;
+};
+
+struct tls_keypair {
+	struct tls_keypair *next;
+
+	const char *cert_file;
+	char *cert_mem;
+	size_t cert_len;
+	const char *key_file;
+	char *key_mem;
+	size_t key_len;
+};
+
 struct tls_config {
+	struct tls_error error;
+
 	const char *ca_file;
 	const char *ca_path;
 	char *ca_mem;
 	size_t ca_len;
-	const char *cert_file;
-	char *cert_mem;
-	size_t cert_len;
 	const char *ciphers;
 	int ciphers_server;
 	int dheparams;
 	int ecdhecurve;
-	const char *key_file;
-	char *key_mem;
-	size_t key_len;
+	struct tls_keypair *keypair;
 	uint32_t protocols;
 	int verify_cert;
 	int verify_client;
@@ -80,11 +93,10 @@ struct tls_conninfo {
 
 struct tls {
 	struct tls_config *config;
+	struct tls_error error;
+
 	uint32_t flags;
 	uint32_t state;
-
-	char *errmsg;
-	int errnum;
 
 	char *servername;
 	int socket;
@@ -99,21 +111,31 @@ struct tls *tls_new(void);
 struct tls *tls_server_conn(struct tls *ctx);
 
 int tls_check_name(struct tls *ctx, X509 *cert, const char *servername);
-int tls_configure_keypair(struct tls *ctx, int);
+int tls_configure_keypair(struct tls *ctx, SSL_CTX *ssl_ctx,
+    struct tls_keypair *keypair, int required);
 int tls_configure_server(struct tls *ctx);
 int tls_configure_ssl(struct tls *ctx);
 int tls_configure_ssl_verify(struct tls *ctx, int verify);
 int tls_handshake_client(struct tls *ctx);
 int tls_handshake_server(struct tls *ctx);
 int tls_host_port(const char *hostport, char **host, char **port);
+
+int tls_set_config_error(struct tls_config *cfg, const char *fmt, ...)
+    __attribute__((__format__ (printf, 2, 3)))
+    __attribute__((__nonnull__ (2)));
+int tls_set_config_errorx(struct tls_config *cfg, const char *fmt, ...)
+    __attribute__((__format__ (printf, 2, 3)))
+    __attribute__((__nonnull__ (2)));
 int tls_set_error(struct tls *ctx, const char *fmt, ...)
     __attribute__((__format__ (printf, 2, 3)))
     __attribute__((__nonnull__ (2)));
 int tls_set_errorx(struct tls *ctx, const char *fmt, ...)
     __attribute__((__format__ (printf, 2, 3)))
     __attribute__((__nonnull__ (2)));
+
 int tls_ssl_error(struct tls *ctx, SSL *ssl_conn, int ssl_ret,
     const char *prefix);
+
 int tls_get_conninfo(struct tls *ctx);
 void tls_free_conninfo(struct tls_conninfo *conninfo);
 

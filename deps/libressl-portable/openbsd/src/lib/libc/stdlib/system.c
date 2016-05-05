@@ -1,4 +1,4 @@
-/*	$OpenBSD: system.c,v 1.10 2015/09/14 08:51:07 guenther Exp $ */
+/*	$OpenBSD: system.c,v 1.11 2015/10/23 04:44:41 guenther Exp $ */
 /*
  * Copyright (c) 1988 The Regents of the University of California.
  * All rights reserved.
@@ -35,8 +35,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <paths.h>
-
-extern char **environ;
 
 int
 system(const char *command)

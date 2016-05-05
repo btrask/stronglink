@@ -28,6 +28,21 @@ history is also available from Git.
 
 LibreSSL Portable Release Notes:
 
+2.3.3 - OpenBSD 5.9 release branch tagged
+
+	* Reworked build scripts to better sync with OpenNTPD-portable
+
+	* Fixed broken manpage links
+
+	* Fixed an nginx compatibility issue by adding an 'install_sw' make alias
+
+	* Fixed HP-UX builds
+
+	* Changed the default configuration directory to c:\LibreSSL\ssl on Windows
+	  binary builds
+
+	* cert.pem has been reorganized and synced with Mozilla's certificate store
+
 2.3.2 - Compatibility and Reliability fixes
 
 	* Changed format of LIBRESSL_VERSION_NUMBER to match that of

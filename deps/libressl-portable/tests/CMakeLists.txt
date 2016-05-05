@@ -9,14 +9,11 @@ include_directories(
 	../apps/openssl/compat
 )
 
-set(ENV{srcdir} ${CMAKE_CURRENT_SOURCE_DIR})
-
 # aeadtest
-#add_executable(aeadtest aeadtest.c)
-#target_link_libraries(aeadtest ${OPENSSL_LIBS})
-#add_test(aeadtest aeadtest.sh)
-#configure_file(aeadtests.txt aeadtests.txt COPYONLY)
-#configure_file(aeadtest.sh aeadtest.sh COPYONLY)
+add_executable(aeadtest aeadtest.c)
+target_link_libraries(aeadtest ${OPENSSL_LIBS})
+add_test(aeadtest ${CMAKE_CURRENT_SOURCE_DIR}/aeadtest.sh)
+set_tests_properties(aeadtest PROPERTIES ENVIRONMENT "srcdir=${CMAKE_CURRENT_SOURCE_DIR}")
 
 # aes_wrap
 add_executable(aes_wrap aes_wrap.c)
@@ -25,7 +22,7 @@ add_test(aes_wrap aes_wrap)
 
 # arc4randomforktest
 # Windows/mingw does not have fork, but Cygwin does.
-if(NOT CMAKE_HOST_WIN32)
+if(NOT CMAKE_HOST_WIN32 AND NOT CMAKE_SYSTEM_NAME MATCHES "MINGW")
 add_executable(arc4randomforktest arc4randomforktest.c)
 target_link_libraries(arc4randomforktest ${OPENSSL_LIBS})
 add_test(arc4randomforktest ${CMAKE_CURRENT_SOURCE_DIR}/arc4randomforktest.sh)
@@ -50,6 +47,14 @@ add_test(base64test base64test)
 add_executable(bftest bftest.c)
 target_link_libraries(bftest ${OPENSSL_LIBS})
 add_test(bftest bftest)
+
+# biotest
+# the BIO tests rely on resolver results that are OS and environment-specific
+if(ENABLE_EXTRATESTS)
+	add_executable(biotest biotest.c)
+	target_link_libraries(biotest ${OPENSSL_LIBS})
+	add_test(biotest biotest)
+endif()
 
 # bntest
 add_executable(bntest bntest.c)
@@ -127,19 +132,21 @@ target_link_libraries(enginetest ${OPENSSL_LIBS})
 add_test(enginetest enginetest)
 
 # evptest
-#add_executable(evptest evptest.c)
-#target_link_libraries(evptest ${OPENSSL_LIBS})
-#add_test(evptest ${CMAKE_CURRENT_SOURCE_DIR}/evptest.sh)
+add_executable(evptest evptest.c)
+target_link_libraries(evptest ${OPENSSL_LIBS})
+add_test(evptest ${CMAKE_CURRENT_SOURCE_DIR}/evptest.sh)
+set_tests_properties(evptest PROPERTIES ENVIRONMENT "srcdir=${CMAKE_CURRENT_SOURCE_DIR}")
 
 # explicit_bzero
 # explicit_bzero relies on SA_ONSTACK, which is unavailable on Windows
 if(NOT CMAKE_HOST_WIN32)
-add_executable(explicit_bzero explicit_bzero.c)
+if(HAVE_MEMMEM)
+	add_executable(explicit_bzero explicit_bzero.c)
+else()
+	add_executable(explicit_bzero explicit_bzero.c memmem.c)
+endif()
 target_link_libraries(explicit_bzero ${OPENSSL_LIBS})
 add_test(explicit_bzero explicit_bzero)
-#if !HAVE_MEMMEM
-#explicit_bzero_SOURCES += memmem.c
-#endif
 endif()
 
 # exptest
@@ -197,6 +204,15 @@ add_executable(pbkdf2 pbkdf2.c)
 target_link_libraries(pbkdf2 ${OPENSSL_LIBS})
 add_test(pbkdf2 pbkdf2)
 
+# pidwraptest
+# pidwraptest relies on an OS-specific way to give out pids and is generally
+# awkward on systems with slow fork
+if(ENABLE_EXTRATESTS)
+	add_executable(pidwraptest pidwraptest.c)
+	target_link_libraries(pidwraptest ${OPENSSL_LIBS})
+	add_test(pidwraptest ${CMAKE_CURRENT_SOURCE_DIR}/pidwraptest.sh)
+endif()
+
 # pkcs7test
 add_executable(pkcs7test pkcs7test.c)
 target_link_libraries(pkcs7test ${OPENSSL_LIBS})
@@ -208,9 +224,10 @@ target_link_libraries(poly1305test ${OPENSSL_LIBS})
 add_test(poly1305test poly1305test)
 
 # pq_test
-#add_executable(pq_test pq_test.c)
-#target_link_libraries(pq_test ${OPENSSL_LIBS})
-#add_test(pq_test ${CMAKE_CURRENT_SOURCE_DIR}/pq_test.sh)
+add_executable(pq_test pq_test.c)
+target_link_libraries(pq_test ${OPENSSL_LIBS})
+add_test(pq_test ${CMAKE_CURRENT_SOURCE_DIR}/pq_test.sh)
+set_tests_properties(pq_test PROPERTIES ENVIRONMENT "srcdir=${CMAKE_CURRENT_SOURCE_DIR}")
 
 # randtest
 add_executable(randtest randtest.c)
@@ -230,7 +247,11 @@ add_test(rc4test rc4test)
 # rfc5280time
 add_executable(rfc5280time rfc5280time.c)
 target_link_libraries(rfc5280time ${OPENSSL_LIBS})
-add_test(rfc5280time rfc5280time)
+if(SMALL_TIME_T)
+	add_test(rfc5280time ${CMAKE_CURRENT_SOURCE_DIR}/rfc5280time_small.test)
+else()
+	add_test(rfc5280time rfc5280time)
+endif()
 
 # rmdtest
 add_executable(rmdtest rmdtest.c)
@@ -253,18 +274,22 @@ target_link_libraries(sha512test ${OPENSSL_LIBS})
 add_test(sha512test sha512test)
 
 # ssltest
-#add_executable(ssltest ssltest.c)
-#target_link_libraries(ssltest ${OPENSSL_LIBS})
-#add_test(ssltest ${CMAKE_CURRENT_SOURCE_DIR}/ssltest.sh)
+add_executable(ssltest ssltest.c)
+target_link_libraries(ssltest ${OPENSSL_LIBS})
+add_test(ssltest ${CMAKE_CURRENT_SOURCE_DIR}/ssltest.sh)
+set_tests_properties(ssltest PROPERTIES ENVIRONMENT "srcdir=${CMAKE_CURRENT_SOURCE_DIR}")
 
 # testdsa
-#add_test(testdsa ${CMAKE_CURRENT_SOURCE_DIR}/testdsa.sh)
+add_test(testdsa ${CMAKE_CURRENT_SOURCE_DIR}/testdsa.sh)
+set_tests_properties(testdsa PROPERTIES ENVIRONMENT "srcdir=${CMAKE_CURRENT_SOURCE_DIR}")
 
 # testenc
 add_test(testenc ${CMAKE_CURRENT_SOURCE_DIR}/testenc.sh)
+set_tests_properties(testenc PROPERTIES ENVIRONMENT "srcdir=${CMAKE_CURRENT_SOURCE_DIR}")
 
 # testrsa
-#add_test(testrsa ${CMAKE_CURRENT_SOURCE_DIR}/testrsa.sh)
+add_test(testrsa ${CMAKE_CURRENT_SOURCE_DIR}/testrsa.sh)
+set_tests_properties(testrsa PROPERTIES ENVIRONMENT "srcdir=${CMAKE_CURRENT_SOURCE_DIR}")
 
 # timingsafe
 add_executable(timingsafe timingsafe.c)

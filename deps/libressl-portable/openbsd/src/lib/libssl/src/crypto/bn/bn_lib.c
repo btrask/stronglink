@@ -1,4 +1,4 @@
-/* $OpenBSD: bn_lib.c,v 1.33 2014/07/12 16:03:36 miod Exp $ */
+/* $OpenBSD: bn_lib.c,v 1.35 2016/03/04 16:23:30 deraadt Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -295,7 +295,7 @@ bn_expand_internal(const BIGNUM *b, int words)
 			 * The fact that the loop is unrolled
 			 * 4-wise is a tribute to Intel. It's
 			 * the one that doesn't have enough
-			 * registers to accomodate more data.
+			 * registers to accommodate more data.
 			 * I'd unroll it 8-wise otherwise:-)
 			 *
 			 *		<appro@fy.chalmers.se>
@@ -548,6 +548,18 @@ BN_get_word(const BIGNUM *a)
 		return a->d[0];
 	/* a->top == 0 */
 	return 0;
+}
+
+BIGNUM *
+bn_expand(BIGNUM *a, int bits)
+{
+	if (bits > (INT_MAX - BN_BITS2 + 1))
+		return (NULL);
+
+	if (((bits + BN_BITS2 - 1) / BN_BITS2) <= a->dmax)
+		return (a);
+
+	return bn_expand2(a, (bits + BN_BITS2 - 1) / BN_BITS2);
 }
 
 int

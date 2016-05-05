@@ -46,9 +46,12 @@ AM_CONDITIONAL([HAVE_B64_NTOP], [test "x$ac_cv_func_b64_ntop_arg" = xyes])
 
 AC_DEFUN([CHECK_CRYPTO_COMPAT], [
 # Check crypto-related libc functions and syscalls
-AC_CHECK_FUNCS([arc4random_buf explicit_bzero getauxval getentropy])
+AC_CHECK_FUNCS([arc4random arc4random_buf arc4random_uniform])
+AC_CHECK_FUNCS([explicit_bzero getauxval getentropy])
 AC_CHECK_FUNCS([timingsafe_bcmp timingsafe_memcmp])
+AM_CONDITIONAL([HAVE_ARC4RANDOM], [test "x$ac_cv_func_arc4random" = xyes])
 AM_CONDITIONAL([HAVE_ARC4RANDOM_BUF], [test "x$ac_cv_func_arc4random_buf" = xyes])
+AM_CONDITIONAL([HAVE_ARC4RANDOM_UNIFORM], [test "x$ac_cv_func_arc4random_uniform" = xyes])
 AM_CONDITIONAL([HAVE_EXPLICIT_BZERO], [test "x$ac_cv_func_explicit_bzero" = xyes])
 AM_CONDITIONAL([HAVE_GETENTROPY], [test "x$ac_cv_func_getentropy" = xyes])
 AM_CONDITIONAL([HAVE_TIMINGSAFE_BCMP], [test "x$ac_cv_func_timingsafe_bcmp" = xyes])
@@ -61,8 +64,10 @@ AM_CONDITIONAL([HAVE_ARC4RANDOM_BUF],
 
 # Check for getentropy fallback dependencies
 AC_CHECK_FUNC([getauxval])
-AC_CHECK_FUNC([clock_gettime],, [AC_SEARCH_LIBS([clock_gettime],[rt posix4])])
-AC_CHECK_FUNC([dl_iterate_phdr],, [AC_SEARCH_LIBS([dl_iterate_phdr],[dl])])
+AC_SEARCH_LIBS([clock_gettime],[rt posix4])
+AC_CHECK_FUNC([clock_gettime])
+AC_SEARCH_LIBS([dl_iterate_phdr],[dl])
+AC_CHECK_FUNC([dl_iterate_phdr])
 ])
 
 AC_DEFUN([CHECK_VA_COPY], [

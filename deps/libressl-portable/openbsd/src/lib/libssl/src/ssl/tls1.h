@@ -1,4 +1,4 @@
-/* $OpenBSD: tls1.h,v 1.25 2015/02/22 15:54:27 jsing Exp $ */
+/* $OpenBSD: tls1.h,v 1.27 2016/03/07 19:33:26 mmcc Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -180,7 +180,7 @@ extern "C" {
 /*
  * TLS Alert codes.
  *
- * http://www.iana.org/assignments/tls-parameters/#tls-parameters-6
+ * https://www.iana.org/assignments/tls-parameters/#tls-parameters-6
  */
 
 #define TLS1_AD_DECRYPTION_FAILED		21
@@ -209,7 +209,7 @@ extern "C" {
 /*
  * TLS ExtensionType values.
  *
- * http://www.iana.org/assignments/tls-extensiontype-values/
+ * https://www.iana.org/assignments/tls-extensiontype-values/
  */
 
 /* ExtensionType values from RFC 3546, RFC 4366 and RFC 6066. */
@@ -251,7 +251,7 @@ extern "C" {
 
 /* ExtensionType value for TLS padding extension.
  * (TEMPORARY - registered 2014-03-12, expires 2015-03-12)
- * http://tools.ietf.org/html/draft-agl-tls-padding-03
+ * https://tools.ietf.org/html/draft-agl-tls-padding-03
  */
 #define TLSEXT_TYPE_padding	21
 
@@ -537,9 +537,12 @@ SSL_CTX_callback_ctrl(ssl,SSL_CTRL_SET_TLSEXT_TICKET_KEY_CB,(void (*)(void))cb)
 #define TLS1_CK_ECDH_RSA_WITH_AES_256_GCM_SHA384        0x0300C032
 
 /* ChaCha20-Poly1305 based ciphersuites. */
-#define TLS1_CK_ECDHE_RSA_CHACHA20_POLY1305		0x0300CC13
-#define TLS1_CK_ECDHE_ECDSA_CHACHA20_POLY1305		0x0300CC14
-#define TLS1_CK_DHE_RSA_CHACHA20_POLY1305		0x0300CC15
+#define TLS1_CK_ECDHE_RSA_CHACHA20_POLY1305_OLD		0x0300CC13
+#define TLS1_CK_ECDHE_ECDSA_CHACHA20_POLY1305_OLD	0x0300CC14
+#define TLS1_CK_DHE_RSA_CHACHA20_POLY1305_OLD		0x0300CC15
+#define TLS1_CK_ECDHE_RSA_CHACHA20_POLY1305		0x0300CCA8
+#define TLS1_CK_ECDHE_ECDSA_CHACHA20_POLY1305		0x0300CCA9
+#define TLS1_CK_DHE_RSA_CHACHA20_POLY1305		0x0300CCAA
 
 #define TLS1_TXT_RSA_EXPORT1024_WITH_RC4_56_MD5		"EXP1024-RC4-MD5"
 #define TLS1_TXT_RSA_EXPORT1024_WITH_RC2_CBC_56_MD5	"EXP1024-RC2-CBC-MD5"
@@ -701,6 +704,9 @@ SSL_CTX_callback_ctrl(ssl,SSL_CTRL_SET_TLSEXT_TICKET_KEY_CB,(void (*)(void))cb)
 #define TLS1_TXT_ECDH_RSA_WITH_AES_256_GCM_SHA384       "ECDH-RSA-AES256-GCM-SHA384"
 
 /* ChaCha20-Poly1305 based ciphersuites. */
+#define TLS1_TXT_ECDHE_RSA_WITH_CHACHA20_POLY1305_OLD	"ECDHE-RSA-CHACHA20-POLY1305-OLD"
+#define TLS1_TXT_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_OLD	"ECDHE-ECDSA-CHACHA20-POLY1305-OLD"
+#define TLS1_TXT_DHE_RSA_WITH_CHACHA20_POLY1305_OLD	"DHE-RSA-CHACHA20-POLY1305-OLD"
 #define TLS1_TXT_ECDHE_RSA_WITH_CHACHA20_POLY1305	"ECDHE-RSA-CHACHA20-POLY1305"
 #define TLS1_TXT_ECDHE_ECDSA_WITH_CHACHA20_POLY1305	"ECDHE-ECDSA-CHACHA20-POLY1305"
 #define TLS1_TXT_DHE_RSA_WITH_CHACHA20_POLY1305		"DHE-RSA-CHACHA20-POLY1305"
