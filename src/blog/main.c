@@ -268,12 +268,12 @@ int main(int const argc, char const *const *const argv) {
 
 	int rc = tls_init();
 	if(rc < 0) {
-		alogf("TLS initialization error: %s\n", strerror(errno));
+		fprintf(stderr, "TLS initialization error: %s\n", strerror(errno));
 		return 1;
 	}
 
 	if(2 != argc || '-' == argv[1][0]) {
-		alogf("Usage:\n\t" "%s repo\n", argv[0]);
+		fprintf(stderr, "Usage:\n\t" "%s repo\n", argv[0]);
 		return 1;
 	}
 	path = argv[1];
