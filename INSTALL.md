@@ -10,11 +10,11 @@ Most of the dependencies are included. You might need to install Git to clone th
 
 Additional dependencies:
 
-Ubuntu / Debian / Linux Mint: `sudo apt-get install gcc g++ gobjc cmake automake autoconf libtool pkg-config`
+Ubuntu / Debian / Linux Mint: `sudo apt-get install gcc g++ gobjc cmake automake autoconf libtool pkg-config make`
 
-Fedora / RedHat: `sudo yum install gcc gcc-c++ gcc-objc cmake automake autoconf libtool`
+Fedora / RedHat: `sudo yum install gcc gcc-c++ gcc-objc cmake automake autoconf libtool make`
 
-OS X: Install the developer tools (`xcode-select --install`) and [Homebrew](http://brew.sh/), then run `brew install cmake automake autoconf libtool`
+OS X: Install the developer tools (`xcode-select --install`) and [Homebrew](http://brew.sh/), then run `brew install cmake automake autoconf libtool make`
 
 Windows: untested, probably needs work
 
