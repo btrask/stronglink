@@ -141,7 +141,6 @@ int SLNSessionDBOpen(SLNSessionRef const session, SLNMode const mode, DB_env **c
 void SLNSessionDBClose(SLNSessionRef const session, DB_env **const dbptr) {
 	assert(dbptr);
 	assert(session || !*dbptr);
-	if(!*dbptr) return;
 	SLNRepoDBClose(SLNSessionGetRepo(session), dbptr);
 }
 
