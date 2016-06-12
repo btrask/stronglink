@@ -174,8 +174,8 @@ void SLNRepoDBOpenUnsafe(SLNRepoRef const repo, DB_env **const dbptr) {
 	*dbptr = repo->db;
 }
 void SLNRepoDBClose(SLNRepoRef const repo, DB_env **const dbptr) {
-	assert(repo);
 	assert(dbptr);
+	assert(repo || !*dbptr);
 	if(!*dbptr) return;
 	async_pool_leave(NULL);
 	*dbptr = NULL;
