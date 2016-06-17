@@ -190,6 +190,18 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 		FREE(&escaped);
 		unsafe = buf;
 	}
+	if(0 == strcmp(var, "shortURI")) {
+		str_t algo[SLN_ALGO_SIZE]; algo[0] = '\0';
+		str_t hash[SLN_HASH_SIZE]; hash[0] = '\0';
+		(void) SLNParseURI(state->fileURI, algo, hash);
+		hash[12*2] = '\0'; // TODO: Non-hex encodings? Use HASHLEN_SHORT from SLNHasher.c?
+		str_t *trunc = SLNFormatURI(algo, hash);
+		str_t *escaped = trunc ? QSEscape(trunc, strlen(trunc), true) : NULL;
+		snprintf(buf, sizeof(buf), "/?q=%s", escaped);
+		FREE(&escaped);
+		FREE(&trunc);
+		unsafe = buf;
+	}
 	if(0 == strcmp(var, "backlinksURI")) {
 		str_t *escaped = QSEscape(state->fileURI, strlen(state->fileURI), true);
 		snprintf(buf, sizeof(buf), "/?q=link%%3D%s", escaped);
