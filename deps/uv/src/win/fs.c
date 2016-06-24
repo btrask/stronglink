@@ -94,7 +94,7 @@
 
 #define TIME_T_TO_FILETIME(time, filetime_ptr)                              \
   do {                                                                      \
-    uint64_t bigtime = ((int64_t) (time) * 10000000LL) +                    \
+    uint64_t bigtime = ((uint64_t) ((time) * 10000000ULL)) +                \
                                   116444736000000000ULL;                    \
     (filetime_ptr)->dwLowDateTime = bigtime & 0xFFFFFFFF;                   \
     (filetime_ptr)->dwHighDateTime = bigtime >> 32;                         \
@@ -901,7 +901,15 @@ void fs__scandir(uv_fs_t* req) {
       /* Compute the length of the filename in WCHARs. */
       wchar_len = info->FileNameLength / sizeof info->FileName[0];
 
-      /* Skip over '.' and '..' entries. */
+      /* Skip over '.' and '..' entries.  It has been reported that
+       * the SharePoint driver includes the terminating zero byte in
+       * the filename length.  Strip those first.
+       */
+      while (wchar_len > 0 && info->FileName[wchar_len - 1] == L'\0')
+        wchar_len -= 1;
+
+      if (wchar_len == 0)
+        continue;
       if (wchar_len == 1 && info->FileName[0] == L'.')
         continue;
       if (wchar_len == 2 && info->FileName[0] == L'.' &&
@@ -1421,8 +1429,8 @@ static void fs__fchmod(uv_fs_t* req) {
 INLINE static int fs__utime_handle(HANDLE handle, double atime, double mtime) {
   FILETIME filetime_a, filetime_m;
 
-  TIME_T_TO_FILETIME((time_t) atime, &filetime_a);
-  TIME_T_TO_FILETIME((time_t) mtime, &filetime_m);
+  TIME_T_TO_FILETIME(atime, &filetime_a);
+  TIME_T_TO_FILETIME(mtime, &filetime_m);
 
   if (!SetFileTime(handle, NULL, &filetime_a, &filetime_m)) {
     return -1;
@@ -1717,25 +1725,26 @@ static void fs__readlink(uv_fs_t* req) {
 static size_t fs__realpath_handle(HANDLE handle, char** realpath_ptr) {
   int r;
   DWORD w_realpath_len;
-  WCHAR* w_realpath_ptr;
-  WCHAR* w_finalpath_ptr = NULL;
+  WCHAR* w_realpath_ptr = NULL;
+  WCHAR* w_realpath_buf;
 
   w_realpath_len = pGetFinalPathNameByHandleW(handle, NULL, 0, VOLUME_NAME_DOS);
   if (w_realpath_len == 0) {
     return -1;
   }
 
-  w_realpath_ptr = uv__malloc((w_realpath_len + 1) * sizeof(WCHAR));
-  if (w_realpath_ptr == NULL) {
+  w_realpath_buf = uv__malloc((w_realpath_len + 1) * sizeof(WCHAR));
+  if (w_realpath_buf == NULL) {
     SetLastError(ERROR_OUTOFMEMORY);
     return -1;
   }
+  w_realpath_ptr = w_realpath_buf;
 
   if (pGetFinalPathNameByHandleW(handle,
                                 w_realpath_ptr,
                                 w_realpath_len,
                                 VOLUME_NAME_DOS) == 0) {
-    uv__free(w_realpath_ptr);
+    uv__free(w_realpath_buf);
     SetLastError(ERROR_INVALID_HANDLE);
     return -1;
   }
@@ -1744,20 +1753,22 @@ static size_t fs__realpath_handle(HANDLE handle, char** realpath_ptr) {
   if (wcsncmp(w_realpath_ptr,
               UNC_PATH_PREFIX,
               UNC_PATH_PREFIX_LEN) == 0) {
-    w_finalpath_ptr = w_realpath_ptr + 6;
-    *w_finalpath_ptr = L'\\';
+    w_realpath_ptr += 6;
+    *w_realpath_ptr = L'\\';
+    w_realpath_len -= 6;
   } else if (wcsncmp(w_realpath_ptr,
                       LONG_PATH_PREFIX,
                       LONG_PATH_PREFIX_LEN) == 0) {
-    w_finalpath_ptr = w_realpath_ptr + 4;
+    w_realpath_ptr += 4;
+    w_realpath_len -= 4;
   } else {
-    uv__free(w_realpath_ptr);
+    uv__free(w_realpath_buf);
     SetLastError(ERROR_INVALID_HANDLE);
     return -1;
   }
 
-  r = fs__wide_to_utf8(w_finalpath_ptr, w_realpath_len, realpath_ptr, NULL);
-  uv__free(w_realpath_ptr);
+  r = fs__wide_to_utf8(w_realpath_ptr, w_realpath_len, realpath_ptr, NULL);
+  uv__free(w_realpath_buf);
   return r;
 }
 
@@ -1867,8 +1878,12 @@ void uv_fs_req_cleanup(uv_fs_t* req) {
   if (req->flags & UV_FS_FREE_PATHS)
     uv__free(req->file.pathw);
 
-  if (req->flags & UV_FS_FREE_PTR)
-    uv__free(req->ptr);
+  if (req->flags & UV_FS_FREE_PTR) {
+    if (req->fs_type == UV_FS_SCANDIR && req->ptr != NULL)
+      uv__fs_scandir_cleanup(req);
+    else
+      uv__free(req->ptr);
+  }
 
   req->path = NULL;
   req->file.pathw = NULL;

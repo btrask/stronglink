@@ -39,6 +39,10 @@ Starting with version 1.0.0 libuv follows the [semantic versioning](http://semve
 scheme. The API change and backwards compatibility rules are those indicated by
 SemVer. libuv will keep a stable ABI across major releases.
 
+## Licensing
+
+libuv is licensed under the MIT license. Check the [LICENSE file](LICENSE).
+
 ## Community
 
  * [Mailing list](http://groups.google.com/group/libuv)
@@ -59,6 +63,11 @@ Show different supported building options:
 Build documentation as HTML:
 
     $ make html
+
+Build documentation as HTML and live reload it when it changes (this requires
+sphinx-autobuild to be installed and is only supported on Unix):
+
+    $ make livehtml
 
 Build documentation as man pages:
 

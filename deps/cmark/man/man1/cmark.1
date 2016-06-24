@@ -1,4 +1,4 @@
-.TH "cmark" "1" "November 30, 2014" "LOCAL" "General Commands Manual"
+.TH "cmark" "1" "March 24, 2016" "LOCAL" "General Commands Manual"
 .SH "NAME"
 \fBcmark\fR
 \- convert CommonMark formatted text to HTML
@@ -23,14 +23,21 @@ Specify output format (\f[C]html\f[], \f[C]man\f[], \f[C]xml\f[],
 .B \-\-width \f[I]WIDTH\f[]
 Specify a column width to which to wrap the output. For no wrapping, use
 the value 0 (the default).  This option currently only affects the
-commonmark renderer.
+commonmark, latex, and man renderers.
+.TP 12n
+.B \-\-hardbreaks
+Render soft breaks (newlines inside paragraphs in the CommonMark source)
+as hard line breaks in the target format.  If this option is specified,
+hard wrapping is disabled for CommonMark output, regardless of the value
+given with \-\-width.
+.TP 12n
+.B \-\-nobreaks
+Render soft breaks as spaces.  If this option is specified,
+hard wrapping is disabled for all output formats, regardless of the value
+given with \-\-width.
 .TP 12n
 .B \-\-sourcepos
 Include source position attribute.
-.TP 12n
-.B \-\-hardbreaks
-Treat newlines as hard line breaks.  If this option is specified,
-hard wrapping is disabled, regardless of the value given with \-\-width.
 .TP 12n
 .B \-\-normalize
 Consolidate adjacent text nodes.

@@ -1,4 +1,4 @@
-/* $OpenBSD: netcat.c,v 1.149 2015/12/28 14:17:47 bcook Exp $ */
+/* $OpenBSD: netcat.c,v 1.152 2016/05/28 20:14:58 beck Exp $ */
 /*
  * Copyright (c) 2001 Eric Jackson <ericj@monkey.org>
  * Copyright (c) 2015 Bob Beck.  All rights reserved.
@@ -143,7 +143,7 @@ int	unix_listen(char *);
 void	set_common_sockopts(int, int);
 int	map_tos(char *, int *);
 int	map_tls(char *, int *);
-void	report_connect(const struct sockaddr *, socklen_t);
+void	report_connect(const struct sockaddr *, socklen_t, char *);
 void	report_tls(struct tls *tls_ctx, char * host, char *tls_expectname);
 void	usage(int);
 ssize_t drainbuf(int, unsigned char *, size_t *, struct tls *);
@@ -339,7 +339,13 @@ main(int argc, char *argv[])
 		if (pledge("stdio rpath wpath cpath tmppath unix", NULL) == -1)
 			err(1, "pledge");
 	} else if (Fflag) {
-		if (pledge("stdio inet dns sendfd", NULL) == -1)
+		if (Pflag) {
+			if (pledge("stdio inet dns sendfd tty", NULL) == -1)
+				err(1, "pledge");
+		} else if (pledge("stdio inet dns sendfd", NULL) == -1)
+			err(1, "pledge");
+	} else if (Pflag) {
+		if (pledge("stdio inet dns tty", NULL) == -1)
 			err(1, "pledge");
 	} else if (usetls) {
 		if (pledge("stdio rpath inet dns", NULL) == -1)
@@ -450,7 +456,10 @@ main(int argc, char *argv[])
 		if (Kflag && (privkey = tls_load_file(Kflag, &privkeylen, NULL)) == NULL)
 			errx(1, "unable to load TLS key file %s", Kflag);
 
-		if (pledge("stdio inet dns", NULL) == -1)
+		if (Pflag) {
+			if (pledge("stdio inet dns tty", NULL) == -1)
+				err(1, "pledge");
+		} else if (pledge("stdio inet dns", NULL) == -1)
 			err(1, "pledge");
 
 		if (tls_init() == -1)
@@ -535,7 +544,7 @@ main(int argc, char *argv[])
 					err(1, "connect");
 
 				if (vflag)
-					report_connect((struct sockaddr *)&z, len);
+					report_connect((struct sockaddr *)&z, len, NULL);
 
 				readwrite(s, NULL);
 			} else {
@@ -547,7 +556,8 @@ main(int argc, char *argv[])
 					err(1, "accept");
 				}
 				if (vflag)
-					report_connect((struct sockaddr *)&cliaddr, len);
+					report_connect((struct sockaddr *)&cliaddr, len,
+					    family == AF_UNIX ? host : NULL);
 				if ((usetls) &&
 				    (tls_cctx = tls_setup_server(tls_ctx, connfd, host)))
 					readwrite(connfd, tls_cctx);
@@ -1302,6 +1312,27 @@ atelnet(int nfd, unsigned char *buf, unsigned int size)
 	}
 }
 
+
+int
+strtoport(char *portstr, int udp)
+{
+	struct servent *entry;
+	const char *errstr;
+	char *proto;
+	int port = -1;
+
+	proto = udp ? "udp" : "tcp";
+
+	port = strtonum(portstr, 1, PORT_MAX, &errstr);
+	if (errstr == NULL)
+		return port;
+	if (errno != EINVAL)
+		errx(1, "port number %s: %s", errstr, portstr);
+	if ((entry = getservbyname(portstr, proto)) == NULL)
+		errx(1, "service \"%s\" unknown", portstr);
+	return ntohs(entry->s_port);
+}
+
 /*
  * build_ports()
  * Build an array of ports in portlist[], listing each port
@@ -1310,7 +1341,6 @@ atelnet(int nfd, unsigned char *buf, unsigned int size)
 void
 build_ports(char *p)
 {
-	const char *errstr;
 	char *n;
 	int hi, lo, cp;
 	int x = 0;
@@ -1320,13 +1350,8 @@ build_ports(char *p)
 		n++;
 
 		/* Make sure the ports are in order: lowest->highest. */
-		hi = strtonum(n, 1, PORT_MAX, &errstr);
-		if (errstr)
-			errx(1, "port number %s: %s", errstr, n);
-		lo = strtonum(p, 1, PORT_MAX, &errstr);
-		if (errstr)
-			errx(1, "port number %s: %s", errstr, p);
-
+		hi = strtoport(n, uflag);
+		lo = strtoport(p, uflag);
 		if (lo > hi) {
 			cp = hi;
 			hi = lo;
@@ -1352,11 +1377,12 @@ build_ports(char *p)
 			}
 		}
 	} else {
-		hi = strtonum(p, 1, PORT_MAX, &errstr);
-		if (errstr)
-			errx(1, "port number %s: %s", errstr, p);
-		portlist[0] = strdup(p);
-		if (portlist[0] == NULL)
+		char *tmp;
+
+		hi = strtoport(p, uflag);
+		if (asprintf(&tmp, "%d", hi) != -1)
+			portlist[0] = tmp;
+		else
 			err(1, NULL);
 	}
 }
@@ -1518,12 +1544,17 @@ report_tls(struct tls * tls_ctx, char * host, char *tls_expectname)
 }
 
 void
-report_connect(const struct sockaddr *sa, socklen_t salen)
+report_connect(const struct sockaddr *sa, socklen_t salen, char *path)
 {
 	char remote_host[NI_MAXHOST];
 	char remote_port[NI_MAXSERV];
 	int herr;
 	int flags = NI_NUMERICSERV;
+
+	if (path != NULL) {
+		fprintf(stderr, "Connection on %s received!\n", path);
+		return;
+	}
 
 	if (nflag)
 		flags |= NI_NUMERICHOST;

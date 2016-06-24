@@ -13,12 +13,12 @@ add_test(NAME api_test COMMAND api_test)
 
 if (WIN32)
   file(TO_NATIVE_PATH ${CMAKE_BINARY_DIR}/src WIN_DLL_DIR)
-  set_tests_properties(api_test PROPERTIES
-    ENVIRONMENT "PATH=${WIN_DLL_DIR};$ENV{PATH}"
-    )
-  set(ROUNDTRIP,"${CMAKE_CURRENT_SOURCE_DIR}/roundtrip.bat")
+  set(NEWPATH "${WIN_DLL_DIR};$ENV{PATH}")
+  string(REPLACE ";" "\\;" NEWPATH "${NEWPATH}")
+  set_tests_properties(api_test PROPERTIES ENVIRONMENT "PATH=${NEWPATH}")
+  set(ROUNDTRIP "${CMAKE_CURRENT_SOURCE_DIR}/roundtrip.bat")
 else(WIN32)
-  set(ROUNDTRIP,"${CMAKE_CURRENT_SOURCE_DIR}/roundtrip.sh")
+  set(ROUNDTRIP "${CMAKE_CURRENT_SOURCE_DIR}/roundtrip.sh")
 endif(WIN32)
 
 IF (PYTHONINTERP_FOUND)
@@ -48,9 +48,16 @@ IF (PYTHONINTERP_FOUND)
 
   add_test(roundtriptest_executable
     ${PYTHON_EXECUTABLE}
-    "${CMAKE_CURRENT_SOURCE_DIR}/spec_tests.py" "--no-normalize"
-    "--spec" "${CMAKE_CURRENT_SOURCE_DIR}/spec.txt" "--program"
-    "${ROUNDTRIP} ${CMAKE_CURRENT_BINARY_DIR}/../src/cmark"
+    "${CMAKE_CURRENT_SOURCE_DIR}/roundtrip_tests.py"
+    "--spec" "${CMAKE_CURRENT_SOURCE_DIR}/spec.txt"
+    "--library-dir" "${CMAKE_CURRENT_BINARY_DIR}/../src"
+    )
+
+  add_test(regressiontest_executable
+    ${PYTHON_EXECUTABLE}
+    "${CMAKE_CURRENT_SOURCE_DIR}/spec_tests.py" "--no-normalize" "--spec"
+    "${CMAKE_CURRENT_SOURCE_DIR}/regression.txt" "--program"
+    "${CMAKE_CURRENT_BINARY_DIR}/../src/cmark"
     )
 
 

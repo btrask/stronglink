@@ -1,5 +1,5 @@
-project(cmark)
 cmake_minimum_required(VERSION 2.8.9)
+project(cmark)
 include("FindAsan.cmake")
 
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
@@ -9,8 +9,8 @@ endif()
 set(PROJECT_NAME "cmark")
 
 set(PROJECT_VERSION_MAJOR 0)
-set(PROJECT_VERSION_MINOR 24)
-set(PROJECT_VERSION_PATCH 1)
+set(PROJECT_VERSION_MINOR 25)
+set(PROJECT_VERSION_PATCH 2)
 set(PROJECT_VERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH} )
 
 option(CMARK_TESTS "Build cmark tests and enable testing" ON)

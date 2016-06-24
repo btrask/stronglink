@@ -362,6 +362,9 @@ static void create_tree(test_batch_runner *runner) {
   cmark_node *str4 = cmark_node_new(CMARK_NODE_TEXT);
   cmark_node_set_literal(str4, "brzz");
   OK(runner, cmark_node_replace(str1, str4), "replace");
+  // The replaced node is not freed
+  cmark_node_free(str1);
+
   INT_EQ(runner, cmark_node_check(doc, NULL), 0, "replace consistent");
   OK(runner, cmark_node_previous(emph) == str4, "replace works");
   INT_EQ(runner, cmark_node_replace(p, str4), 0, "replace str for p fails");
@@ -788,6 +791,11 @@ static void line_endings(test_batch_runner *runner) {
   STR_EQ(runner, html, "<p>line<br />\nline</p>\n",
          "crlf endings with CMARK_OPT_HARDBREAKS");
   free(html);
+  html = cmark_markdown_to_html(crlf_lines, sizeof(crlf_lines) - 1,
+                                CMARK_OPT_DEFAULT | CMARK_OPT_NOBREAKS);
+  STR_EQ(runner, html, "<p>line line</p>\n",
+         "crlf endings with CMARK_OPT_NOBREAKS");
+  free(html);
 
   static const char no_line_ending[] = "```\nline\n```";
   html = cmark_markdown_to_html(no_line_ending, sizeof(no_line_ending) - 1,
@@ -852,6 +860,17 @@ static void test_md_to_html(test_batch_runner *runner, const char *markdown,
   free(html);
 }
 
+static void test_feed_across_line_ending(test_batch_runner *runner) {
+  // See #117
+  cmark_parser *parser = cmark_parser_new(CMARK_OPT_DEFAULT);
+  cmark_parser_feed(parser, "line1\r", 6);
+  cmark_parser_feed(parser, "\nline2\r\n", 8);
+  cmark_node *document = cmark_parser_finish(parser);
+  OK(runner, document->first_child->next == NULL, "document has one paragraph");
+  cmark_parser_free(parser);
+  cmark_node_free(document);
+}
+
 int main() {
   int retval;
   test_batch_runner *runner = test_batch_runner_new();
@@ -876,6 +895,7 @@ int main() {
   numeric_entities(runner);
   test_cplusplus(runner);
   test_safe(runner);
+  test_feed_across_line_ending(runner);
 
   test_print_summary(runner);
   retval = test_ok(runner) ? 0 : 1;

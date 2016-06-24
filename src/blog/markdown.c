@@ -124,6 +124,10 @@ static void md_block_external_images(cmark_iter *const iter) {
 		cmark_node_free(node);
 	}
 }
+
+// HACK
+extern cmark_mem DEFAULT_MEM_ALLOCATOR;
+
 static void md_convert_hashes(cmark_iter *const iter) {
 	for(;;) {
 		cmark_event_type const event = cmark_iter_next(iter);
@@ -159,7 +163,7 @@ static void md_convert_hashes(cmark_iter *const iter) {
 		size_t const elen = strlen(escaped);
 		cmark_strbuf rel[1];
 		char const qpfx[] = "?q=";
-		cmark_strbuf_init(rel, sizeof(qpfx)-1+elen);
+		cmark_strbuf_init(&DEFAULT_MEM_ALLOCATOR, rel, sizeof(qpfx)-1+elen);
 		cmark_strbuf_put(rel, (unsigned char const *)qpfx, sizeof(qpfx)-1);
 		cmark_strbuf_put(rel, (unsigned char const *)escaped, elen);
 		free(escaped); escaped = NULL;

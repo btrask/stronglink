@@ -19,6 +19,8 @@
  * IN THE SOFTWARE.
  */
 
+#include "uv.h"
+
 TEST_DECLARE   (platform_output)
 TEST_DECLARE   (callback_order)
 TEST_DECLARE   (close_order)
@@ -43,7 +45,11 @@ TEST_DECLARE   (semaphore_1)
 TEST_DECLARE   (semaphore_2)
 TEST_DECLARE   (semaphore_3)
 TEST_DECLARE   (tty)
+#ifdef _WIN32
+TEST_DECLARE   (tty_raw)
+#endif
 TEST_DECLARE   (tty_file)
+TEST_DECLARE   (tty_pty)
 TEST_DECLARE   (stdio_over_pipes)
 TEST_DECLARE   (ip6_pton)
 TEST_DECLARE   (ipc_listen_before_write)
@@ -197,6 +203,7 @@ TEST_DECLARE   (get_currentexe)
 TEST_DECLARE   (process_title)
 TEST_DECLARE   (cwd_and_chdir)
 TEST_DECLARE   (get_memory)
+TEST_DECLARE   (get_passwd)
 TEST_DECLARE   (handle_fileno)
 TEST_DECLARE   (homedir)
 TEST_DECLARE   (tmpdir)
@@ -309,13 +316,19 @@ TEST_DECLARE   (poll_duplex)
 TEST_DECLARE   (poll_unidirectional)
 TEST_DECLARE   (poll_close)
 TEST_DECLARE   (poll_bad_fdtype)
+#ifdef __linux__
+TEST_DECLARE   (poll_nested_epoll)
+#endif
+#ifdef UV_HAVE_KQUEUE
+TEST_DECLARE   (poll_nested_kqueue)
+#endif
 
 TEST_DECLARE   (ip4_addr)
 TEST_DECLARE   (ip6_addr_link_local)
 
-#ifdef _WIN32
 TEST_DECLARE   (poll_close_doesnt_corrupt_stack)
 TEST_DECLARE   (poll_closesocket)
+#ifdef _WIN32
 TEST_DECLARE   (spawn_detect_pipe_name_collisions_on_windows)
 #if !defined(USING_UV_SHARED)
 TEST_DECLARE   (argument_escaping)
@@ -385,7 +398,11 @@ TASK_LIST_START
 #endif
   TEST_ENTRY  (pipe_set_non_blocking)
   TEST_ENTRY  (tty)
+#ifdef _WIN32
+  TEST_ENTRY  (tty_raw)
+#endif
   TEST_ENTRY  (tty_file)
+  TEST_ENTRY  (tty_pty)
   TEST_ENTRY  (stdio_over_pipes)
   TEST_ENTRY  (ip6_pton)
   TEST_ENTRY  (ipc_listen_before_write)
@@ -585,6 +602,8 @@ TASK_LIST_START
 
   TEST_ENTRY  (get_memory)
 
+  TEST_ENTRY  (get_passwd)
+
   TEST_ENTRY  (get_loadavg)
 
   TEST_ENTRY  (handle_fileno)
@@ -613,6 +632,12 @@ TASK_LIST_START
   TEST_ENTRY  (poll_unidirectional)
   TEST_ENTRY  (poll_close)
   TEST_ENTRY  (poll_bad_fdtype)
+#ifdef __linux__
+  TEST_ENTRY  (poll_nested_epoll)
+#endif
+#ifdef UV_HAVE_KQUEUE
+  TEST_ENTRY  (poll_nested_kqueue)
+#endif
 
   TEST_ENTRY  (socket_buffer_size)
 
@@ -644,9 +669,9 @@ TASK_LIST_START
   TEST_ENTRY  (fs_poll_getpath)
   TEST_ENTRY  (kill)
 
-#ifdef _WIN32
   TEST_ENTRY  (poll_close_doesnt_corrupt_stack)
   TEST_ENTRY  (poll_closesocket)
+#ifdef _WIN32
   TEST_ENTRY  (spawn_detect_pipe_name_collisions_on_windows)
 #if !defined(USING_UV_SHARED)
   TEST_ENTRY  (argument_escaping)

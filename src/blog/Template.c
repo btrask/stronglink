@@ -166,9 +166,12 @@ TemplateArgCBs const TemplateStaticCBs = {
 #include "../../deps/cmark/src/houdini.h"
 #include "../../deps/cmark/src/buffer.h"
 
+// HACK
+extern cmark_mem DEFAULT_MEM_ALLOCATOR;
+
 str_t *htmlenc(strarg_t const str) {
 	if(!str) return NULL;
-	cmark_strbuf out = GH_BUF_INIT;
+	cmark_strbuf out = CMARK_BUF_INIT(&DEFAULT_MEM_ALLOCATOR);
 	houdini_escape_html(&out, (uint8_t const *)str, strlen(str));
 	return (str_t *)cmark_strbuf_detach(&out);
 }

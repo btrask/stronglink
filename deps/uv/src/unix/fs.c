@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h> /* PATH_MAX */
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -150,9 +151,9 @@ static ssize_t uv__fs_futime(uv_fs_t* req) {
     goto skip;
 
   ts[0].tv_sec  = req->atime;
-  ts[0].tv_nsec = (unsigned long)(req->atime * 1000000) % 1000000 * 1000;
+  ts[0].tv_nsec = (uint64_t)(req->atime * 1000000) % 1000000 * 1000;
   ts[1].tv_sec  = req->mtime;
-  ts[1].tv_nsec = (unsigned long)(req->mtime * 1000000) % 1000000 * 1000;
+  ts[1].tv_nsec = (uint64_t)(req->mtime * 1000000) % 1000000 * 1000;
 
   r = uv__utimesat(req->file, NULL, ts, 0);
   if (r == 0)
@@ -166,9 +167,9 @@ static ssize_t uv__fs_futime(uv_fs_t* req) {
 skip:
 
   tv[0].tv_sec  = req->atime;
-  tv[0].tv_usec = (unsigned long)(req->atime * 1000000) % 1000000;
+  tv[0].tv_usec = (uint64_t)(req->atime * 1000000) % 1000000;
   tv[1].tv_sec  = req->mtime;
-  tv[1].tv_usec = (unsigned long)(req->mtime * 1000000) % 1000000;
+  tv[1].tv_usec = (uint64_t)(req->mtime * 1000000) % 1000000;
   snprintf(path, sizeof(path), "/proc/self/fd/%d", (int) req->file);
 
   r = utimes(path, tv);
@@ -197,14 +198,21 @@ skip:
     || defined(__sun)
   struct timeval tv[2];
   tv[0].tv_sec  = req->atime;
-  tv[0].tv_usec = (unsigned long)(req->atime * 1000000) % 1000000;
+  tv[0].tv_usec = (uint64_t)(req->atime * 1000000) % 1000000;
   tv[1].tv_sec  = req->mtime;
-  tv[1].tv_usec = (unsigned long)(req->mtime * 1000000) % 1000000;
+  tv[1].tv_usec = (uint64_t)(req->mtime * 1000000) % 1000000;
 # if defined(__sun)
   return futimesat(req->file, NULL, tv);
 # else
   return futimes(req->file, tv);
 # endif
+#elif defined(_AIX71)
+  struct timespec ts[2];
+  ts[0].tv_sec  = req->atime;
+  ts[0].tv_nsec = (uint64_t)(req->atime * 1000000) % 1000000 * 1000;
+  ts[1].tv_sec  = req->mtime;
+  ts[1].tv_nsec = (uint64_t)(req->mtime * 1000000) % 1000000 * 1000;
+  return futimens(req->file, ts);
 #else
   errno = ENOSYS;
   return -1;
@@ -243,7 +251,7 @@ static ssize_t uv__fs_open(uv_fs_t* req) {
    */
   if (r >= 0 && uv__cloexec(r, 1) != 0) {
     r = uv__close(r);
-    if (r != 0 && r != -EINPROGRESS)
+    if (r != 0)
       abort();
     r = -1;
   }
@@ -362,9 +370,10 @@ out:
   if (dents != NULL) {
     int i;
 
+    /* Memory was allocated using the system allocator, so use free() here. */
     for (i = 0; i < n; i++)
-      uv__free(dents[i]);
-    uv__free(dents);
+      free(dents[i]);
+    free(dents);
   }
   errno = saved_errno;
 
@@ -383,7 +392,7 @@ static ssize_t uv__fs_pathmax_size(const char* path) {
 #if defined(PATH_MAX)
     return PATH_MAX;
 #else
-    return 4096;
+#error "PATH_MAX undefined in the current platform"
 #endif
   }
 
@@ -749,13 +758,13 @@ static void uv__to_stat(struct stat* src, uv_stat_t* dst) {
   dst->st_gen = src->st_gen;
 #elif defined(__ANDROID__)
   dst->st_atim.tv_sec = src->st_atime;
-  dst->st_atim.tv_nsec = src->st_atime_nsec;
+  dst->st_atim.tv_nsec = src->st_atimensec;
   dst->st_mtim.tv_sec = src->st_mtime;
-  dst->st_mtim.tv_nsec = src->st_mtime_nsec;
+  dst->st_mtim.tv_nsec = src->st_mtimensec;
   dst->st_ctim.tv_sec = src->st_ctime;
-  dst->st_ctim.tv_nsec = src->st_ctime_nsec;
+  dst->st_ctim.tv_nsec = src->st_ctimensec;
   dst->st_birthtim.tv_sec = src->st_ctime;
-  dst->st_birthtim.tv_nsec = src->st_ctime_nsec;
+  dst->st_birthtim.tv_nsec = src->st_ctimensec;
   dst->st_flags = 0;
   dst->st_gen = 0;
 #elif !defined(_AIX) && (       \
@@ -801,8 +810,11 @@ static void uv__to_stat(struct stat* src, uv_stat_t* dst) {
 static int uv__fs_stat(const char *path, uv_stat_t *buf) {
   struct stat pbuf;
   int ret;
+
   ret = stat(path, &pbuf);
-  uv__to_stat(&pbuf, buf);
+  if (ret == 0)
+    uv__to_stat(&pbuf, buf);
+
   return ret;
 }
 
@@ -810,8 +822,11 @@ static int uv__fs_stat(const char *path, uv_stat_t *buf) {
 static int uv__fs_lstat(const char *path, uv_stat_t *buf) {
   struct stat pbuf;
   int ret;
+
   ret = lstat(path, &pbuf);
-  uv__to_stat(&pbuf, buf);
+  if (ret == 0)
+    uv__to_stat(&pbuf, buf);
+
   return ret;
 }
 
@@ -819,8 +834,11 @@ static int uv__fs_lstat(const char *path, uv_stat_t *buf) {
 static int uv__fs_fstat(int fd, uv_stat_t *buf) {
   struct stat pbuf;
   int ret;
+
   ret = fstat(fd, &pbuf);
-  uv__to_stat(&pbuf, buf);
+  if (ret == 0)
+    uv__to_stat(&pbuf, buf);
+
   return ret;
 }
 

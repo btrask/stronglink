@@ -1,4 +1,4 @@
-/* $OpenBSD: icdb.c,v 1.4 2015/12/10 18:06:06 tedu Exp $ */
+/* $OpenBSD: icdb.c,v 1.5 2015/12/27 01:26:47 chl Exp $ */
 /*
  * Copyright (c) 2015 Ted Unangst <tedu@openbsd.org>
  *
@@ -100,7 +100,7 @@ struct icdb {
 	int fd;
 };
 
-const uint32_t magic = 0x1ca9d0b7;
+static const uint32_t magic = 0x1ca9d0b7;
 
 static uint32_t
 roundup(uint32_t num)

@@ -17,6 +17,7 @@
       }],
     ],
     'xcode_settings': {
+      'GCC_SYMBOLS_PRIVATE_EXTERN': 'YES',  # -fvisibility=hidden
       'WARNING_CFLAGS': [ '-Wall', '-Wextra', '-Wno-unused-parameter' ],
       'OTHER_CFLAGS': [ '-g', '--std=gnu89', '-pedantic' ],
     }
@@ -111,12 +112,14 @@
               '-liphlpapi',
               '-lpsapi',
               '-lshell32',
+              '-luser32',
               '-luserenv',
               '-lws2_32'
             ],
           },
         }, { # Not Windows i.e. POSIX
           'cflags': [
+            '-fvisibility=hidden',
             '-g',
             '--std=gnu89',
             '-pedantic',
@@ -184,6 +187,7 @@
             'src/unix/darwin.c',
             'src/unix/fsevents.c',
             'src/unix/darwin-proctitle.c',
+            'src/unix/pthread-barrier.c'
           ],
           'defines': [
             '_DARWIN_USE_64_BIT_INODE=1',
@@ -214,7 +218,8 @@
             'src/unix/linux-syscalls.c',
             'src/unix/linux-syscalls.h',
             'src/unix/pthread-fixes.c',
-            'src/unix/android-ifaddrs.c'
+            'src/unix/android-ifaddrs.c',
+            'src/unix/pthread-barrier.c'
           ],
           'link_settings': {
             'libraries': [ '-ldl' ],
@@ -304,6 +309,7 @@
         'test/test-fs-event.c',
         'test/test-get-currentexe.c',
         'test/test-get-memory.c',
+        'test/test-get-passwd.c',
         'test/test-getaddrinfo.c',
         'test/test-getnameinfo.c',
         'test/test-getsockname.c',
@@ -420,10 +426,16 @@
           'libraries': [ '-lws2_32' ]
         }, { # POSIX
           'defines': [ '_GNU_SOURCE' ],
+          'cflags': [ '-Wno-long-long' ],
           'sources': [
             'test/runner-unix.c',
             'test/runner-unix.h',
           ],
+        }],
+        [ 'OS in "mac dragonflybsd freebsd linux netbsd openbsd".split()', {
+          'link_settings': {
+            'libraries': [ '-lutil' ],
+          },
         }],
         [ 'OS=="solaris"', { # make test-fs.c compile, needs _POSIX_C_SOURCE
           'defines': [

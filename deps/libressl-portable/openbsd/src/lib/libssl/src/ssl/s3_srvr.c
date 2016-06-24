@@ -1,4 +1,4 @@
-/* $OpenBSD: s3_srvr.c,v 1.124 2016/01/27 02:06:16 beck Exp $ */
+/* $OpenBSD: s3_srvr.c,v 1.125 2016/03/11 07:08:45 mmcc Exp $ */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -2558,7 +2558,7 @@ ssl3_send_newsession_ticket(SSL *s)
 		/* Encrypt session data */
 		EVP_EncryptUpdate(&ctx, p, &len, senc, slen);
 		p += len;
-		EVP_EncryptFinal(&ctx, p, &len);
+		EVP_EncryptFinal_ex(&ctx, p, &len);
 		p += len;
 		EVP_CIPHER_CTX_cleanup(&ctx);
 

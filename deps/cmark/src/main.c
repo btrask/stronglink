@@ -3,6 +3,7 @@
 #include <string.h>
 #include <errno.h>
 #include "config.h"
+#include "memory.h"
 #include "cmark.h"
 
 #if defined(_WIN32) && !defined(__CYGWIN__)
@@ -27,6 +28,7 @@ void print_usage() {
   printf("  --width WIDTH    Specify wrap width (default 0 = nowrap)\n");
   printf("  --sourcepos      Include source position attribute\n");
   printf("  --hardbreaks     Treat newlines as hard line breaks\n");
+  printf("  --nobreaks       Render soft line breaks as spaces\n");
   printf("  --safe           Suppress raw HTML and dangerous URLs\n");
   printf("  --smart          Use smart punctuation\n");
   printf("  --normalize      Consolidate adjacent text nodes\n");
@@ -75,20 +77,23 @@ int main(int argc, char *argv[]) {
   int options = CMARK_OPT_DEFAULT;
 
 #if defined(_WIN32) && !defined(__CYGWIN__)
+  _setmode(_fileno(stdin), _O_BINARY);
   _setmode(_fileno(stdout), _O_BINARY);
 #endif
 
-  files = (int *)malloc(argc * sizeof(*files));
+  files = (int *)calloc(argc, sizeof(*files));
 
   for (i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--version") == 0) {
       printf("cmark %s", CMARK_VERSION_STRING);
-      printf(" - CommonMark converter\n(C) 2014, 2015 John MacFarlane\n");
+      printf(" - CommonMark converter\n(C) 2014-2016 John MacFarlane\n");
       exit(0);
     } else if (strcmp(argv[i], "--sourcepos") == 0) {
       options |= CMARK_OPT_SOURCEPOS;
     } else if (strcmp(argv[i], "--hardbreaks") == 0) {
       options |= CMARK_OPT_HARDBREAKS;
+    } else if (strcmp(argv[i], "--nobreaks") == 0) {
+      options |= CMARK_OPT_NOBREAKS;
     } else if (strcmp(argv[i], "--smart") == 0) {
       options |= CMARK_OPT_SMART;
     } else if (strcmp(argv[i], "--safe") == 0) {
@@ -145,7 +150,7 @@ int main(int argc, char *argv[]) {
 
   parser = cmark_parser_new(options);
   for (i = 0; i < numfps; i++) {
-    FILE *fp = fopen(argv[files[i]], "r");
+    FILE *fp = fopen(argv[files[i]], "rb");
     if (fp == NULL) {
       fprintf(stderr, "Error opening file %s: %s\n", argv[files[i]],
               strerror(errno));

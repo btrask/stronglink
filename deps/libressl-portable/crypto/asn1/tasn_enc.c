@@ -1,4 +1,4 @@
-/* $OpenBSD: tasn_enc.c,v 1.17 2015/12/22 08:44:44 mmcc Exp $ */
+/* $OpenBSD: tasn_enc.c,v 1.19 2016/05/04 14:53:29 tedu Exp $ */
 /* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 2000.
  */
