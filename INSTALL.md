@@ -25,10 +25,11 @@ A semi-recent version of [Node.js](https://nodejs.org/) or [io.js](https://iojs.
 Basic Installation
 ------------------
 
-1. `./configure && make`
-2. `sudo make install`
-3. `mkdir /path/for/repo`
-4. `stronglink /path/for/repo`
+1. `git submodule init && git submodule update`
+2. `./configure && make`
+3. `sudo make install`
+4. `mkdir /path/for/repo`
+5. `stronglink /path/for/repo`
 
 If you don't want to run `make install`, you will need to manually symlink or copy the `res/blog` directory into the repo directory before running. For example: `cd /path/for/repo && ln -s /path/to/source/res/blog`. Or you can install in a different path with `PREFIX=/path make install`.
 
