@@ -20,7 +20,6 @@ PREFIX ?= /usr/local
 
 CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=500
 CFLAGS += -g -fno-omit-frame-pointer
-CFLAGS += -DLIBCO_MP
 CFLAGS += -DINSTALL_PREFIX=\"$(PREFIX)\"
 CFLAGS += -fstack-protector
 CFLAGS += -DHAVE_TIMEGM -DMAP_ANON -I$(DEPS_DIR)/libasync/deps/libressl-portable/include/compat
@@ -113,19 +112,10 @@ OBJECTS := \
 	$(BUILD_DIR)/deps/crypt_blowfish/wrapper.o \
 	$(BUILD_DIR)/deps/crypt_blowfish/x86.S.o \
 	$(BUILD_DIR)/deps/fts3/fts3_porter.o \
-	$(BUILD_DIR)/deps/http_parser/http_parser.o \
-	$(BUILD_DIR)/deps/multipart_parser.o \
 	$(BUILD_DIR)/deps/libasync/deps/libressl-portable/crypto/compat/reallocarray.o \
 	$(BUILD_DIR)/deps/libasync/deps/libressl-portable/crypto/compat/strlcat.o \
 	$(BUILD_DIR)/deps/libasync/deps/libressl-portable/crypto/compat/strlcpy.o \
 	$(BUILD_DIR)/deps/smhasher/MurmurHash3.o
-
-ifdef USE_VALGRIND
-OBJECTS += $(BUILD_DIR)/deps/libcoro/coro.o $(BUILD_DIR)/util/libco_coro.o
-CFLAGS += -DCORO_USE_VALGRIND
-else
-OBJECTS += $(BUILD_DIR)/deps/libco/libco.o
-endif
 
 # TODO: Ugly.
 ifeq ($(platform),macosx)
@@ -241,18 +231,6 @@ libasync:
 $(BUILD_DIR)/deps/crypt_blowfish/%.S.o: $(DEPS_DIR)/crypt_blowfish/%.S
 	@- mkdir -p $(dir $@)
 	$(CC) -c $(CFLAGS) -o $@ $<
-
-$(BUILD_DIR)/deps/libco/%.o: $(DEPS_DIR)/libco/%.c $(DEPS_DIR)/libco/libco.h
-	@- mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) -Wno-parentheses -o $@ $<
-
-$(BUILD_DIR)/deps/libcoro/%.o: $(DEPS_DIR)/libcoro/%.c $(DEPS_DIR)/libcoro/coro.h
-	@- mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) -std=gnu99 -o $@ $<
-
-$(BUILD_DIR)/deps/multipart_parser.o: $(DEPS_DIR)/multipart-parser-c/multipart_parser.c $(DEPS_DIR)/multipart-parser-c/multipart_parser.h
-	@- mkdir -p $(dir $@)
-	$(CC) -c -std=c89 -ansi -pedantic $(WARNINGS) -o $@ $<
 
 $(BUILD_DIR)/deps/memorymapping/src/fmemopen.o: $(DEPS_DIR)/memorymapping/src/fmemopen.c $(DEPS_DIR)/memorymapping/src/fmemopen.h
 	@- mkdir -p $(dir $@)
