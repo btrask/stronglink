@@ -6,9 +6,9 @@
 #include <signal.h>
 #include <unistd.h> // Work around bad includes in libtls
 #include <tls.h>
+#include <async/http/HTTPServer.h>
 #include "../util/fts.h"
 #include "../util/raiserlimit.h"
-#include "../http/HTTPServer.h"
 #include "../StrongLink.h"
 #include "Blog.h"
 #include "RSSServer.h"

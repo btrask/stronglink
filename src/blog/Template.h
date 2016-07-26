@@ -1,8 +1,9 @@
 // Copyright 2014-2015 Ben Trask
 // MIT licensed (see LICENSE for details)
 
-#include "../async/async.h"
-#include "../http/HTTPServer.h"
+#include <async/async.h>
+#include <async/http/HTTPServer.h>
+#include "../common.h"
 
 typedef struct Template* TemplateRef;
 

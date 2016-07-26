@@ -4,8 +4,8 @@
 #ifndef STRONGLINK_H
 #define STRONGLINK_H
 
+#include <async/async.h>
 #include "db/db_base.h"
-#include "async/async.h"
 #include "common.h"
 
 #define URI_MAX (1023+1)

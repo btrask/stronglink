@@ -1,10 +1,11 @@
 // Copyright 2015 Ben Trask
 // MIT licensed (see LICENSE for details)
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../async/async.h"
+#include <async/async.h>
 #include "strext.h"
 
 char *vaasprintf(char const *const fmt, va_list ap) {

@@ -2,8 +2,8 @@
 // MIT licensed (see LICENSE for details)
 
 #include <assert.h>
-#include "http/HTTP.h"
-#include "http/QueryString.h"
+#include <async/http/HTTP.h>
+#include <async/http/QueryString.h>
 #include "StrongLink.h"
 
 #define WORKER_COUNT 32

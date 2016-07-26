@@ -1,0 +1,3 @@
+[submodule "deps/libasync"]
+	path = deps/libasync
+	url = ../libasync/

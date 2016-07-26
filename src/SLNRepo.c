@@ -7,6 +7,32 @@
 #define CACHE_SIZE 1000
 #define PASS_LEN 16 // Default for auto-generated passwords
 
+
+// TODO: Put this somewhere.
+#define ENTROPY_BYTES 8
+static char *tohex2(char const *const buf, size_t const len) {
+	char const map[] = "0123456789abcdef";
+	char *const hex = calloc(len*2+1, 1);
+	if(!hex) return NULL;
+	for(size_t i = 0; i < len; ++i) {
+		hex[i*2+0] = map[0xf & (buf[i] >> 4)];
+		hex[i*2+1] = map[0xf & (buf[i] >> 0)];
+	}
+	return hex;
+}
+static char *async_fs_tempnam(char const *dir, char const *prefix) {
+	if(!dir) dir = "/tmp"; // TODO: Use ENV
+	if(!prefix) prefix = "async";
+	char rand[ENTROPY_BYTES];
+	if(async_random((unsigned char *)rand, ENTROPY_BYTES) < 0) return NULL;
+	char *hex = tohex2(rand, ENTROPY_BYTES);
+	char *path = aasprintf("%s/%s-%s", dir, prefix, hex);
+	free(hex); hex = NULL;
+	return path;
+}
+
+
+
 struct SLNRepo {
 	str_t *dir;
 	str_t *name;

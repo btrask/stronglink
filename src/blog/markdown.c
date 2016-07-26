@@ -1,6 +1,7 @@
 // Copyright 2014-2015 Ben Trask
 // MIT licensed (see LICENSE for details)
 
+#include <assert.h>
 #include "converter.h"
 #include "../../deps/cmark/src/cmark.h"
 #include "../../deps/cmark/src/buffer.h"

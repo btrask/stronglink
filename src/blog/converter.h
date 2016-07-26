@@ -6,8 +6,8 @@
 #include <string.h>
 #include <strings.h>
 #include <yajl/yajl_gen.h>
-#include "../async/async.h"
-#include "../http/QueryString.h"
+#include <async/async.h>
+#include <async/http/QueryString.h>
 
 // TODO: Redefined from StrongLink.h.
 #define SLN_META_TYPE "application/vnd.stronglink.meta"

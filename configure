@@ -11,7 +11,6 @@ snappy_autogen () { (
 	. ./autogen.sh
 ); }
 
-(cd deps/libressl-portable && ./autogen.sh && ./configure)
+(cd deps/libasync && ./configure)
 (cd ./deps/snappy && snappy_autogen && ./configure)
-(cd deps/uv && ./autogen.sh && ./configure)
 (cd deps/yajl && ./configure)

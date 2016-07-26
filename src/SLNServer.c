@@ -4,9 +4,9 @@
 #include <assert.h>
 #include "common.h"
 #include "StrongLink.h"
-#include "http/HTTP.h"
-#include "http/MultipartForm.h"
-#include "http/QueryString.h"
+#include "async/http/HTTP.h"
+#include "async/http/MultipartForm.h"
+#include "async/http/QueryString.h"
 
 #define QUERY_BATCH_SIZE 50
 #define AUTH_FORM_MAX (1023+1)

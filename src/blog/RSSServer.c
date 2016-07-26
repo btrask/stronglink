@@ -2,7 +2,7 @@
 // MIT licensed (see LICENSE for details)
 
 #include <limits.h>
-#include "../http/QueryString.h"
+#include <async/http/QueryString.h>
 #include "RSSServer.h"
 #include "Template.h"
 

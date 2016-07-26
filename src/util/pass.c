@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../../deps/crypt_blowfish/ow-crypt.h"
-#include "../async/async.h"
+#include <async/async.h>
 #include "pass.h"
 
 #define BCRYPT_PREFIX "$2b$"
