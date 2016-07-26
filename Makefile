@@ -191,7 +191,6 @@ $(BUILD_DIR)/stronglink: $(OBJECTS) $(STATIC_LIBS)
 	@- mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(WARNINGS) $(OBJECTS) $(STATIC_LIBS) $(LIBS) -o $@
 
-$(YAJL_BUILD_DIR)/include/yajl/*.h: | yajl
 $(YAJL_BUILD_DIR)/lib/libyajl_s.a: | yajl
 .PHONY: yajl
 yajl:
@@ -219,7 +218,6 @@ cmark:
 	$(MAKE) -C $(DEPS_DIR)/cmark --no-print-directory
 
 # TODO: Have libasync bundle these directly.
-$(DEPS_DIR)/libasync/include/%.h: | libasync
 $(DEPS_DIR)/libasync/build/libasync.a: | libasync
 $(DEPS_DIR)/libasync/deps/libressl-portable/tls/.libs/libtls.a: | libasync
 $(DEPS_DIR)/libasync/deps/libressl-portable/ssl/.libs/libssl.a: | libasync
@@ -247,7 +245,9 @@ $(BUILD_DIR)/deps/%.o: $(DEPS_DIR)/%.cpp
 	@- mkdir -p $(dir $(BUILD_DIR)/h/deps/$*.d)
 	$(CXX) -c $(CXXFLAGS) $(WARNINGS) -MMD -MP -MF $(BUILD_DIR)/h/deps/$*.d -o $@ $<
 
-$(BUILD_DIR)/src/%.o: $(SRC_DIR)/%.[cm]
+# We use order-only dependencies to force headers to be built first.
+# cc -M* doesn't help during initial build.
+$(BUILD_DIR)/src/%.o: $(SRC_DIR)/%.[cm] | libasync yajl
 	@- mkdir -p $(dir $@)
 	@- mkdir -p $(dir $(BUILD_DIR)/h/src/$*.d)
 	$(CC) -c $(CFLAGS) -I$(SRC_DIR) $(WARNINGS) -MMD -MP -MF $(BUILD_DIR)/h/src/$*.d -o $@ $<
