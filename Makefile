@@ -277,10 +277,8 @@ clean:
 
 .PHONY: distclean
 distclean: clean
-	- $(MAKE) distclean -C $(DEPS_DIR)/cmark
-	- $(MAKE) clean -C $(DEPS_DIR)/leveldb
-	- $(MAKE) clean -C $(DEPS_DIR)/liblmdb
-	- $(MAKE) distclean -C $(DEPS_DIR)/snappy
 	- $(MAKE) distclean -C $(DEPS_DIR)/libasync
+	- $(MAKE) distclean -C $(DEPS_DIR)/libkvstore
+	- $(MAKE) distclean -C $(DEPS_DIR)/cmark
 	- $(MAKE) distclean -C $(DEPS_DIR)/yajl
 
