@@ -11,6 +11,6 @@ snappy_autogen () { (
 	. ./autogen.sh
 ); }
 
-(cd deps/libasync && ./configure)
-(cd ./deps/snappy && snappy_autogen && ./configure)
-(cd deps/yajl && ./configure)
+(cd ./deps/libasync && ./configure)
+(cd ./deps/libkvstore && ./configure)
+(cd ./deps/yajl && ./configure)
