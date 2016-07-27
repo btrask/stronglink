@@ -103,8 +103,6 @@ OBJECTS := \
 	$(BUILD_DIR)/src/filter/SLNMetaFileFilter.o \
 	$(BUILD_DIR)/src/filter/SLNJSONFilterParser.o \
 	$(BUILD_DIR)/src/filter/SLNUserFilterParser.o \
-	$(BUILD_DIR)/src/db/db_ext.o \
-	$(BUILD_DIR)/src/db/db_schema.o \
 	$(BUILD_DIR)/src/util/fts.o \
 	$(BUILD_DIR)/src/util/pass.o \
 	$(BUILD_DIR)/src/util/strext.o \
@@ -143,8 +141,6 @@ CFLAGS += -I$(DEPS_DIR)/cmark/build/src
 STATIC_LIBS += $(YAJL_BUILD_DIR)/lib/libyajl_s.a
 CFLAGS += -I$(YAJL_BUILD_DIR)/include
 
-STATIC_LIBS += $(DEPS_DIR)/liblmdb/liblmdb.a
-
 STATIC_LIBS += $(DEPS_DIR)/libasync/build/libasync.a
 CFLAGS += -I$(DEPS_DIR)/libasync/include
 CFLAGS += -iquote $(DEPS_DIR)/libasync/deps
@@ -156,30 +152,14 @@ CFLAGS += -I$(DEPS_DIR)/libasync/deps/libressl-portable/include
 
 STATIC_LIBS += $(DEPS_DIR)/libasync/deps/uv/.libs/libuv.a
 
+STATIC_LIBS += $(DEPS_DIR)/libkvstore/build/libkvstore.a
+STATIC_LIBS += $(DEPS_DIR)/libkvstore/deps/liblmdb/liblmdb.a
+CFLAGS += -I$(DEPS_DIR)/libkvstore/include
+CFLAGS += -iquote $(DEPS_DIR)/libkvstore/deps
+
 LIBS += -lpthread -lobjc -lm
 ifeq ($(platform),linux)
 LIBS += -lrt
-endif
-
-ifeq ($(DB),rocksdb)
-  CFLAGS += -DUSE_ROCKSDB
-  STATIC_LIBS += $(DEPS_DIR)/snappy/.libs/libsnappy.a
-  LIBS += -lrocksdb
-  LIBS += -lz
-  LIBS += -lstdc++
-  OBJECTS += $(BUILD_DIR)/src/db/db_base_leveldb.o
-else ifeq ($(DB),hyper)
-  STATIC_LIBS += $(DEPS_DIR)/snappy/.libs/libsnappy.a
-  LIBS += -lhyperleveldb
-  LIBS += -lstdc++
-  OBJECTS += $(BUILD_DIR)/src/db/db_base_leveldb.o
-else ifeq ($(DB),leveldb)
-  CFLAGS += -I$(DEPS_DIR)/leveldb/include -I$(DEPS_DIR)/snappy/include
-  STATIC_LIBS += $(DEPS_DIR)/leveldb/libleveldb.a $(DEPS_DIR)/snappy/.libs/libsnappy.a
-  LIBS += -lstdc++
-  OBJECTS += $(BUILD_DIR)/src/db/db_base_leveldb.o
-else
-  OBJECTS += $(BUILD_DIR)/src/db/db_base_mdb.o
 endif
 
 .DEFAULT_GOAL := all
@@ -196,21 +176,6 @@ $(YAJL_BUILD_DIR)/lib/libyajl_s.a: | yajl
 yajl:
 	$(MAKE) yajl_s/fast -C $(DEPS_DIR)/yajl/build --no-print-directory
 
-$(DEPS_DIR)/liblmdb/liblmdb.a: | mdb
-.PHONY: mdb
-mdb:
-	$(MAKE) -C $(DEPS_DIR)/liblmdb --no-print-directory
-
-$(DEPS_DIR)/leveldb/libleveldb.a: | leveldb
-.PHONY: leveldb
-leveldb:
-	$(MAKE) -C $(DEPS_DIR)/leveldb --no-print-directory
-
-$(DEPS_DIR)/snappy/.libs/libsnappy.a: | snappy
-.PHONY: snappy
-snappy:
-	$(MAKE) -C $(DEPS_DIR)/snappy --no-print-directory
-
 $(DEPS_DIR)/cmark/build/src/*.h: | cmark
 $(DEPS_DIR)/cmark/build/src/libcmark.a: | cmark
 .PHONY: cmark
@@ -226,6 +191,12 @@ $(DEPS_DIR)/libasync/deps/uv/.libs/libuv.a: | libasync
 .PHONY: libasync
 libasync:
 	$(MAKE) -C $(DEPS_DIR)/libasync --no-print-directory
+
+$(DEPS_DIR)/libkvstore/build/libkvstore.a: | libkvstore
+$(DEPS_DIR)/libkvstore/deps/liblmdb/liblmdb.a: | libkvstore
+.PHONY: libkvstore
+libkvstore:
+	$(MAKE) -C $(DEPS_DIR)/libkvstore --no-print-directory
 
 $(BUILD_DIR)/deps/crypt_blowfish/%.S.o: $(DEPS_DIR)/crypt_blowfish/%.S
 	@- mkdir -p $(dir $@)
@@ -247,7 +218,7 @@ $(BUILD_DIR)/deps/%.o: $(DEPS_DIR)/%.cpp
 
 # We use order-only dependencies to force headers to be built first.
 # cc -M* doesn't help during initial build.
-$(BUILD_DIR)/src/%.o: $(SRC_DIR)/%.[cm] | libasync yajl
+$(BUILD_DIR)/src/%.o: $(SRC_DIR)/%.[cm] | libasync libkvstore yajl
 	@- mkdir -p $(dir $@)
 	@- mkdir -p $(dir $(BUILD_DIR)/h/src/$*.d)
 	$(CC) -c $(CFLAGS) -I$(SRC_DIR) $(WARNINGS) -MMD -MP -MF $(BUILD_DIR)/h/src/$*.d -o $@ $<

@@ -5,7 +5,7 @@
 #define STRONGLINK_H
 
 #include <async/async.h>
-#include "db/db_base.h"
+#include <kvstore/db_base.h>
 #include "common.h"
 
 #define URI_MAX (1023+1)

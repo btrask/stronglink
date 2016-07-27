@@ -1,3 +1,6 @@
 [submodule "deps/libasync"]
 	path = deps/libasync
 	url = ../libasync/
+[submodule "deps/libkvstore"]
+	path = deps/libkvstore
+	url = ../libkvstore

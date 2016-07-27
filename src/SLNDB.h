@@ -1,7 +1,7 @@
 // Copyright 2014-2015 Ben Trask
 // MIT licensed (see LICENSE for details)
 
-#include "db/db_schema.h"
+#include <kvstore/db_schema.h>
 
 enum {
 	// Note: these IDs are part of the persistent database format,
