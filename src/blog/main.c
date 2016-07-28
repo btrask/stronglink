@@ -30,49 +30,52 @@ static uv_signal_t sigpipe[1] = {};
 static uv_signal_t sigint[1] = {};
 static int sig = 0;
 
-static int listener0(HTTPServerRef const server, HTTPConnectionRef const conn, str_t *const URI, size_t const URIMax, HTTPHeadersRef *const outheaders, SLNSessionRef *const outsession) {
-	HTTPMethod method;
-	ssize_t len = HTTPConnectionReadRequest(conn, &method, URI, URIMax);
-	if(UV_EOF == len) return 0;
-	if(UV_ECONNRESET == len) return 0;
+static void listener(void *ctx, HTTPServerRef const server, HTTPConnectionRef const conn) {
+	assert(server);
+	assert(conn);
+	HTTPMethod method = 99; // 0 is HTTP_DELETE...
+	str_t URI[URI_MAX]; URI[0] = '\0';
+	HTTPHeadersRef headers = NULL;
+	SLNSessionRef session = NULL;
+	ssize_t len = 0;
+	int rc = 0;
+
+	len = HTTPConnectionReadRequest(conn, &method, URI, sizeof(URI));
+	if(UV_EOF == len) goto cleanup;
+	if(UV_ECONNRESET == len) goto cleanup;
 	if(len < 0) {
-		alogf("Request error: %s\n", uv_strerror(len));
-		return len;
+		rc = len;
+		alogf("Request error: %s\n", uv_strerror(rc));
+		goto cleanup;
 	}
 
-	int rc = HTTPHeadersCreateFromConnection(conn, outheaders);
-	if(rc < 0) return rc;
+	rc = HTTPHeadersCreateFromConnection(conn, &headers);
+	if(rc < 0) goto cleanup;
 
-	strarg_t const host = HTTPHeadersGet(*outheaders, "host");
+	strarg_t const host = HTTPHeadersGet(headers, "host");
 	str_t domain[1023+1]; domain[0] = '\0';
 	if(host) sscanf(host, "%1023[^:]", domain);
 	// TODO: Verify Host header to prevent DNS rebinding.
 
 	if(SERVER_PORT_TLS && server != server_tls) {
-		return HTTPConnectionSendSecureRedirect(conn, domain, SERVER_PORT_TLS, URI);
+		rc = HTTPConnectionSendSecureRedirect(conn, domain, SERVER_PORT_TLS, URI);
+		goto cleanup;
 	}
 
-	strarg_t const cookie = HTTPHeadersGet(*outheaders, "cookie");
+	strarg_t const cookie = HTTPHeadersGet(headers, "cookie");
 	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);
-	rc = SLNSessionCacheCopyActiveSession(cache, cookie, outsession);
-	if(rc < 0) return rc;
+	rc = SLNSessionCacheCopyActiveSession(cache, cookie, &session);
+	if(rc < 0) goto cleanup;
 	// Note: null session is valid (zero permissions).
 
 	rc = -1;
-	rc = rc >= 0 ? rc : SLNServerDispatch(repo, *outsession, conn, method, URI, *outheaders);
-	rc = rc >= 0 ? rc : RSSServerDispatch(rss, *outsession, conn, method, URI, *outheaders);
-	rc = rc >= 0 ? rc : BlogDispatch(blog, *outsession, conn, method, URI, *outheaders);
+	rc = rc >= 0 ? rc : SLNServerDispatch(repo, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : RSSServerDispatch(rss, session, conn, method, URI, headers);
+	rc = rc >= 0 ? rc : BlogDispatch(blog, session, conn, method, URI, headers);
 	if(rc < 0) rc = 404;
 	if(rc > 0) HTTPConnectionSendStatus(conn, rc);
-	return 0;
-}
-static void listener(void *ctx, HTTPServerRef const server, HTTPConnectionRef const conn) {
-	assert(server);
-	assert(conn);
-	str_t URI[URI_MAX]; URI[0] = '\0';
-	HTTPHeadersRef headers = NULL;
-	SLNSessionRef session = NULL;
-	int rc = listener0(server, conn, URI, sizeof(URI), &headers, &session);
+
+cleanup:
 	if(rc < 0) HTTPConnectionSendStatus(conn, HTTPError(rc));
 	strarg_t const username = SLNSessionGetUsername(session);
 	HTTPConnectionLog(conn, URI, username, headers, SERVER_LOG_FILE);
