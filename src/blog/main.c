@@ -18,15 +18,6 @@
 #define SERVER_PORT_TLS 0 // HTTPS default 443, 0 for disabled
 #define SERVER_LOG_FILE NULL // stdout or NULL for disabled
 
-// https://wiki.mozilla.org/Security/Server_Side_TLS
-// https://wiki.mozilla.org/index.php?title=Security/Server_Side_TLS&oldid=1080944
-// "Modern" compatibility ciphersuite
-#define TLS_CIPHERS "ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-DSS-AES128-GCM-SHA256:kEDH+AESGCM:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:DHE-RSA-AES256-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!3DES:!MD5:!PSK"
-
-// According to SSL Labs, enabling TLS1.1 doesn't do any good...
-// Not 100% sure about its status in IE11 though.
-#define TLS_PROTOCOLS (TLS_PROTOCOL_TLSv1_2)
-
 int SLNServerDispatch(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers);
 
 static strarg_t path = NULL;
@@ -108,76 +99,71 @@ static void stop(uv_signal_t *const signal, int const signum) {
 
 static int init_http(void) {
 	if(!SERVER_PORT_RAW) return 0;
-	server_raw = HTTPServerCreate((HTTPListener)listener, blog);
-	if(!server_raw) {
-		alogf("HTTP server could not be initialized\n");
-		return -1;
-	}
-	int rc = HTTPServerListen(server_raw, SERVER_ADDRESS, SERVER_PORT_RAW);
+	int rc = HTTPServerCreate((HTTPListener)listener, blog, &server_raw);
+	if(rc < 0) goto cleanup;
+	rc = HTTPServerListen(server_raw, SERVER_ADDRESS, SERVER_PORT_RAW);
+	if(rc < 0) goto cleanup;
+	int const port = SERVER_PORT_RAW;
+	alogf("StrongLink server running at http://localhost:%d/\n", port);
+cleanup:
 	if(rc < 0) {
 		alogf("HTTP server could not be started: %s\n", sln_strerror(rc));
 		return -1;
 	}
-	int const port = SERVER_PORT_RAW;
-	alogf("StrongLink server running at http://localhost:%d/\n", port);
 	return 0;
+}
+static int tlserr(int const x) {
+	if(0 == x) return 0;
+	if(errno) return -errno;
+	return -1;
 }
 static int init_https(void) {
 	if(!SERVER_PORT_TLS) return 0;
-	struct tls_config *config = tls_config_new();
-	if(!config) {
-		alogf("TLS config error: %s\n", strerror(errno));
-		return -1;
-	}
-	int rc = tls_config_set_ciphers(config, TLS_CIPHERS);
-	if(0 != rc) {
-		alogf("TLS ciphers error: %s\n", strerror(errno));
-		tls_config_free(config); config = NULL;
-		return -1;
-	}
+	struct tls_config *config = NULL;
+	struct tls *tls = NULL;
+	int rc = 0;
+
+	config = tls_config_new();
+	if(!config) rc = -errno;
+	if(!config && 0 == rc) rc = -ENOMEM;
+	if(rc < 0) goto cleanup;
+
+	rc = tlserr(tls_config_set_ciphers(config, TLS_CIPHERS));
+	if(rc < 0) goto cleanup;
 	tls_config_set_protocols(config, TLS_PROTOCOLS);
 	str_t pemfile[PATH_MAX];
 	snprintf(pemfile, sizeof(pemfile), "%s/key.pem", path);
-	rc = tls_config_set_key_file(config, pemfile);
-	if(0 != rc) {
-		alogf("TLS key file error: %s\n", strerror(errno));
-		tls_config_free(config); config = NULL;
-		return -1;
-	}
+	rc = tlserr(tls_config_set_key_file(config, pemfile));
+	if(rc < 0) goto cleanup;
 	snprintf(pemfile, sizeof(pemfile), "%s/crt.pem", path);
-	rc = tls_config_set_cert_file(config, pemfile);
-	if(0 != rc) {
-		alogf("TLS crt file error: %s\n", strerror(errno));
-		tls_config_free(config); config = NULL;
-		return -1;
-	}
-	struct tls *tls = tls_server();
-	if(!tls) {
-		alogf("TLS engine error: %s\n", strerror(errno));
-		tls_config_free(config); config = NULL;
-		return -1;
-	}
-	rc = tls_configure(tls, config);
-	tls_config_free(config); config = NULL;
-	if(0 != rc) {
+	rc = tlserr(tls_config_set_cert_file(config, pemfile));
+	if(rc < 0) goto cleanup;
+
+	tls = tls_server();
+	if(!tls) rc = -errno;
+	if(!tls && 0 == rc) rc = -ENOMEM;
+	if(rc < 0) goto cleanup;
+	rc = tlserr(tls_configure(tls, config));
+	if(rc < 0) {
 		alogf("TLS config error: %s\n", tls_error(tls));
-		tls_free(tls); tls = NULL;
-		return -1;
+		goto cleanup;
 	}
-	server_tls = HTTPServerCreate((HTTPListener)listener, blog);
-	if(!server_tls) {
-		alogf("HTTPS server could not be initialized\n");
-		tls_free(tls); tls = NULL;
-		return -1;
-	}
+
+	rc = HTTPServerCreate((HTTPListener)listener, blog, &server_tls);
+	if(rc < 0) goto cleanup;
 	rc = HTTPServerListenSecure(server_tls, SERVER_ADDRESS, SERVER_PORT_TLS, &tls);
+	if(rc < 0) goto cleanup;
+
+	int const port = SERVER_PORT_TLS;
+	alogf("StrongLink server running at https://localhost:%d/\n", port);
+
+cleanup:
+	tls_config_free(config); config = NULL;
 	tls_free(tls); tls = NULL;
 	if(rc < 0) {
 		alogf("HTTPS server could not be started: %s\n", sln_strerror(rc));
 		return -1;
 	}
-	int const port = SERVER_PORT_TLS;
-	alogf("StrongLink server running at https://localhost:%d/\n", port);
 	return 0;
 }
 static void init(void *const unused) {
