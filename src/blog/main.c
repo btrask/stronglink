@@ -214,12 +214,6 @@ static void cleanup(void *const unused) {
 }
 
 int main(int const argc, char const *const *const argv) {
-	// Depending on how async_pool and async_fs are configured, we might be
-	// using our own thread pool heavily or not. However, at the minimum,
-	// uv_getaddrinfo uses the libuv thread pool, and it blocks on the
-	// network, so don't set this number too low.
-	if(!getenv("UV_THREADPOOL_SIZE")) putenv((char *)"UV_THREADPOOL_SIZE=4");
-
 	raiserlimit();
 	async_init();
 
