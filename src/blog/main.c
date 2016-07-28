@@ -99,67 +99,44 @@ static void stop(uv_signal_t *const signal, int const signum) {
 
 static int init_http(void) {
 	if(!SERVER_PORT_RAW) return 0;
-	int rc = HTTPServerCreate((HTTPListener)listener, blog, &server_raw);
+	HTTPServerRef server = NULL;
+	int rc = HTTPServerCreate((HTTPListener)listener, blog, &server);
 	if(rc < 0) goto cleanup;
-	rc = HTTPServerListen(server_raw, SERVER_ADDRESS, SERVER_PORT_RAW);
+	rc = HTTPServerListen(server, SERVER_ADDRESS, SERVER_PORT_RAW);
 	if(rc < 0) goto cleanup;
 	int const port = SERVER_PORT_RAW;
 	alogf("StrongLink server running at http://localhost:%d/\n", port);
+	server_raw = server; server = NULL;
 cleanup:
+	HTTPServerFree(&server);
 	if(rc < 0) {
 		alogf("HTTP server could not be started: %s\n", sln_strerror(rc));
 		return -1;
 	}
 	return 0;
 }
-static int tlserr(int const x) {
-	if(0 == x) return 0;
-	if(errno) return -errno;
-	return -1;
-}
 static int init_https(void) {
 	if(!SERVER_PORT_TLS) return 0;
-	struct tls_config *config = NULL;
-	struct tls *tls = NULL;
-	int rc = 0;
-
-	config = tls_config_new();
-	if(!config) rc = -errno;
-	if(!config && 0 == rc) rc = -ENOMEM;
+	HTTPServerRef server = NULL;
+	str_t keypath[PATH_MAX];
+	str_t crtpath[PATH_MAX];
+	int rc;
+	rc = snprintf(keypath, sizeof(keypath), "%s/key.pem", path);
+	if(rc >= sizeof(keypath)) rc = UV_ENAMETOOLONG;
+	if(rc < 0) goto cleanup;
+	rc = snprintf(crtpath, sizeof(crtpath), "%s/crt.pem", path);
+	if(rc >= sizeof(crtpath)) rc = UV_ENAMETOOLONG;
 	if(rc < 0) goto cleanup;
 
-	rc = tlserr(tls_config_set_ciphers(config, TLS_CIPHERS));
+	rc = HTTPServerCreate((HTTPListener)listener, blog, &server);
 	if(rc < 0) goto cleanup;
-	tls_config_set_protocols(config, TLS_PROTOCOLS);
-	str_t pemfile[PATH_MAX];
-	snprintf(pemfile, sizeof(pemfile), "%s/key.pem", path);
-	rc = tlserr(tls_config_set_key_file(config, pemfile));
+	rc = HTTPServerListenSecurePaths(server, SERVER_ADDRESS, SERVER_PORT_TLS, keypath, crtpath);
 	if(rc < 0) goto cleanup;
-	snprintf(pemfile, sizeof(pemfile), "%s/crt.pem", path);
-	rc = tlserr(tls_config_set_cert_file(config, pemfile));
-	if(rc < 0) goto cleanup;
-
-	tls = tls_server();
-	if(!tls) rc = -errno;
-	if(!tls && 0 == rc) rc = -ENOMEM;
-	if(rc < 0) goto cleanup;
-	rc = tlserr(tls_configure(tls, config));
-	if(rc < 0) {
-		alogf("TLS config error: %s\n", tls_error(tls));
-		goto cleanup;
-	}
-
-	rc = HTTPServerCreate((HTTPListener)listener, blog, &server_tls);
-	if(rc < 0) goto cleanup;
-	rc = HTTPServerListenSecure(server_tls, SERVER_ADDRESS, SERVER_PORT_TLS, &tls);
-	if(rc < 0) goto cleanup;
-
 	int const port = SERVER_PORT_TLS;
 	alogf("StrongLink server running at https://localhost:%d/\n", port);
-
+	server_tls = server; server = NULL;
 cleanup:
-	tls_config_free(config); config = NULL;
-	tls_free(tls); tls = NULL;
+	HTTPServerFree(&server);
 	if(rc < 0) {
 		alogf("HTTPS server could not be started: %s\n", sln_strerror(rc));
 		return -1;
