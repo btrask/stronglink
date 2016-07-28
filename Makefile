@@ -20,7 +20,6 @@ PREFIX ?= /usr/local
 
 CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=500
 CFLAGS += -g -fno-omit-frame-pointer
-CFLAGS += -DLIBCO_MP
 CFLAGS += -DINSTALL_PREFIX=\"$(PREFIX)\"
 CFLAGS += -fstack-protector
 CFLAGS += -DHAVE_TIMEGM -DMAP_ANON -I$(DEPS_DIR)/libasync/deps/libressl-portable/include/compat
