@@ -50,15 +50,11 @@ static int listener0(HTTPServerRef const server, HTTPConnectionRef const conn, s
 	if(host) sscanf(host, "%1023[^:]", domain);
 	// TODO: Verify Host header to prevent DNS rebinding.
 
-	if(SERVER_PORT_TLS && server == server_raw) {
-		// Redirect from HTTP to HTTPS
-		if('\0' == domain[0]) return 400;
-		int const port = SERVER_PORT_TLS;
-		str_t loc[URI_MAX];
-		rc = snprintf(loc, sizeof(loc), "https://%s:%d%s", domain, port, URI);
-		if(rc >= sizeof(loc)) return 414; // Request-URI Too Large
+	if(SERVER_PORT_TLS && server != server_tls) {
+		rc = HTTPConnectionSendSecureRedirect(conn, domain, SERVER_PORT_TLS, URI);
+		if(UV_EINVAL == rc) return 400;
+		if(UV_ENAMETOOLONG == rc) return 414; // Request-URI Too Large
 		if(rc < 0) return 500;
-		HTTPConnectionSendRedirect(conn, 301, loc);
 		return 0;
 	}
 
