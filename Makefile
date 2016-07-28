@@ -162,6 +162,11 @@ ifeq ($(platform),linux)
 LIBS += -lrt
 endif
 
+ifdef USE_VALGRIND
+CFLAGS += -DSLN_USE_VALGRIND
+endif
+
+
 .DEFAULT_GOAL := all
 
 .PHONY: all

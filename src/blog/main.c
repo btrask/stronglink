@@ -242,12 +242,24 @@ int main(int const argc, char const *const *const argv) {
 	async_spawn(STACK_DEFAULT, term, NULL);
 	uv_run(async_loop, UV_RUN_DEFAULT);
 
-	// cleanup is separate from term because connections might
-	// still be active.
+#ifdef SLN_USE_VALGRIND
+	// Note: With Valgrind disabled, libasync unrefs HTTP connections
+	// while blocking, which lets us terminate promptly. However, those
+	// unref'd connections don't actually get closed or freed, so
+	// freeing other structures can cause problems. Instead, we just
+	// let the process die and the OS clean everything up.
+	// 
+	// With Valgrind enabled, we wait for all pending connections to close
+	// and then free everything properly.
+	// 
+	// The correct solution here is probably to keep a list of all
+	// active connections, and tell them to terminate when we want to quit.
+
 	async_spawn(STACK_DEFAULT, cleanup, NULL);
 	uv_run(async_loop, UV_RUN_DEFAULT);
 
 	async_destroy();
+#endif
 
 	// TODO: Windows?
 	if(sig) raise(sig);
