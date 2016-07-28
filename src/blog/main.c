@@ -35,15 +35,13 @@ static int listener0(HTTPServerRef const server, HTTPConnectionRef const conn, s
 	ssize_t len = HTTPConnectionReadRequest(conn, &method, URI, URIMax);
 	if(UV_EOF == len) return 0;
 	if(UV_ECONNRESET == len) return 0;
-	if(UV_EMSGSIZE == len) return 414; // Request-URI Too Large
 	if(len < 0) {
 		alogf("Request error: %s\n", uv_strerror(len));
-		return 500;
+		return len;
 	}
 
 	int rc = HTTPHeadersCreateFromConnection(conn, outheaders);
-	if(UV_EMSGSIZE == rc) return 431; // Request Header Fields Too Large
-	if(rc < 0) return 500;
+	if(rc < 0) return rc;
 
 	strarg_t const host = HTTPHeadersGet(*outheaders, "host");
 	str_t domain[1023+1]; domain[0] = '\0';
@@ -51,24 +49,22 @@ static int listener0(HTTPServerRef const server, HTTPConnectionRef const conn, s
 	// TODO: Verify Host header to prevent DNS rebinding.
 
 	if(SERVER_PORT_TLS && server != server_tls) {
-		rc = HTTPConnectionSendSecureRedirect(conn, domain, SERVER_PORT_TLS, URI);
-		if(UV_EINVAL == rc) return 400;
-		if(UV_ENAMETOOLONG == rc) return 414; // Request-URI Too Large
-		if(rc < 0) return 500;
-		return 0;
+		return HTTPConnectionSendSecureRedirect(conn, domain, SERVER_PORT_TLS, URI);
 	}
 
 	strarg_t const cookie = HTTPHeadersGet(*outheaders, "cookie");
 	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);
 	rc = SLNSessionCacheCopyActiveSession(cache, cookie, outsession);
-	if(rc < 0) return 500;
+	if(rc < 0) return rc;
 	// Note: null session is valid (zero permissions).
 
 	rc = -1;
 	rc = rc >= 0 ? rc : SLNServerDispatch(repo, *outsession, conn, method, URI, *outheaders);
 	rc = rc >= 0 ? rc : RSSServerDispatch(rss, *outsession, conn, method, URI, *outheaders);
 	rc = rc >= 0 ? rc : BlogDispatch(blog, *outsession, conn, method, URI, *outheaders);
-	return rc;
+	if(rc < 0) rc = 404;
+	if(rc > 0) HTTPConnectionSendStatus(conn, rc);
+	return 0;
 }
 static void listener(void *ctx, HTTPServerRef const server, HTTPConnectionRef const conn) {
 	assert(server);
@@ -77,8 +73,7 @@ static void listener(void *ctx, HTTPServerRef const server, HTTPConnectionRef co
 	HTTPHeadersRef headers = NULL;
 	SLNSessionRef session = NULL;
 	int rc = listener0(server, conn, URI, sizeof(URI), &headers, &session);
-	if(rc < 0) rc = 404;
-	if(rc > 0) HTTPConnectionSendStatus(conn, rc);
+	if(rc < 0) HTTPConnectionSendStatus(conn, HTTPError(rc));
 	strarg_t const username = SLNSessionGetUsername(session);
 	HTTPConnectionLog(conn, URI, username, headers, SERVER_LOG_FILE);
 	SLNSessionRelease(&session);
