@@ -26,7 +26,6 @@ static RSSServerRef rss = NULL;
 static BlogRef blog = NULL;
 static HTTPServerRef server_raw = NULL;
 static HTTPServerRef server_tls = NULL;
-static uv_signal_t sigpipe[1] = {};
 static uv_signal_t sigint[1] = {};
 static int sig = 0;
 
@@ -83,9 +82,6 @@ cleanup:
 	HTTPHeadersFree(&headers);
 }
 
-static void ignore(uv_signal_t *const signal, int const signum) {
-	// Do nothing
-}
 static void stop(uv_signal_t *const signal, int const signum) {
 	sig = signum;
 	uv_stop(async_loop);
@@ -144,10 +140,6 @@ static void init(void *const unused) {
 		return;
 	}
 
-	uv_signal_init(async_loop, sigpipe);
-	uv_signal_start(sigpipe, ignore, SIGPIPE);
-	uv_unref((uv_handle_t *)sigpipe);
-
 	str_t *tmp = strdup(path);
 	strarg_t const reponame = basename(tmp); // TODO
 	rc = SLNRepoCreate(path, reponame, &repo);
@@ -202,10 +194,6 @@ static void cleanup(void *const unused) {
 	BlogFree(&blog);
 	SLNRepoFree(&repo);
 
-	uv_ref((uv_handle_t *)sigpipe);
-	uv_signal_stop(sigpipe);
-	uv_close((uv_handle_t *)sigpipe, NULL);
-
 	async_pool_enter(NULL);
 	fflush(NULL); // Everything.
 	async_pool_leave(NULL);
@@ -214,10 +202,12 @@ static void cleanup(void *const unused) {
 }
 
 int main(int const argc, char const *const *const argv) {
-	raiserlimit();
-	async_init();
-
-	int rc = tls_init();
+	int rc = async_process_init();
+	if(rc < 0) {
+		fprintf(stderr, "Initialization error: %s\n", uv_strerror(rc));
+		return 1;
+	}
+	rc = tls_init();
 	if(rc < 0) {
 		fprintf(stderr, "TLS initialization error: %s\n", strerror(errno));
 		return 1;
@@ -252,7 +242,7 @@ int main(int const argc, char const *const *const argv) {
 	async_spawn(STACK_DEFAULT, cleanup, NULL);
 	uv_run(async_loop, UV_RUN_DEFAULT);
 
-	async_destroy();
+	async_process_destroy();
 #endif
 
 	// TODO: Windows?
