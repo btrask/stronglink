@@ -104,7 +104,8 @@ static void reader(SLNPullRef const pull, bool const meta) {
 	if(rc < 0) goto cleanup;
 
 	for(;;) {
-		rc = HTTPConnectionCreateOutgoing(pull->host, 0, &conn);
+		// TODO: Support HTTPS?
+		rc = HTTPConnectionCreateOutgoing(pull->host, 0, false, &conn);
 		if(rc >= 0) break; // TODO: Only retry on specific errors?
 		// UV_ECONNREFUSED
 		alogf("Pull connection to %s: %s\n", pull->host, sln_strerror(rc));
@@ -197,7 +198,8 @@ static void worker(void *const arg) {
 		if(rc < 0) goto cleanup;
 
 		if(!conn) {
-			rc = HTTPConnectionCreateOutgoing(pull->host, 0, &conn);
+			// TODO: Support HTTPS?
+			rc = HTTPConnectionCreateOutgoing(pull->host, 0, false, &conn);
 			if(rc < 0) goto cleanup;
 		}
 
