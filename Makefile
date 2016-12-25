@@ -155,8 +155,7 @@ STATIC_LIBS += $(DEPS_DIR)/libkvstore/build/libkvstore.a
 STATIC_LIBS += $(DEPS_DIR)/libkvstore/deps/liblmdb/liblmdb.a
 STATIC_LIBS += $(DEPS_DIR)/libkvstore/deps/leveldb/out-static/libleveldb.a
 STATIC_LIBS += $(DEPS_DIR)/libkvstore/deps/snappy/.libs/libsnappy.a
-CFLAGS += -I$(DEPS_DIR)/libkvstore/include
-CFLAGS += -iquote $(DEPS_DIR)/libkvstore/deps
+CFLAGS += -I$(DEPS_DIR)/libkvstore/build/include
 LIBS += -lstdc++
 
 LIBS += -lpthread -lobjc -lm
@@ -201,9 +200,12 @@ libasync:
 
 $(DEPS_DIR)/libkvstore/build/libkvstore.a: | libkvstore
 $(DEPS_DIR)/libkvstore/deps/liblmdb/liblmdb.a: | libkvstore
+$(DEPS_DIR)/libkvstore/deps/leveldb/libleveldb.a: | libkvstore
+$(DEPS_DIR)/libkvstore/deps/leveldb/out-static/libleveldb.a: | libkvstore
+$(DEPS_DIR)/libkvstore/deps/snappy/.libs/libsnappy.a: | libkvstore
 .PHONY: libkvstore
 libkvstore:
-	$(MAKE) -C $(DEPS_DIR)/libkvstore --no-print-directory
+	DB=$(DB) $(MAKE) -C $(DEPS_DIR)/libkvstore --no-print-directory
 
 $(BUILD_DIR)/deps/crypt_blowfish/%.S.o: $(DEPS_DIR)/crypt_blowfish/%.S
 	@- mkdir -p $(dir $@)
