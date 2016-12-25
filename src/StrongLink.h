@@ -5,7 +5,7 @@
 #define STRONGLINK_H
 
 #include <async/async.h>
-#include <kvstore/db_base.h>
+#include <kvstore/kvs_base.h>
 #include "common.h"
 
 #define URI_MAX (1023+1)
@@ -44,7 +44,7 @@ static strarg_t sln_strerror(int const rc) {
 		case SLN_HASHMISMATCH: return "Hash mismatch";
 		case SLN_INVALIDTARGET: return "Invalid meta-file target";
 	}
-	strarg_t x = db_strerror(rc);
+	strarg_t x = kvs_strerror(rc);
 	if(!x) x = uv_strerror(rc);
 	return x;
 }
@@ -61,8 +61,8 @@ strarg_t SLNRepoGetName(SLNRepoRef const repo);
 SLNMode SLNRepoGetPublicMode(SLNRepoRef const repo);
 SLNMode SLNRepoGetRegistrationMode(SLNRepoRef const repo);
 SLNSessionCacheRef SLNRepoGetSessionCache(SLNRepoRef const repo);
-void SLNRepoDBOpenUnsafe(SLNRepoRef const repo, DB_env **const dbptr);
-void SLNRepoDBClose(SLNRepoRef const repo, DB_env **const dbptr);
+void SLNRepoDBOpenUnsafe(SLNRepoRef const repo, KVS_env **const dbptr);
+void SLNRepoDBClose(SLNRepoRef const repo, KVS_env **const dbptr);
 void SLNRepoSubmissionEmit(SLNRepoRef const repo, uint64_t const sortID);
 int SLNRepoSubmissionWait(SLNRepoRef const repo, uint64_t *const sortID, uint64_t const future);
 void SLNRepoPullsStart(SLNRepoRef const repo);
@@ -102,14 +102,14 @@ uint64_t SLNSessionGetUserID(SLNSessionRef const session);
 bool SLNSessionHasPermission(SLNSessionRef const session, SLNMode const mask) __attribute__((warn_unused_result));
 strarg_t SLNSessionGetUsername(SLNSessionRef const session);
 str_t *SLNSessionCopyCookie(SLNSessionRef const session);
-int SLNSessionDBOpen(SLNSessionRef const session, SLNMode const mode, DB_env **const dbptr) __attribute__((warn_unused_result));
-void SLNSessionDBClose(SLNSessionRef const session, DB_env **const dbptr);
-int SLNSessionCreateUser(SLNSessionRef const session, DB_txn *const txn, strarg_t const username, strarg_t const password);
-int SLNSessionCreateUserInternal(SLNSessionRef const session, DB_txn *const txn, strarg_t const username, strarg_t const password, SLNMode const mode_unsafe);
+int SLNSessionDBOpen(SLNSessionRef const session, SLNMode const mode, KVS_env **const dbptr) __attribute__((warn_unused_result));
+void SLNSessionDBClose(SLNSessionRef const session, KVS_env **const dbptr);
+int SLNSessionCreateUser(SLNSessionRef const session, KVS_txn *const txn, strarg_t const username, strarg_t const password);
+int SLNSessionCreateUserInternal(SLNSessionRef const session, KVS_txn *const txn, strarg_t const username, strarg_t const password, SLNMode const mode_unsafe);
 int SLNSessionCreateSession(SLNSessionRef const session, SLNSessionRef *const out);
 int SLNSessionGetFileInfo(SLNSessionRef const session, strarg_t const URI, SLNFileInfo *const info);
 void SLNFileInfoCleanup(SLNFileInfo *const info);
-int SLNSessionGetValueForField(SLNSessionRef const session, DB_txn *const txn, strarg_t const fileURI, strarg_t const field, str_t *out, size_t const max);
+int SLNSessionGetValueForField(SLNSessionRef const session, KVS_txn *const txn, strarg_t const fileURI, strarg_t const field, str_t *out, size_t const max);
 
 int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const knownURI, strarg_t const knownTarget, SLNSubmissionRef *const out);
 int SLNSubmissionCreateQuick(SLNSessionRef const session, strarg_t const knownURI, strarg_t const knownTarget, strarg_t const type, ssize_t (*read)(void *, byte_t const **), void *const context, SLNSubmissionRef *const out);
@@ -126,7 +126,7 @@ int SLNSubmissionEnd(SLNSubmissionRef const sub);
 int SLNSubmissionWriteFrom(SLNSubmissionRef const sub, ssize_t (*read)(void *, byte_t const **), void *const context);
 strarg_t SLNSubmissionGetPrimaryURI(SLNSubmissionRef const sub);
 int SLNSubmissionGetFileInfo(SLNSubmissionRef const sub, SLNFileInfo *const info);
-int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn);
+int SLNSubmissionStore(SLNSubmissionRef const sub, KVS_txn *const txn);
 int SLNSubmissionStoreBatch(SLNSubmissionRef const *const list, size_t const count);
 
 
@@ -191,7 +191,7 @@ int SLNFilterAddStringArg(SLNFilterRef const filter, strarg_t const str, ssize_t
 int SLNFilterAddFilterArg(SLNFilterRef const filter, SLNFilterRef *const subfilterptr);
 void SLNFilterPrintSexp(SLNFilterRef const filter, FILE *const file, size_t const depth);
 void SLNFilterPrintUser(SLNFilterRef const filter, FILE *const file, size_t const depth);
-int SLNFilterPrepare(SLNFilterRef const filter, DB_txn *const txn);
+int SLNFilterPrepare(SLNFilterRef const filter, KVS_txn *const txn);
 void SLNFilterSeek(SLNFilterRef const filter, int const dir, uint64_t const sortID, uint64_t const fileID);
 void SLNFilterCurrent(SLNFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID);
 void SLNFilterStep(SLNFilterRef const filter, int const dir);
@@ -213,15 +213,15 @@ void SLNFilterParseOptions(strarg_t const qs, SLNFilterPosition *const start, ui
 void SLNFilterPositionInit(SLNFilterPosition *const pos, int const dir);
 void SLNFilterPositionCleanup(SLNFilterPosition *const pos);
 
-int SLNFilterSeekToPosition(SLNFilterRef const filter, SLNFilterPosition const *const pos, DB_txn *const txn);
-int SLNFilterGetPosition(SLNFilterRef const filter, SLNFilterPosition *const pos, DB_txn *const txn);
-int SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, bool const meta, DB_txn *const txn, str_t **const out);
+int SLNFilterSeekToPosition(SLNFilterRef const filter, SLNFilterPosition const *const pos, KVS_txn *const txn);
+int SLNFilterGetPosition(SLNFilterRef const filter, SLNFilterPosition *const pos, KVS_txn *const txn);
+int SLNFilterCopyNextURI(SLNFilterRef const filter, int const dir, bool const meta, KVS_txn *const txn, str_t **const out);
 
 ssize_t SLNFilterCopyURIs(SLNFilterRef const filter, SLNSessionRef const session, SLNFilterPosition *const pos, int const dir, bool const meta, str_t *URIs[], size_t const max);
 ssize_t SLNFilterWriteURIBatch(SLNFilterRef const filter, SLNSessionRef const session, SLNFilterPosition *const pos, bool const meta, uint64_t const max, SLNFilterWriteCB const writecb, void *ctx);
 int SLNFilterWriteURIs(SLNFilterRef const filter, SLNSessionRef const session, SLNFilterPosition *const pos, bool const meta, uint64_t const max, bool const wait, SLNFilterWriteCB const writecb, SLNFilterFlushCB const flushcb, void *ctx);
 
-int SLNFilterCopyURISynonyms(DB_txn *const txn, strarg_t const URI, str_t ***const out);
+int SLNFilterCopyURISynonyms(KVS_txn *const txn, strarg_t const URI, str_t ***const out);
 
 
 int SLNJSONFilterParserCreate(SLNSessionRef const session, SLNJSONFilterParserRef *const out);
@@ -239,7 +239,7 @@ int SLNSyncIngestFileURI(SLNSyncRef const sync, strarg_t const fileURI);
 int SLNSyncIngestMetaURI(SLNSyncRef const sync, strarg_t const metaURI, strarg_t const targetURI);
 int SLNSyncWorkAwait(SLNSyncRef const sync, SLNSubmissionRef *const out);
 int SLNSyncWorkDone(SLNSyncRef const sync, SLNSubmissionRef const sub);
-int SLNSyncNextHintID(SLNSyncRef const sync, DB_txn *const txn, strarg_t const targetURI, uint64_t *const hintID);
+int SLNSyncNextHintID(SLNSyncRef const sync, KVS_txn *const txn, strarg_t const targetURI, uint64_t *const hintID);
 int SLNSyncStoreSubmission(SLNSyncRef const sync, SLNSubmissionRef const sub);
 int SLNSyncCopyLastSubmissionURIs(SLNSyncRef const sync, str_t *const outFileURI, str_t *const outMetaURI);
 

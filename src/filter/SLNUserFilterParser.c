@@ -206,24 +206,24 @@ static SLNFilterRef parse_and(sstring *const query) {
 
 
 int SLNUserFilterParse(SLNSessionRef const session, strarg_t const query, SLNFilterRef *const out) {
-	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
-	if(!query) return DB_EINVAL;
+	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return KVS_EACCES;
+	if(!query) return KVS_EINVAL;
 	SLNFilterRef filter;
 	// Special case: show all files, including invisible.
 	// TODO: This should be blog-specific?
 	if(0 == strcmp("*", query)) {
 		filter = createfilter(SLNAllFilterType);
-		if(!filter) return DB_ENOMEM;
+		if(!filter) return KVS_ENOMEM;
 		*out = filter;
 		return 0;
 	}
 	sstring q[1] = { s_init(query) };
 	filter = parse_and(q);
-	if(!filter) return DB_EINVAL;
+	if(!filter) return KVS_EINVAL;
 	read_space(q);
 	if('\0' != s_peek(q)) {
 		SLNFilterFree(&filter);
-		return DB_EINVAL;
+		return KVS_EINVAL;
 	}
 	*out = filter;
 	return 0;

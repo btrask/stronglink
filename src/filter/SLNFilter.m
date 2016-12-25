@@ -24,20 +24,20 @@
 }
 
 - (int)addStringArg:(strarg_t const)str :(size_t const)len {
-	return DB_EINVAL;
+	return KVS_EINVAL;
 }
 - (int)addFilterArg:(SLNFilter **const)filterptr {
-	return DB_EINVAL;
+	return KVS_EINVAL;
 }
-- (int)prepare:(DB_txn *const)txn {
+- (int)prepare:(KVS_txn *const)txn {
 	return 0;
 }
 @end
 
 int SLNFilterCreate(SLNSessionRef const session, SLNFilterType const type, SLNFilterRef *const out) {
-	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
+	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return KVS_EACCES;
 	SLNFilterRef const filter = SLNFilterCreateInternal(type);
-	if(!filter) return DB_ENOMEM;
+	if(!filter) return KVS_ENOMEM;
 	*out = filter;
 	return 0;
 }
@@ -100,7 +100,7 @@ void SLNFilterPrintUser(SLNFilterRef const filter, FILE *const file, size_t cons
 	assert(filter);
 	return [(SLNFilter *)filter printUser:file :depth];
 }
-int SLNFilterPrepare(SLNFilterRef const filter, DB_txn *const txn) {
+int SLNFilterPrepare(SLNFilterRef const filter, KVS_txn *const txn) {
 	assert(filter);
 	return [(SLNFilter *)filter prepare:txn];
 }

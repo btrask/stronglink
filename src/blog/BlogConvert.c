@@ -236,15 +236,15 @@ static str_t *preview_metadata(preview_state const *const state, strarg_t const 
 
 	str_t value[1024 * 4];
 	// TODO: Load all vars for the template in one transaction.
-	DB_env *db = NULL;
+	KVS_env *db = NULL;
 	rc = SLNSessionDBOpen(state->session, SLN_RDONLY, &db);
 	if(rc >= 0) {
-		DB_txn *txn = NULL;
-		rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+		KVS_txn *txn = NULL;
+		rc = kvs_txn_begin(db, NULL, KVS_RDONLY, &txn);
 		if(rc >= 0) {
 			rc = SLNSessionGetValueForField(state->session, txn, state->fileURI, var, value, sizeof(value));
 			if(rc >= 0 && '\0' != value[0]) unsafe = value;
-			db_txn_abort(txn); txn = NULL;
+			kvs_txn_abort(txn); txn = NULL;
 		}
 		SLNSessionDBClose(state->session, &db);
 	}

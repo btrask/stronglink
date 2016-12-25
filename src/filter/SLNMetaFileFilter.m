@@ -5,7 +5,7 @@
 
 @implementation SLNMetaFileFilter
 - (void)free {
-	db_cursor_close(metafiles); metafiles = NULL;
+	kvs_cursor_close(metafiles); metafiles = NULL;
 	[super free];
 }
 
@@ -23,21 +23,21 @@
 	assert(!"print meta-file filter");
 }
 
-- (int)prepare:(DB_txn *const)txn {
+- (int)prepare:(KVS_txn *const)txn {
 	int rc = [super prepare:txn];
 	if(rc < 0) return rc;
-	db_cursor_renew(txn, &metafiles); // SLNMetaFileByID
+	kvs_cursor_renew(txn, &metafiles); // SLNMetaFileByID
 	return 0;
 }
 
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
-	DB_range range[1];
-	DB_val key[1], val[1];
+	KVS_range range[1];
+	KVS_val key[1], val[1];
 	SLNMetaFileByIDRange0(range, NULL);
 	SLNMetaFileByIDKeyPack(key, NULL, sortID);
-	int rc = db_cursor_seekr(metafiles, range, key, val, dir);
-	if(DB_NOTFOUND == rc) return;
-	db_assertf(rc >= 0, "Database error %s", sln_strerror(rc));
+	int rc = kvs_cursor_seekr(metafiles, range, key, val, dir);
+	if(KVS_NOTFOUND == rc) return;
+	kvs_assertf(rc >= 0, "Database error %s", sln_strerror(rc));
 
 	uint64_t actualSortID, actualFileID;
 	SLNMetaFileByIDKeyUnpack(key, NULL, &actualSortID);
@@ -48,8 +48,8 @@
 	[self step:dir];
 }
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
-	DB_val key[1], val[1];
-	int rc = db_cursor_current(metafiles, key, val);
+	KVS_val key[1], val[1];
+	int rc = kvs_cursor_current(metafiles, key, val);
 	if(rc >= 0) {
 		uint64_t x;
 		SLNMetaFileByIDKeyUnpack(key, NULL, &x);
@@ -61,10 +61,10 @@
 	}
 }
 - (void)step:(int const)dir {
-	DB_range range[1];
+	KVS_range range[1];
 	SLNMetaFileByIDRange0(range, NULL);
-	int rc = db_cursor_nextr(metafiles, range, NULL, NULL, dir);
-	db_assertf(rc >= 0 || DB_NOTFOUND == rc, "Database error %s", sln_strerror(rc));
+	int rc = kvs_cursor_nextr(metafiles, range, NULL, NULL, dir);
+	kvs_assertf(rc >= 0 || KVS_NOTFOUND == rc, "Database error %s", sln_strerror(rc));
 }
 - (SLNAgeRange)fullAge:(uint64_t const)fileID {
 	// TODO: Check that fileID is a meta-file.

@@ -153,8 +153,11 @@ STATIC_LIBS += $(DEPS_DIR)/libasync/deps/uv/.libs/libuv.a
 
 STATIC_LIBS += $(DEPS_DIR)/libkvstore/build/libkvstore.a
 STATIC_LIBS += $(DEPS_DIR)/libkvstore/deps/liblmdb/liblmdb.a
+STATIC_LIBS += $(DEPS_DIR)/libkvstore/deps/leveldb/out-static/libleveldb.a
+STATIC_LIBS += $(DEPS_DIR)/libkvstore/deps/snappy/.libs/libsnappy.a
 CFLAGS += -I$(DEPS_DIR)/libkvstore/include
 CFLAGS += -iquote $(DEPS_DIR)/libkvstore/deps
+LIBS += -lstdc++
 
 LIBS += -lpthread -lobjc -lm
 ifeq ($(platform),linux)

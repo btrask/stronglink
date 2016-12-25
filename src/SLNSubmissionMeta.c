@@ -13,7 +13,7 @@
 #define IGNORE_MAX 1023 // Just to prevent overflow.
 
 typedef struct {
-	DB_txn *txn;
+	KVS_txn *txn;
 	int64_t metaFileID;
 	strarg_t targetURI;
 	str_t *fields[DEPTH_MAX];
@@ -23,16 +23,16 @@ typedef struct {
 static yajl_callbacks const callbacks;
 
 // TODO: Error handling.
-static int add_metafile(DB_txn *const txn, uint64_t const metaFileID, strarg_t const targetURI);
-static void add_metadata(DB_txn *const txn, uint64_t const metaFileID, strarg_t const field, strarg_t const value);
-static void add_fulltext(DB_txn *const txn, uint64_t const metaFileID, strarg_t const str, size_t const len);
+static int add_metafile(KVS_txn *const txn, uint64_t const metaFileID, strarg_t const targetURI);
+static void add_metadata(KVS_txn *const txn, uint64_t const metaFileID, strarg_t const field, strarg_t const value);
+static void add_fulltext(KVS_txn *const txn, uint64_t const metaFileID, strarg_t const str, size_t const len);
 
 
-int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID, DB_txn *const txn, uint64_t *const out) {
+int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID, KVS_txn *const txn, uint64_t *const out) {
 	assert(out);
-	if(!sub) return DB_EINVAL;
-	if(!fileID) return DB_EINVAL;
-	if(!txn) return DB_EINVAL;
+	if(!sub) return KVS_EINVAL;
+	if(!fileID) return KVS_EINVAL;
+	if(!txn) return KVS_EINVAL;
 
 	strarg_t const type = SLNSubmissionGetType(sub);
 	strarg_t const knownTarget = SLNSubmissionGetKnownTarget(sub);
@@ -49,7 +49,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	// Not every file ID is a meta-file ID, however.
 	uint64_t const metaFileID = fileID;
 
-	if(metaFileID < db_next_id(SLNMetaFileByID, txn)) {
+	if(metaFileID < kvs_next_id(SLNMetaFileByID, txn)) {
 		// Duplicate.
 		// TODO: Should we still validate?
 		*out = metaFileID;
@@ -57,7 +57,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	}
 
 	uv_file const fd = SLNSubmissionGetFile(sub);
-	if(fd < 0) return DB_EINVAL;
+	if(fd < 0) return KVS_EINVAL;
 
 	int rc = 0;
 	uv_buf_t buf[1] = {};
@@ -66,7 +66,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	yajl_handle parser = NULL;
 
 	buf->base = malloc(BUF_LEN);
-	if(!buf->base) rc = DB_ENOMEM;
+	if(!buf->base) rc = KVS_ENOMEM;
 	if(rc < 0) goto cleanup;
 
 	buf->len = URI_MAX-1; // Binary buffer, not nul terminated.
@@ -113,7 +113,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 	ctx->metaFileID = metaFileID;
 	ctx->targetURI = targetURI;
 	parser = yajl_alloc(&callbacks, NULL, ctx);
-	if(!parser) rc = DB_ENOMEM;
+	if(!parser) rc = KVS_ENOMEM;
 	if(rc < 0) goto cleanup;
 	yajl_config(parser, yajl_allow_partial_values, (int)true);
 
@@ -141,7 +141,7 @@ int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID
 			FREE(&ctx->fields[i]);
 		}
 		ctx->depth = -1;
-		rc = DB_EIO;
+		rc = KVS_EIO;
 		goto cleanup;
 	}
 
@@ -230,10 +230,10 @@ static yajl_callbacks const callbacks = {
 	.yajl_end_array = (int (*)())yajl_end_array,
 };
 
-static int add_metafile(DB_txn *const txn, uint64_t const metaFileID, strarg_t const targetURI) {
-	DB_val null = { 0, NULL };
-	DB_cursor *cursor = NULL;
-	int rc = db_txn_cursor(txn, &cursor);
+static int add_metafile(KVS_txn *const txn, uint64_t const metaFileID, strarg_t const targetURI) {
+	KVS_val null = { 0, NULL };
+	KVS_cursor *cursor = NULL;
+	int rc = kvs_txn_cursor(txn, &cursor);
 	if(rc < 0) return rc;
 
 	// A meta-file can only be added if it's target already exists.
@@ -243,61 +243,61 @@ static int add_metafile(DB_txn *const txn, uint64_t const metaFileID, strarg_t c
 	// However, that probably requires more complicated indexing.
 	uint64_t targetID = 0;
 	rc = SLNURIGetFileID(targetURI, txn, &targetID);
-	if(DB_NOTFOUND == rc) return SLN_INVALIDTARGET;
+	if(KVS_NOTFOUND == rc) return SLN_INVALIDTARGET;
 	if(rc < 0) return rc;
 
 	// A meta-file cannot target another meta-file.
-	DB_val target[1];
+	KVS_val target[1];
 	SLNMetaFileByIDKeyPack(target, txn, targetID);
-	rc = db_cursor_seek(cursor, target, NULL, 0);
+	rc = kvs_cursor_seek(cursor, target, NULL, 0);
 	if(rc >= 0) return SLN_INVALIDTARGET;
-	if(DB_NOTFOUND != rc) return rc;
+	if(KVS_NOTFOUND != rc) return rc;
 
 
-	DB_val metaFileID_key[1];
+	KVS_val metaFileID_key[1];
 	SLNMetaFileByIDKeyPack(metaFileID_key, txn, metaFileID);
-	DB_val metaFile_val[1];
+	KVS_val metaFile_val[1];
 	SLNMetaFileByIDValPack(metaFile_val, txn, targetURI);
-	rc = db_cursor_put(cursor, metaFileID_key, metaFile_val, DB_NOOVERWRITE_FAST);
+	rc = kvs_cursor_put(cursor, metaFileID_key, metaFile_val, KVS_NOOVERWRITE_FAST);
 	if(rc < 0) return rc;
 
-	DB_range alts[1];
+	KVS_range alts[1];
 	SLNTargetURIAndMetaFileIDRange1(alts, txn, targetURI);
-	rc = db_cursor_firstr(cursor, alts, NULL, NULL, +1);
-	if(DB_NOTFOUND == rc) {
-		DB_val unique[1];
+	rc = kvs_cursor_firstr(cursor, alts, NULL, NULL, +1);
+	if(KVS_NOTFOUND == rc) {
+		KVS_val unique[1];
 		SLNFirstUniqueMetaFileIDKeyPack(unique, txn, metaFileID);
-		rc = db_cursor_put(cursor, unique, &null, DB_NOOVERWRITE_FAST);
+		rc = kvs_cursor_put(cursor, unique, &null, KVS_NOOVERWRITE_FAST);
 	}
 	if(rc < 0) return rc;
 
-	DB_val targetURI_key[1];
+	KVS_val targetURI_key[1];
 	SLNTargetURIAndMetaFileIDKeyPack(targetURI_key, txn, targetURI, metaFileID);
-	rc = db_cursor_put(cursor, targetURI_key, &null, DB_NOOVERWRITE_FAST);
+	rc = kvs_cursor_put(cursor, targetURI_key, &null, KVS_NOOVERWRITE_FAST);
 	if(rc < 0) return rc;
 
 	return 0;
 }
-static void add_metadata(DB_txn *const txn, uint64_t const metaFileID, strarg_t const field, strarg_t const value) {
+static void add_metadata(KVS_txn *const txn, uint64_t const metaFileID, strarg_t const field, strarg_t const value) {
 	assert(metaFileID);
 	assert(field);
 	assert(value);
 	if('\0' == value[0]) return;
 
-	DB_val null = { 0, NULL };
+	KVS_val null = { 0, NULL };
 	int rc;
 
-	DB_val fwd[1];
+	KVS_val fwd[1];
 	SLNMetaFileIDFieldAndValueKeyPack(fwd, txn, metaFileID, field, value);
-	rc = db_put(txn, fwd, &null, DB_NOOVERWRITE_FAST);
-	assertf(rc >= 0 || DB_KEYEXIST == rc, "Database error %s", sln_strerror(rc));
+	rc = kvs_put(txn, fwd, &null, KVS_NOOVERWRITE_FAST);
+	assertf(rc >= 0 || KVS_KEYEXIST == rc, "Database error %s", sln_strerror(rc));
 
-	DB_val rev[1];
+	KVS_val rev[1];
 	SLNFieldValueAndMetaFileIDKeyPack(rev, txn, field, value, metaFileID);
-	rc = db_put(txn, rev, &null, DB_NOOVERWRITE_FAST);
-	assertf(rc >= 0 || DB_KEYEXIST == rc, "Database error %s", sln_strerror(rc));
+	rc = kvs_put(txn, rev, &null, KVS_NOOVERWRITE_FAST);
+	assertf(rc >= 0 || KVS_KEYEXIST == rc, "Database error %s", sln_strerror(rc));
 }
-static void add_fulltext(DB_txn *const txn, uint64_t const metaFileID, strarg_t const str, size_t const len) {
+static void add_fulltext(KVS_txn *const txn, uint64_t const metaFileID, strarg_t const str, size_t const len) {
 	assert(metaFileID);
 
 	if(0 == len) return;
@@ -313,8 +313,8 @@ static void add_fulltext(DB_txn *const txn, uint64_t const metaFileID, strarg_t 
 	rc = fts->xOpen(tokenizer, str, len, &tcur);
 	assert(SQLITE_OK == rc);
 
-	DB_cursor *cursor = NULL;
-	rc = db_cursor_open(txn, &cursor);
+	KVS_cursor *cursor = NULL;
+	rc = kvs_cursor_open(txn, &cursor);
 	assert(rc >= 0);
 
 	for(;;) {
@@ -326,15 +326,15 @@ static void add_fulltext(DB_txn *const txn, uint64_t const metaFileID, strarg_t 
 		if(SQLITE_OK != rc) break;
 
 		assert('\0' == token[tlen]); // Assumption
-		DB_val token_val[1];
+		KVS_val token_val[1];
 		SLNTermMetaFileIDAndPositionKeyPack(token_val, txn, token, metaFileID, 0);
 		// TODO: Record tpos. Requires changes to SLNFulltextFilter so that each document only gets returned once, no matter how many times the token appears within it.
-		DB_val null = { 0, NULL };
-		rc = db_cursor_put(cursor, token_val, &null, DB_NOOVERWRITE_FAST);
-		assert(rc >= 0 || DB_KEYEXIST == rc);
+		KVS_val null = { 0, NULL };
+		rc = kvs_cursor_put(cursor, token_val, &null, KVS_NOOVERWRITE_FAST);
+		assert(rc >= 0 || KVS_KEYEXIST == rc);
 	}
 
-	db_cursor_close(cursor); cursor = NULL;
+	kvs_cursor_close(cursor); cursor = NULL;
 
 	fts->xClose(tcur); tcur = NULL;
 }

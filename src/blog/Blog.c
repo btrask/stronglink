@@ -131,13 +131,13 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 	query_HTMLSafe = htmlenc(values[0]);
 	rc = SLNUserFilterParse(session, query, &filter);
 	QSValuesCleanup(values, numberof(values));
-	if(DB_EACCES == rc) {
+	if(KVS_EACCES == rc) {
 		FREE(&query);
 		FREE(&query_HTMLSafe);
 		return 403;
 	}
 //	SLNFilterPrintSexp(filter, stderr, 0); // DEBUG
-	if(DB_EINVAL == rc) rc = SLNFilterCreate(session, SLNVisibleFilterType, &filter);
+	if(KVS_EINVAL == rc) rc = SLNFilterCreate(session, SLNVisibleFilterType, &filter);
 	if(rc < 0) {
 		FREE(&query);
 		FREE(&query_HTMLSafe);
@@ -174,7 +174,7 @@ static int GET_query(BlogRef const blog, SLNSessionRef const session, HTTPConnec
 		FREE(&query_HTMLSafe);
 		FREE(&parsed_HTMLSafe);
 		SLNFilterFree(&filter);
-		if(DB_NOTFOUND == count) {
+		if(KVS_NOTFOUND == count) {
 			// Possibly a filter age-function bug.
 			alogf("Invalid start parameter? %s\n", URI);
 			return 500;

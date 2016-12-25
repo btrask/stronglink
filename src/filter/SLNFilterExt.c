@@ -88,21 +88,21 @@ void SLNFilterPositionCleanup(SLNFilterPosition *const pos) {
 	assert_zeroed(pos, 1);
 }
 
-int SLNFilterSeekToPosition(SLNFilterRef const filter, SLNFilterPosition const *const pos, DB_txn *const txn) {
+int SLNFilterSeekToPosition(SLNFilterRef const filter, SLNFilterPosition const *const pos, KVS_txn *const txn) {
 	if(!pos->URI) {
 		SLNFilterSeek(filter, pos->dir, pos->sortID, pos->fileID);
 		if(valid(pos->fileID)) SLNFilterStep(filter, pos->dir);
 		return 0;
 	}
 
-	DB_cursor *cursor = NULL;
-	int rc = db_txn_cursor(txn, &cursor);
+	KVS_cursor *cursor = NULL;
+	int rc = kvs_txn_cursor(txn, &cursor);
 	if(rc < 0) return rc;
 
-	DB_range range[1];
-	DB_val key[1];
+	KVS_range range[1];
+	KVS_val key[1];
 	SLNURIAndFileIDRange1(range, txn, pos->URI);
-	rc = db_cursor_firstr(cursor, range, key, NULL, +1);
+	rc = kvs_cursor_firstr(cursor, range, key, NULL, +1);
 	if(rc < 0) return rc;
 
 	// Test that this URI gives us a unique, unambiguous position.
@@ -110,9 +110,9 @@ int SLNFilterSeekToPosition(SLNFilterRef const filter, SLNFilterPosition const *
 	// guaranteed for other cryptographic hashes, but may not be
 	// true for other hash algorithms.
 	// TODO: Given our stance on collisions, is this even needed?
-	rc = db_cursor_nextr(cursor, range, NULL, NULL, +1);
-	if(rc >= 0) return DB_KEYEXIST;
-	if(DB_NOTFOUND != rc) return rc;
+	rc = kvs_cursor_nextr(cursor, range, NULL, NULL, +1);
+	if(rc >= 0) return KVS_KEYEXIST;
+	if(KVS_NOTFOUND != rc) return rc;
 
 	strarg_t u;
 	uint64_t fileID;
@@ -120,7 +120,7 @@ int SLNFilterSeekToPosition(SLNFilterRef const filter, SLNFilterPosition const *
 	assert(0 == strcmp(pos->URI, u));
 
 	SLNAgeRange const ages = SLNFilterFullAge(filter, fileID);
-	if(!valid(ages.min) || ages.min > ages.max) return DB_NOTFOUND;
+	if(!valid(ages.min) || ages.min > ages.max) return KVS_NOTFOUND;
 	uint64_t const sortID = ages.min;
 
 	SLNFilterSeek(filter, pos->dir, sortID, fileID);
@@ -130,11 +130,11 @@ int SLNFilterSeekToPosition(SLNFilterRef const filter, SLNFilterPosition const *
 	// only step if it was.
 	return 0;
 }
-int SLNFilterGetPosition(SLNFilterRef const filter, SLNFilterPosition *const pos, DB_txn *const txn) {
+int SLNFilterGetPosition(SLNFilterRef const filter, SLNFilterPosition *const pos, KVS_txn *const txn) {
 	uint64_t sortID, fileID;
 	for(;;) {
 		SLNFilterCurrent(filter, pos->dir, &sortID, &fileID);
-		if(!valid(fileID)) return DB_NOTFOUND;
+		if(!valid(fileID)) return KVS_NOTFOUND;
 
 		uint64_t const age = SLNFilterFastAge(filter, fileID, sortID);
 //		fprintf(stderr, "step: {%llu, %llu} -> %llu\n", (unsigned long long)sortID, (unsigned long long)fileID, (unsigned long long)age);
@@ -146,29 +146,29 @@ int SLNFilterGetPosition(SLNFilterRef const filter, SLNFilterPosition *const pos
 	pos->fileID = fileID;
 	return 0;
 }
-int SLNFilterCopyURI(SLNFilterRef const filter, uint64_t const fileID, bool const meta, DB_txn *const txn, str_t **const out) {
-	DB_val fileID_key[1], file_val[1];
+int SLNFilterCopyURI(SLNFilterRef const filter, uint64_t const fileID, bool const meta, KVS_txn *const txn, str_t **const out) {
+	KVS_val fileID_key[1], file_val[1];
 	SLNFileByIDKeyPack(fileID_key, txn, fileID);
-	int rc = db_get(txn, fileID_key, file_val);
+	int rc = kvs_get(txn, fileID_key, file_val);
 	if(rc < 0) return rc;
 
-	strarg_t const hash = db_read_string(file_val, txn);
-	db_assert(hash);
+	strarg_t const hash = kvs_read_string(file_val, txn);
+	kvs_assert(hash);
 
 	str_t *URI = NULL;
 	if(!meta) {
 		URI = SLNFormatURI(SLN_INTERNAL_ALGO, hash);
-		if(!URI) return DB_ENOMEM;
+		if(!URI) return KVS_ENOMEM;
 	} else {
-		DB_val key[1], val[1];
+		KVS_val key[1], val[1];
 		SLNMetaFileByIDKeyPack(key, txn, fileID);
-		rc = db_get(txn, key, val);
+		rc = kvs_get(txn, key, val);
 		if(rc < 0) return rc;
 		strarg_t target = NULL;
 		SLNMetaFileByIDValUnpack(val, txn, &target);
-		db_assert(target);
+		kvs_assert(target);
 		URI = aasprintf("hash://%s/%s -> %s", SLN_INTERNAL_ALGO, hash, target);
-		if(!URI) return DB_ENOMEM;
+		if(!URI) return KVS_ENOMEM;
 	}
 
 	*out = URI; URI = NULL;
@@ -177,18 +177,18 @@ int SLNFilterCopyURI(SLNFilterRef const filter, uint64_t const fileID, bool cons
 
 ssize_t SLNFilterCopyURIs(SLNFilterRef const filter, SLNSessionRef const session, SLNFilterPosition *const pos, int const dir, bool const meta, str_t *URIs[], size_t const max) {
 	assert(URIs);
-	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
-	if(0 == pos->dir) return DB_EINVAL;
-	if(0 == dir) return DB_EINVAL;
+	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return KVS_EACCES;
+	if(0 == pos->dir) return KVS_EINVAL;
+	if(0 == dir) return KVS_EINVAL;
 	if(0 == max) return 0;
 
-	DB_env *db = NULL;
-	DB_txn *txn = NULL;
+	KVS_env *db = NULL;
+	KVS_txn *txn = NULL;
 	ssize_t rc = 0;
 
 	rc = SLNSessionDBOpen(session, SLN_RDONLY, &db);
 	if(rc < 0) goto cleanup;
-	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	rc = kvs_txn_begin(db, NULL, KVS_RDONLY, &txn);
 	if(rc < 0) goto cleanup;
 
 	rc = SLNFilterPrepare(filter, txn);
@@ -201,7 +201,7 @@ ssize_t SLNFilterCopyURIs(SLNFilterRef const filter, SLNSessionRef const session
 	for(; i < max; i++) {
 		size_t const x = stepdir > 0 ? i : max-1-i;
 		rc = SLNFilterGetPosition(filter, pos, txn);
-		if(DB_NOTFOUND == rc) {
+		if(KVS_NOTFOUND == rc) {
 			rc = 0;
 			break;
 		}
@@ -221,7 +221,7 @@ ssize_t SLNFilterCopyURIs(SLNFilterRef const filter, SLNSessionRef const session
 	rc = i;
 
 cleanup:
-	db_txn_abort(txn); txn = NULL;
+	kvs_txn_abort(txn); txn = NULL;
 	SLNSessionDBClose(session, &db);
 
 	return rc;
@@ -287,9 +287,9 @@ int SLNFilterWriteURIs(SLNFilterRef const filter, SLNSessionRef const session, S
 	return 0;
 }
 
-int SLNFilterCopyURISynonyms(DB_txn *const txn, strarg_t const URI, str_t ***const out) {
+int SLNFilterCopyURISynonyms(KVS_txn *const txn, strarg_t const URI, str_t ***const out) {
 	assert(out);
-	DB_cursor *cursor = NULL;
+	KVS_cursor *cursor = NULL;
 	size_t count = 0;
 	size_t size = 0;
 	str_t **alts = NULL;
@@ -297,23 +297,23 @@ int SLNFilterCopyURISynonyms(DB_txn *const txn, strarg_t const URI, str_t ***con
 
 	size = 10;
 	alts = reallocarray(NULL, size, sizeof(*alts));
-	if(!alts) return DB_ENOMEM;
+	if(!alts) return KVS_ENOMEM;
 	alts[count++] = strdup(URI);
 	alts[count] = NULL;
-	if(!alts[count-1]) rc = DB_ENOMEM;
+	if(!alts[count-1]) rc = KVS_ENOMEM;
 	if(rc < 0) goto cleanup;
 
-	rc = db_cursor_open(txn, &cursor);
+	rc = kvs_cursor_open(txn, &cursor);
 	if(rc < 0) goto cleanup;
 
 	uint64_t fileID = 0;
 	rc = SLNURIGetFileID(URI, txn, &fileID);
 	if(rc >= 0) {
-		DB_range URIs[1];
-		DB_val key[1];
+		KVS_range URIs[1];
+		KVS_val key[1];
 		SLNFileIDAndURIRange1(URIs, txn, fileID);
-		rc = db_cursor_firstr(cursor, URIs, key, NULL, +1);
-		for(; rc >= 0; rc = db_cursor_nextr(cursor, URIs, key, NULL, +1)) {
+		rc = kvs_cursor_firstr(cursor, URIs, key, NULL, +1);
+		for(; rc >= 0; rc = kvs_cursor_nextr(cursor, URIs, key, NULL, +1)) {
 			uint64_t f;
 			strarg_t alt;
 			SLNFileIDAndURIKeyUnpack(key, txn, &f, &alt);
@@ -327,18 +327,18 @@ int SLNFilterCopyURISynonyms(DB_txn *const txn, strarg_t const URI, str_t ***con
 			}
 			alts[count++] = strdup(alt);
 			alts[count] = NULL;
-			if(!alts[count-1]) rc = DB_ENOMEM;
+			if(!alts[count-1]) rc = KVS_ENOMEM;
 			if(rc < 0) goto cleanup;
 		}
 		assert(rc < 0);
 	}
 	assert(rc < 0);
-	if(DB_NOTFOUND != rc) goto cleanup;
+	if(KVS_NOTFOUND != rc) goto cleanup;
 	rc = 0;
 	*out = alts; alts = NULL;
 
 cleanup:
-	db_cursor_close(cursor); cursor = NULL;
+	kvs_cursor_close(cursor); cursor = NULL;
 	if(alts) {
 		for(size_t i = 0; alts[i]; i++) FREE(&alts[i]);
 		assert_zeroed(alts, count);

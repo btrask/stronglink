@@ -46,7 +46,7 @@ struct SLNRepo {
 	SLNMode reg_mode;
 	SLNSessionCacheRef session_cache;
 
-	DB_env *db;
+	KVS_env *db;
 
 	async_mutex_t sub_mutex[1];
 	async_cond_t sub_cond[1];
@@ -130,7 +130,7 @@ void SLNRepoFree(SLNRepoRef *const repoptr) {
 	repo->reg_mode = 0;
 	SLNSessionCacheFree(&repo->session_cache);
 
-	db_env_close(repo->db); repo->db = NULL;
+	kvs_env_close(repo->db); repo->db = NULL;
 
 	async_mutex_destroy(repo->sub_mutex);
 	async_cond_destroy(repo->sub_cond);
@@ -193,13 +193,13 @@ SLNSessionCacheRef SLNRepoGetSessionCache(SLNRepoRef const repo) {
 	return repo->session_cache;
 }
 
-void SLNRepoDBOpenUnsafe(SLNRepoRef const repo, DB_env **const dbptr) {
+void SLNRepoDBOpenUnsafe(SLNRepoRef const repo, KVS_env **const dbptr) {
 	assert(repo);
 	assert(dbptr);
 	async_pool_enter(NULL);
 	*dbptr = repo->db;
 }
-void SLNRepoDBClose(SLNRepoRef const repo, DB_env **const dbptr) {
+void SLNRepoDBClose(SLNRepoRef const repo, KVS_env **const dbptr) {
 	assert(dbptr);
 	assert(repo || !*dbptr);
 	if(!*dbptr) return;
@@ -244,7 +244,7 @@ void SLNRepoPullsStop(SLNRepoRef const repo) {
 }
 
 
-static int create_admin(SLNRepoRef const repo, DB_txn *const txn) {
+static int create_admin(SLNRepoRef const repo, KVS_txn *const txn) {
 	SLNSessionCacheRef const cache = SLNRepoGetSessionCache(repo);
 	SLNSessionRef root = NULL;
 	int rc = SLNSessionCreateInternal(cache, 0, NULL, NULL, 0, SLN_ROOT, NULL, &root);
@@ -272,37 +272,38 @@ static int create_admin(SLNRepoRef const repo, DB_txn *const txn) {
 }
 static int connect_db(SLNRepoRef const repo) {
 	assert(repo);
-	int rc = db_env_create(&repo->db);
-	rc = rc < 0 ? rc : db_env_set_mapsize(repo->db, 1024 * 1024 * 1024 * 1);
+	size_t mapsize = 1024 * 1024 * 1024 * 1;
+	int rc = kvs_env_create(&repo->db);
+	rc = rc < 0 ? rc : kvs_env_set_config(repo->db, KVS_CFG_MAPSIZE, &mapsize);
 	if(rc < 0) {
 		alogf("Database setup error (%s)\n", sln_strerror(rc));
 		return rc;
 	}
-	rc = db_env_open(repo->db, repo->DBPath, 0, 0600);
+	rc = kvs_env_open(repo->db, repo->DBPath, 0, 0600);
 	if(rc < 0) {
 		alogf("Database open error (%s)\n", sln_strerror(rc));
 		return rc;
 	}
 
-	DB_env *db = NULL;
+	KVS_env *db = NULL;
 	SLNRepoDBOpenUnsafe(repo, &db);
-	DB_txn *txn = NULL;
-	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
+	KVS_txn *txn = NULL;
+	rc = kvs_txn_begin(db, NULL, KVS_RDWR, &txn);
 	if(rc < 0) {
 		SLNRepoDBClose(repo, &db);
 		alogf("Database transaction error (%s)\n", sln_strerror(rc));
 		return rc;
 	}
 
-	rc = db_schema_verify(txn);
-	if(DB_VERSION_MISMATCH == rc) {
-		db_txn_abort(txn); txn = NULL;
+	rc = kvs_schema_verify(txn);
+	if(KVS_VERSION_MISMATCH == rc) {
+		kvs_txn_abort(txn); txn = NULL;
 		SLNRepoDBClose(repo, &db);
 		alogf("Database incompatible with this software version\n");
 		return rc;
 	}
 	if(rc < 0) {
-		db_txn_abort(txn); txn = NULL;
+		kvs_txn_abort(txn); txn = NULL;
 		SLNRepoDBClose(repo, &db);
 		alogf("Database schema layer error (%s)\n", sln_strerror(rc));
 		return rc;
@@ -310,29 +311,29 @@ static int connect_db(SLNRepoRef const repo) {
 
 	// TODO: Application-level schema verification
 
-	DB_cursor *cursor = NULL;
-	rc = db_txn_cursor(txn, &cursor);
+	KVS_cursor *cursor = NULL;
+	rc = kvs_txn_cursor(txn, &cursor);
 	if(rc < 0) {
-		db_txn_abort(txn); txn = NULL;
+		kvs_txn_abort(txn); txn = NULL;
 		SLNRepoDBClose(repo, &db);
 		alogf("Database cursor error (%s)\n", sln_strerror(rc));
 		return rc;
 	}
 
-	DB_range users[1];
+	KVS_range users[1];
 	SLNUserByIDKeyRange0(users, txn);
-	rc = db_cursor_firstr(cursor, users, NULL, NULL, +1);
-	if(DB_NOTFOUND == rc) {
+	rc = kvs_cursor_firstr(cursor, users, NULL, NULL, +1);
+	if(KVS_NOTFOUND == rc) {
 		rc = create_admin(repo, txn);
 	}
 	if(rc < 0) {
-		db_txn_abort(txn); txn = NULL;
+		kvs_txn_abort(txn); txn = NULL;
 		SLNRepoDBClose(repo, &db);
 		alogf("Database user error (%s)\n", sln_strerror(rc));
 		return rc;
 	}
 
-	rc = db_txn_commit(txn); txn = NULL;
+	rc = kvs_txn_commit(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
 	if(rc < 0) {
 		alogf("Database commit error (%s)\n", sln_strerror(rc));
@@ -355,24 +356,24 @@ static int add_pull(SLNRepoRef const repo, SLNPullRef *const pull) {
 static int load_pulls(SLNRepoRef const repo) {
 	assert(repo);
 
-	DB_env *db = NULL;
-	DB_txn *txn = NULL;
-	DB_cursor *cur = NULL;
+	KVS_env *db = NULL;
+	KVS_txn *txn = NULL;
+	KVS_cursor *cur = NULL;
 	SLNPullRef pull = NULL;
 	int rc;
 
 	SLNRepoDBOpenUnsafe(repo, &db);
-	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	rc = kvs_txn_begin(db, NULL, KVS_RDONLY, &txn);
 	if(rc < 0) goto cleanup;
-	rc = db_cursor_open(txn, &cur);
+	rc = kvs_cursor_open(txn, &cur);
 	if(rc < 0) goto cleanup;
 
-	DB_range pulls[1];
+	KVS_range pulls[1];
 	SLNPullByIDRange0(pulls, txn);
-	DB_val pullID_key[1];
-	DB_val pull_val[1];
-	rc = db_cursor_firstr(cur, pulls, pullID_key, pull_val, +1);
-	for(; rc >= 0; rc = db_cursor_nextr(cur, pulls, pullID_key, pull_val, +1)) {
+	KVS_val pullID_key[1];
+	KVS_val pull_val[1];
+	rc = kvs_cursor_firstr(cur, pulls, pullID_key, pull_val, +1);
+	for(; rc >= 0; rc = kvs_cursor_nextr(cur, pulls, pullID_key, pull_val, +1)) {
 		uint64_t pullID;
 		SLNPullByIDKeyUnpack(pullID_key, txn, &pullID);
 		uint64_t userID;
@@ -391,12 +392,12 @@ static int load_pulls(SLNRepoRef const repo) {
 
 		SLNPullFree(&pull);
 	}
-	if(DB_NOTFOUND == rc) rc = 0;
+	if(KVS_NOTFOUND == rc) rc = 0;
 	if(rc < 0) goto cleanup;
 
 cleanup:
-	db_cursor_close(cur); cur = NULL;
-	db_txn_abort(txn); txn = NULL;
+	kvs_cursor_close(cur); cur = NULL;
+	kvs_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
 	SLNPullFree(&pull);
 	return rc;

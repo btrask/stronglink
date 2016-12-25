@@ -64,69 +64,69 @@ static int queue_ingest(SLNSyncRef const sync, sync_queue *const queue, strarg_t
 	return rc;
 }
 
-static int record_last(SLNSyncRef const sync, DB_txn *const txn, strarg_t const URI, bool const isMeta) {
+static int record_last(SLNSyncRef const sync, KVS_txn *const txn, strarg_t const URI, bool const isMeta) {
 	uint64_t const sessionID = SLNSessionGetID(sync->session);
-	DB_val key[1], val[1];
-	DB_VAL_STORAGE(key, DB_VARINT_MAX*2);
-	db_bind_uint64(key, isMeta ?
+	KVS_val key[1], val[1];
+	KVS_VAL_STORAGE(key, KVS_VARINT_MAX*2);
+	kvs_bind_uint64(key, isMeta ?
 		SLNLastMetaURIBySyncID :
 		SLNLastFileURIBySyncID);
-	db_bind_uint64(key, sessionID);
-	DB_VAL_STORAGE_VERIFY(key);
-	DB_VAL_STORAGE(val, DB_INLINE_MAX);
-	db_bind_string(val, URI, txn);
-	DB_VAL_STORAGE_VERIFY(val);
-	int rc = db_put(txn, key, val, 0);
+	kvs_bind_uint64(key, sessionID);
+	KVS_VAL_STORAGE_VERIFY(key);
+	KVS_VAL_STORAGE(val, KVS_INLINE_MAX);
+	kvs_bind_string(val, URI, txn);
+	KVS_VAL_STORAGE_VERIFY(val);
+	int rc = kvs_put(txn, key, val, 0);
 	if(rc < 0) return rc;
 	return 0;
 }
-static int get_hints_synced(SLNSyncRef const sync, DB_txn *const txn, strarg_t const URI) {
+static int get_hints_synced(SLNSyncRef const sync, KVS_txn *const txn, strarg_t const URI) {
 	uint64_t const sessionID = SLNSessionGetID(sync->session);
 	uint64_t fileID = 0;
 	int rc = SLNURIGetFileID(URI, txn, &fileID);
 	if(rc < 0) return rc;
-	DB_val key[1];
+	KVS_val key[1];
 	SLNSessionIDAndHintsSyncedFileIDKeyPack(key, txn, sessionID, fileID);
-	rc = db_get(txn, key, NULL);
+	rc = kvs_get(txn, key, NULL);
 	return rc;
 }
-static int set_hints_synced(SLNSyncRef const sync, DB_txn *const txn, strarg_t const URI) {
+static int set_hints_synced(SLNSyncRef const sync, KVS_txn *const txn, strarg_t const URI) {
 	uint64_t const sessionID = SLNSessionGetID(sync->session);
 	uint64_t fileID = 0;
 	int rc = SLNURIGetFileID(URI, txn, &fileID);
 	if(rc < 0) return rc;
-	DB_val key[1], val[1];
+	KVS_val key[1], val[1];
 	SLNSessionIDAndHintsSyncedFileIDKeyPack(key, txn, sessionID, fileID);
-	db_nullval(val);
-	rc = db_put(txn, key, val, 0);
+	kvs_nullval(val);
+	rc = kvs_put(txn, key, val, 0);
 	return rc;
 }
-static int add_hint(SLNSyncRef const sync, DB_txn *const txn, strarg_t const metaURI, strarg_t const targetURI) {
-	if(!sync) return DB_EINVAL;
-	if(!metaURI) return DB_EINVAL;
-	if(!targetURI) return DB_EINVAL;
+static int add_hint(SLNSyncRef const sync, KVS_txn *const txn, strarg_t const metaURI, strarg_t const targetURI) {
+	if(!sync) return KVS_EINVAL;
+	if(!metaURI) return KVS_EINVAL;
+	if(!targetURI) return KVS_EINVAL;
 	uint64_t const sessionID = SLNSessionGetID(sync->session);
 	int rc;
 
 	uint64_t nextID = SLNNextHintID(txn, sessionID);
-	if(!nextID) return DB_EIO;
+	if(!nextID) return KVS_EIO;
 
-	DB_val mainkey[1], mainval[1];
+	KVS_val mainkey[1], mainval[1];
 	SLNSessionIDAndHintIDToMetaURIAndTargetURIKeyPack(mainkey, txn, sessionID, nextID);
 	SLNSessionIDAndHintIDToMetaURIAndTargetURIValPack(mainval, txn, metaURI, targetURI);
-	rc = db_put(txn, mainkey, mainval, DB_NOOVERWRITE_FAST);
+	rc = kvs_put(txn, mainkey, mainval, KVS_NOOVERWRITE_FAST);
 	if(rc < 0) return rc;
 
-	DB_val fwdkey[1], fwdval[1];
+	KVS_val fwdkey[1], fwdval[1];
 	SLNMetaURIAndSessionIDToHintIDKeyPack(fwdkey, txn, metaURI, sessionID);
 	SLNMetaURIAndSessionIDToHintIDValPack(fwdval, txn, nextID);
-	rc = db_put(txn, fwdkey, fwdval, DB_NOOVERWRITE_FAST);
+	rc = kvs_put(txn, fwdkey, fwdval, KVS_NOOVERWRITE_FAST);
 	if(rc < 0) return rc;
 
-	DB_val revkey[1], revval[1];
+	KVS_val revkey[1], revval[1];
 	SLNTargetURISessionIDAndHintIDKeyPack(revkey, txn, targetURI, sessionID, nextID);
-	db_nullval(revval);
-	rc = db_put(txn, revkey, revval, DB_NOOVERWRITE_FAST);
+	kvs_nullval(revval);
+	rc = kvs_put(txn, revkey, revval, KVS_NOOVERWRITE_FAST);
 	if(rc < 0) return rc;
 
 	rc = record_last(sync, txn, metaURI, true);
@@ -138,9 +138,9 @@ static int add_hint(SLNSyncRef const sync, DB_txn *const txn, strarg_t const met
 
 int SLNSyncCreate(SLNSessionRef const session, SLNSyncRef *const out) {
 	assert(out);
-	if(!session) return DB_EINVAL;
+	if(!session) return KVS_EINVAL;
 	SLNSyncRef sync = calloc(1, sizeof(struct SLNSync));
-	if(!sync) return DB_ENOMEM;
+	if(!sync) return KVS_ENOMEM;
 	sync->session = session;
 	queue_init(sync, sync->fileq);
 	queue_init(sync, sync->metaq);
@@ -160,9 +160,9 @@ void SLNSyncFree(SLNSyncRef *const syncptr) {
 	FREE(syncptr); sync = NULL;
 }
 int SLNSyncFileAvailable(SLNSyncRef const sync, strarg_t const URI, strarg_t const targetURI) {
-	if(!URI) return DB_EINVAL;
-	DB_env *db = NULL;
-	DB_txn *txn = NULL;
+	if(!URI) return KVS_EINVAL;
+	KVS_env *db = NULL;
+	KVS_txn *txn = NULL;
 	int rc;
 
 	// Files never need writing at this stage. Just check if they exist.
@@ -171,11 +171,11 @@ int SLNSyncFileAvailable(SLNSyncRef const sync, strarg_t const URI, strarg_t con
 	// to check whether the target has "synced" its hints, and if not
 	// immediately (atomically) add our own hint to the queue.
 	bool const isMeta = !!targetURI;
-	unsigned const mode = isMeta ? DB_RDWR : DB_RDONLY;
+	unsigned const mode = isMeta ? KVS_RDWR : KVS_RDONLY;
 
 	rc = SLNSessionDBOpen(sync->session, SLN_RDWR, &db);
 	if(rc < 0) goto cleanup;
-	rc = db_txn_begin(db, NULL, mode, &txn);
+	rc = kvs_txn_begin(db, NULL, mode, &txn);
 	if(rc < 0) goto cleanup;
 
 	uint64_t fileID = 0;
@@ -184,10 +184,10 @@ int SLNSyncFileAvailable(SLNSyncRef const sync, strarg_t const URI, strarg_t con
 		// We have the (meta-)file. We're OK.
 		// TODO: Verify target URI if set.
 		rc = 0;
-	} else if(DB_NOTFOUND == rc) {
+	} else if(KVS_NOTFOUND == rc) {
 		if(!targetURI) {
 			// Ordinary file, needs adding as usual.
-			rc = DB_NOTFOUND;
+			rc = KVS_NOTFOUND;
 		} else {
 			// Meta-file, need to decide whether to add or queue.
 			// Needs to be atomic with the below add_hint.
@@ -195,14 +195,14 @@ int SLNSyncFileAvailable(SLNSyncRef const sync, strarg_t const URI, strarg_t con
 			if(rc >= 0) {
 				// We have the previous hints,
 				// meaning we're ready to add.
-				rc = DB_NOTFOUND;
-			} else if(DB_NOTFOUND == rc) {
+				rc = KVS_NOTFOUND;
+			} else if(KVS_NOTFOUND == rc) {
 				// We don't have the previous hints,
 				// meaning we should queue ours.
 				rc = add_hint(sync, txn, URI, targetURI);
-				if(DB_NOTFOUND == rc) rc = DB_PANIC;
+				if(KVS_NOTFOUND == rc) rc = KVS_PANIC;
 				if(rc < 0) goto cleanup;
-				rc = db_txn_commit(txn); txn = NULL;
+				rc = kvs_txn_commit(txn); txn = NULL;
 				if(rc < 0) goto cleanup;
 
 				// Can't do anything until later.
@@ -212,32 +212,32 @@ int SLNSyncFileAvailable(SLNSyncRef const sync, strarg_t const URI, strarg_t con
 	}
 
 cleanup:
-	db_txn_abort(txn); txn = NULL;
+	kvs_txn_abort(txn); txn = NULL;
 	SLNSessionDBClose(sync->session, &db);
 	return rc;
 }
 
 int SLNSyncIngestFileURI(SLNSyncRef const sync, strarg_t const fileURI) {
-	if(!sync) return DB_EINVAL;
-	if(!fileURI) return DB_EINVAL;
+	if(!sync) return KVS_EINVAL;
+	if(!fileURI) return KVS_EINVAL;
 	alogf("file: %s\n", fileURI);
 	int rc = SLNSyncFileAvailable(sync, fileURI, NULL);
 	if(rc >= 0) return rc;
-	if(DB_NOTFOUND != rc) return rc;
+	if(KVS_NOTFOUND != rc) return rc;
 	return queue_ingest(sync, sync->fileq, fileURI, NULL);
 }
 int SLNSyncIngestMetaURI(SLNSyncRef const sync, strarg_t const metaURI, strarg_t const targetURI) {
-	if(!sync) return DB_EINVAL;
-	if(!metaURI) return DB_EINVAL;
-	if(!targetURI) return DB_EINVAL;
+	if(!sync) return KVS_EINVAL;
+	if(!metaURI) return KVS_EINVAL;
+	if(!targetURI) return KVS_EINVAL;
 	alogf("meta: %s -> %s\n", metaURI, targetURI);
 	int rc = SLNSyncFileAvailable(sync, metaURI, targetURI);
 	if(rc >= 0) return rc;
-	if(DB_NOTFOUND != rc) return rc;
+	if(KVS_NOTFOUND != rc) return rc;
 	return queue_ingest(sync, sync->metaq, metaURI, targetURI);
 }
 int SLNSyncWorkAwait(SLNSyncRef const sync, SLNSubmissionRef *const out) {
-	if(!sync) return DB_EINVAL;
+	if(!sync) return KVS_EINVAL;
 	int rc = async_sem_wait(sync->shared_sem);
 	if(rc < 0) return rc;
 
@@ -256,7 +256,7 @@ int SLNSyncWorkAwait(SLNSyncRef const sync, SLNSubmissionRef *const out) {
 	return -1;
 }
 int SLNSyncWorkDone(SLNSyncRef const sync, SLNSubmissionRef const sub) {
-	if(!sync) return DB_EINVAL;
+	if(!sync) return KVS_EINVAL;
 	// TODO: Copy and paste...
 	if(sub == sync->fileq->sub) {
 		async_sem_post(sync->fileq->done_sem);
@@ -266,14 +266,14 @@ int SLNSyncWorkDone(SLNSyncRef const sync, SLNSubmissionRef const sub) {
 		async_sem_post(sync->metaq->done_sem);
 		return 0;
 	}
-	return DB_EINVAL;
+	return KVS_EINVAL;
 }
 
-int SLNSyncNextHintID(SLNSyncRef const sync, DB_txn *const txn, strarg_t const targetURI, uint64_t *const hintID) {
+int SLNSyncNextHintID(SLNSyncRef const sync, KVS_txn *const txn, strarg_t const targetURI, uint64_t *const hintID) {
 	assert(hintID);
-	if(!sync) return DB_EINVAL;
-	DB_cursor *synonyms = NULL;
-	DB_cursor *cursor = NULL;
+	if(!sync) return KVS_EINVAL;
+	KVS_cursor *synonyms = NULL;
+	KVS_cursor *cursor = NULL;
 	uint64_t const sessionID = SLNSessionGetID(sync->session);
 	uint64_t const first = *hintID + 1;
 	uint64_t earliest = UINT64_MAX;
@@ -283,26 +283,26 @@ int SLNSyncNextHintID(SLNSyncRef const sync, DB_txn *const txn, strarg_t const t
 	rc = SLNURIGetFileID(targetURI, txn, &fileID);
 	if(rc < 0) goto cleanup;
 
-	rc = db_cursor_open(txn, &synonyms);
+	rc = kvs_cursor_open(txn, &synonyms);
 	if(rc < 0) goto cleanup;
-	rc = db_txn_cursor(txn, &cursor);
+	rc = kvs_txn_cursor(txn, &cursor);
 	if(rc < 0) goto cleanup;
 
-	DB_range alts[1];
-	DB_val alt[1];
+	KVS_range alts[1];
+	KVS_val alt[1];
 	SLNFileIDAndURIRange1(alts, txn, fileID);
-	rc = db_cursor_firstr(synonyms, alts, alt, NULL, +1);
-	for(; rc >= 0; rc = db_cursor_nextr(synonyms, alts, alt, NULL, +1)) {
+	rc = kvs_cursor_firstr(synonyms, alts, alt, NULL, +1);
+	for(; rc >= 0; rc = kvs_cursor_nextr(synonyms, alts, alt, NULL, +1)) {
 		uint64_t f;
 		strarg_t synonym;
 		SLNFileIDAndURIKeyUnpack(alt, txn, &f, &synonym);
 
-		DB_range range[1];
-		DB_val key[1];
+		KVS_range range[1];
+		KVS_val key[1];
 		SLNTargetURISessionIDAndHintIDRange2(range, txn, synonym, sessionID);
 		SLNTargetURISessionIDAndHintIDKeyPack(key, txn, synonym, sessionID, first);
-		rc = db_cursor_seekr(cursor, range, key, NULL, +1);
-		if(DB_NOTFOUND == rc) continue;
+		rc = kvs_cursor_seekr(cursor, range, key, NULL, +1);
+		if(KVS_NOTFOUND == rc) continue;
 		if(rc < 0) goto cleanup;
 
 		strarg_t u;
@@ -312,29 +312,29 @@ int SLNSyncNextHintID(SLNSyncRef const sync, DB_txn *const txn, strarg_t const t
 		if(this < earliest) earliest = this;
 	}
 	assert(rc < 0);
-	if(DB_NOTFOUND != rc) goto cleanup;
+	if(KVS_NOTFOUND != rc) goto cleanup;
 	if(UINT64_MAX == earliest) goto cleanup;
 	rc = 0;
 	*hintID = earliest;
 
 cleanup:
-	db_cursor_close(synonyms); synonyms = NULL;
+	kvs_cursor_close(synonyms); synonyms = NULL;
 	cursor = NULL; // txn-cursor doesn't need closing.
 	return rc;
 }
 int SLNSyncStoreSubmission(SLNSyncRef const sync, SLNSubmissionRef const sub) {
-	if(!sync) return DB_EINVAL;
-	if(!sub) return DB_EINVAL;
+	if(!sync) return KVS_EINVAL;
+	if(!sub) return KVS_EINVAL;
 	uint64_t const sessionID = SLNSessionGetID(sync->session);
 	SLNSubmissionRef dep = NULL;
-	DB_env *db = NULL;
-	DB_txn *txn = NULL;
+	KVS_env *db = NULL;
+	KVS_txn *txn = NULL;
 	uint64_t maxFileID = 0;
 	int rc = 0;
 
 	rc = SLNSessionDBOpen(sync->session, SLN_RDWR, &db);
 	if(rc < 0) goto cleanup;
-	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
+	rc = kvs_txn_begin(db, NULL, KVS_RDWR, &txn);
 	if(rc < 0) goto cleanup;
 
 	rc = SLNSubmissionStore(sub, txn);
@@ -351,12 +351,12 @@ int SLNSyncStoreSubmission(SLNSyncRef const sync, SLNSubmissionRef const sub) {
 		uint64_t hintID = 0;
 		for(;;) {
 			rc = SLNSyncNextHintID(sync, txn, URI, &hintID);
-			if(DB_NOTFOUND == rc) break;
+			if(KVS_NOTFOUND == rc) break;
 			if(rc < 0) goto cleanup;
 
-			DB_val hintkey[1], hintval[1];
+			KVS_val hintkey[1], hintval[1];
 			SLNSessionIDAndHintIDToMetaURIAndTargetURIKeyPack(hintkey, txn, sessionID, hintID);
-			rc = db_get(txn, hintkey, hintval);
+			rc = kvs_get(txn, hintkey, hintval);
 			if(rc < 0) goto cleanup;
 			strarg_t u, t;
 			SLNSessionIDAndHintIDToMetaURIAndTargetURIValUnpack(hintval, txn, &u, &t);
@@ -364,16 +364,16 @@ int SLNSyncStoreSubmission(SLNSyncRef const sync, SLNSubmissionRef const sub) {
 			str_t metaURI[SLN_URI_MAX];
 			strlcpy(metaURI, u, sizeof(metaURI));
 
-			DB_cursor *cursor = NULL;
-			rc = db_txn_cursor(txn, &cursor);
+			KVS_cursor *cursor = NULL;
+			rc = kvs_txn_cursor(txn, &cursor);
 			if(rc < 0) goto cleanup;
-			DB_range exists[1];
+			KVS_range exists[1];
 			SLNURIAndFileIDRange1(exists, txn, metaURI);
-			rc = db_cursor_firstr(cursor, exists, NULL, NULL, +1);
+			rc = kvs_cursor_firstr(cursor, exists, NULL, NULL, +1);
 			if(rc >= 0) continue;
-			if(DB_NOTFOUND != rc) goto cleanup;
+			if(KVS_NOTFOUND != rc) goto cleanup;
 
-			rc = db_txn_commit(txn); txn = NULL;
+			rc = kvs_txn_commit(txn); txn = NULL;
 			if(rc < 0) goto cleanup;
 			SLNSessionDBClose(sync->session, &db);
 
@@ -391,7 +391,7 @@ int SLNSyncStoreSubmission(SLNSyncRef const sync, SLNSubmissionRef const sub) {
 
 			rc = SLNSessionDBOpen(sync->session, SLN_RDWR, &db);
 			if(rc < 0) goto cleanup;
-			rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
+			rc = kvs_txn_begin(db, NULL, KVS_RDWR, &txn);
 			if(rc < 0) goto cleanup;
 
 			rc = SLNSubmissionStore(dep, txn);
@@ -411,9 +411,9 @@ int SLNSyncStoreSubmission(SLNSyncRef const sync, SLNSubmissionRef const sub) {
 	rc = record_last(sync, txn, URI, isMeta);
 	if(rc < 0) goto cleanup;
 
-	rc = db_txn_commit(txn); txn = NULL;
+	rc = kvs_txn_commit(txn); txn = NULL;
 cleanup:
-	db_txn_abort(txn); txn = NULL;
+	kvs_txn_abort(txn); txn = NULL;
 	SLNSessionDBClose(sync->session, &db);
 	SLNSubmissionFree(&dep);
 	if(rc >= 0) SLNRepoSubmissionEmit(SLNSessionGetRepo(sync->session), maxFileID);
@@ -421,24 +421,24 @@ cleanup:
 }
 int SLNSyncCopyLastSubmissionURIs(SLNSyncRef const sync, str_t *const outFileURI, str_t *const outMetaURI) {
 	uint64_t const sessionID = SLNSessionGetID(sync->session);
-	DB_env *db = NULL;
-	DB_txn *txn = NULL;
+	KVS_env *db = NULL;
+	KVS_txn *txn = NULL;
 	int rc = SLNSessionDBOpen(sync->session, SLN_RDWR, &db);
 	if(rc < 0) goto cleanup;
-	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	rc = kvs_txn_begin(db, NULL, KVS_RDONLY, &txn);
 	if(rc < 0) goto cleanup;
 
 	if(outFileURI) {
-		DB_val key[1], val[1];
-		DB_VAL_STORAGE(key, DB_VARINT_MAX*2);
-		db_bind_uint64(key, SLNLastFileURIBySyncID);
-		db_bind_uint64(key, sessionID);
-		DB_VAL_STORAGE_VERIFY(key);
-		rc = db_get(txn, key, val);
+		KVS_val key[1], val[1];
+		KVS_VAL_STORAGE(key, KVS_VARINT_MAX*2);
+		kvs_bind_uint64(key, SLNLastFileURIBySyncID);
+		kvs_bind_uint64(key, sessionID);
+		KVS_VAL_STORAGE_VERIFY(key);
+		rc = kvs_get(txn, key, val);
 		if(rc >= 0) {
-			strarg_t const URI = db_read_string(val, txn);
+			strarg_t const URI = kvs_read_string(val, txn);
 			strlcpy(outFileURI, URI, SLN_URI_MAX);
-		} else if(DB_NOTFOUND == rc) {
+		} else if(KVS_NOTFOUND == rc) {
 			outFileURI[0] = '\0';
 			rc = 0;
 		} else {
@@ -446,16 +446,16 @@ int SLNSyncCopyLastSubmissionURIs(SLNSyncRef const sync, str_t *const outFileURI
 		}
 	}
 	if(outMetaURI) {
-		DB_val key[1], val[1];
-		DB_VAL_STORAGE(key, DB_VARINT_MAX*2);
-		db_bind_uint64(key, SLNLastMetaURIBySyncID);
-		db_bind_uint64(key, sessionID);
-		DB_VAL_STORAGE_VERIFY(key);
-		rc = db_get(txn, key, val);
+		KVS_val key[1], val[1];
+		KVS_VAL_STORAGE(key, KVS_VARINT_MAX*2);
+		kvs_bind_uint64(key, SLNLastMetaURIBySyncID);
+		kvs_bind_uint64(key, sessionID);
+		KVS_VAL_STORAGE_VERIFY(key);
+		rc = kvs_get(txn, key, val);
 		if(rc >= 0) {
-			strarg_t const URI = db_read_string(val, txn);
+			strarg_t const URI = kvs_read_string(val, txn);
 			strlcpy(outMetaURI, URI, SLN_URI_MAX);
-		} else if(DB_NOTFOUND == rc) {
+		} else if(KVS_NOTFOUND == rc) {
 			outMetaURI[0] = '\0';
 			rc = 0;
 		} else {
@@ -464,7 +464,7 @@ int SLNSyncCopyLastSubmissionURIs(SLNSyncRef const sync, str_t *const outFileURI
 	}
 
 cleanup:
-	db_txn_abort(txn); txn = NULL;
+	kvs_txn_abort(txn); txn = NULL;
 	SLNSessionDBClose(sync->session, &db);
 	return rc;
 }

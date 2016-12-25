@@ -17,8 +17,8 @@
 }
 - (int)addFilterArg:(SLNFilter **const)filterptr {
 	assert(filterptr);
-	if(!*filterptr) return DB_EINVAL;
-	if(subfilter) return DB_EINVAL;
+	if(!*filterptr) return KVS_EINVAL;
+	if(subfilter) return KVS_EINVAL;
 	// TODO: Check that filter is "simple"
 	// Meaning it returns an age range pinned to either 0 or UINT64_MAX.
 	// Basically, it must not be a collection filter.
@@ -39,7 +39,7 @@
 	[subfilter printUser:file :depth+1];
 }
 
-- (int)prepare:(DB_txn *const)txn {
+- (int)prepare:(KVS_txn *const)txn {
 	int rc = [super prepare:txn];
 	if(rc < 0) return rc;
 	return [subfilter prepare:txn];

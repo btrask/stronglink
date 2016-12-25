@@ -26,7 +26,7 @@ struct SLNSubmission {
 	str_t *internalHash;
 };
 
-int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID, DB_txn *const txn, uint64_t *const out);
+int SLNSubmissionParseMetaFile(SLNSubmissionRef const sub, uint64_t const fileID, KVS_txn *const txn, uint64_t *const out);
 
 int SLNSubmissionCreate(SLNSessionRef const session, strarg_t const knownURI, strarg_t const knownTarget, SLNSubmissionRef *const out) {
 	assert(out);
@@ -264,55 +264,55 @@ int SLNSubmissionGetFileInfo(SLNSubmissionRef const sub, SLNFileInfo *const info
 	return 0;
 }
 
-int SLNSubmissionStore(SLNSubmissionRef const sub, DB_txn *const txn) {
+int SLNSubmissionStore(SLNSubmissionRef const sub, KVS_txn *const txn) {
 	assert(sub);
 	assert(txn);
 	assert(!sub->tmppath);
 	// Session permissions were already checked when the sub was created.
 
-	int64_t fileID = db_next_id(SLNFileByID, txn);
+	int64_t fileID = kvs_next_id(SLNFileByID, txn);
 	int rc;
 
-	DB_val dupFileID_val[1];
+	KVS_val dupFileID_val[1];
 	SLNFileIDByInfoValPack(dupFileID_val, txn, fileID);
 
-	DB_val fileInfo_key[1];
+	KVS_val fileInfo_key[1];
 	SLNFileIDByInfoKeyPack(fileInfo_key, txn, sub->internalHash, sub->type);
-	rc = db_put(txn, fileInfo_key, dupFileID_val, DB_NOOVERWRITE);
+	rc = kvs_put(txn, fileInfo_key, dupFileID_val, KVS_NOOVERWRITE);
 	if(rc >= 0) {
-		DB_val fileID_key[1];
+		KVS_val fileID_key[1];
 		SLNFileByIDKeyPack(fileID_key, txn, fileID);
-		DB_val file_val[1];
+		KVS_val file_val[1];
 		SLNFileByIDValPack(file_val, txn, sub->internalHash, sub->type, sub->size);
-		rc = db_put(txn, fileID_key, file_val, DB_NOOVERWRITE_FAST);
+		rc = kvs_put(txn, fileID_key, file_val, KVS_NOOVERWRITE_FAST);
 		if(rc < 0) return rc;
-	} else if(DB_KEYEXIST == rc) {
-		fileID = db_read_uint64(dupFileID_val);
+	} else if(KVS_KEYEXIST == rc) {
+		fileID = kvs_read_uint64(dupFileID_val);
 	} else return rc;
 
-	DB_val null[1];
+	KVS_val null[1];
 
 	uint64_t const sessionID = SLNSessionGetID(sub->session);
-	DB_val session_key[1];
+	KVS_val session_key[1];
 	SLNFileIDAndSessionIDKeyPack(session_key, txn, fileID, sessionID);
-	db_nullval(null);
-	rc = db_put(txn, session_key, null, 0);
+	kvs_nullval(null);
+	rc = kvs_put(txn, session_key, null, 0);
 	if(rc < 0) return rc;
 
 	for(size_t i = 0; sub->URIs[i]; ++i) {
 		strarg_t const URI = sub->URIs[i];
 
-		DB_val fwd[1];
+		KVS_val fwd[1];
 		SLNFileIDAndURIKeyPack(fwd, txn, fileID, URI);
-		db_nullval(null);
-		rc = db_put(txn, fwd, null, DB_NOOVERWRITE_FAST);
-		if(rc < 0 && DB_KEYEXIST != rc) return rc;
+		kvs_nullval(null);
+		rc = kvs_put(txn, fwd, null, KVS_NOOVERWRITE_FAST);
+		if(rc < 0 && KVS_KEYEXIST != rc) return rc;
 
-		DB_val rev[1];
+		KVS_val rev[1];
 		SLNURIAndFileIDKeyPack(rev, txn, URI, fileID);
-		db_nullval(null);
-		rc = db_put(txn, rev, null, DB_NOOVERWRITE_FAST);
-		if(rc < 0 && DB_KEYEXIST != rc) return rc;
+		kvs_nullval(null);
+		rc = kvs_put(txn, rev, null, KVS_NOOVERWRITE_FAST);
+		if(rc < 0 && KVS_KEYEXIST != rc) return rc;
 	}
 
 	uint64_t metaFileID = 0;
@@ -332,17 +332,17 @@ int SLNSubmissionStoreBatch(SLNSubmissionRef const *const list, size_t const cou
 
 	SLNSessionRef const session = list[0]->session;
 	SLNRepoRef const repo = SLNSessionGetRepo(session);
-	DB_env *db = NULL;
+	KVS_env *db = NULL;
 	int rc = SLNSessionDBOpen(session, SLN_WRONLY, &db);
 	if(rc < 0) return rc;
-	DB_txn *txn = NULL;
-	rc = db_txn_begin(db, NULL, DB_RDWR, &txn);
+	KVS_txn *txn = NULL;
+	rc = kvs_txn_begin(db, NULL, KVS_RDWR, &txn);
 	if(rc < 0) {
 		SLNSessionDBClose(session, &db);
 		return rc;
 	}
 	uint64_t sortID = 0;
-	rc = DB_NOTFOUND;
+	rc = KVS_NOTFOUND;
 	for(size_t i = 0; i < count; i++) {
 		if(!list[i]) continue;
 		assert(repo == SLNSessionGetRepo(list[i]->session));
@@ -351,9 +351,9 @@ int SLNSubmissionStoreBatch(SLNSubmissionRef const *const list, size_t const cou
 		sortID = MAX(sortID, SLNSubmissionGetFileID(list[i]));
 	}
 	if(rc >= 0) {
-		rc = db_txn_commit(txn); txn = NULL;
+		rc = kvs_txn_commit(txn); txn = NULL;
 	} else {
-		db_txn_abort(txn); txn = NULL;
+		kvs_txn_abort(txn); txn = NULL;
 	}
 	SLNSessionDBClose(session, &db);
 	if(rc >= 0) SLNRepoSubmissionEmit(repo, sortID);

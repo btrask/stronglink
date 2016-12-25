@@ -69,8 +69,8 @@ static int GET_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 
 	SLNFileInfo info[1];
 	rc = SLNSessionGetFileInfo(session, fileURI, info);
-	if(DB_EACCES == rc) return 403;
-	if(DB_NOTFOUND == rc) return 404;
+	if(KVS_EACCES == rc) return 403;
+	if(KVS_NOTFOUND == rc) return 404;
 	if(rc < 0) return 500;
 
 	uv_file file = async_fs_open(info->path, O_RDONLY, 0000);
@@ -215,7 +215,7 @@ static int PUT_file(SLNRepoRef const repo, SLNSessionRef const session, HTTPConn
 	if(!knownURI) return 500;
 
 	int rc = SLNSessionGetFileInfo(session, knownURI, NULL);
-	if(DB_NOTFOUND == rc) {
+	if(KVS_NOTFOUND == rc) {
 		int status = accept_sub(session, knownURI, conn, headers);
 		FREE(&knownURI);
 		return status;
@@ -289,7 +289,7 @@ static int parseFilter(SLNSessionRef const session, HTTPConnectionRef const conn
 		rc = HTTPConnectionReadBody(conn, buf);
 		if(rc < 0) {
 			SLNJSONFilterParserFree(&parser);
-			return DB_ENOMEM;
+			return KVS_ENOMEM;
 		}
 		if(0 == buf->len) break;
 
@@ -297,7 +297,7 @@ static int parseFilter(SLNSessionRef const session, HTTPConnectionRef const conn
 	}
 	*out = SLNJSONFilterParserEnd(parser);
 	SLNJSONFilterParserFree(&parser);
-	if(!*out) return DB_ENOMEM;
+	if(!*out) return KVS_ENOMEM;
 	return 0;
 }
 static int GET_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPConnectionRef const conn, HTTPMethod const method, strarg_t const URI, HTTPHeadersRef const headers) {
@@ -313,8 +313,8 @@ static int GET_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPCon
 	QSValuesParse(qs, values, fields, numberof(fields));
 	rc = SLNUserFilterParse(session, values[0], &filter);
 	QSValuesCleanup(values, numberof(values));
-	if(DB_EINVAL == rc) rc = SLNFilterCreate(session, SLNVisibleFilterType, &filter);
-	if(DB_EACCES == rc) return 403;
+	if(KVS_EINVAL == rc) rc = SLNFilterCreate(session, SLNVisibleFilterType, &filter);
+	if(KVS_EACCES == rc) return 403;
 	if(rc < 0) return 500;
 
 	sendURIList(session, filter, qs, false, conn, method);
@@ -328,7 +328,7 @@ static int POST_query(SLNRepoRef const repo, SLNSessionRef const session, HTTPCo
 
 	SLNFilterRef filter;
 	int rc = parseFilter(session, conn, method, headers, &filter);
-	if(DB_EACCES == rc) return 403;
+	if(KVS_EACCES == rc) return 403;
 	if(rc < 0) return 500;
 	sendURIList(session, filter, qs, false, conn, method);
 	SLNFilterFree(&filter);
@@ -341,7 +341,7 @@ static int GET_metafiles(SLNRepoRef const repo, SLNSessionRef const session, HTT
 
 	SLNFilterRef filter;
 	int rc = SLNFilterCreate(session, SLNMetaFileFilterType, &filter);
-	if(DB_EACCES == rc) return 403;
+	if(KVS_EACCES == rc) return 403;
 	if(rc < 0) return 500;
 	sendURIList(session, filter, qs, true, conn, method);
 	SLNFilterFree(&filter);
@@ -354,7 +354,7 @@ static int GET_all(SLNRepoRef const repo, SLNSessionRef const session, HTTPConne
 
 	SLNFilterRef filter;
 	int rc = SLNFilterCreate(session, SLNAllFilterType, &filter);
-	if(DB_EACCES == rc) return 403;
+	if(KVS_EACCES == rc) return 403;
 	if(rc < 0) return 500;
 	sendURIList(session, filter, qs, false, conn, method);
 	SLNFilterFree(&filter);

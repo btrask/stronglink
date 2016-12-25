@@ -49,7 +49,7 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 	return 0;
 }
 
-- (int)prepare:(DB_txn *const)txn {
+- (int)prepare:(KVS_txn *const)txn {
 	int rc = [super prepare:txn];
 	if(rc < 0) return rc;
 	for(size_t i = 0; i < count; i++) {

@@ -17,10 +17,10 @@
 - (int)addStringArg:(strarg_t const)str :(size_t const)len {
 	if(!URI) {
 		URI = strndup(str, len);
-		if(!URI) return DB_ENOMEM;
+		if(!URI) return KVS_ENOMEM;
 		return 0;
 	}
-	return DB_EINVAL;
+	return KVS_EINVAL;
 }
 - (void)printSexp:(FILE *const)file :(size_t const)depth {
 	indent(file, depth);
@@ -30,14 +30,14 @@
 	fprintf(file, "%s", URI);
 }
 
-- (int)prepare:(DB_txn *const)txn {
-	if(!URI) return DB_EINVAL;
+- (int)prepare:(KVS_txn *const)txn {
+	if(!URI) return KVS_EINVAL;
 	int rc = [super prepare:txn];
 	if(rc < 0) return rc;
 
 	[filter free]; filter = NULL;
 	filter = [[SLNUnionFilter alloc] init];
-	if(!filter) return DB_ENOMEM;
+	if(!filter) return KVS_ENOMEM;
 
 	str_t **alts = NULL;
 	rc = SLNFilterCopyURISynonyms(txn, URI, &alts);
@@ -45,7 +45,7 @@
 
 	for(size_t i = 0; alts[i]; i++) {
 		SLNFilterRef alt = SLNFilterCreateInternal(SLNMetadataFilterType);
-		if(!alt) rc = DB_ENOMEM;
+		if(!alt) rc = KVS_ENOMEM;
 		if(rc < 0) goto cleanup;
 		SLNFilterAddStringArg(alt, STR_LEN("link"));
 		SLNFilterAddStringArg(alt, alts[i], -1);

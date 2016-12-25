@@ -16,9 +16,9 @@ struct SLNJSONFilterParser {
 static yajl_callbacks const callbacks;
 
 int SLNJSONFilterParserCreate(SLNSessionRef const session, SLNJSONFilterParserRef *const out) {
-	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return DB_EACCES;
+	if(!SLNSessionHasPermission(session, SLN_RDONLY)) return KVS_EACCES;
 	SLNJSONFilterParserRef parser = calloc(1, sizeof(struct SLNJSONFilterParser));
-	if(!parser) return DB_ENOMEM;
+	if(!parser) return KVS_ENOMEM;
 	parser->session = session;
 	parser->JSONParser = yajl_alloc(&callbacks, NULL, parser);
 	parser->depth = -1;

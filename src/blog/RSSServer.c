@@ -137,11 +137,11 @@ static int GET_feed(RSSServerRef const rss, SLNSessionRef const session, HTTPCon
 	QSValuesParse(qs, values, fields, numberof(fields));
 	rc = SLNUserFilterParse(session, values[0], &filter);
 	QSValuesCleanup(values, numberof(values));
-	if(DB_EACCES == rc) {
+	if(KVS_EACCES == rc) {
 		status = 403;
 		goto cleanup;
 	}
-	if(DB_EINVAL == rc) rc = SLNFilterCreate(session, SLNVisibleFilterType, &filter);
+	if(KVS_EINVAL == rc) rc = SLNFilterCreate(session, SLNVisibleFilterType, &filter);
 	if(rc < 0) {
 		status = 500;
 		goto cleanup;

@@ -122,46 +122,46 @@ static void session_cache(SLNSessionCacheRef const cache, SLNSessionRef const se
 
 int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const username, strarg_t const password, SLNSessionRef *const out) {
 	assert(out);
-	if(!cache) return DB_EINVAL;
-	if(!username) return DB_EINVAL;
-	if(!password) return DB_EINVAL;
+	if(!cache) return KVS_EINVAL;
+	if(!username) return KVS_EINVAL;
+	if(!password) return KVS_EINVAL;
 
 	SLNRepoRef const repo = cache->repo;
-	DB_env *db = NULL;
-	DB_txn *txn = NULL;
+	KVS_env *db = NULL;
+	KVS_txn *txn = NULL;
 	SLNSessionRef tmp = NULL;
 	SLNSessionRef session = NULL;
 	int rc;
 
 	SLNRepoDBOpenUnsafe(repo, &db);
-	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	rc = kvs_txn_begin(db, NULL, KVS_RDONLY, &txn);
 	if(rc < 0) goto cleanup;
 
-	DB_val username_key[1], userID_val[1];
+	KVS_val username_key[1], userID_val[1];
 	SLNUserIDByNameKeyPack(username_key, txn, username);
-	rc = db_get(txn, username_key, userID_val);
+	rc = kvs_get(txn, username_key, userID_val);
 	if(rc < 0) goto cleanup;
-	uint64_t const userID = db_read_uint64(userID_val);
-	db_assert(userID);
+	uint64_t const userID = kvs_read_uint64(userID_val);
+	kvs_assert(userID);
 
-	DB_val userID_key[1], user_val[1];
+	KVS_val userID_key[1], user_val[1];
 	SLNUserByIDKeyPack(userID_key, txn, userID);
-	rc = db_get(txn, userID_key, user_val);
+	rc = kvs_get(txn, userID_key, user_val);
 	if(rc < 0) goto cleanup;
 	strarg_t u, passhash, ignore1;
 	uint64_t ignore2, ignore3;
 	SLNMode mode;
 	SLNUserByIDValUnpack(user_val, txn, &u, &passhash, &ignore1, &mode, &ignore2, &ignore3);
-	db_assert(0 == strcmp(username, u));
-	db_assert(passhash);
+	kvs_assert(0 == strcmp(username, u));
+	kvs_assert(passhash);
 
-	if(0 != pass_hashcmp(password, passhash)) rc = DB_EACCES;
+	if(0 != pass_hashcmp(password, passhash)) rc = KVS_EACCES;
 	if(rc < 0) goto cleanup;
 
 	rc = SLNSessionCreateInternal(cache, 0, NULL, NULL, userID, mode, username, &tmp);
 	if(rc < 0) goto cleanup;
 
-	db_txn_abort(txn); txn = NULL;
+	kvs_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
 
 
@@ -172,7 +172,7 @@ int SLNSessionCacheCreateSession(SLNSessionCacheRef const cache, strarg_t const 
 	*out = session; session = NULL;
 
 cleanup:
-	db_txn_abort(txn); txn = NULL;
+	kvs_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
 	SLNSessionRelease(&tmp);
 	SLNSessionRelease(&session);
@@ -186,8 +186,8 @@ static int cookie_parse(strarg_t const cookie, uint64_t *const sessionID, byte_t
 	str_t key_str[SESSION_KEY_HEX+1];
 	key_str[0] = '\0';
 	sscanf(cookie, "s=%llu:" SESSION_KEY_FMT, &id, key_str);
-	if(0 == id) return DB_EINVAL;
-	if(strlen(key_str) != SESSION_KEY_HEX) return DB_EINVAL;
+	if(0 == id) return KVS_EINVAL;
+	if(strlen(key_str) != SESSION_KEY_HEX) return KVS_EINVAL;
 	*sessionID = (uint64_t)id;
 	byte_t key_raw[SESSION_KEY_LEN];
 	tobin(key_raw, key_str, SESSION_KEY_HEX);
@@ -208,37 +208,37 @@ static int session_lookup(SLNSessionCacheRef const cache, uint64_t const id, byt
 		*out = SLNSessionRetain(s);
 		return 0;
 	}
-	return DB_NOTFOUND;
+	return KVS_NOTFOUND;
 }
 
 int SLNSessionCacheLoadSessionUnsafe(SLNSessionCacheRef const cache, uint64_t const id, SLNSessionRef *const out) {
 	SLNRepoRef const repo = cache->repo;
-	DB_env *db = NULL;
-	DB_txn *txn = NULL;
+	KVS_env *db = NULL;
+	KVS_txn *txn = NULL;
 	SLNMode mode = 0;
 	str_t *username = NULL;
 	byte_t key_enc[SESSION_KEY_LEN] = {0};
 	int rc;
 
 	SLNRepoDBOpenUnsafe(repo, &db);
-	rc = db_txn_begin(db, NULL, DB_RDONLY, &txn);
+	rc = kvs_txn_begin(db, NULL, KVS_RDONLY, &txn);
 	if(rc < 0) goto cleanup;
 
-	DB_val sessionID_key[1];
+	KVS_val sessionID_key[1];
 	SLNSessionByIDKeyPack(sessionID_key, txn, id);
-	DB_val session_val[1];
-	rc = db_get(txn, sessionID_key, session_val);
+	KVS_val session_val[1];
+	rc = kvs_get(txn, sessionID_key, session_val);
 	if(rc < 0) goto cleanup;
 	uint64_t userID;
 	strarg_t key_str;
 	SLNSessionByIDValUnpack(session_val, txn, &userID, &key_str);
-	db_assertf(userID > 0, "Invalid session user ID %llu", (unsigned long long)userID);
-	db_assertf(key_str, "Invalid session hash %s", key_str);
+	kvs_assertf(userID > 0, "Invalid session user ID %llu", (unsigned long long)userID);
+	kvs_assertf(key_str, "Invalid session hash %s", key_str);
 
-	DB_val userID_key[1];
+	KVS_val userID_key[1];
 	SLNUserByIDKeyPack(userID_key, txn, userID);
-	DB_val user_val[1];
-	rc = db_get(txn, userID_key, user_val);
+	KVS_val user_val[1];
+	rc = kvs_get(txn, userID_key, user_val);
 	if(rc < 0) goto cleanup;
 	strarg_t name, ignore2, ignore3;
 	uint64_t ignore4, ignore5;
@@ -246,16 +246,16 @@ int SLNSessionCacheLoadSessionUnsafe(SLNSessionCacheRef const cache, uint64_t co
 		&ignore3, &mode, &ignore4, &ignore5);
 	// TODO: Handle NULL outputs.
 
-	if(!mode) rc = DB_EACCES;
+	if(!mode) rc = KVS_EACCES;
 	if(rc < 0) goto cleanup;
 
 	username = strdup(name);
-	if(!username) rc = DB_ENOMEM;
+	if(!username) rc = KVS_ENOMEM;
 	if(rc < 0) goto cleanup;
 
 	tobin(key_enc, key_str, SESSION_KEY_HEX);
 
-	db_txn_abort(txn); txn = NULL;
+	kvs_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
 
 	SLNSessionRef session = NULL;
@@ -266,7 +266,7 @@ int SLNSessionCacheLoadSessionUnsafe(SLNSessionCacheRef const cache, uint64_t co
 	*out = session; session = NULL;
 
 cleanup:
-	db_txn_abort(txn); txn = NULL;
+	kvs_txn_abort(txn); txn = NULL;
 	SLNRepoDBClose(repo, &db);
 	FREE(&username);
 	return rc;
@@ -308,11 +308,11 @@ int SLNSessionCacheCopyActiveSession(SLNSessionCacheRef const cache, strarg_t co
 		*out = session; session = NULL;
 		return 0;
 	}
-	if(DB_EACCES == rc) {
+	if(KVS_EACCES == rc) {
 		*out = SLNSessionRetain(cache->public);
 		return 0;
 	}
-	if(DB_NOTFOUND != rc) {
+	if(KVS_NOTFOUND != rc) {
 		*out = NULL;
 		return rc;
 	}
@@ -322,7 +322,7 @@ int SLNSessionCacheCopyActiveSession(SLNSessionCacheRef const cache, strarg_t co
 		*out = session; session = NULL;
 		return 0;
 	}
-	if(DB_EACCES == rc || DB_NOTFOUND == rc) {
+	if(KVS_EACCES == rc || KVS_NOTFOUND == rc) {
 		*out = SLNSessionRetain(cache->public);
 		return 0;
 	}

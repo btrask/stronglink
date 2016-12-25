@@ -32,7 +32,7 @@
 - (void)printSexp:(FILE *const)file :(size_t const)depth; // Debug use only?
 - (void)printUser:(FILE *const)file :(size_t const)depth;
 
-- (int)prepare:(DB_txn *const)txn;
+- (int)prepare:(KVS_txn *const)txn;
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
 - (void)step:(int const)dir;
@@ -42,13 +42,13 @@
 
 @interface SLNIndirectFilter : SLNFilter
 {
-	DB_txn *curtxn;
-	DB_cursor *step_target;
-	DB_cursor *step_files;
-	DB_cursor *age_uris;
-	DB_cursor *age_metafiles;
+	KVS_txn *curtxn;
+	KVS_cursor *step_target;
+	KVS_cursor *step_files;
+	KVS_cursor *age_uris;
+	KVS_cursor *age_metafiles;
 }
-- (int)prepare:(DB_txn *const)txn;
+- (int)prepare:(KVS_txn *const)txn;
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
 - (void)step:(int const)dir;
@@ -64,7 +64,7 @@
 
 @interface SLNVisibleFilter : SLNIndirectFilter
 {
-	DB_cursor *metafiles;
+	KVS_cursor *metafiles;
 }
 @end
 
@@ -77,9 +77,9 @@ struct token {
 	struct token *tokens;
 	size_t count;
 	size_t asize;
-	DB_cursor *metafiles;
-	DB_cursor *phrase; // TODO
-	DB_cursor *match;
+	KVS_cursor *metafiles;
+	KVS_cursor *phrase; // TODO
+	KVS_cursor *match;
 }
 @end
 
@@ -87,8 +87,8 @@ struct token {
 {
 	str_t *field;
 	str_t *value;
-	DB_cursor *metafiles;
-	DB_cursor *match;
+	KVS_cursor *metafiles;
+	KVS_cursor *match;
 }
 @end
 
@@ -118,7 +118,7 @@ struct token {
 
 @interface SLNMetaFileFilter : SLNFilter
 {
-	DB_cursor *metafiles;
+	KVS_cursor *metafiles;
 }
 @end
 
@@ -141,23 +141,23 @@ struct token {
 // SLNDirectFilter.m
 @interface SLNURIFilter : SLNFilter
 {
-	DB_txn *curtxn;
+	KVS_txn *curtxn;
 	str_t *URI;
-	DB_cursor *files;
-	DB_cursor *age;
+	KVS_cursor *files;
+	KVS_cursor *age;
 }
 @end
 @interface SLNTargetURIFilter : SLNFilter
 {
-	DB_txn *curtxn;
+	KVS_txn *curtxn;
 	str_t *targetURI;
-	DB_cursor *metafiles;
-	DB_cursor *age;
+	KVS_cursor *metafiles;
+	KVS_cursor *age;
 }
 @end
 @interface SLNAllFilter : SLNFilter
 {
-	DB_cursor *files;
+	KVS_cursor *files;
 }
 @end
 
