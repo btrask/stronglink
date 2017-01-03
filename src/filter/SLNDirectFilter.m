@@ -39,12 +39,19 @@
 }
 
 - (int)prepare:(KVS_txn *const)txn {
+	assert(!curtxn);
 	int rc = [super prepare:txn];
 	if(rc < 0) return rc;
-	kvs_cursor_renew(txn, &files); // SLNURIAndFileID
-	kvs_cursor_renew(txn, &age); // SLNURIAndFileID
+	kvs_cursor_open(txn, &files); // SLNURIAndFileID
+	kvs_cursor_open(txn, &age); // SLNURIAndFileID
 	curtxn = txn;
 	return 0;
+}
+- (void)reset {
+	kvs_cursor_close(files); files = NULL;
+	kvs_cursor_close(age); age = NULL;
+	curtxn = NULL;
+	[super reset];
 }
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
 	uint64_t x = sortID;
@@ -129,12 +136,19 @@
 }
 
 - (int)prepare:(KVS_txn *const)txn {
+	assert(!curtxn);
 	int rc = [super prepare:txn];
 	if(rc < 0) return rc;
-	kvs_cursor_renew(txn, &metafiles); // SLNTargetURIAndMetaFileID
-	kvs_cursor_renew(txn, &age); // SLNTargetURIAndMetaFileID
+	kvs_cursor_open(txn, &metafiles); // SLNTargetURIAndMetaFileID
+	kvs_cursor_open(txn, &age); // SLNTargetURIAndMetaFileID
 	curtxn = txn;
 	return 0;
+}
+- (void)reset {
+	kvs_cursor_close(metafiles); metafiles = NULL;
+	kvs_cursor_close(age); age = NULL;
+	curtxn = NULL;
+	[super reset];
 }
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
 	// TODO: Copy and paste from SLNURIFilter.
@@ -203,8 +217,12 @@
 - (int)prepare:(KVS_txn *const)txn {
 	int rc = [super prepare:txn];
 	if(rc < 0) return rc;
-	kvs_cursor_renew(txn, &files); // SLNFileByID
+	kvs_cursor_open(txn, &files); // SLNFileByID
 	return 0;
+}
+- (void)reset {
+	kvs_cursor_close(files); files = NULL;
+	[super reset];
 }
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
 	// TODO: Copy and paste from SLNURIFilter.

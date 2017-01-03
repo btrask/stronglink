@@ -192,6 +192,7 @@ int SLNFilterAddFilterArg(SLNFilterRef const filter, SLNFilterRef *const subfilt
 void SLNFilterPrintSexp(SLNFilterRef const filter, FILE *const file, size_t const depth);
 void SLNFilterPrintUser(SLNFilterRef const filter, FILE *const file, size_t const depth);
 int SLNFilterPrepare(SLNFilterRef const filter, KVS_txn *const txn);
+void SLNFilterReset(SLNFilterRef const filter);
 void SLNFilterSeek(SLNFilterRef const filter, int const dir, uint64_t const sortID, uint64_t const fileID);
 void SLNFilterCurrent(SLNFilterRef const filter, int const dir, uint64_t *const sortID, uint64_t *const fileID);
 void SLNFilterStep(SLNFilterRef const filter, int const dir);

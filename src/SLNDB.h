@@ -484,9 +484,3 @@ static void SLNTargetURISessionIDAndHintIDKeyUnpack(KVS_val *const val, KVS_txn 
 	kvs_bind_uint64((val), (fileID)); \
 	KVS_VAL_STORAGE_VERIFY(val);
 
-static int kvs_cursor_renew(KVS_txn *const txn, KVS_cursor **const out) {
-	assert(out);
-	if(*out) return 0;
-	return kvs_cursor_open(txn, out);
-}
-

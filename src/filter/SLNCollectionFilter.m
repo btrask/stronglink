@@ -59,6 +59,12 @@ static int filtercmp_rev(SLNFilter *const *const a, SLNFilter *const *const b) {
 	sort = 0;
 	return 0;
 }
+- (void)reset {
+	for(size_t i = 0; i < count; i++) {
+		[filters[i] reset];
+	}
+	[super reset];
+}
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
 	assert(count);
 	for(size_t i = 0; i < count; i++) {

@@ -33,6 +33,7 @@
 - (void)printUser:(FILE *const)file :(size_t const)depth;
 
 - (int)prepare:(KVS_txn *const)txn;
+- (void)reset;
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID;
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID;
 - (void)step:(int const)dir;

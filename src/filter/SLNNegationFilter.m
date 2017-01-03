@@ -44,6 +44,10 @@
 	if(rc < 0) return rc;
 	return [subfilter prepare:txn];
 }
+- (void)reset {
+	[subfilter reset];
+	[super reset];
+}
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {}
 - (void)current:(int const)dir :(uint64_t *const)sortID :(uint64_t *const)fileID {
 	if(sortID) *sortID = invalid(dir);

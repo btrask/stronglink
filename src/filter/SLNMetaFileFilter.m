@@ -26,8 +26,12 @@
 - (int)prepare:(KVS_txn *const)txn {
 	int rc = [super prepare:txn];
 	if(rc < 0) return rc;
-	kvs_cursor_renew(txn, &metafiles); // SLNMetaFileByID
+	kvs_cursor_open(txn, &metafiles); // SLNMetaFileByID
 	return 0;
+}
+- (void)reset {
+	kvs_cursor_close(metafiles); metafiles = NULL;
+	[super reset];
 }
 
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {

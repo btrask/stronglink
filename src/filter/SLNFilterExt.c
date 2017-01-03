@@ -221,6 +221,7 @@ ssize_t SLNFilterCopyURIs(SLNFilterRef const filter, SLNSessionRef const session
 	rc = i;
 
 cleanup:
+	SLNFilterReset(filter);
 	kvs_txn_abort(txn); txn = NULL;
 	SLNSessionDBClose(session, &db);
 

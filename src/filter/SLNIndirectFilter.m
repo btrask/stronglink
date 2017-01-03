@@ -15,14 +15,23 @@
 }
 
 - (int)prepare:(KVS_txn *const)txn {
+	assert(!curtxn);
 	int rc = [super prepare:txn];
 	if(rc < 0) return rc;
-	kvs_cursor_renew(txn, &step_target); // SLNMetaFileByID
-	kvs_cursor_renew(txn, &step_files); // SLNURIAndFileID
-	kvs_cursor_renew(txn, &age_uris); // SLNFileIDAndURI
-	kvs_cursor_renew(txn, &age_metafiles); // SLNTargetURIAndMetaFileID
+	kvs_cursor_open(txn, &step_target); // SLNMetaFileByID
+	kvs_cursor_open(txn, &step_files); // SLNURIAndFileID
+	kvs_cursor_open(txn, &age_uris); // SLNFileIDAndURI
+	kvs_cursor_open(txn, &age_metafiles); // SLNTargetURIAndMetaFileID
 	curtxn = txn;
 	return 0;
+}
+- (void)reset {
+	kvs_cursor_close(step_target); step_target = NULL;
+	kvs_cursor_close(step_files); step_files = NULL;
+	kvs_cursor_close(age_uris); age_uris = NULL;
+	kvs_cursor_close(age_metafiles); age_metafiles = NULL;
+	curtxn = NULL;
+	[super reset];
 }
 - (void)seek:(int const)dir :(uint64_t const)sortID :(uint64_t const)fileID {
 	int rc;
@@ -161,8 +170,12 @@
 - (int)prepare:(KVS_txn *const)txn {
 	int rc = [super prepare:txn];
 	if(rc < 0) return rc;
-	kvs_cursor_renew(txn, &metafiles); // SLNFirstUniqueMetaFileID
+	kvs_cursor_open(txn, &metafiles); // SLNFirstUniqueMetaFileID
 	return 0;
+}
+- (void)reset {
+	kvs_cursor_close(metafiles); metafiles = NULL;
+	[super reset];
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
@@ -272,9 +285,14 @@
 - (int)prepare:(KVS_txn *const)txn {
 	int rc = [super prepare:txn];
 	if(rc < 0) return rc;
-	kvs_cursor_renew(txn, &metafiles);
-	kvs_cursor_renew(txn, &match);
+	kvs_cursor_open(txn, &metafiles);
+	kvs_cursor_open(txn, &match);
 	return 0;
+}
+- (void)reset {
+	kvs_cursor_close(metafiles); metafiles = NULL;
+	kvs_cursor_close(match); match = NULL;
+	[super reset];
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {
@@ -380,9 +398,14 @@
 	int rc = [super prepare:txn];
 	if(rc < 0) return rc;
 	if(!field || !value) return KVS_EINVAL;
-	kvs_cursor_renew(txn, &metafiles); // SLNFieldValueAndMetaFileID
-	kvs_cursor_renew(txn, &match); // SLNFieldValueAndMetaFileID
+	kvs_cursor_open(txn, &metafiles); // SLNFieldValueAndMetaFileID
+	kvs_cursor_open(txn, &match); // SLNFieldValueAndMetaFileID
 	return 0;
+}
+- (void)reset {
+	kvs_cursor_close(metafiles); metafiles = NULL;
+	kvs_cursor_close(match); match = NULL;
+	[super reset];
 }
 
 - (uint64_t)seekMeta:(int const)dir :(uint64_t const)sortID {

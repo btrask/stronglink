@@ -32,6 +32,7 @@
 - (int)prepare:(KVS_txn *const)txn {
 	return 0;
 }
+- (void)reset {}
 @end
 
 int SLNFilterCreate(SLNSessionRef const session, SLNFilterType const type, SLNFilterRef *const out) {
@@ -103,6 +104,10 @@ void SLNFilterPrintUser(SLNFilterRef const filter, FILE *const file, size_t cons
 int SLNFilterPrepare(SLNFilterRef const filter, KVS_txn *const txn) {
 	assert(filter);
 	return [(SLNFilter *)filter prepare:txn];
+}
+void SLNFilterReset(SLNFilterRef const filter) {
+	assert(filter);
+	return [(SLNFilter *)filter reset];
 }
 void SLNFilterSeek(SLNFilterRef const filter, int const dir, uint64_t const sortID, uint64_t const fileID) {
 	[(SLNFilter *)filter seek:dir :sortID :fileID];
